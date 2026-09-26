@@ -58,4 +58,11 @@ Merged `tranche/D3` (a709075). **R5 met:** `add` now checks both arguments and t
 
 **Q2** (sent to BOB as `QUESTION`; it does not block anything) · With R5 in force, R3's "added left to right with `add`" is ambiguous in one case. Every element is finite, but the running total overflows, e.g. `sum([MAX_VALUE, MAX_VALUE, 1])`. Calling `add(Infinity, 1)` literally would throw a `TypeError`, although R4 names only non-finite *elements*. **Best reading (implemented and tested in R3):** the running total is carried as ordinary floating-point addition carries it, so the example returns `Infinity`. That matches R1, where `add(MAX_VALUE, MAX_VALUE)` is `Infinity`, and R3's own "ordinary floating-point addition". If BOB rules the other way, `sum` should throw instead, and one R3 assertion changes.
 
-**Re-run** (from `dryrun/`): alpha `# pass 5`, `# fail 0`; beta `# pass 1`, `# fail 0`; stats `# pass 1`, `# fail 0`. Checks: format `0 failures`; architecture `0 failures`; coverage `5 of 5 live requirement ids named by a test; 0 failures`; ownership: see the next line. Generated artifacts are unchanged: REPORT 1 and REPORT 2 still apply, and both bundles are regenerated at layer close.
+**Re-run** (from `dryrun/`): alpha `# pass 5`, `# fail 0`; beta `# pass 1`, `# fail 0`; stats `# pass 1`, `# fail 0`. Checks: format `0 failures`; architecture `0 failures`; coverage `5 of 5 live requirement ids named by a test; 0 failures`; ownership `ownership: 3 files changed by alpha between tranche/D3 and HEAD; 0 failures`. Generated artifacts are unchanged: REPORT 1 and REPORT 2 still apply, and both bundles are regenerated at layer close.
+
+## Metrics
+
+```csv
+session,role,module,cache_read,cache_write,input,output,turns,test_runs,module_lines
+f9faa1ad-0bd8-5b51-8f2f-f3578bfbae57,job,alpha,3377961,106035,76,20617,36,9,20
+```
