@@ -1,6 +1,6 @@
 # Plan: dry run D3
 
-**Status** · OPEN. The third dry run of the mechanics (§15; `CERTIFICATION.md`, D3). BOB's session: `session_01CwZ4uAzLd9wAPzEWVpNVRY` (successor, took over from `session_01DskKyz9F8BW9BtAVJNqBFG` during layer 2). Each entry is written to drive a path of the mechanics: do exactly what it says.
+**Status** · OPEN. The third dry run of the mechanics (§15; `CERTIFICATION.md`, D3). BOB's session: `session_01CwZ4uAzLd9wAPzEWVpNVRY` (BOB #38's successor, from layer 2). Each entry is written to drive a path of the mechanics: do exactly what it says.
 
 ## Layer 1
 
