@@ -21,7 +21,7 @@ Totals of lists of numbers, and a generated bundle of its and alpha's source.
 
 ### Uses
 
-- `alpha.add` (and `alpha.sum` once it exists).
+- `alpha.sum`.
 
 ### Invariants
 
