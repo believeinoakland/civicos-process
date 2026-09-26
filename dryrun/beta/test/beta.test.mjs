@@ -22,6 +22,16 @@ test('R1 total returns the sum of the numbers in a list, and 0 for an empty list
   }
 });
 
+test('R4 total refuses an element that is not a finite number with a TypeError naming its index', () => {
+  const bad = [NaN, Infinity, -Infinity, '1', null, undefined, true, {}, [], 1n];
+  for (const b of bad) {
+    for (const [list, index] of [[[b], 0], [[1, b], 1], [[1, 2, b, 4], 2], [[1, 2, b, NaN], 2]]) {
+      assert.throws(() => total(list), (e) => e instanceof TypeError && new RegExp(`\\b${index}\\b`).test(e.message),
+        `${String(list.map(String))} refused naming index ${index}`);
+    }
+  }
+});
+
 // A copy of the sources the bundle script reads, so the test never writes the committed bundle.
 function sandbox() {
   const dir = mkdtempSync(join(tmpdir(), 'beta-bundle-'));
