@@ -22,3 +22,7 @@
 ## Deferred during D3
 
 - N4 (beta) · dropped by BOB, 2026-09-26: beta showed after three attempts that `total([0.1, 0.2])` cannot be exactly `0.3` while R1 holds (the exact sum is a tie between two doubles, and IEEE rounding picks `0.30000000000000004`). A rounding service would need its own requirement; none is planned.
+
+## Next
+
+- N8 (from stats's REPORT 1, N7, 2026-09-26; confirmed by BOB) · `legacy.max` is flawed: `max([])` returns `-Infinity`, `max(['3', 2])` returns `3` (it coerces), `max([NaN, 1])` returns `NaN`, `max([null])` returns `0`, and a list of 10⁶ elements throws `RangeError` (a spread of the whole list). `legacy` has no job and no requirements, so nothing changes now (P9). Extract `max` into `stats` as a provided service, computed with a loop and refusing a non-finite element as `alpha.sum` does (wording BOB settles). **What `max([])` returns is a question of meaning, for Bob** (mechanics §7): BOB's recommendation is to refuse the empty list with a `RangeError`, since there is no maximum and any number would be indistinguishable from a real one (unlike `mean([])`, whose `0` is a stated requirement). In this dry run BOB records that it would bring this to Bob and does not decide it.
