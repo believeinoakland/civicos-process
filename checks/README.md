@@ -9,7 +9,7 @@ PROCESS-MECHANICS §8: the only process tooling. Each takes the product reposito
 | ownership | §8.3, P7 | `node checks/ownership.mjs <product> <module> <base-ref> [head-ref]` | a job's diff touching a file outside its module's paths, tests and job record, or adding (not only removing) code in the legacy module it extracts from |
 | format | §8.4, P4, P5, P15 | `node checks/format.mjs <product>` | `build/modules.json` not parsing, ids twice, layers out of order, a use of a later or unknown module, a path claimed twice; a `layers.md` row that does not list its layer's modules; a requirements file with no module, sections missing or out of order, or an id given twice; a plan entry id given twice |
 
-`node checks/run.mjs <product>` runs format, architecture and coverage. Each check ends with one summary line; it exits 1 on any failure. The checks' own tests: `node --test checks/test/`.
+`node checks/run.mjs <product>` runs format, architecture and coverage. Each check ends with one summary line; it exits 1 on any failure. The checks' own tests: `node --test checks/test/*.test.mjs`.
 
 ## How the checks read the build state (BOB #38, 2026-09-26)
 
