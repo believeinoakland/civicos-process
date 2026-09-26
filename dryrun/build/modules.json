@@ -1,8 +1,4 @@
 {
-<<<<<<< HEAD
-  "status": "The dry run's toy product (PROCESS-MECHANICS §15). Not a real product.",
-  "not_product": ["build/", "RUNS.md", "README.md", "CERTIFICATION.md"],
-=======
   "status": "The dry run's toy product (PROCESS-MECHANICS \u00a715). Not a real product.",
   "not_product": [
     "build/",
@@ -10,7 +6,6 @@
     "README.md",
     "CERTIFICATION.md"
   ],
->>>>>>> 44342c0a6abafc281dfb1d6c5d98268f4a1013e5
   "modules": [
     {
       "id": "legacy",

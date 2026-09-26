@@ -8,8 +8,8 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 
 | # | path | evidence | status |
 | --- | --- | --- | --- |
-| C1 | BOB reaches a job: one-time routine into its session | the job acts on the message in its own session; no new session appears | PROVEN D1 (15:11) |
-| C2 | a job reaches BOB the same way | BOB receives it as a turn within about 2 minutes | PROVEN D1 (15:14–15:18) |
+| C1 | BOB reaches a job: one-time routine into its session | the job acts on the message in its own session; no new session appears | PROVEN D1 (15:11); D2 |
+| C2 | a job reaches BOB the same way | BOB receives it as a turn within about 2 minutes | PROVEN D1 (15:14–15:18); D2 |
 | C3 | a message is lost or never sent | BOB's backstop finds the state (a pushed record, a quiet job) and acts | PLANNED D3 (a job told to push a QUESTION without messaging) |
 | C4 | a job's session dies or hangs mid-job | backstop detects it; a new session on the same branch resumes from the job record and completes | PLANNED D3 (BOB archives a running job deliberately) |
 | C5 | BOB is refreshed mid-tranche | jobs reach the successor: they address BOB by the session id recorded on the tranche branch, re-read before each message, and the successor updates it | PLANNED D3; needs the mechanics change M1 below |
@@ -32,7 +32,7 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 | # | path | evidence | status |
 | --- | --- | --- | --- |
 | B1 | a provided service changes within a layer: provider's requirements first, early merge, CHANGE to the user | the user merges and completes | PROVEN D1 |
-| B2 | when a service's meaning changes, BOB reviews and updates every user's requirements | the user's requirements state the inherited behaviour | PLANNED D3 (missed by BOB in D1) |
+| B2 | when a service's meaning changes, BOB reviews and updates every user's requirements | the user's requirements state the inherited behaviour | PROVEN D2 (beta's R4, 15:25); missed by BOB in D1 |
 | B3 | REPORT of a flaw in another module whose job is running → BOB forwards → CHANGE re-opens a job that had completed | the re-opened job records completion again | PLANNED D3 |
 | B4 | REPORT about a module with no running job → an entry in `next.md` | the entry exists | PLANNED D3 |
 | B5 | a job stales a generated artifact of a module with no job; BOB regenerates it at layer close | verify reports stale before, fresh after BOB's commit | PLANNED D3 (in D1 beta regenerated its own; BOB's step did nothing) |
@@ -49,7 +49,7 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 ## Runs
 
 - **D1** (done): the channel, one layer's happy path; not certified, flaws fixed.
-- **D2** (running): the same paths on the revised mechanics; it re-proves C1, C2, J1, J4, J6, B1, B6 and nothing else.
+- **D2** (done, 15:35Z): the same paths on the revised mechanics, clean; re-proved C1, C2, J1, J4, J6, B1, B6, and proved B2.
 - **D3** (designed 2026-09-26, prepared on `prep/D3`; runs after D2 closes, on the mechanics with M1):
 
   **Toy product for D3.** Layer 1: `alpha` and `beta` as now, and `legacy`, a legacy module (`legacy/index.mjs` holds `mean(list)` and `max(list)`; `legacy/dist/legacy.bundle.txt` is generated from alpha's and legacy's source). Layer 2: `stats`, extracted `from` legacy, using alpha. The toy's own `main` is a branch, `dryrun-main/D3`, so the tranche can close onto it (B8) while this repository's `main` keeps moving.
