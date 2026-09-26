@@ -19,6 +19,8 @@
 
 **REPORT 2** (sent to BOB as `REPORT`) · `beta/dist/bundle.txt` (owned by `beta`) is generated from alpha's and beta's source, so my change to `alpha/src/index.mjs` makes it stale too: `node beta/scripts/bundle.mjs --verify` prints `bundle: STALE` on this branch and `bundle: fresh` on `tranche/D3`. It needs `node beta/scripts/bundle.mjs` from `dryrun/` when the layer closes (mechanics §14). I did not write it.
 
+**REPORT 3** (process tool; sent to BOB inside the `REPORT` message with REPORT 2) · `metrics/record.mjs` writes the local transcript id (`f9faa1ad-0bd8-5b51-8f2f-f3578bfbae57`) in the `session` column, not the cloud session id (`session_01L4X4oJNsSi3ES9jNP9q2eh`). Without this mapping, the row can't be matched to the session BOB archives.
+
 ## Completion
 
 **Entries applied**
