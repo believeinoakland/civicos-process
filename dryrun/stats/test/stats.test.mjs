@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mean } from '../src/index.mjs';
+import { mean, max, min } from '../src/index.mjs';
 import { sum } from '../../alpha/src/index.mjs';
 
 // Finite numbers covering every class: zeros of both signs, subnormals, the extremes,
@@ -53,7 +53,7 @@ test('R2 mean refuses an element that is not a finite number as alpha.sum does',
   }
 });
 
-test('R3 mean is pure: no state, no input or output', () => {
+test('R3 mean, max and min are pure: no state, no input or output', () => {
   const globalsBefore = Object.getOwnPropertyNames(globalThis).sort();
   const writes = [];
   const out = process.stdout.write, err = process.stderr.write;
@@ -61,10 +61,13 @@ test('R3 mean is pure: no state, no input or output', () => {
   process.stderr.write = (...a) => { writes.push(a); return true; };
   let first, again;
   try {
-    const run = () => [...lists()].map(mean);
+    const run = () => [...lists()].map((l) => [mean(l), max(l), min(l)]);
     first = run();
     // Interleave other calls (throwing ones included), then repeat: results depend on the arguments alone.
-    for (const a of FINITE) { mean([a, a]); mean([]); assert.throws(() => mean([a, NaN])); }
+    for (const a of FINITE) {
+      for (const f of [mean, max, min]) { f([a, a]); assert.throws(() => f([a, NaN])); }
+      mean([]); assert.throws(() => max([])); assert.throws(() => min([]));
+    }
     again = run();
   } finally {
     process.stdout.write = out; process.stderr.write = err;
@@ -72,7 +75,79 @@ test('R3 mean is pure: no state, no input or output', () => {
   assert.deepEqual(again, first);
   assert.deepEqual(writes, []);
   assert.deepEqual(Object.getOwnPropertyNames(globalThis).sort(), globalsBefore);
-  const list = [1, 2, 3];
-  mean(list);
-  assert.deepEqual(list, [1, 2, 3]); // the argument is not changed
+  for (const f of [mean, max, min]) {
+    const list = [3, 1, 2];
+    f(list);
+    assert.deepEqual(list, [3, 1, 2]); // the argument is not changed
+  }
+});
+
+// The largest (or smallest) as the definition gives it: an element of the list that no element
+// exceeds (or undercuts). Among equal zeros, +0 is the larger and -0 the smaller, as Math gives them.
+function largest(list) { let m = list[0]; for (const x of list) if (x > m || (x === 0 && m === 0 && Object.is(m, -0))) m = x; return m; }
+function smallest(list) { let m = list[0]; for (const x of list) if (x < m || (x === 0 && m === 0 && Object.is(x, -0))) m = x; return m; }
+
+test('R4 max returns the largest number in a non-empty list', () => {
+  for (const list of lists()) {
+    const got = max(list);
+    assert.ok(list.some((x) => Object.is(x, got)), `max of ${list.length} is an element`);
+    assert.ok(list.every((x) => x <= got), `no element exceeds max of ${list.length}`);
+    assert.ok(Object.is(got, largest(list)), `max of ${list.length}`);
+    assert.ok(Object.is(got, Math.max(...list)), `max of ${list.length} agrees with Math.max`);
+  }
+  assert.equal(max([5]), 5);
+  assert.equal(max([1, 3, 2]), 3);
+  assert.equal(max([-3, -1, -2]), -1);
+  assert.equal(max([2, 2, 2]), 2);
+  assert.ok(Object.is(max([-0, 0]), 0));
+  assert.ok(Object.is(max([0, -0]), 0));
+  assert.ok(Object.is(max([-0]), -0));
+  assert.equal(max([-Number.MAX_VALUE, Number.MIN_VALUE]), Number.MIN_VALUE);
+  const long = Array.from({ length: 1e6 }, (_, i) => (i * 7919) % 1e6); // no spread or recursion limit
+  assert.equal(max(long), 1e6 - 1);
+});
+
+test('R5 max refuses an empty list with a RangeError', () => {
+  assert.throws(() => max([]), RangeError);
+  assert.throws(() => max(new Array(0)), RangeError);
+});
+
+test('R6 min returns the smallest number in a non-empty list', () => {
+  for (const list of lists()) {
+    const got = min(list);
+    assert.ok(list.some((x) => Object.is(x, got)), `min of ${list.length} is an element`);
+    assert.ok(list.every((x) => x >= got), `no element undercuts min of ${list.length}`);
+    assert.ok(Object.is(got, smallest(list)), `min of ${list.length}`);
+    assert.ok(Object.is(got, Math.min(...list)), `min of ${list.length} agrees with Math.min`);
+  }
+  assert.equal(min([5]), 5);
+  assert.equal(min([1, 3, 2]), 1);
+  assert.equal(min([-3, -1, -2]), -3);
+  assert.equal(min([2, 2, 2]), 2);
+  assert.ok(Object.is(min([-0, 0]), -0));
+  assert.ok(Object.is(min([0, -0]), -0));
+  assert.ok(Object.is(min([0]), 0));
+  assert.equal(min([Number.MAX_VALUE, -Number.MIN_VALUE]), -Number.MIN_VALUE);
+  const long = Array.from({ length: 1e6 }, (_, i) => ((i * 7919) % 1e6) + 1); // no spread or recursion limit
+  assert.equal(min(long), 1);
+});
+
+test('R7 min refuses an empty list with a RangeError', () => {
+  assert.throws(() => min([]), RangeError);
+  assert.throws(() => min(new Array(0)), RangeError);
+});
+
+test('R8 max and min refuse an element that is not a finite number with a TypeError; zeros as Math compares them', () => {
+  for (const [f, who, pick] of [[max, 'max', Math.max], [min, 'min', Math.min]]) {
+    for (const bad of NOT_FINITE()) {
+      for (const list of [[bad], [bad, 1], [1, bad], [1, bad, 2], [...FINITE, bad]]) {
+        assert.throws(() => f(list), (e) => e instanceof TypeError && e.message.startsWith(`${who}: not a finite number`),
+          `${who}: ${typeof bad} in a list of ${list.length}`);
+      }
+    }
+    assert.throws(() => f([]), RangeError); // the empty list is refused first, as a RangeError
+    for (const list of [[0], [-0], [0, -0], [-0, 0], [-0, -0, 0], [1, -0, 0], [-1, 0, -0]]) {
+      assert.ok(Object.is(f(list), pick(...list)), `${who} of [${list.map((x) => Object.is(x, -0) ? '-0' : x)}]`);
+    }
+  }
 });
