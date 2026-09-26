@@ -25,7 +25,7 @@ A file is owned by exactly one module; `paths` never overlap.
 
 ## 2. Roles and sessions (P4, P5, P9, P13)
 
-- **Bob** approves the architecture, changes of requirement meaning, and each tranche's opening; he decides doctrine and priority.
+- **Bob** decides the high level only (P17): policy and doctrine, requirements and changes to what they mean, the architecture's layers and product modules, UX, and each tranche's opening and priority. He does not edit files or enter commands.
 - **BOB** works with Bob on the architecture and the requirements. It opens and closes tranches and layers, spawns module jobs, routes flaws, improvements and changes, and resolves conflicts, ambiguities and other complications **itself wherever it reasonably can** (§7).
 - **A module job** changes one module, the only role that changes product code (P7).
 
@@ -87,11 +87,12 @@ A job writes only its module's `paths` and `tests`, plus its own job record.
 - conflicts between jobs;
 - routing flaws and improvements (forward to a running job of that module, or add to `next.md`);
 - ambiguities it can settle by clarifying the **wording** of a requirement without changing its meaning;
-- sequencing within the process's rules.
+- sequencing within the process's rules;
+- every lower-level technical or detailed decision (P17): dependency (`uses`) edges, order within a layer, which module owns a file, helper and legacy modules, the process's tooling and checks, tests, branches and CI.
 
 **BOB brings to Bob** only:
 - a change to what a requirement **means**, including a change to a provided service;
-- the architecture (adding, removing or reordering layers or modules);
+- the architecture at its high level (adding, removing or reordering layers, or adding or removing a module that carries product capability);
 - doctrine and priority;
 - anything the principles reserve to him.
 
