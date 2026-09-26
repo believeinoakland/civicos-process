@@ -64,3 +64,7 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
   **Faults BOB injects:** archive `beta`'s session after it has pushed its first commit and before it completes (C4: the backstop finds it quiet, a new session on the same branch resumes from the record); hand D3 to a fresh BOB session during layer 2, with a handoff, the successor writing its id per M1 and finishing D3 (C5).
 
   **Closing:** layer 2 closes, the tranche fast-forwards `dryrun-main/D3`, and the plan is archived with outcomes and usage (B8). Every row the run proves is marked PROVEN in this matrix with its evidence in `RUNS.md`.
+
+## Certification, 2026-09-26 (BOB #38)
+
+**The mechanics as revised through `0c1de81` are certified for use (P3).** Every row above is PROVEN, or names why only a product tranche can prove it and the check that will: C6 at three or more jobs, J7, B9 and B10 go to T1, each with its check. D3's nine findings were folded into the mechanics after D3; each was already exercised in D3 itself (metrics from `archive_session` by BOB #38 and BOB #39; no archive with a message in flight, by BOB #39; the plan archived before the fast-forward, by BOB #39; one id in the Status line, by BOB #39; out-of-order messages observed and handled; a fired routine starting a session with no parent, D1) except one: **a tool fix reaching running jobs as a `CHANGE`**, whose check in T1 is that every running job's record shows the fix merged before its next check run.
