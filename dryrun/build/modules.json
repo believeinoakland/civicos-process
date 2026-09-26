@@ -3,7 +3,8 @@
   "not_product": [
     "build/",
     "RUNS.md",
-    "README.md"
+    "README.md",
+    "CERTIFICATION.md"
   ],
   "modules": [
     {
