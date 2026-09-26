@@ -3,7 +3,7 @@
 // from a legacy module may remove the moved code from that legacy module's files, and may rewire the
 // legacy code that called it: an added line there is either part of an import (or re-export) from the
 // job's own paths, or in a block of added lines that uses a name so imported. The legacy module's net
-// change is a removal. Every added legacy line is listed, for BOB's review at the layer close.
+// change, over all its legacy modules together, is a removal. Every added legacy line is listed, for BOB's review at the layer close.
 // Usage: node checks/ownership.mjs <product-root> <module> <base-ref> [head-ref]
 import { posix } from 'node:path';
 import { readModules, git, pathMatches, report } from './lib.mjs';
@@ -119,7 +119,10 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
     }
     failures.push(`${file}: outside ${moduleId}'s paths, tests and job record`);
   }
-  for (const [id, t] of tally) if (t.added && t.added >= t.removed) failures.push(`${id}: ${moduleId} adds ${t.added} line(s) and removes ${t.removed}; an extraction's net change to its legacy module is a removal`);
+  // The net change is judged over all the legacy modules together: the moved code and its caller may sit
+  // in different ones (D5: the catalogue loses the code, the store gains the rewired call).
+  const sum = [...tally.values()].reduce((s, t) => ({ added: s.added + t.added, removed: s.removed + t.removed }), { added: 0, removed: 0 });
+  if (sum.added && sum.added >= sum.removed) failures.push(`${[...tally.keys()].join(' + ')}: ${moduleId} adds ${sum.added} line(s) and removes ${sum.removed}; an extraction's net change to its legacy modules is a removal`);
   const tail = [...tally].map(([id, t]) => `; ${id}: ${t.added} line(s) added, ${t.removed} removed`).join('');
   return { failures, added, summary: `${lines.length} files changed by ${moduleId} between ${base} and ${head}${tail}` };
 }

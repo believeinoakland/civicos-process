@@ -152,7 +152,7 @@ test('ownership: an extraction fails on an added import of another module, an un
   assert.match(f, /src\/legacy\.mjs:10-10: added lines that neither import from nor use the module's own paths/);
   const r2 = repo(base({ 'src/legacy.mjs': 'export function moved() { return 1; }\n' }));
   r2.commit({ 'src/b/moved.mjs': 'export function moved() { return 1; }\n', 'src/legacy.mjs': "import { moved } from './b/moved.mjs';\nexport function one() {\n  return moved();\n}\nexport const two = () => moved();\n" });
-  assert.match(checkOwnership(r2.root, 'b', 'HEAD~1').failures.join('\n'), /legacy: b adds 5 line\(s\) and removes 1; an extraction's net change to its legacy module is a removal/);
+  assert.match(checkOwnership(r2.root, 'b', 'HEAD~1').failures.join('\n'), /legacy: b adds 5 line\(s\) and removes 1; an extraction's net change to its legacy modules is a removal/);
 });
 
 test('ownership: a base that exists only as origin/<base> is found there', () => {
@@ -222,4 +222,17 @@ test('ownership: a module extracted from two legacy modules removes from each an
   const bad = JSON.parse(mods); bad.modules[1].from = ['cat', 'b'];
   const r2 = repo(base({ 'build/modules.json': JSON.stringify(bad), 'src/cat.mjs': 'x\n' }));
   assert.match(checkFormat(r2.root).failures.join('\n'), /from b, which is no legacy module/);
+});
+
+test('ownership: the net removal is judged over all the legacy modules together (D5 finding)', () => {
+  const mods = JSON.stringify({ not_product: ['build/'], modules: [
+    { id: 'cat', layer: 1, legacy: true, paths: ['src/cat.mjs'], tests: [], uses: [] },
+    { id: 'b', layer: 2, from: ['cat', 'legacy'], paths: ['src/b/'], tests: ['test/b/'], uses: [] },
+    { id: 'legacy', layer: 2, legacy: true, paths: ['src/legacy.mjs'], tests: [], uses: ['*earlier'] },
+  ] });
+  const r = repo(base({ 'build/modules.json': mods, 'src/cat.mjs': 'export const keep = 1;\nexport function gone(x) {\n  const a = x;\n  const b = a;\n  return b;\n}\n', 'src/legacy.mjs': 'export function v(x) {\n  return x;\n}\n' }));
+  r.commit({ 'src/b/gone.mjs': 'export function gone(x) { return x; }\n', 'src/cat.mjs': 'export const keep = 1;\n', 'src/legacy.mjs': "import { gone } from './b/gone.mjs';\nexport function v(x) {\n  const y = gone(x);\n  return y;\n}\n" });
+  const c = checkOwnership(r.root, 'b', 'HEAD~1');
+  assert.deepEqual(c.failures, []);
+  assert.match(c.summary, /cat: 0 line\(s\) added, 5 removed; legacy: 3 line\(s\) added, 1 removed/);
 });
