@@ -29,6 +29,8 @@ A file is owned by exactly one module; `paths` never overlap.
 - **BOB** works with Bob on the architecture and the requirements. It opens and closes tranches and layers, spawns module jobs, routes flaws, improvements and changes, and resolves conflicts, ambiguities and other complications **itself wherever it reasonably can** (§7).
 - **A module job** changes one module, the only role that changes product code (P7).
 
+**Session names** (Bob, 2026-09-26). Every session is named by its lane in capitals followed by ` #n`, where n is that lane's iteration: `BOB #38`, `BOB #39`. A module job's lane is its module: `PDF-READER #1`, `PDF-READER #2` for the next job session of that module (a resumed or later job). The session that starts another names it at creation (`title`), and renames it with `set_session_title` if it was created otherwise.
+
 **Session depth stays minimal.** Bob starts BOB. BOB spawns the module jobs. Module jobs spawn no sessions. BOB's successor is created as a fresh top-level session by a routine, never as BOB's child.
 
 **BOB's lifetime.** BOB keeps working while its context is useful. It refreshes when its context passes about **2–3 times its working set**, the requirements and state it actually needs. The reason is cost: every turn re-reads the whole context, so a large, stale context costs more per turn than a fresh session pays to re-read its working set (measured in BOB #36, 2026-09-25). The threshold is confirmed or corrected by the metrics (§10). A refreshing BOB writes a lean handoff into the build state first.
