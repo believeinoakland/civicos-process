@@ -9,7 +9,7 @@
 // Without --transcript it reads the newest transcript of the working directory's project in
 // ~/.claude/projects/. Sessions of the transition, before tranche T1, record under T0.
 import { readFileSync, appendFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
-import { join, basename, dirname } from 'node:path';
+import { join, basename, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 
 export const HEADER = 'session,role,module,cache_read,cache_write,input,output,turns,test_runs,module_lines';
@@ -65,7 +65,7 @@ export function rowsInJobRecord(text) {
 }
 
 export function record(product, tranche, line) {
-  if (!/^T\d+$/.test(tranche)) throw new Error(`tranche must be T<n>, got ${tranche}`);
+  if (!/^[A-Z]+\d+$/.test(tranche)) throw new Error(`tranche must be T<n> (or a dry run's D<n>), got ${tranche}`);
   const file = join(product, 'build', 'metrics', `${tranche}.csv`);
   mkdirSync(dirname(file), { recursive: true });
   if (!existsSync(file)) appendFileSync(file, HEADER + '\n');
@@ -90,5 +90,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!t.turns) { console.error(`${transcript}: no model requests with usage; nothing recorded`); process.exit(1); }
   const line = row(t, { role: a.role, module: a.module, testRuns: a['test-runs'], moduleLines: a['module-lines'], session: t.session || basename(transcript, '.jsonl') });
   console.log(HEADER); console.log(line);
-  if (!a['dry-run']) console.log(`recorded in ${a.record ? recordInJob(a.record, line) : record(a.product, a.tranche, line)}`);
+  // --record is relative to the product root, like every other path the job is given (found in the D1 dry run).
+  const jobRecord = a.record && (isAbsolute(a.record) ? a.record : join(a.product, a.record));
+  if (!a['dry-run']) console.log(`recorded in ${jobRecord ? recordInJob(jobRecord, line) : record(a.product, a.tranche, line)}`);
 }
