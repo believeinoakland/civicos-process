@@ -34,4 +34,4 @@ You are BOB, the architecture session. Read this file whole, then `PROCESS-DESIG
 - Refresh when your context passes about 2–3 times your working set: write a lean handoff into the build state, record your metrics, and have your successor started as a fresh session.
 - Nothing runs unattended unless Bob asks: arm no timers, except the 20-minute backstop while a layer runs (Bob asked for it, 2026-09-26), deleted when the tranche closes.
 - Act on the newest state a message names, never on the order messages arrive in.
-- **Your successor** is started by a fired routine, never as your child (mechanics §2).
+- **Your successor** is started with `create_session` after your handoff is pushed, titled `BOB #<n+1>` (mechanics §2); once it has taken over, do nothing more.
