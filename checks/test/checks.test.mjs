@@ -125,6 +125,13 @@ test('ownership: an extracting module may remove from its legacy module, never a
   assert.match(checkOwnership(r.root, 'a', 'HEAD~1').failures.join('\n'), /outside a's paths/);
 });
 
+test('ownership: a base that exists only as origin/<base> is found there', () => {
+  const r = repo(base());
+  r.g('update-ref', 'refs/remotes/origin/tranche/X1', 'HEAD');
+  r.commit({ 'src/b/more.mjs': 'x' });
+  assert.deepEqual(checkOwnership(r.root, 'b', 'tranche/X1').failures, []);
+});
+
 test('ownership: a product in a subdirectory of its repository is checked on its own paths', () => {
   const r = repo({ 'README.md': 'outer\n', ...Object.fromEntries(Object.entries(base()).map(([k, v]) => [`toy/${k}`, v])) });
   r.commit({ 'toy/src/b/more.mjs': 'x', 'README.md': 'changed outside the product\n' });
