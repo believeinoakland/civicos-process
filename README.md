@@ -8,5 +8,6 @@ Created by Bob on 2026-09-26.
 | --- | --- |
 | `PROCESS-DESIGN.md` | the principles, P1–P16, approved by Bob |
 | `PROCESS-MECHANICS.md` | how the principles are carried out, approved by Bob |
+| `checks/` | the four checks (mechanics §8), with their tests; see `checks/README.md` |
 
 The transition to this process is planned and logged in `docs/development/TRANSITION.md` on the branch `land/bob/process-design` of `believeinoakland/bio`.
