@@ -1,6 +1,6 @@
 # Job record: beta (D3)
 
-**Status** · IN PROGRESS. Job session `session_01TQpjjNikfAHshU4qPFuGqb`, branch `job/D3/beta` (from `tranche/D3` at `bab815f`). This record is the job's state: a session resuming this job reads it first.
+**Status** · IN PROGRESS. Job session `session_014VNyoK4tprbsgzVKycE9P3` (a **resumed** session, from 2026-09-26 ~15:39Z; the first session, `session_01TQpjjNikfAHshU4qPFuGqb`, ended mid-job after sending QUESTION 1 and BLOCKED N4), branch `job/D3/beta` (from `tranche/D3` at `bab815f`; `tranche/D3` merged at `caa0f42`). This record is the job's state: a session resuming this job reads it first.
 
 ## Read
 
@@ -11,25 +11,32 @@
 | entry | state |
 | --- | --- |
 | N3 · `total` on `alpha.sum` | waiting: alpha's `sum` is not yet on `tranche/D3` |
-| N4 · `total([0.1, 0.2])` exactly `0.3` without changing R1 | BLOCKED after three attempts (below); sent to BOB, waiting on BOB's ruling |
+| N4 · `total([0.1, 0.2])` exactly `0.3` without changing R1 | dropped by BOB (recorded under "Deferred during D3" in the plan); nothing more to do |
 | N5 · `alpha.add('1', 2)` REPORT | waiting: alpha's work is not yet on `tranche/D3` |
 
 ## Found in beta itself
 
 - Only R1 was named by a test; R2 (the bundle script) and R3 (purity) were named by none. Fixed: `beta/test/beta.test.mjs` now tests R1 over 500+ lists (edge cases and a seeded spread of magnitudes), R2 on the committed bundle and in a sandbox copy (stale after a change to either source, fresh after a write, stale on any other content), and R3 (input unchanged, no state, nothing printed; the script writes only its own file, `--verify` writes nothing).
 
+## Resumed session
+
+BOB's answers, received by the resumed session (on `tranche/D3` at `caa0f42`, merged into this branch):
+- ANSWER to QUESTION 1: R1's sum is left-to-right addition (ordinary floating-point addition, as `alpha.sum` computes it). beta's R1 and alpha's R3 now say so. My best reading stood; the R1 test already checked exactly that.
+- BLOCKED N4: dropped. Nothing more on N4.
+- New live requirement **R4** (added by BOB in `ebfa39f`): an element that is not a finite number is refused with a `TypeError`. It binds now, not only after N3, so `total` meets it today: it checks each element (`typeof` number and `Number.isFinite`) before adding it and throws a `TypeError` otherwise. When N3 moves `total` onto `alpha.sum`, alpha's R4 gives the same refusal and beta's own check can go.
+- Tests brought in line: the R1 lists no longer hold `NaN` or infinities as elements (R4 now refuses them; an infinite *sum* from finite elements, e.g. `[MAX_VALUE, MAX_VALUE]`, stays in R1). A new R4 test checks every kind of non-finite-number element (NaN, ±Infinity, strings, null, undefined, booleans, BigInt, objects, arrays, functions, symbols, boxed numbers) at every position; it fails on the previous code and passes now. Bundle regenerated (`beta/dist/bundle.txt`, fresh).
+
 ## Waiting on
 
-- BOB: an ANSWER to QUESTION 1 (sent 15:39Z) and a ruling on BLOCKED N4 (sent 15:40Z).
 - BOB: word that alpha's `sum` and alpha's work are on `tranche/D3` (N3, N5).
 
-Checks at 15:38Z (before N3): format 0 failures; architecture 0 failures; coverage 3 of 3 live ids named; ownership 2 files, 0 failures. Tests: 5 of 5 pass.
+Checks (resumed session, after R4): format 0 failures; architecture 0 failures; coverage 4 of 4 live ids named; ownership 0 failures. Tests: 6 of 6 pass.
 
-## QUESTION 1 (to BOB): what "the sum" in R1 means for floating-point numbers
+## QUESTION 1 (to BOB; answered, above): what "the sum" in R1 means for floating-point numbers
 
 R1 says `total` "returns the sum of the numbers". N4 glosses R1 as "the exact sum". The two readings differ, and not only at N4: `total([1e16, 1, 1])` is `1e16` by left-to-right addition (today's code, and alpha's `add`), but the exact sum `10000000000000002` is representable, so a correctly rounded sum returns that. **Best reading, on which I work meanwhile:** R1's sum is left-to-right IEEE addition, the value alpha's `add`/`sum` give, because N3 makes `total` use `alpha.sum` and the provider's requirements define the arithmetic. The R1 test checks that. If BOB means the correctly rounded exact sum, R1 needs that wording, and alpha's `sum` would need it too for N3 to hold.
 
-## BLOCKED: N4
+## BLOCKED: N4 (dropped by BOB)
 
 N4 cannot be met as written. The exact sum of the doubles `0.1` and `0.2` is `0.3000000000000000166533…`, which lies **exactly halfway** between the doubles `0.3` and `0.30000000000000004` (verified with exact integer arithmetic on the bit patterns). Round-to-nearest-even, the rounding of every JavaScript addition, picks `0.30000000000000004`.
 

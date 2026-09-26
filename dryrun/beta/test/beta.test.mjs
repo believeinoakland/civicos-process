@@ -10,12 +10,12 @@ import { total } from '../src/index.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-// Lists that exercise every shape a list of numbers can take: empty, one element, integers,
-// fractions, signs, magnitudes far apart, zeros of both signs, infinities and NaN.
+// Lists that exercise every shape a list of finite numbers can take: empty, one element, integers,
+// fractions, signs, magnitudes far apart, zeros of both signs, overflow to an infinite sum.
 function lists() {
   const out = [[], [0], [-0], [7], [1, 2, 3], [0.1, 0.2], [0.1, 0.2, 0.3], [-1, 1], [-0, -0],
     [1e16, 1, 1], [1, 1e16, -1e16], [Number.MAX_VALUE, Number.MAX_VALUE], [Number.MIN_VALUE, Number.MIN_VALUE],
-    [Infinity, 1], [-Infinity, Infinity], [NaN, 1], [2 ** 53, 1], [-5.5, 2.25, 3.25]];
+    [Number.MAX_VALUE, -Number.MAX_VALUE, Number.MAX_VALUE], [2 ** 53, 1], [-5.5, 2.25, 3.25]];
   let s = 12345;
   const rnd = () => ((s = (s * 1103515245 + 12345) % 2147483648) / 2147483648);
   for (let i = 0; i < 500; i++) {
@@ -53,6 +53,17 @@ test('R3 total is pure: it leaves its input unchanged, keeps no state and gives 
   console.log = console.error = (...a) => log.push(a);
   try { total([1, 2]); } finally { console.log = orig.log; console.error = orig.error; }
   assert.deepEqual(log, []);
+});
+
+// Every kind of element that is not a finite number.
+const refused = [NaN, Infinity, -Infinity, '1', '', null, undefined, true, false, 1n, {}, [], [1], () => 1, Symbol('x'), new Number(1)];
+
+test('R4 total refuses an element that is not a finite number with a TypeError, wherever it stands in the list', () => {
+  for (const bad of refused) {
+    for (const l of [[bad], [bad, 1], [1, bad], [1, 2, bad, 3], [bad, bad]]) {
+      assert.throws(() => total(l), TypeError, `total([${l.map((x) => typeof x === 'symbol' ? 'Symbol' : String(x))}]) did not throw a TypeError`);
+    }
+  }
 });
 
 // The bundle script in a copy of the product's source, so a test can change sources freely.
