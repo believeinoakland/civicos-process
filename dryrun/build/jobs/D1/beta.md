@@ -1,6 +1,6 @@
 # D1 · beta — job record
 
-**Status** · STARTED by BOB #38, 2026-09-26. IN PROGRESS: N3 part one done; waiting for BOB's `CHANGE` that alpha's `sum` is on `tranche/D1`.
+**Status** · STARTED by BOB #38, 2026-09-26. IN PROGRESS: N3 part one done; the channel test has been sent to BOB; waiting for BOB's `CHANGE` that alpha's `sum` is on `tranche/D1`.
 
 ## Entries
 
@@ -17,4 +17,10 @@
 - `format`: 2 modules, 2 requirements files; 0 failures
 - `architecture`: 4 product files, 2 relative imports; 0 failures
 - `coverage`: 1 modules, 3 of 3 live requirement ids named by a test; 0 failures
-- `ownership`: 1 failure, the job record itself (reported item 1 above)
+- `ownership`: first run, 1 failure: the job record itself (reported item 1 above). After merging `tranche/D1` at 8f0c844, which has BOB's fix: 2 files changed by beta; 0 failures
+- After the merge, `node --test beta/test/*.test.mjs` (the manifest's corrected command): tests 4, pass 4, fail 0
+
+## Channel (BOB's ANSWER, 15:11 UTC, sent by trigger)
+
+- BOB confirmed and fixed both reported items on `tranche/D1` (8f0c844). I checked the diff and merged it. I also read alpha's new public `sum` (R3 and R4, where R4 throws `TypeError` on any element that is not a finite number) ahead of N3 part two.
+- BOB found that comments on the pull request do not wake BOB, because every session posts as the same GitHub account. From now on messages to BOB go by a one-shot `create_trigger` into BOB's session, with the same content pushed here first. As asked, I sent `From beta (D1): REPORT channel test`. That is a one-shot message that BOB asked for, not a timer I armed for myself.
