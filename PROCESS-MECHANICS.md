@@ -25,7 +25,7 @@ A file is owned by exactly one module; `paths` never overlap.
 
 ## 2. Roles and sessions (P4, P5, P9, P13)
 
-- **Bob** decides the high level only (P17): policy and doctrine, requirements and changes to what they mean, the architecture's layers and product modules, UX, and each tranche's opening and priority. He does not edit files or enter commands.
+- **Bob** decides the high level only (P17): policy and doctrine, requirements and changes to what they mean, the architecture's layers and product modules, and UX. He does not edit files or enter commands. Which work goes into a tranche, and when a tranche opens, is BOB's (P17).
 - **BOB** works with Bob on the architecture and the requirements. It opens and closes tranches and layers, spawns module jobs, routes flaws, improvements and changes, and resolves conflicts, ambiguities and other complications **itself wherever it reasonably can** (§7).
 - **A module job** changes one module, the only role that changes product code (P7).
 
@@ -61,11 +61,11 @@ A failed tranche is abandoned without touching `main`.
 
 ## 5. The tranche cycle (P10, P14)
 
-**Open (BOB with Bob).** BOB proposes `next.md` as tranche `T<n>`: entries grouped by module, modules by layer. Bob approves it and notes his weekly meter. `next.md` becomes `current.md`, and a new `next.md` is created.
+**Open (BOB).** BOB sets `next.md` as tranche `T<n>`: entries grouped by module, modules by layer, and tells Bob in one line that it has opened and what it covers. BOB asks Bob for his weekly meter reading, the one measure only he can take (P14); the tranche does not wait for it. `next.md` becomes `current.md`, and a new `next.md` is created.
 
 **Each layer.** BOB spawns, **concurrently**, one job for each module of the layer that has entries. Every job stays active until every job of the layer has recorded completion. A change one job communicates to another, through BOB, **re-opens** that other job even if it had completed: it processes the change and records completion again. When all are complete, BOB merges their branches (§4), archives the jobs' sessions, and starts the next layer.
 
-**Close (BOB).** The tranche branch merges to `main`. `current.md` moves to `archive/T<n>.md`, with each entry's outcome and the tranche's measured usage. Bob notes his weekly meter, and BOB reports the tranche to him in plain words.
+**Close (BOB).** The tranche branch merges to `main`. `current.md` moves to `archive/T<n>.md`, with each entry's outcome and the tranche's measured usage. BOB asks Bob for his weekly meter reading again, and reports the tranche to him in plain words: what was fixed, what was deferred and why, and what it cost.
 
 ## 6. The module job (P6, P7, P8, P11)
 
