@@ -1,6 +1,6 @@
 # The process mechanics
 
-**Status** · APPROVED by Bob 2026-09-25 (second draft, written by BOB #36). This document describes HOW the approved principles (`PROCESS-DESIGN.md`, P1–P16) are carried out. Each mechanism cites the principle it serves (P16). Where it and the principles disagree, the principles win. Its home is this repository, beside the principles (P2), since 2026-09-26. The product repository it is applied to is `believeinoakland/bio`.
+**Status** · APPROVED by Bob 2026-09-25 (second draft, written by BOB #36). REVISED 2026-09-26 by BOB #38 after T1 found the mechanics incomplete (bio TRANSITION.md C14): §4, §5, §6, §10, and the new §13 (communication) and §14 (generated artifacts). **The revision is not certified until the dry run of §15 passes (P3); no product work runs on it before then.** This document describes HOW the approved principles (`PROCESS-DESIGN.md`, P1–P16) are carried out. Each mechanism cites the principle it serves (P16). Where it and the principles disagree, the principles win. Its home is this repository, beside the principles (P2), since 2026-09-26. The product repository it is applied to is `believeinoakland/bio`.
 
 ## 1. Where things live (P2, P5)
 
@@ -55,7 +55,8 @@ A job for a module being written, or gaining capabilities, reads the **Purpose**
 - When a layer starts, each of its jobs branches from the tranche branch: `job/T<n>/<module>`.
 - When every job of the layer is complete, BOB merges their branches into the tranche branch. The modules own disjoint files, so these merges do not conflict.
 - The next layer's jobs branch from the updated tranche branch.
-- **A provided service changed within a layer** (added 2026-09-26, found in T1): when one job of a layer changes a service that another job of the same layer uses, BOB merges the providing job's branch into the tranche branch as soon as that job records completion, and the using job merges the tranche branch into its own. Its ownership check, taken against the tranche branch, still sees only its own changes.
+- **A provided service changed within a layer.** BOB first writes the change into the provider's requirements on the tranche branch (§7) and tells both jobs (§13). The providing job merges the tranche branch into its own and implements the change; when it records completion, BOB merges its branch into the tranche branch at once, and tells the using job, which merges the tranche branch into its own. Each job's ownership check, taken against the tranche branch, still sees only its own changes.
+- **Whenever BOB changes a file on the tranche branch that a running job reads** (its requirements, its entries, a used module's public part), BOB tells that job (§13), and the job merges the tranche branch into its own before continuing.
 - When the last layer completes, the tranche branch is merged to `main` as a fast-forward.
 
 A failed tranche is abandoned without touching `main`.
@@ -64,7 +65,9 @@ A failed tranche is abandoned without touching `main`.
 
 **Open (BOB).** BOB sets `next.md` as tranche `T<n>`: entries grouped by module, modules by layer, and tells Bob in one line that it has opened and what it covers. BOB asks Bob for his weekly meter reading, the one measure only he can take (P14); the tranche does not wait for it. `next.md` becomes `current.md`, and a new `next.md` is created.
 
-**Each layer.** BOB spawns, **concurrently**, one job for each module of the layer that has entries. Every job stays active until every job of the layer has recorded completion. A change one job communicates to another, through BOB, **re-opens** that other job even if it had completed: it processes the change and records completion again. When all are complete, BOB merges their branches (§4), archives the jobs' sessions, and starts the next layer.
+**Each layer.** BOB spawns, **concurrently**, one job for each module of the layer that has entries. Every job stays active until every job of the layer has recorded completion. A change one job communicates to another, through BOB, **re-opens** that other job even if it had completed: it processes the change and records completion again. When all are complete, BOB regenerates the layer's generated artifacts (§14), merges the job branches (§4), closes each job's pull request, collects each job's metrics row (§10), archives the jobs' sessions, and starts the next layer.
+
+**Watching a layer.** The channel of §13 wakes BOB when a job speaks. As a backstop against a job that hangs or dies without speaking, BOB checks every running job's session state every 20 minutes while a layer runs (Bob, 2026-09-26). A job whose session has failed, or has sat idle with nothing recorded since BOB last spoke to it, is resumed with a message, or restarted as a new session on the same branch told to read its job record and continue.
 
 **While a tranche runs (P18).** BOB prepares what comes next, on the tranche branch, in this order of value: the next tranche's plan, ready to open; the requirements of the next tranche's modules and of the layers after it (bulk reading goes to short-lived workers, whose output BOB reviews before anything is committed, and product-module requirements go to Bob); the extraction map for each coming legacy extraction (which functions, tables and ops each target module takes). BOB keeps enough of its own attention for the running jobs: a job's question or completion comes first.
 
@@ -72,17 +75,17 @@ A failed tranche is abandoned without touching `main`.
 
 ## 6. The module job (P6, P7, P8, P11)
 
-1. **Start** on `job/T<n>/<module>`.
+1. **Start** on `job/T<n>/<module>`. Open a draft pull request from it into `tranche/T<n>`, titled `T<n> <module>`, and subscribe to that pull request's activity (§13).
 2. **Read in full**, never scanned: its own requirements (both parts); the public part of each module it uses (§3); its layer's contract; its code and tests; its entries.
-3. **Ambiguity.** Ask BOB, and continue against the clarified text.
+3. **Ambiguity.** Ask BOB (`QUESTION`, §13). Carry on with the rest of the job against your best reading, stated in the question; stop only if the answer decides what you would build next. When BOB answers, merge the tranche branch if BOB changed a requirement, and bring the work in line with the answer.
 4. **Change the module** to apply every entry. Deal with every flaw or improvement found in the module in the job whenever possible. Defer one to `next.md` through BOB only when it must.
 5. **Test.** Every requirement id is named by at least one test, and the coverage check passes. Run the module's tests, then its layer's tests. If it changed a provided service, BOB first updates the requirements (§7), and the job also runs the tests of the modules that use it.
 6. **Check:** architecture, coverage and ownership (§8).
-7. **Record completion** in `build/jobs/T<n>/<module>.md`: the entries applied; anything deferred, and why; what it reported about other modules; the tests run; its token counts. Tell BOB. **Stay active** until BOB closes the layer, processing any change BOB forwards and recording completion again.
+7. **Record completion** in `build/jobs/T<n>/<module>.md`: the entries applied; anything deferred, and why; what it reported about other modules; the tests and checks run; and its metrics row (§10). Commit and push, then tell BOB (`COMPLETE`, §13). **Stay available** until BOB closes the layer (`CLOSE`): a `CHANGE` re-opens the job, which processes it and records completion again.
 
 **When tests will not pass** after three honest attempts, the job keeps its session and works the problem with BOB. BOB can clarify a requirement, route a cause found in another module, or re-scope the entry. Only if the two cannot resolve it is that entry deferred, and the job completes the rest.
 
-A job writes only its module's `paths` and `tests`, plus its own job record.
+A job writes only its module's `paths` and `tests`, plus its own job record. It never writes a generated artifact of another module (§14); it reports one it has made stale.
 
 ## 7. What BOB resolves, and what goes to Bob (P4, P5, P9)
 
@@ -121,11 +124,9 @@ A ruling that changes requirements is folded into them in the same act. A ruling
 
 ## 10. Metrics (P14)
 
-At its end, every session appends one row to `build/metrics/T<n>.csv`:
+At its end, every session records one row: `session · role · module · cache-read · cache-write · input · output tokens · turns · test runs · module lines`. **A job writes its row into its own job record** (`node metrics/record.mjs … --record build/jobs/T<n>/<module>.md`), so it touches no shared file; BOB copies every job's row into `build/metrics/T<n>.csv` when it closes the layer. BOB and other sessions append to `build/metrics/T<n>.csv` directly (transition sessions under `T0`).
 
-`session · role · module · cache-read · cache-write · input · output tokens · turns · test runs · module lines`
-
-Bob's weekly meter is noted at each tranche's open and close. **No bounds yet.** After a few tranches, BOB reports the model: tokens per job against module size, entries and test runs; tokens against the movement of the weekly meter; and BOB's own cost against its context size, which tests §2's refresh threshold. Bob then sets bounds.
+Bob's weekly meter is noted at each tranche's open and close when he gives it. **No bounds yet.** After a few tranches, BOB reports the model: tokens per job against module size, entries and test runs; tokens against the movement of the weekly meter; and BOB's own cost against its context size, which tests §2's refresh threshold. Bob then sets bounds.
 
 ## 11. Release (P11)
 
@@ -138,3 +139,19 @@ A release runs the full regression, then follows the distribution process (a sep
 3. **Tests.** Each extracted module's job writes its requirement-named tests at its interface. Source-anchored tests are retired with the legacy code they anchor on.
 4. **The old plan.** BOB rewrites each of the 225 open rows that affects the product as an entry against a target module, and drops the rest.
 5. **Batch30 is NOT landed** (Bob, 2026-09-25: no tokens for it). It stays reachable in `snapshot/pre-refactor-2026-09-25`, with all the old process's unmerged work. **Its value is judged by the requirements, not in advance:** a target module's extraction job reads the legacy and snapshot code for its module, keeps what meets its requirements, and discards the rest. The old process's own tooling is not carried forward.
+
+## 13. Communication between BOB and a job (P9, P10, P13)
+
+BOB's session cannot message a job's session, and a job cannot message BOB's. **They speak through the job's pull request.** Each job opens a draft pull request from its branch into the tranche branch and subscribes to its activity (§6 step 1); BOB subscribes to every job's pull request when it starts the job. A comment on the pull request wakes the other side.
+
+- **A message is a pull request comment whose first line is its kind:** from the job, `QUESTION`, `REPORT` (a flaw or improvement in another module, a generated artifact it made stale), `COMPLETE` or `BLOCKED` (tests will not pass after three honest attempts); from BOB, `ANSWER`, `CHANGE` (a forwarded change, or a file on the tranche branch the job must merge) or `CLOSE`. The rest of the comment is the content.
+- **The job record stays the durable record.** A `QUESTION`, `REPORT` or `COMPLETE` is also written in the job record, which is pushed first.
+- **Silence is not an answer.** A side that expects an answer and has none keeps working where it can; BOB's backstop check (§5) finds a job that has gone quiet.
+
+## 14. Generated artifacts (P7, P12)
+
+A committed file generated by a tool from several modules' source (the fleet's bundled workers and plane, with their manifests) is not code: no job edits it by hand, and a job never writes another module's. Every generated artifact, and the command that regenerates it, is listed in the product's `build/manifest.md`. A job whose change makes another module's generated artifact stale reports it (`REPORT`). When the layer closes, BOB runs each listed command on the tranche branch, verifies the result with the tool's own check, and commits it before merging to `main`.
+
+## 15. Certifying a revision (P3)
+
+A revision of these mechanics is certified by a dry run before product work uses it: a toy product in this repository (`dryrun/`), with a tranche of two small jobs in one layer that between them exercise every path the revision touches, run by real job sessions exactly as a product tranche runs. The revision is certified when every path worked as written; the run's record is kept in `dryrun/RUNS.md`.

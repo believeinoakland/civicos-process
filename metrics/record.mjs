@@ -3,7 +3,9 @@
 // transcript, as the model service reported them per request, never estimated and never in dollars.
 //
 // Usage: node metrics/record.mjs --product <root> --tranche <T0|T1|…> --role <BOB|job> [--module <id>]
-//          [--test-runs <n>] [--module-lines <n>] [--transcript <file.jsonl>] [--dry-run]
+//          [--test-runs <n>] [--module-lines <n>] [--transcript <file.jsonl>] [--record <job-record.md>] [--dry-run]
+// --record appends the row to a job's own record instead of the shared CSV (mechanics §10): a job
+// touches no shared file, and BOB copies the rows into build/metrics/T<n>.csv when the layer closes.
 // Without --transcript it reads the newest transcript of the working directory's project in
 // ~/.claude/projects/. Sessions of the transition, before tranche T1, record under T0.
 import { readFileSync, appendFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
@@ -50,6 +52,18 @@ export function row(t, { role, module = '', testRuns = '', moduleLines = '', ses
   return [session || t.session || 'unknown', role, module, t.cache_read, t.cache_write, t.input, t.output, t.turns, testRuns, moduleLines].map(clean).join(',');
 }
 
+export function recordInJob(file, line) {
+  appendFileSync(file, `\n## Metrics\n\n\`\`\`csv\n${HEADER}\n${line}\n\`\`\`\n`);
+  return file;
+}
+
+// The metrics rows written into job records under `## Metrics`, for BOB to collect.
+export function rowsInJobRecord(text) {
+  const out = [];
+  for (const m of text.matchAll(/## Metrics\s*\n+```csv\n([^`]*)```/g)) for (const l of m[1].split('\n')) if (l.trim() && l.trim() !== HEADER) out.push(l.trim());
+  return out;
+}
+
 export function record(product, tranche, line) {
   if (!/^T\d+$/.test(tranche)) throw new Error(`tranche must be T<n>, got ${tranche}`);
   const file = join(product, 'build', 'metrics', `${tranche}.csv`);
@@ -76,5 +90,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!t.turns) { console.error(`${transcript}: no model requests with usage; nothing recorded`); process.exit(1); }
   const line = row(t, { role: a.role, module: a.module, testRuns: a['test-runs'], moduleLines: a['module-lines'], session: t.session || basename(transcript, '.jsonl') });
   console.log(HEADER); console.log(line);
-  if (!a['dry-run']) console.log(`recorded in ${record(a.product, a.tranche, line)}`);
+  if (!a['dry-run']) console.log(`recorded in ${a.record ? recordInJob(a.record, line) : record(a.product, a.tranche, line)}`);
 }

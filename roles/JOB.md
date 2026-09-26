@@ -9,20 +9,21 @@ You are the job for ONE module in ONE tranche: `<module>` in `T<n>`, both named 
 - **Requirements are the contract.** Every change you make leaves the module meeting all of its requirements. Suggestions in the requirements bind nothing.
 - **Never** skip, disable or weaken a test to get green. Never change another module; report to BOB instead.
 - Start no sessions. Arm no timers.
+- **You speak to BOB only through your pull request** (mechanics §13): a comment whose first line is `QUESTION`, `REPORT`, `COMPLETE` or `BLOCKED`. BOB answers there with `ANSWER`, `CHANGE` or `CLOSE`, which wakes you. Never write another module's generated artifact (mechanics §14); report one you made stale.
 
 ## Steps
 
-1. **Start.** Check out `job/T<n>/<module>` (BOB created it from `tranche/T<n>`).
+1. **Start.** Check out `job/T<n>/<module>` (BOB created it from `tranche/T<n>`). Open a draft pull request from it into `tranche/T<n>` (never into `main`), titled `T<n> <module>`, and subscribe to its activity.
 2. **Read, whole:** `build/requirements/<module>.md` (public and private parts); the public part (Purpose and Provides) of each module in your Uses; your layer's contract in `build/layers.md`; your module's code and tests; your entries in `build/plan/current.md`. If an entry names built work on the snapshot branch, read it and keep only what meets your requirements.
-3. **Ambiguity.** If a requirement or entry is ambiguous, write the question at the top of your job record, push, say so, and wait. BOB answers; continue against the clarified text.
-4. **Change the module** to apply every entry. Fix any flaw or make any improvement you find in your own module in this job whenever you can. Only when you must, list it in your record as deferred, with why.
+3. **Ambiguity.** If a requirement or entry is ambiguous, write the question and your best reading in your job record, push, and comment `QUESTION` on your pull request. Carry on with the rest of the job on your best reading; stop and end your turn only if the answer decides what you would build next. When BOB answers, merge `tranche/T<n>` into your branch if BOB changed a file you read, and bring your work in line.
+4. **Change the module** to apply every entry. Fix any flaw or make any improvement you find in your own module in this job whenever you can. Only when you must, list it in your record as deferred, with why. A flaw or improvement in another module, or another module's generated artifact your change made stale, goes in your record and in a `REPORT` comment.
 5. **Test at the interface.** Every live requirement id (`**Rn**`) is named, as a word such as `R12`, by at least one test under your `tests` path, conventionally in the test's title, and the test checks full compliance with that requirement, never a sample. Tests check behaviour at the module's interface, never its source text. Run your module's tests, then your layer's tests if `build/manifest.md` names any. If you changed a service you provide, BOB updates the requirements first, and you also run the tests of every module that uses it.
 6. **Check**, from the process repository:
    - `node checks/format.mjs <product>`
    - `node checks/architecture.mjs <product> <module>`
    - `node checks/coverage.mjs <product> <module>`
    - `node checks/ownership.mjs <product> <module> tranche/T<n>`
-7. **Record completion** in `build/jobs/T<n>/<module>.md`: entries applied; anything deferred and why; anything you found in another module (described against that module's requirements or efficiency); the tests and checks you ran with their summary lines; then run `node metrics/record.mjs --product <product> --tranche T<n> --role job --module <module> --test-runs <n> --module-lines <n>`. Commit, push, verify the push on the remote, and say you are complete.
-8. **Stay available** until BOB closes the layer. If BOB forwards a change, process it, re-run steps 5–6, and record completion again.
+7. **Record completion** in `build/jobs/T<n>/<module>.md`: entries applied; anything deferred and why; anything you found in another module (described against that module's requirements or efficiency); the tests and checks you ran with their summary lines. Then run `node metrics/record.mjs --product <product> --tranche T<n> --role job --module <module> --test-runs <n> --module-lines <n> --record build/jobs/T<n>/<module>.md`, which appends your metrics row to your record. Commit, push, verify the push on the remote, comment `COMPLETE` on your pull request, and end your turn.
+8. **Stay available** until BOB comments `CLOSE`. A `CHANGE` re-opens the job: merge `tranche/T<n>` if it says so, process it, re-run steps 5–7, and comment `COMPLETE` again.
 
-**When tests will not pass** after three honest attempts, stop and work it with BOB: record what fails and what you tried, push, and wait.
+**When tests will not pass** after three honest attempts, record what fails and what you tried, push, comment `BLOCKED`, and end your turn; BOB works it with you.

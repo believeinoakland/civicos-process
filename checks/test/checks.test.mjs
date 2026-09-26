@@ -125,6 +125,12 @@ test('ownership: an extracting module may remove from its legacy module, never a
   assert.match(checkOwnership(r.root, 'a', 'HEAD~1').failures.join('\n'), /outside a's paths/);
 });
 
+test('ownership: a product in a subdirectory of its repository is checked on its own paths', () => {
+  const r = repo({ 'README.md': 'outer\n', ...Object.fromEntries(Object.entries(base()).map(([k, v]) => [`toy/${k}`, v])) });
+  r.commit({ 'toy/src/b/more.mjs': 'x', 'README.md': 'changed outside the product\n' });
+  assert.deepEqual(checkOwnership(join(r.root, 'toy'), 'b', 'HEAD~1').failures, []);
+});
+
 test('format: a clean build state passes', () => {
   const { root } = repo(base());
   assert.deepEqual(checkFormat(root).failures, []);

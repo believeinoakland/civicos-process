@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { sumTranscript, row, record, HEADER } from '../record.mjs';
+import { sumTranscript, row, record, recordInJob, rowsInJobRecord, HEADER } from '../record.mjs';
+import { writeFileSync } from 'node:fs';
 
 const usage = (r, w, i, o) => ({ cache_read_input_tokens: r, cache_creation_input_tokens: w, input_tokens: i, output_tokens: o });
 const entry = (id, u) => JSON.stringify({ type: 'assistant', sessionId: 's-1', message: { id, usage: u } });
@@ -30,4 +31,13 @@ test('record writes the header once, then appends rows, and refuses a malformed 
   record(root, 'T0', 'a'); record(root, 'T0', 'b');
   assert.equal(readFileSync(join(root, 'build/metrics/T0.csv'), 'utf8'), `${HEADER}\na\nb\n`);
   assert.throws(() => record(root, '1', 'c'), /tranche must be T<n>/);
+});
+
+test('a job writes its row into its own record, and BOB reads every row back out', () => {
+  const root = mkdtempSync(join(tmpdir(), 'product-'));
+  const f = join(root, 'job.md');
+  writeFileSync(f, '# job record\n\nCOMPLETE\n');
+  recordInJob(f, 's1,job,m,1,2,3,4,5,6,7');
+  recordInJob(f, 's2,job,m,8,9,10,11,12,13,14');
+  assert.deepEqual(rowsInJobRecord(readFileSync(f, 'utf8')), ['s1,job,m,1,2,3,4,5,6,7', 's2,job,m,8,9,10,11,12,13,14']);
 });

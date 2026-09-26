@@ -12,7 +12,7 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   const own = [...(m.paths || []), ...(m.tests || [])];
   const record = new RegExp(`^build/jobs/T\\d+/${moduleId.replace(/[-]/g, '\\-')}\\.md$`);
   const failures = [];
-  const lines = git(root, ['diff', '--numstat', '--no-renames', `${base}...${head}`]).split('\n').filter(Boolean);
+  const lines = git(root, ['diff', '--numstat', '--no-renames', '--relative', `${base}...${head}`]).split('\n').filter(Boolean);
   for (const line of lines) {
     const [added, , file] = line.split('\t');
     if (own.some((p) => pathMatches(p, file)) || record.test(file)) continue;
