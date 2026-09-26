@@ -89,3 +89,15 @@ Result, 2026-09-26 18:20Z: **J8 PROVEN; certified.** The job moved `max` and `mi
 1. **The rewiring was one import**, because `range` already called the moved names. The delegating-block path (a caller whose name or shape changes) was proven by BOB's injection and the checks' own tests, not by the job; BIO's store methods that delegate (`promote(…) { return promote(this, …); }`) take that path, and BOB reads every `ADDED` line at T3's layer close.
 2. **A generated artifact that concatenates a legacy module's source must carry the extracted module's too** (stats's note): `legacy/scripts/bundle.mjs` gained `stats/src/index.mjs`. BIO's bundler resolves imports, so it needs no such change.
 3. **The rewired caller inherits the moved code's behaviour** (`range([])` now refuses). A job states that in its record; BOB accepts it or routes it.
+
+## D5 · 2026-09-26 · an extraction from two legacy modules (J9)
+
+The revision: `from` may name several legacy modules (`ffce973`), after PROMOTION #1 found in bio T3 (Q7) that the checks behind its R30–R32 sit in the check catalogue (`legacy-checks`, first in the order), not the store. The toy's `main` is `dryrun-main/D5`: D4's toy plus `catalog`, a legacy check catalogue first in the order, whose duplicate check `legacy.validate` reaches through `checkList`. One job, `stats` (STATS #3, `session_01Ppv9EDuf4zdKF7vuxaCycj`), `from` both.
+
+Result, 2026-09-26 18:50Z: **J9 PROVEN; certified, after one finding fixed.** The job moved the duplicate check into `stats.distinct` (R9), removed it from `catalog` adding nothing (11 removed), and rewired `legacy.validate` to add the finding from `stats.distinct`, equal to the old `validate` on 2,406 inputs. It tried the negative case itself: one line added to `catalog` fails. REPORT (stale bundle) and COMPLETE arrived in about five minutes.
+
+**Finding 1 (fixed):** the net removal was judged per legacy module, so the job had to fold an honest two-line rewire onto one line: the caller sat in `legacy` and lost nothing, while the moved code left `catalog`. The check now judges the net removal over all of a job's legacy modules together (`383f070`), and was re-run on the job's head (0 failures), on a throwaway unfolded rewire (0 failures: legacy 4 added, 3 removed; catalog 11 removed) and on a throwaway addition to `catalog` (1 failure, exit 1).
+
+**Finding 2:** a job's own throwaway commit with `-a` swept up BOB's uncommitted edits in the same checkout (BOB's slip at this close; recovered from the throwaway commit before anything was lost or pushed). BOB commits before making throwaway commits.
+
+Layer close: merge clean, no markers; the tranche's tooling brought to `main`'s (mechanics §4); the legacy bundle regenerated with `catalog` in its parts, verified fresh; 20 of 20 tests; format, architecture, coverage (18 of 18) at 0 failures; no routine into the job's session; archived; row in `build/metrics/D5.csv` (1,975,064 tokens processed); plan archived; `dryrun-main/D5` = `tranche/D5` = `ba63c5c`.

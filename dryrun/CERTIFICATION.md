@@ -26,7 +26,7 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 | J4 | every requirement named by a test; coverage, architecture, format, ownership run as `roles/JOB.md` writes them | all four checks' summary lines in the record | PROVEN D1 (after fixes); re-proven D2, D3 |
 | J5 | extraction from a legacy module: the job removes the moved code, and only removes it | ownership passes on removal and fails on an addition | PROVEN D3 (ownership 0 failures on stats's removal; 1 failure, exit 1, on an added line) |
 | J8 | extraction whose moved code has a caller in the legacy module (BOB #42, bio TRANSITION §6): the job moves it, rewires the legacy caller by an import from its own paths and delegating lines, the legacy net change a removal | ownership passes on the rewiring and lists every added legacy line; fails on an added import of another module, on added lines that use nothing of the module's own, and on a net addition | PROVEN D4 (the job's rewiring: 1 added, 11 removed, 0 failures, `tranche/D4` `88fa651`; BOB's injections on throwaway commits: a delegating block passes, an unrelated line, an import of `alpha` and a net addition each fail, exit 1) |
-| J9 | extraction from two legacy modules, one earlier in the order than the target (BOB #42, PROMOTION #1's Q7 in bio T3): the job removes the moved code from the earlier one only, and rewires its caller in the later one | ownership passes, judging each legacy module and its net removal apart; an addition to the earlier one fails | PLANNED D5 |
+| J9 | extraction from two legacy modules, one earlier in the order than the target (BOB #42, PROMOTION #1's Q7 in bio T3): the job removes the moved code from the earlier one only, and rewires its caller in the later one | ownership passes, judging each legacy module and its net removal apart; an addition to the earlier one fails | PROVEN D5 (`tranche/D5` `ba63c5c`: catalog 0 added, 11 removed; legacy's rewire passes; a throwaway addition to catalog fails, exit 1; the net removal judged over both legacy modules, D5's finding, `383f070`) |
 | J6 | metrics row in the job's own record, collected by BOB | the row is in `build/metrics/<tranche>.csv` | PROVEN D1; D3 (rows read from `archive_session`'s usage; see RUNS D3 finding 2) |
 | J7 | a job runs out of context mid-job | it records its state and a new session continues from the record | T1 at the earliest (a toy cannot fill a context); the check: every job's context use is read at each backstop |
 
@@ -53,7 +53,7 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 
 - **D1** (done): the channel, one layer's happy path; not certified, flaws fixed.
 - **D2** (done, 15:35Z): the same paths on the revised mechanics, clean; re-proved C1, C2, J1, J4, J6, B1, B6, and proved B2.
-- **D5** (planned): J9, by one job (`stats`) extracting `distinct` from `catalog` (a legacy check catalogue, first in the order) and `legacy`, whose `validate` calls the catalogue.
+- **D5** (done, 18:50Z; see `RUNS.md`): proved J9, by one job (`stats`) extracting `distinct` from `catalog` (a legacy check catalogue, first in the order) and `legacy`, whose `validate` calls the catalogue.
 - **D4** (done, 18:20Z; see `RUNS.md`): proved J8, by one extraction job (`stats`) moving `max` and `min` out of `legacy`, where `range` calls both; `legacy` placed after `stats` in the order, as BIO's `legacy-store` sits after the modules extracted from it. One job suffices: J8 is the only path the revision touches.
 - **D3** (done, 16:02Z; see `RUNS.md`): proved C3, C4, C5, C7, J2, J3, J5, B3, B4, B5, B7, B8; C6 partly; re-proved C1, C2, J1, J4, J6, B2, B6. Its design:
 
@@ -76,3 +76,5 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 ## Certification, 2026-09-26 (BOB #42)
 
 **The mechanics as revised through `589f08a` (§12.2 and §8.3: an extraction rewires the legacy code that called the moved code) are certified for use (P3).** J8 is PROVEN by D4; no other row is touched by the revision, and every other row stands as certified by BOB #38.
+
+**The mechanics as revised through `383f070` (§12.2, §1: `from` may name several legacy modules; the net removal judged over them together) are certified for use (P3), BOB #42, 2026-09-26.** J9 is PROVEN by D5; no other row is touched.
