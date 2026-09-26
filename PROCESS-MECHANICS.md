@@ -75,7 +75,7 @@ A failed tranche is abandoned without touching `main`.
 
 ## 6. The module job (P6, P7, P8, P11)
 
-1. **Start** on `job/T<n>/<module>`. Open a draft pull request from it into `tranche/T<n>`, titled `T<n> <module>`, and subscribe to that pull request's activity (§13).
+1. **Start** on `job/T<n>/<module>`, and subscribe to the activity of the job's pull request, which BOB opened and names in the job's first message (§13).
 2. **Read in full**, never scanned: its own requirements (both parts); the public part of each module it uses (§3); its layer's contract; its code and tests; its entries.
 3. **Ambiguity.** Ask BOB (`QUESTION`, §13). Carry on with the rest of the job against your best reading, stated in the question; stop only if the answer decides what you would build next. When BOB answers, merge the tranche branch if BOB changed a requirement, and bring the work in line with the answer.
 4. **Change the module** to apply every entry. Deal with every flaw or improvement found in the module in the job whenever possible. Defer one to `next.md` through BOB only when it must.
@@ -142,7 +142,7 @@ A release runs the full regression, then follows the distribution process (a sep
 
 ## 13. Communication between BOB and a job (P9, P10, P13)
 
-BOB's session cannot message a job's session, and a job cannot message BOB's. **They speak through the job's pull request.** Each job opens a draft pull request from its branch into the tranche branch and subscribes to its activity (§6 step 1); BOB subscribes to every job's pull request when it starts the job. A comment on the pull request wakes the other side.
+BOB's session cannot message a job's session, and a job cannot message BOB's. **They speak through the job's pull request.** Before starting a job, BOB commits a started job record (`build/jobs/T<n>/<module>.md`, status STARTED) on the job's branch, opens a draft pull request from it into the tranche branch titled `T<n> <module>`, subscribes to its activity, and names it in the job's first message; the job subscribes to it first thing (§6 step 1). A comment on the pull request wakes the other side.
 
 - **A message is a pull request comment whose first line is its kind:** from the job, `QUESTION`, `REPORT` (a flaw or improvement in another module, a generated artifact it made stale), `COMPLETE` or `BLOCKED` (tests will not pass after three honest attempts); from BOB, `ANSWER`, `CHANGE` (a forwarded change, or a file on the tranche branch the job must merge) or `CLOSE`. The rest of the comment is the content.
 - **The job record stays the durable record.** A `QUESTION`, `REPORT` or `COMPLETE` is also written in the job record, which is pushed first.

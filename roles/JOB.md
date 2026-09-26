@@ -13,7 +13,7 @@ You are the job for ONE module in ONE tranche: `<module>` in `T<n>`, both named 
 
 ## Steps
 
-1. **Start.** Check out `job/T<n>/<module>` (BOB created it from `tranche/T<n>`). Open a draft pull request from it into `tranche/T<n>` (never into `main`), titled `T<n> <module>`, and subscribe to its activity.
+1. **Start.** Check out `job/T<n>/<module>` (BOB created it from `tranche/T<n>`, with a started job record). Subscribe to the activity of your pull request, which BOB opened and named in your first message. Open no other pull request.
 2. **Read, whole:** `build/requirements/<module>.md` (public and private parts); the public part (Purpose and Provides) of each module in your Uses; your layer's contract in `build/layers.md`; your module's code and tests; your entries in `build/plan/current.md`. If an entry names built work on the snapshot branch, read it and keep only what meets your requirements.
 3. **Ambiguity.** If a requirement or entry is ambiguous, write the question and your best reading in your job record, push, and comment `QUESTION` on your pull request. Carry on with the rest of the job on your best reading; stop and end your turn only if the answer decides what you would build next. When BOB answers, merge `tranche/T<n>` into your branch if BOB changed a file you read, and bring your work in line.
 4. **Change the module** to apply every entry. Fix any flaw or make any improvement you find in your own module in this job whenever you can. Only when you must, list it in your record as deferred, with why. A flaw or improvement in another module, or another module's generated artifact your change made stale, goes in your record and in a `REPORT` comment.
