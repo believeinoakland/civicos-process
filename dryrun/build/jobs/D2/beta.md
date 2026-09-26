@@ -34,6 +34,13 @@
 - `node checks/format.mjs dryrun`: `format: 2 modules, 2 requirements files; 0 failures`
 - `node checks/architecture.mjs dryrun beta`: `architecture: 4 product files, 2 relative imports (0 naming no tracked file, not judged); 0 failures`
 - `node checks/coverage.mjs dryrun beta`: `coverage: 1 modules, 4 of 4 live requirement ids named by a test; 0 failures`
-- `node checks/ownership.mjs dryrun beta tranche/D2`: see below (run after commit).
+- `node checks/ownership.mjs dryrun beta tranche/D2`: `ownership: 5 files changed by beta between tranche/D2 and HEAD; 0 failures`
 
 **Metrics.** `--test-runs 5` (beta's tests 4 runs, alpha's 1); `--module-lines 18` (`beta/src/` 6, `beta/scripts/` 12; tests 96 more; `beta/dist/` generated, not counted).
+
+## Metrics
+
+```csv
+session,role,module,cache_read,cache_write,input,output,turns,test_runs,module_lines
+e1d7098d-a0c3-5f97-bac7-84b536d2f598,job,beta,1618202,60035,42,10531,20,5,18
+```
