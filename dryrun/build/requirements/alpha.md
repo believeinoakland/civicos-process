@@ -13,6 +13,8 @@ Arithmetic on numbers.
 **add(a, b) → number**
 - **R1** Returns `a + b` for two finite numbers.
 
+- **R5** `add` throws a `TypeError` when either argument is not a finite number, as `sum` does (R4); nothing is coerced. (Added by BOB during D3, confirming beta's REPORT 1: `add('1', 2)` returned `'12'`. In the real product this change of meaning goes to Bob, P17; in the dry run BOB records that it would have brought it to him, with the recommendation to add the refusal.)
+
 **sum(list) → number** (added by BOB during D3, answering alpha's QUESTION on N1)
 - **R3** Returns the elements of `list` added left to right with `add` (ordinary floating-point addition, not a correctly rounded or exact sum), and `0` for an empty list. (Wording clarified by BOB during D3 after beta's QUESTION 1: "exact" was ambiguous.)
 - **R4** Throws a `TypeError` when an element is not a finite number (a non-number, `NaN` or an infinity); nothing is coerced or skipped.
