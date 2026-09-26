@@ -1,10 +1,14 @@
 # Job record: beta in D2
 
-**Status** · WAITING on BOB's `CHANGE` saying alpha's `sum` is on `tranche/D2` (N3's second half). Everything that does not need `sum` is done.
+**Status** · WAITING on BOB's `CHANGE` saying alpha's `sum` is on `tranche/D2` (N3's second half). Everything that does not need `sum` is done. BOB's first `CHANGE` (requirements, 171731b: new R4) is merged.
 
 ## Entries
 
 - **N3** · Part 1 done: R1's tests for `total` as it stands (`beta/test/beta.test.mjs`, test `R1 …`), passing against the `alpha.add` loop. Part 2 (switch `total` to `alpha.sum`) waits on BOB's `CHANGE`.
+
+## Changes from BOB
+
+- 15:25Z `CHANGE`: beta's R4 (a non-finite element is refused with a `TypeError` naming its index, as `alpha.sum` R4 does). Merged `tranche/D2` (171731b); read beta's requirements and alpha's public part again, whole. As BOB directs, R4 is implemented and tested with N3's second half, when `total` moves onto `alpha.sum`; until then the coverage check reports R4 unnamed, as expected.
 
 ## Found and fixed in beta
 
