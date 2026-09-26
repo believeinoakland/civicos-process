@@ -8,16 +8,6 @@
   ],
   "modules": [
     {
-      "id": "legacy",
-      "layer": 1,
-      "legacy": true,
-      "paths": [
-        "legacy/"
-      ],
-      "tests": [],
-      "uses": []
-    },
-    {
       "id": "alpha",
       "layer": 1,
       "paths": [
@@ -55,6 +45,18 @@
       ],
       "uses": [
         "alpha"
+      ]
+    },
+    {
+      "id": "legacy",
+      "layer": 2,
+      "legacy": true,
+      "paths": [
+        "legacy/"
+      ],
+      "tests": [],
+      "uses": [
+        "*earlier"
       ]
     }
   ]
