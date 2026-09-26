@@ -37,4 +37,11 @@
 - `node checks/format.mjs dryrun` · `format: 4 modules, 3 requirements files; 0 failures`
 - `node checks/architecture.mjs dryrun alpha` · `architecture: 2 product files, 1 relative imports (0 naming no tracked file, not judged); 0 failures`
 - `node checks/coverage.mjs dryrun alpha` · `coverage: 1 modules, 4 of 4 live requirement ids named by a test; 0 failures`
-- `node checks/ownership.mjs dryrun alpha tranche/D3` · `0 failures` (summary line re-run on the final commit below)
+- `node checks/ownership.mjs dryrun alpha tranche/D3` · `ownership: 3 files changed by alpha between tranche/D3 and HEAD; 0 failures`
+
+## Metrics
+
+```csv
+session,role,module,cache_read,cache_write,input,output,turns,test_runs,module_lines
+f9faa1ad-0bd8-5b51-8f2f-f3578bfbae57,job,alpha,1708868,81839,44,12071,21,5,14
+```
