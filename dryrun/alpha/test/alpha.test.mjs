@@ -28,6 +28,21 @@ test('R1 add returns a + b for every pair of finite numbers in each class', () =
   assert.equal(add(Number.MAX_VALUE, Number.MAX_VALUE), Infinity); // a + b, overflow included
 });
 
+// Every kind of value that is not a finite number.
+const NOT_FINITE = () => ['1', '', NaN, Infinity, -Infinity, null, undefined, {}, [1], [], true, false, 1n,
+  Symbol('x'), () => 1, new Number(1)];
+
+test('R5 add throws a TypeError when either argument is not a finite number, coercing nothing', () => {
+  for (const bad of NOT_FINITE()) {
+    for (const ok of [0, -1, 2.5, Number.MAX_VALUE]) {
+      assert.throws(() => add(bad, ok), TypeError, `add(${typeof bad}, ${ok})`);
+      assert.throws(() => add(ok, bad), TypeError, `add(${ok}, ${typeof bad})`);
+    }
+    for (const bad2 of NOT_FINITE()) assert.throws(() => add(bad, bad2), TypeError);
+  }
+  assert.throws(() => add('1', 2), TypeError); // beta's report: once returned '12'
+});
+
 test('R2 add and sum are pure: no state, no input or output', () => {
   const globalsBefore = Object.getOwnPropertyNames(globalThis).sort();
   const writes = [];
@@ -68,11 +83,13 @@ test('R3 sum adds the elements left to right with add, and returns 0 for an empt
   assert.equal(sum([1e16, 1, 1]), 1e16);
   assert.equal(sum([1, 1, 1e16]), 1e16 + 2);
   assert.ok(Object.is(sum([-0]), 0)); // 0 + -0 is +0, as add gives
+  // A running total that overflows is carried as floating-point addition carries it (job record Q2).
+  assert.equal(sum([Number.MAX_VALUE, Number.MAX_VALUE, 1]), Infinity);
+  assert.equal(sum([Number.MAX_VALUE, Number.MAX_VALUE, -Number.MAX_VALUE]), Infinity);
 });
 
 test('R4 sum throws a TypeError for an element that is not a finite number, coercing and skipping nothing', () => {
-  const BAD = ['1', '', NaN, Infinity, -Infinity, null, undefined, {}, [1], [], true, false, 1n, Symbol('x'), () => 1, new Number(1)];
-  for (const bad of BAD) {
+  for (const bad of NOT_FINITE()) {
     for (const list of [[bad], [bad, 1], [1, bad], [1, bad, 2], [...FINITE, bad]]) {
       assert.throws(() => sum(list), TypeError, `${typeof bad} in a list of ${list.length}`);
     }

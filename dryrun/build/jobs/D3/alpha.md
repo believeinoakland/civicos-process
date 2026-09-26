@@ -1,6 +1,6 @@
 # Job record: alpha, D3
 
-**Status** · COMPLETE (2026-09-26). Q1 answered by BOB (`ANSWER`, 15:40 UTC; requirements at `tranche/D3` ebfa39f, wording caa0f42), merged into this branch.
+**Status** · COMPLETE again after CHANGE 2 (R5), 2026-09-26. Q2 is open with BOB. It does not block anything: `sum` follows its best reading.
 
 ## Questions
 
@@ -51,3 +51,11 @@ f9faa1ad-0bd8-5b51-8f2f-f3578bfbae57,job,alpha,1708868,81839,44,12071,21,5,14
 ## CHANGE 1 (BOB, 15:41 UTC): R3 wording, caa0f42
 
 R3 now says left-to-right addition with `add`, not an exact or correctly rounded sum. I had already merged caa0f42 before my first `COMPLETE`, and both `sum` and the R3 test (a left-to-right fold with `add`, and `sum([0.1, 0.2]) === 0.30000000000000004`) already match it. Nothing needed changing. Re-run: alpha tests `# pass 4`, `# fail 0`; coverage `4 of 4 live requirement ids named by a test; 0 failures`. There are no new commits on `tranche/D3`. COMPLETE again.
+
+## CHANGE 2 (BOB, 15:50 UTC): R5, a709075. Re-opens the job.
+
+Merged `tranche/D3` (a709075). **R5 met:** `add` now checks both arguments and throws a `TypeError` for anything that is not a finite number, with nothing coerced. `add('1', 2)` now throws where it used to return `'12'`. `sum` checks each element with the same helper. Test `R5 …` covers 16 kinds of non-finite value in either argument position, and in both at once. `R4` uses the same list of kinds.
+
+**Q2** (sent to BOB as `QUESTION`; it does not block anything) · With R5 in force, R3's "added left to right with `add`" is ambiguous in one case. Every element is finite, but the running total overflows, e.g. `sum([MAX_VALUE, MAX_VALUE, 1])`. Calling `add(Infinity, 1)` literally would throw a `TypeError`, although R4 names only non-finite *elements*. **Best reading (implemented and tested in R3):** the running total is carried as ordinary floating-point addition carries it, so the example returns `Infinity`. That matches R1, where `add(MAX_VALUE, MAX_VALUE)` is `Infinity`, and R3's own "ordinary floating-point addition". If BOB rules the other way, `sum` should throw instead, and one R3 assertion changes.
+
+**Re-run** (from `dryrun/`): alpha `# pass 5`, `# fail 0`; beta `# pass 1`, `# fail 0`; stats `# pass 1`, `# fail 0`. Checks: format `0 failures`; architecture `0 failures`; coverage `5 of 5 live requirement ids named by a test; 0 failures`; ownership: see the next line. Generated artifacts are unchanged: REPORT 1 and REPORT 2 still apply, and both bundles are regenerated at layer close.
