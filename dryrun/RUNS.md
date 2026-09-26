@@ -15,7 +15,7 @@ Result, 2026-09-26 15:25Z: **NOT CERTIFIED: the run found flaws, each now fixed;
 5. **COMPLETE: WORKS** (alpha 15:15, beta 15:18).
 6. **Early merge and CHANGE: WORKS** (alpha into the tranche at 673df14; beta merged and completed N3).
 7. **Metrics in the job's own record: WORKS**, after a fix (the recorder resolved `--record` from the working directory). **Ownership check: WORKS**, after two fixes (it knew only `T<n>` job records; it needed `origin/<base>` in a job's checkout).
-8. **Layer close: WORKS.** Ownership clean; merge clean; `beta/dist/bundle.txt` regenerated with no change and verified fresh; metrics collected in `build/metrics/D1.csv` (alpha 1,828,000 tokens processed, beta 2,618,000); CLOSE sent.
+8. **Layer close: WORKS.** Ownership clean; merge clean; `beta/dist/bundle.txt` regenerated with no change and verified fresh; metrics collected in `build/metrics/D1.csv` (alpha 1,828,000 tokens processed, beta 2,618,000, each counted when it recorded; its session's final totals were higher); both job sessions archived. No `CLOSE` message was sent: archiving ends the job, so the mechanics now say so and drop `CLOSE`.
 9. **Backstop check: not exercised** (no job went quiet); the channel made it unnecessary this run.
 
 Also found: the manifest's test command failed on the jobs' Node 22 (fixed: name the test files); beta noted that `total` now inherits `sum`'s refusal of non-numbers, which beta's R1 does not state. BOB should have reviewed the user's requirements when the provider's meaning changed (mechanics §7 says so); a lapse of BOB's, not a gap in the mechanics.
