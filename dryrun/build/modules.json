@@ -8,11 +8,11 @@
   ],
   "modules": [
     {
-      "id": "legacy",
+      "id": "catalog",
       "layer": 1,
       "legacy": true,
       "paths": [
-        "legacy/"
+        "catalog/"
       ],
       "tests": [],
       "uses": []
@@ -46,7 +46,10 @@
     {
       "id": "stats",
       "layer": 2,
-      "from": "legacy",
+      "from": [
+        "catalog",
+        "legacy"
+      ],
       "paths": [
         "stats/src/"
       ],
@@ -55,6 +58,18 @@
       ],
       "uses": [
         "alpha"
+      ]
+    },
+    {
+      "id": "legacy",
+      "layer": 2,
+      "legacy": true,
+      "paths": [
+        "legacy/"
+      ],
+      "tests": [],
+      "uses": [
+        "*earlier"
       ]
     }
   ]

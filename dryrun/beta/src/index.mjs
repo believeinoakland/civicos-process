@@ -1,8 +1,7 @@
 // beta: totals for the dry run's toy product, built on alpha.
-import { add } from '../../alpha/src/index.mjs';
+import { sum } from '../../alpha/src/index.mjs';
 
+// R1, R4: alpha.sum adds left to right and refuses an element that is not a finite number.
 export function total(list) {
-  let t = 0;
-  for (const x of list) t = add(t, x);
-  return t;
+  return sum(list);
 }
