@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { sumTranscript, row, record, recordInJob, rowsInJobRecord, HEADER } from '../record.mjs';
+import { sumTranscript, row, record, recordInJob, rowsInJobRecord, cloudSessionId, HEADER } from '../record.mjs';
 import { writeFileSync } from 'node:fs';
 
 const usage = (r, w, i, o) => ({ cache_read_input_tokens: r, cache_creation_input_tokens: w, input_tokens: i, output_tokens: o });
@@ -40,4 +40,9 @@ test('a job writes its row into its own record, and BOB reads every row back out
   recordInJob(f, 's1,job,m,1,2,3,4,5,6,7');
   recordInJob(f, 's2,job,m,8,9,10,11,12,13,14');
   assert.deepEqual(rowsInJobRecord(readFileSync(f, 'utf8')), ['s1,job,m,1,2,3,4,5,6,7', 's2,job,m,8,9,10,11,12,13,14']);
+});
+
+test('the row names the cloud session, as BOB addresses and archives it', () => {
+  assert.equal(cloudSessionId({ CLAUDE_CODE_REMOTE_SESSION_ID: 'cse_01ABC' }), 'session_01ABC');
+  assert.equal(cloudSessionId({}), null);
 });

@@ -46,6 +46,13 @@ export function newestTranscript(cwd = process.cwd()) {
   return files[0] || null;
 }
 
+// The cloud session's id, the one BOB archives and addresses (found in the D3 dry run: the transcript's
+// own id matches nothing BOB sees). The environment gives it as cse_<id>; the tools name it session_<id>.
+export function cloudSessionId(env = process.env) {
+  const v = env.CLAUDE_CODE_REMOTE_SESSION_ID;
+  return v ? v.replace(/^cse_/, 'session_') : null;
+}
+
 const clean = (v) => String(v ?? '').replace(/[,\n\r]/g, ' ').trim();
 
 export function row(t, { role, module = '', testRuns = '', moduleLines = '', session }) {
@@ -88,7 +95,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!transcript) { console.error('no transcript found; pass --transcript'); process.exit(2); }
   const t = sumTranscript(readFileSync(transcript, 'utf8'));
   if (!t.turns) { console.error(`${transcript}: no model requests with usage; nothing recorded`); process.exit(1); }
-  const line = row(t, { role: a.role, module: a.module, testRuns: a['test-runs'], moduleLines: a['module-lines'], session: t.session || basename(transcript, '.jsonl') });
+  const line = row(t, { role: a.role, module: a.module, testRuns: a['test-runs'], moduleLines: a['module-lines'], session: cloudSessionId() || t.session || basename(transcript, '.jsonl') });
   console.log(HEADER); console.log(line);
   // --record is relative to the product root, like every other path the job is given (found in the D1 dry run).
   const jobRecord = a.record && (isAbsolute(a.record) ? a.record : join(a.product, a.record));
