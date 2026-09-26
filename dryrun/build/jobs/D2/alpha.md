@@ -11,3 +11,11 @@
 ## Own-module improvement, 2026-09-26 15:25Z
 
 R1's test checked two samples; it now checks `add(a, b) === a + b` over every pair from a spread of finite numbers (signs, ±0, fractions, extremes). R2 was named by no test; it now has one (repeatable results, no stdout/stderr/console/fetch, no new globals). Both pass. Still waiting on BOB's `ANSWER` for `sum`.
+
+## ANSWER received, 2026-09-26 15:25Z
+
+BOB accepted the reading and added R3–R4 to alpha's requirements on `tranche/D2` (171731b); merged into this branch (afe5920).
+
+## REPORT (N2), 2026-09-26 15:28Z
+
+Adding `sum` to `alpha/src/index.mjs` makes beta's generated artifact `beta/dist/bundle.txt` stale: `node beta/scripts/bundle.mjs --verify` from `dryrun/` exits 0 before the change and prints `bundle: STALE` (exit 1) after. Not regenerated: it is beta's (mechanics §14); BOB regenerates it at layer close.
