@@ -10,7 +10,7 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   if (!m) return { failures: [`${moduleId}: no such module in build/modules.json`], summary: 'nothing checked' };
   const legacy = m.from ? state.modules.find((x) => x.id === m.from) : null;
   const own = [...(m.paths || []), ...(m.tests || [])];
-  const record = new RegExp(`^build/jobs/T\\d+/${moduleId.replace(/[-]/g, '\\-')}\\.md$`);
+  const record = new RegExp(`^build/jobs/[A-Z]+\\d+/${moduleId.replace(/[-]/g, '\\-')}\\.md$`);
   const failures = [];
   const lines = git(root, ['diff', '--numstat', '--no-renames', '--relative', `${base}...${head}`]).split('\n').filter(Boolean);
   for (const line of lines) {
