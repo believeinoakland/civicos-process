@@ -93,11 +93,12 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   const state = readModules(root);
   const m = state.modules.find((x) => x.id === moduleId);
   if (!m) return { failures: [`${moduleId}: no such module in build/modules.json`], added: [], summary: 'nothing checked' };
-  const legacy = m.from ? state.modules.find((x) => x.id === m.from) : null;
+  // `from` names one legacy module or several (a module's code may sit in more than one monolith).
+  const legacies = [].concat(m.from || []).map((id) => state.modules.find((x) => x.id === id)).filter(Boolean);
   const own = [...(m.paths || []), ...(m.tests || [])];
   const record = new RegExp(`^build/jobs/[A-Z]+\\d+/${moduleId.replace(/[-]/g, '\\-')}\\.md$`);
   const failures = [], added = [];
-  let legacyAdded = 0, legacyRemoved = 0;
+  const tally = new Map(legacies.map((l) => [l.id, { added: 0, removed: 0 }]));
   // A job's checkout often has only the remote-tracking branch (found in the D1 dry run): fall back to origin/<base>.
   let ref = base;
   try { git(root, ['rev-parse', '--verify', '--quiet', `${base}^{commit}`]); } catch { ref = `origin/${base}`; }
@@ -105,19 +106,21 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   for (const line of lines) {
     const [a, r, file] = line.split('\t');
     if (own.some((p) => pathMatches(p, file)) || record.test(file)) continue;
-    if (legacy && (legacy.paths || []).some((p) => pathMatches(p, file))) {
-      legacyRemoved += Number(r) || 0;
+    const legacy = legacies.find((l) => (l.paths || []).some((p) => pathMatches(p, file)));
+    if (legacy) {
+      const t = tally.get(legacy.id);
+      t.removed += Number(r) || 0;
       if (a === '0') continue;
       const j = judgeLegacyFile(root, ref, head, file, m.paths || []);
       failures.push(...j.failures);
       added.push(...j.added);
-      legacyAdded += j.count;
+      t.added += j.count;
       continue;
     }
     failures.push(`${file}: outside ${moduleId}'s paths, tests and job record`);
   }
-  if (legacyAdded && legacyAdded >= legacyRemoved) failures.push(`${legacy.id}: ${moduleId} adds ${legacyAdded} line(s) and removes ${legacyRemoved}; an extraction's net change to its legacy module is a removal`);
-  const tail = legacy ? `; ${legacy.id}: ${legacyAdded} line(s) added, ${legacyRemoved} removed` : '';
+  for (const [id, t] of tally) if (t.added && t.added >= t.removed) failures.push(`${id}: ${moduleId} adds ${t.added} line(s) and removes ${t.removed}; an extraction's net change to its legacy module is a removal`);
+  const tail = [...tally].map(([id, t]) => `; ${id}: ${t.added} line(s) added, ${t.removed} removed`).join('');
   return { failures, added, summary: `${lines.length} files changed by ${moduleId} between ${base} and ${head}${tail}` };
 }
 

@@ -205,3 +205,21 @@ test('format: modules out of layer order fail', () => {
   const { root } = repo(base({ 'build/modules.json': JSON.stringify(m) }));
   assert.match(checkFormat(root).failures.join('\n'), /c: layer 1 after layer 2/);
 });
+
+test('ownership: a module extracted from two legacy modules removes from each and is judged per module (D5)', () => {
+  const mods = JSON.stringify({ not_product: ['build/'], modules: [
+    { id: 'cat', layer: 1, legacy: true, paths: ['src/cat.mjs'], tests: [], uses: [] },
+    { id: 'b', layer: 2, from: ['cat', 'legacy'], paths: ['src/b/'], tests: ['test/b/'], uses: [] },
+    { id: 'legacy', layer: 2, legacy: true, paths: ['src/legacy.mjs'], tests: [], uses: ['*earlier'] },
+  ] });
+  const r = repo(base({ 'build/modules.json': mods, 'src/cat.mjs': 'export const keep = 1;\nexport function gone() {\n  return 2;\n}\n', 'src/legacy.mjs': CALLER }));
+  r.commit({ 'src/b/moved.mjs': BODY, 'src/cat.mjs': 'export const keep = 1;\n', 'src/legacy.mjs': "import { moved } from './b/moved.mjs';\n\nexport class Store {\n  run(x) {\n    return moved(x);\n  }\n}\n" });
+  const c = checkOwnership(r.root, 'b', 'HEAD~1');
+  assert.deepEqual(c.failures, []);
+  assert.match(c.summary, /cat: 0 line\(s\) added, 3 removed; legacy: 1 line\(s\) added, \d+ removed/);
+  r.commit({ 'src/cat.mjs': 'export const keep = 1;\nexport const more = 3;\n' });
+  assert.match(checkOwnership(r.root, 'b', 'HEAD~1').failures.join('\n'), /src\/cat\.mjs:2-2: added lines that neither import from nor use/);
+  const bad = JSON.parse(mods); bad.modules[1].from = ['cat', 'b'];
+  const r2 = repo(base({ 'build/modules.json': JSON.stringify(bad), 'src/cat.mjs': 'x\n' }));
+  assert.match(checkFormat(r2.root).failures.join('\n'), /from b, which is no legacy module/);
+});

@@ -32,7 +32,7 @@ export function checkFormat(root) {
       if (u === '*earlier') { if (!m.legacy) failures.push(`${at}: only a legacy module may use "*earlier"`); continue; }
       if (!seen.has(u)) failures.push(`${at}: uses ${u}, which is ${mods.some((x) => x.id === u) ? 'not earlier in the order' : 'no module'}`);
     }
-    if (m.from !== undefined && !mods.some((x) => x.id === m.from && x.legacy)) failures.push(`${at}: from ${m.from}, which is no legacy module`);
+    for (const f of [].concat(m.from ?? [])) if (!mods.some((x) => x.id === f && x.legacy)) failures.push(`${at}: from ${f}, which is no legacy module`);
     seen.set(m.id, m);
   });
   for (const p of state.not_product || []) if (claimed.has(p)) failures.push(`build/modules.json: ${p} is both not_product and owned by ${claimed.get(p)}`);

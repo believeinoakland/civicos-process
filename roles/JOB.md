@@ -4,7 +4,7 @@ You are the job for ONE module in ONE tranche: `<module>` in `T<n>`, both named 
 
 ## Rules
 
-- **Write only** your module's `paths` and `tests` (from `build/modules.json`) and your job record `build/jobs/T<n>/<module>.md`. If your module is extracted `from` a legacy module, you may also remove the moved code from that legacy module's files, and rewire the legacy code that called it: there you add only an import (or re-export) from your own paths and lines that use a name so imported (a delegating method, a call now made to the moved function), and the legacy files' net change is a removal (mechanics §12.2). The ownership check enforces this and lists every line you added there; BOB reviews them.
+- **Write only** your module's `paths` and `tests` (from `build/modules.json`) and your job record `build/jobs/T<n>/<module>.md`. If your module is extracted `from` a legacy module (or several: `from` may be a list), you may also remove the moved code from that legacy module's files, and rewire the legacy code that called it: there you add only an import (or re-export) from your own paths and lines that use a name so imported (a delegating method, a call now made to the moved function), and the legacy files' net change is a removal (mechanics §12.2). The ownership check enforces this and lists every line you added there; BOB reviews them.
 - **Read in full, never scan**: every file you read for the job, you read whole.
 - **Requirements are the contract.** Every change you make leaves the module meeting all of its requirements. Suggestions in the requirements bind nothing.
 - **Never** skip, disable or weaken a test to get green. Never change another module; report to BOB instead.
