@@ -77,3 +77,15 @@ Result, 2026-09-26 16:02Z: **every row D3 was designed for is proven, except C6 
 - Mechanics §2: say how a successor BOB is started so that it is not BOB's child, or accept the parent link (it did no harm here) and say so (finding 8).
 - `roles/BOB.md`: make the 20-minute backstop an explicit exception to "arm no timers", deleted when the tranche closes (finding 9).
 - `CERTIFICATION.md`: the new row C7 (finding 4), and C6 at three concurrent jobs in a later run or T1.
+
+## D4 · 2026-09-26 · an extraction that rewires the legacy caller (J8)
+
+The revision: mechanics §12.2 and §8.3 and the ownership check (`589f08a`), after BOB #41 found that BIO's legacy store calls the code its extractions move (bio TRANSITION §6). The toy's `main` is `dryrun-main/D4`: the toy after D3, `legacy` placed after `stats` in the order (as BIO's `legacy-store` sits after the modules extracted from it), and `legacy.range` calling `legacy.max` and `legacy.min`. One job, `stats` (STATS #2, `session_01WXWwzMNYQtoREMdzBRQZMW`), extracted both and rewired `range`.
+
+Result, 2026-09-26 18:20Z: **J8 PROVEN; certified.** The job moved `max` and `min` into `stats` (R4–R7), asked one QUESTION (non-finite elements, answered as its best reading, R8, `3c6d25b`), completed, took the answer and completed again (`ac3ad37`). Its legacy diff: 11 lines removed, one added, `import { max, min } from '../stats/src/index.mjs';`; ownership printed that line `ADDED` and passed, 0 failures. BOB, on throwaway commits of the job's head (never pushed): a delegating block `spread` using `max` and `min` passes and is listed; `export const unrelated = 1;` fails, exit 1; an added import of `alpha` fails; twelve delegating lines (13 added, 11 removed) fail on the net. Layer close: ownership 0 failures; merge with no conflict markers; the legacy bundle STALE, then fresh; beta's fresh; 19 of 19 tests; format, architecture, coverage (17 of 17) at 0 failures; no routine into the job's session enabled; the session archived and its row in `build/metrics/D4.csv` (3,145,809 tokens processed); the plan archived with outcomes and usage; `dryrun-main/D4` = `tranche/D4` = `88fa651`.
+
+**Findings:**
+
+1. **The rewiring was one import**, because `range` already called the moved names. The delegating-block path (a caller whose name or shape changes) was proven by BOB's injection and the checks' own tests, not by the job; BIO's store methods that delegate (`promote(…) { return promote(this, …); }`) take that path, and BOB reads every `ADDED` line at T3's layer close.
+2. **A generated artifact that concatenates a legacy module's source must carry the extracted module's too** (stats's note): `legacy/scripts/bundle.mjs` gained `stats/src/index.mjs`. BIO's bundler resolves imports, so it needs no such change.
+3. **The rewired caller inherits the moved code's behaviour** (`range([])` now refuses). A job states that in its record; BOB accepts it or routes it.
