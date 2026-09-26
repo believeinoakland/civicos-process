@@ -55,6 +55,7 @@ A job for a module being written, or gaining capabilities, reads the **Purpose**
 - When a layer starts, each of its jobs branches from the tranche branch: `job/T<n>/<module>`.
 - When every job of the layer is complete, BOB merges their branches into the tranche branch. The modules own disjoint files, so these merges do not conflict.
 - The next layer's jobs branch from the updated tranche branch.
+- **A provided service changed within a layer** (added 2026-09-26, found in T1): when one job of a layer changes a service that another job of the same layer uses, BOB merges the providing job's branch into the tranche branch as soon as that job records completion, and the using job merges the tranche branch into its own. Its ownership check, taken against the tranche branch, still sees only its own changes.
 - When the last layer completes, the tranche branch is merged to `main` as a fast-forward.
 
 A failed tranche is abandoned without touching `main`.
