@@ -28,6 +28,10 @@ Since N3, `total` inherits alpha's R4: a list with anything that is not a finite
 - `ownership`: first run, 1 failure: the job record itself (reported item 1 above). After merging `tranche/D1` at 8f0c844, which has BOB's fix: 2 files changed by beta; 0 failures
 - After the merge, `node --test beta/test/*.test.mjs` (the manifest's corrected command): tests 4, pass 4, fail 0
 
+## Reported with COMPLETE
+
+3. **`metrics/record.mjs --record` resolves the path from the working directory, not from `--product`.** Run from the process repository as `roles/JOB.md` step 7 says, `--record build/jobs/D1/beta.md` fails with ENOENT. I passed `dryrun/build/jobs/D1/beta.md` instead. Suggested fix: resolve `--record` against `--product`, or have JOB.md write the product-relative path.
+
 ## Channel (BOB's ANSWER, 15:11 UTC, sent by trigger)
 
 - BOB confirmed and fixed both reported items on `tranche/D1` (8f0c844). I checked the diff and merged it. I also read alpha's new public `sum` (R3 and R4, where R4 throws `TypeError` on any element that is not a finite number) ahead of N3 part two.
@@ -41,4 +45,11 @@ Final, after N3 (from the process repository; the tests run from `dryrun/`):
 - `format`: 2 modules, 2 requirements files; 0 failures
 - `architecture`: 4 product files, 2 relative imports; 0 failures
 - `coverage`: 1 modules, 3 of 3 live requirement ids named by a test; 0 failures
-- `ownership` (run after the commit): see below
+- `ownership`: 4 files changed by beta between tranche/D1 and HEAD; 0 failures
+
+## Metrics
+
+```csv
+session,role,module,cache_read,cache_write,input,output,turns,test_runs,module_lines
+55ace54c-7a83-5194-95ba-25472b8de4d7,job,beta,2511679,92664,62,13984,29,5,18
+```
