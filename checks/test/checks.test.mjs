@@ -78,6 +78,12 @@ test('architecture: an import naming no tracked file is counted, not judged', ()
   assert.match(r.summary, /\(1 naming no tracked file, not judged\)/);
 });
 
+test('architecture: named modules limit the check to their own files', () => {
+  const { root } = repo(base({ 'src/a/index.mjs': "import { b } from '../b/index.mjs';\n", 'stray.mjs': 'x' }));
+  assert.deepEqual(checkArchitecture(root, ['b']).failures, []);
+  assert.equal(checkArchitecture(root, ['a']).failures.length, 1);
+});
+
 test('architecture: the most specific path owns a nested file', () => {
   const m = JSON.parse(MODULES());
   m.modules[0].tests = ['test/'];

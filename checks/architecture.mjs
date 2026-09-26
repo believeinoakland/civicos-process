@@ -1,6 +1,7 @@
 // Check 1, architecture (PROCESS-MECHANICS §8.1; P4): every product file is in exactly one module's
 // paths or tests, and every import is to the module itself or to a module earlier in the order that
-// it declares in `uses`. Usage: node checks/architecture.mjs <product-root>
+// it declares in `uses`. Usage: node checks/architecture.mjs <product-root> [module ...]
+// Named modules limit the check to the files those modules own, which is how a module job runs it.
 import { readFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { readModules, trackedFiles, ownerIndex, notProduct, report } from './lib.mjs';
@@ -22,7 +23,7 @@ export function resolveImport(files, from, spec) {
   return null;
 }
 
-export function checkArchitecture(root) {
+export function checkArchitecture(root, only = []) {
   const state = readModules(root);
   const owner = ownerIndex(state);
   const skip = notProduct(state);
@@ -34,8 +35,9 @@ export function checkArchitecture(root) {
   let product = 0, imports = 0, unresolved = 0;
   for (const f of tracked) {
     if (skip(f)) continue;
-    product++;
     const o = owner(f);
+    if (only.length && (!o || !only.includes(o.module))) continue;
+    product++;
     if (!o) { failures.push(`${f}: owned by no module`); continue; }
     if (!SOURCE.test(f)) continue;
     const me = byId.get(o.module);
@@ -59,6 +61,6 @@ export function checkArchitecture(root) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const { failures, summary } = checkArchitecture(process.argv[2] || '.');
+  const { failures, summary } = checkArchitecture(process.argv[2] || '.', process.argv.slice(3));
   process.exitCode = report('architecture', failures, summary);
 }
