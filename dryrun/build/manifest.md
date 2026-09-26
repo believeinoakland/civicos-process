@@ -4,7 +4,7 @@ The dry run's toy product (PROCESS-MECHANICS §15). Its root is `dryrun/` in `be
 
 ## Tests
 
-Each module's tests: `node --test <module>/test/` from `dryrun/`. No layer tests.
+Each module's tests: `node --test <module>/test/*.test.mjs` from `dryrun/`. No layer tests.
 
 ## Generated artifacts (mechanics §14)
 
