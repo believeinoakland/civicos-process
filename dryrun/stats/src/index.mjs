@@ -8,7 +8,7 @@ export function mean(list) {
 }
 
 // The extreme of a non-empty list of finite numbers, by a loop (no spread, so no argument limit).
-// An empty list is a RangeError; an element that is not a finite number is a TypeError (QUESTION 1).
+// R8: an empty list is a RangeError first; an element that is not a finite number is a TypeError.
 // `pick(x, m)` is Math.max or Math.min, so +0 and -0 come out as those give them.
 function extreme(list, who, pick) {
   if (list.length === 0) throw new RangeError(`${who}: empty list`);
@@ -20,12 +20,12 @@ function extreme(list, who, pick) {
   return m;
 }
 
-// R4–R5: the largest number in a non-empty list; an empty list is a RangeError.
+// R4–R5, R8: the largest number in a non-empty list; an empty list is a RangeError.
 export function max(list) {
   return extreme(list, 'max', Math.max);
 }
 
-// R6–R7: the smallest number in a non-empty list; an empty list is a RangeError.
+// R6–R7, R8: the smallest number in a non-empty list; an empty list is a RangeError.
 export function min(list) {
   return extreme(list, 'min', Math.min);
 }

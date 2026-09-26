@@ -137,14 +137,17 @@ test('R7 min refuses an empty list with a RangeError', () => {
   assert.throws(() => min(new Array(0)), RangeError);
 });
 
-// QUESTION 1's reading of R4 and R6: "numbers" are finite numbers, as for mean (R2) and alpha R4.
-test('R4 R6 max and min refuse an element that is not a finite number with a TypeError', () => {
-  for (const [f, who] of [[max, 'max'], [min, 'min']]) {
+test('R8 max and min refuse an element that is not a finite number with a TypeError; zeros as Math compares them', () => {
+  for (const [f, who, pick] of [[max, 'max', Math.max], [min, 'min', Math.min]]) {
     for (const bad of NOT_FINITE()) {
       for (const list of [[bad], [bad, 1], [1, bad], [1, bad, 2], [...FINITE, bad]]) {
         assert.throws(() => f(list), (e) => e instanceof TypeError && e.message.startsWith(`${who}: not a finite number`),
           `${who}: ${typeof bad} in a list of ${list.length}`);
       }
+    }
+    assert.throws(() => f([]), RangeError); // the empty list is refused first, as a RangeError
+    for (const list of [[0], [-0], [0, -0], [-0, 0], [-0, -0, 0], [1, -0, 0], [-1, 0, -0]]) {
+      assert.ok(Object.is(f(list), pick(...list)), `${who} of [${list.map((x) => Object.is(x, -0) ? '-0' : x)}]`);
     }
   }
 });
