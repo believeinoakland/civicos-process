@@ -18,6 +18,13 @@
 
 - Only R1 was named by a test; R2 (the bundle script) and R3 (purity) were named by none. Fixed: `beta/test/beta.test.mjs` now tests R1 over 500+ lists (edge cases and a seeded spread of magnitudes), R2 on the committed bundle and in a sandbox copy (stale after a change to either source, fresh after a write, stale on any other content), and R3 (input unchanged, no state, nothing printed; the script writes only its own file, `--verify` writes nothing).
 
+## Waiting on
+
+- BOB: an ANSWER to QUESTION 1 (sent 15:39Z) and a ruling on BLOCKED N4 (sent 15:40Z).
+- BOB: word that alpha's `sum` and alpha's work are on `tranche/D3` (N3, N5).
+
+Checks at 15:38Z (before N3): format 0 failures; architecture 0 failures; coverage 3 of 3 live ids named; ownership 2 files, 0 failures. Tests: 5 of 5 pass.
+
 ## QUESTION 1 (to BOB): what "the sum" in R1 means for floating-point numbers
 
 R1 says `total` "returns the sum of the numbers". N4 glosses R1 as "the exact sum". The two readings differ, and not only at N4: `total([1e16, 1, 1])` is `1e16` by left-to-right addition (today's code, and alpha's `add`), but the exact sum `10000000000000002` is representable, so a correctly rounded sum returns that. **Best reading, on which I work meanwhile:** R1's sum is left-to-right IEEE addition, the value alpha's `add`/`sum` give, because N3 makes `total` use `alpha.sum` and the provider's requirements define the arithmetic. The R1 test checks that. If BOB means the correctly rounded exact sum, R1 needs that wording, and alpha's `sum` would need it too for N3 to hold.
