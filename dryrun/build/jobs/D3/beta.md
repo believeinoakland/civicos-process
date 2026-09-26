@@ -72,6 +72,13 @@ No implementation returns exactly `0.3` for `[0.1, 0.2]` while computing the sum
 - `node checks/format.mjs dryrun` · `format: 4 modules, 3 requirements files; 0 failures`
 - `node checks/architecture.mjs dryrun beta` · `architecture: 4 product files, 2 relative imports (0 naming no tracked file, not judged); 0 failures`
 - `node checks/coverage.mjs dryrun beta` · `coverage: 1 modules, 4 of 4 live requirement ids named by a test; 0 failures`
-- `node checks/ownership.mjs dryrun beta tranche/D3` · OWNERSHIP_LINE
+- `node checks/ownership.mjs dryrun beta tranche/D3` · `ownership: 4 files changed by beta between tranche/D3 and HEAD; 0 failures`
 
 **Metrics** · the row below covers this resumed session only. The first session's transcript is not in this container, so its tokens are not counted here. As alpha's REPORT 3 notes, the `session` column is the local transcript id; the cloud session is `session_014VNyoK4tprbsgzVKycE9P3`.
+
+## Metrics
+
+```csv
+session,role,module,cache_read,cache_write,input,output,turns,test_runs,module_lines
+f3174b37-f0ff-5609-ac6d-474ec1a74369,job,beta,1421144,75210,36,9557,18,6,19
+```
