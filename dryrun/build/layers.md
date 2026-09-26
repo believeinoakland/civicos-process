@@ -2,4 +2,5 @@
 
 | layer | name | contract | modules |
 | --- | --- | --- | --- |
-| 1 | Arithmetic | Pure functions; no state. | alpha, beta |
+| 1 | Arithmetic | Pure functions; no state. | legacy, alpha, beta |
+| 2 | Statistics | Pure functions over layer 1. | stats |

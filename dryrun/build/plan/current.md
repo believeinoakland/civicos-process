@@ -1,12 +1,20 @@
-# Plan: the dry run
+# Plan: dry run D3
 
-**Status** · The dry run of the mechanics (§15); the tranche id is in the job's first message. Each entry is written to drive a path of the revision; do exactly what it says.
+**Status** · OPEN. The third dry run of the mechanics (§15; `CERTIFICATION.md`, D3). BOB's session: BOB_SESSION. Each entry is written to drive a path of the mechanics: do exactly what it says.
 
 ## Layer 1
 
 **alpha**
-- N1 · Add a new provided service `sum(list) → number`, the sum of a list of numbers. Its behaviour for a list containing something that is not a number is deliberately unstated: before you implement `sum`, send BOB a `QUESTION`, stating your best reading. BOB answers by adding the service to your requirements on the tranche branch; merge it, then implement and test `sum` against the requirements as BOB wrote them.
-- N2 · Your change makes `beta`'s generated artifact `beta/dist/bundle.txt` stale. Do not regenerate it (it is beta's): send BOB a `REPORT` saying so.
+- N1 · Add a provided service `sum(list) → number`, the sum of a list of numbers. Its behaviour for an element that is not a number is deliberately unstated: send BOB a `QUESTION` with your best reading, and carry on with N2 while you wait; implement `sum` against the requirements BOB writes.
+- N2 · Write a `REPORT` in your job record that `legacy/dist/legacy.bundle.txt` is stale after your change, and push it, but deliberately do NOT send it to BOB (it tests that BOB finds what a lost message would have said).
 
 **beta**
-- N3 · Make `total` use `alpha.sum` instead of looping over `alpha.add`. `sum` does not exist yet: first add R1's tests for `total` as it stands, then wait for BOB's `CHANGE` saying alpha's work is on the tranche branch; merge it and complete N3.
+- N3 · Make `total` use `alpha.sum` once BOB tells you it is on the tranche branch.
+- N4 · Make `total([0.1, 0.2])` return exactly `0.3`, without changing R1 (the exact sum). After three honest attempts, if it cannot be done as written, send BOB `BLOCKED` and continue with the rest.
+- N5 · After alpha's work is on the tranche branch, check `alpha.add('1', 2)` and report what it returns to BOB as a `REPORT` about alpha, against alpha's R1.
+
+## Layer 2
+
+**stats**
+- N6 · Extract `mean` from `legacy` into `stats`: `stats.mean` meets `stats` R1–R3, and `mean` is removed from `legacy/index.mjs`, which gains nothing.
+- N7 · Check `legacy.max([])` and report what it returns to BOB as a `REPORT` about `legacy` (a module with no job).

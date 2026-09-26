@@ -50,4 +50,16 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 
 - **D1** (done): the channel, one layer's happy path; not certified, flaws fixed.
 - **D2** (running): the same paths on the revised mechanics; it re-proves C1, C2, J1, J4, J6, B1, B6 and nothing else.
-- **D3** (to design after D2): a two-layer toy with a legacy module and three jobs, driving C3–C6, J2, J3, J5, B2–B5, B7, B8, with deliberate faults: a job archived mid-run, a message not sent, BOB refreshed mid-tranche.
+- **D3** (designed 2026-09-26, prepared on `prep/D3`; runs after D2 closes, on the mechanics with M1):
+
+  **Toy product for D3.** Layer 1: `alpha` and `beta` as now, and `legacy`, a legacy module (`legacy/index.mjs` holds `mean(list)` and `max(list)`; `legacy/dist/legacy.bundle.txt` is generated from alpha's and legacy's source). Layer 2: `stats`, extracted `from` legacy, using alpha. The toy's own `main` is a branch, `dryrun-main/D3`, so the tranche can close onto it (B8) while this repository's `main` keeps moving.
+
+  **Entries, each driving rows of the matrix:**
+  - alpha: add `sum`, with its refusal of non-numbers unstated: a QUESTION on its best reading, carrying on with its other entries meanwhile (J1, J2). Also: write a REPORT in the job record and push it, but do not send it (C3: the backstop must find it).
+  - beta: move `total` onto `sum` (B1, B2); an entry that cannot pass as written, "`total([0.1, 0.2])` returns exactly `0.3`", to be BLOCKED after three honest attempts (J3); and a REPORT that `alpha.add('1', 2)` returns `'12'`, a flaw in alpha, sent after alpha has completed (B3: BOB forwards it, alpha's job re-opens and records completion again).
+  - stats (layer 2): extract `mean` from `legacy`, removing it there and adding nothing (J5); it branches from the closed layer 1 and uses `sum` (B7); and a REPORT that `legacy.max([])` returns `-Infinity`, a flaw in a module with no job (B4: an entry in `next.md`).
+  - alpha's change makes `legacy/dist/legacy.bundle.txt` stale; `legacy` has no job, so BOB regenerates it at layer 1's close (B5).
+
+  **Faults BOB injects:** archive `beta`'s session after it has pushed its first commit and before it completes (C4: the backstop finds it quiet, a new session on the same branch resumes from the record); hand D3 to a fresh BOB session during layer 2, with a handoff, the successor writing its id per M1 and finishing D3 (C5).
+
+  **Closing:** layer 2 closes, the tranche fast-forwards `dryrun-main/D3`, and the plan is archived with outcomes and usage (B8). Every row the run proves is marked PROVEN in this matrix with its evidence in `RUNS.md`.
