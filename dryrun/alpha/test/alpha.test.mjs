@@ -28,7 +28,7 @@ test('R1 add returns a + b for every pair of finite numbers in each class', () =
   assert.equal(add(Number.MAX_VALUE, Number.MAX_VALUE), Infinity); // a + b, overflow included
 });
 
-test('R2 add is pure: no state, no input or output', () => {
+test('R2 add and sum are pure: no state, no input or output', () => {
   const globalsBefore = Object.getOwnPropertyNames(globalThis).sort();
   const writes = [];
   const out = process.stdout.write, err = process.stderr.write;
@@ -36,29 +36,45 @@ test('R2 add is pure: no state, no input or output', () => {
   process.stderr.write = (...a) => { writes.push(a); return true; };
   let first, again;
   try {
-    first = FINITE.map((a, i) => add(a, FINITE[(i * 7) % FINITE.length]));
-    // Interleave other calls, then repeat: results depend on the arguments alone.
-    for (const a of FINITE) add(a, a);
-    again = FINITE.map((a, i) => add(a, FINITE[(i * 7) % FINITE.length]));
+    const run = () => [...FINITE.map((a, i) => add(a, FINITE[(i * 7) % FINITE.length])),
+      ...FINITE.map((_, i) => sum(FINITE.slice(i)))];
+    first = run();
+    // Interleave other calls (throwing ones included), then repeat: results depend on the arguments alone.
+    for (const a of FINITE) { add(a, a); sum([a, a]); assert.throws(() => sum([a, NaN])); }
+    again = run();
   } finally {
     process.stdout.write = out; process.stderr.write = err;
   }
   assert.deepEqual(again, first);
   assert.deepEqual(writes, []);
   assert.deepEqual(Object.getOwnPropertyNames(globalThis).sort(), globalsBefore);
+  const list = [1, 2, 3];
+  sum(list);
+  assert.deepEqual(list, [1, 2, 3]); // the argument is not changed
 });
 
-// sum: pending its requirement ids from BOB (job record Q1); written to the best reading.
-test('sum returns the left-to-right sum of finite numbers, 0 for an empty list', () => {
-  assert.equal(sum([]), 0);
-  assert.equal(sum([2, 3]), 5);
-  let t = 0;
-  for (const x of FINITE) t += x;
-  assert.ok(Object.is(sum(FINITE), t));
+test('R3 sum adds the elements left to right with add, and returns 0 for an empty list', () => {
+  assert.ok(Object.is(sum([]), 0));
+  const leftToRight = (list) => list.reduce((t, x) => add(t, x), 0);
+  // Every prefix of the classes and of the seeded values, forwards and backwards.
+  for (const base of [EDGES, FINITE, [...FINITE].reverse()]) {
+    for (let n = 1; n <= base.length; n++) {
+      const list = base.slice(0, n);
+      assert.ok(Object.is(sum(list), leftToRight(list)), `sum of ${n}`);
+    }
+  }
+  // Order matters: ordinary floating-point addition, not a correctly rounded sum.
+  assert.equal(sum([0.1, 0.2]), 0.30000000000000004);
+  assert.equal(sum([1e16, 1, 1]), 1e16);
+  assert.equal(sum([1, 1, 1e16]), 1e16 + 2);
+  assert.ok(Object.is(sum([-0]), 0)); // 0 + -0 is +0, as add gives
 });
 
-test('sum throws a TypeError for an element that is not a finite number', () => {
-  for (const bad of ['1', NaN, Infinity, -Infinity, null, undefined, {}, [1], true, 1n]) {
-    assert.throws(() => sum([1, bad, 2]), TypeError, String(bad));
+test('R4 sum throws a TypeError for an element that is not a finite number, coercing and skipping nothing', () => {
+  const BAD = ['1', '', NaN, Infinity, -Infinity, null, undefined, {}, [1], [], true, false, 1n, Symbol('x'), () => 1, new Number(1)];
+  for (const bad of BAD) {
+    for (const list of [[bad], [bad, 1], [1, bad], [1, bad, 2], [...FINITE, bad]]) {
+      assert.throws(() => sum(list), TypeError, `${typeof bad} in a list of ${list.length}`);
+    }
   }
 });

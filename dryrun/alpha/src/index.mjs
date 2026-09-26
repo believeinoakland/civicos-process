@@ -3,7 +3,7 @@ export function add(a, b) {
   return a + b;
 }
 
-// The sum of a list of finite numbers, left to right with `add`; 0 for an empty list.
+// R3–R4: left to right with `add`, 0 for an empty list; a non-finite element throws.
 export function sum(list) {
   let t = 0;
   for (const x of list) {
