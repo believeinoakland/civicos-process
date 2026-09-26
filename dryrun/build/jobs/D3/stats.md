@@ -29,6 +29,10 @@ No ambiguity found; no QUESTION sent.
 
 My removal of `mean` from `legacy/index.mjs` makes `legacy/dist/legacy.bundle.txt` stale (`node legacy/scripts/bundle.mjs --verify` prints `legacy bundle: STALE`). legacy has no job; per mechanics §14 I did not regenerate it. BOB regenerates it when the layer closes (`node legacy/scripts/bundle.mjs`, from `dryrun/`). No other generated artifact reads stats' or legacy's source.
 
+## CHANGE (BOB, 15:57Z): BOB takeover
+
+BOB #38's successor, `session_01CwZ4uAzLd9wAPzEWVpNVRY`, took over; only the plan's Status line changed on `tranche/D3` (`f5f19a2`), so nothing I read changed and no merge was needed. My REPORT and COMPLETE (15:56Z) were already addressed to that session, read fresh from the Status line. Nothing to redo.
+
 ## Completion
 
 **Entries applied** · N6, N7 (above).
