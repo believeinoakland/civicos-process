@@ -27,3 +27,9 @@ The same toy tranche, from the toy's starting state on `main`, on the mechanics 
 Result, 2026-09-26 15:35Z: **every path of this run worked as written, with no fix to the process.** QUESTION 15:23 → requirement change and ANSWER 15:25 → alpha merged and implemented; alpha's REPORT (stale bundle) 15:27; COMPLETE 15:28; early merge (f5e700f) and CHANGE 15:31; beta COMPLETE 15:33; layer close clean (ownership, merge, bundle fresh, 8 tests, format, architecture, coverage 8 of 8); metrics collected (`build/metrics/D2.csv` on `tranche/D2`: alpha 1,653,000 tokens processed at recording, beta 1,739,000). Messages arrived 1–2 minutes after scheduling. BOB reviewed the user's requirements when the provider's meaning changed (B2), which BOB had missed in D1. The jobs' first messages were minimal: `roles/JOB.md` was enough. Beta fixed two flaws in its own module (untested R2–R3; `--verify` crashing on a missing bundle) and pointed out stale wording in its requirements' Uses, which BOB corrected at the close. D2 proves only its own rows of `CERTIFICATION.md`; D3 proves the rest.
 
 BOB's own slip after D2, recorded because it is the kind of fault the process must survive: merging the D3 preparation into `main` hit a conflict, and BOB's command committed and pushed it with conflict markers in `dryrun/build/modules.json` (0738700). The format check caught it at once (the file did not parse); it was resolved forward in the next commit, with no history rewritten. BOB's commands that merge now stop on the first failure (`set -e`) and look for markers in the files before committing.
+
+## D3 · 2026-09-26 · the rows D1 and D2 did not reach
+
+The plan in `build/plan/current.md` (D3) and the design in `CERTIFICATION.md`. The toy's `main` is the branch `dryrun-main/D3`.
+
+Result: pending.
