@@ -65,9 +65,9 @@ A failed tranche is abandoned without touching `main`.
 
 **Open (BOB).** BOB sets `next.md` as tranche `T<n>`: entries grouped by module, modules by layer, and tells Bob in one line that it has opened and what it covers. BOB asks Bob for his weekly meter reading, the one measure only he can take (P14); the tranche does not wait for it. `next.md` becomes `current.md`, and a new `next.md` is created.
 
-**Each layer.** BOB spawns, **concurrently**, one job for each module of the layer that has entries. Every job stays active until every job of the layer has recorded completion. A change one job communicates to another, through BOB, **re-opens** that other job even if it had completed: it processes the change and records completion again. When all are complete, BOB regenerates the layer's generated artifacts (§14), merges the job branches (§4), closes each job's pull request, collects each job's metrics row (§10), archives the jobs' sessions, and starts the next layer.
+**Each layer.** BOB spawns, **concurrently**, one job for each module of the layer that has entries. Every job stays active until every job of the layer has recorded completion. A change one job communicates to another, through BOB, **re-opens** that other job even if it had completed: it processes the change and records completion again. When all are complete, BOB regenerates the layer's generated artifacts (§14), merges the job branches (§4), sends each job `CLOSE`, collects each job's metrics row (§10), archives the jobs' sessions, and starts the next layer.
 
-**Watching a layer.** The channel of §13 wakes BOB when a job speaks. As a backstop against a job that hangs or dies without speaking, BOB checks every running job's session state every 20 minutes while a layer runs (Bob, 2026-09-26). A job whose session has failed, or has sat idle with nothing recorded since BOB last spoke to it, is resumed with a message, or restarted as a new session on the same branch told to read its job record and continue.
+**Watching a layer.** A job's message (§13) wakes BOB when it speaks. As a backstop against a job that hangs or dies without speaking, BOB checks every running job's session state every 20 minutes while a layer runs (Bob, 2026-09-26). A job whose session has failed, or has sat idle with nothing recorded since BOB last spoke to it, is resumed with a message, or restarted as a new session on the same branch told to read its job record and continue.
 
 **While a tranche runs (P18).** BOB prepares what comes next, on the tranche branch, in this order of value: the next tranche's plan, ready to open; the requirements of the next tranche's modules and of the layers after it (bulk reading goes to short-lived workers, whose output BOB reviews before anything is committed, and product-module requirements go to Bob); the extraction map for each coming legacy extraction (which functions, tables and ops each target module takes). BOB keeps enough of its own attention for the running jobs: a job's question or completion comes first.
 
@@ -75,7 +75,7 @@ A failed tranche is abandoned without touching `main`.
 
 ## 6. The module job (P6, P7, P8, P11)
 
-1. **Start** on `job/T<n>/<module>`, and subscribe to the activity of the job's pull request, which BOB opened and names in the job's first message (§13).
+1. **Start** on `job/T<n>/<module>`. BOB's first message gives the job its own session id and BOB's, for the channel of §13.
 2. **Read in full**, never scanned: its own requirements (both parts); the public part of each module it uses (§3); its layer's contract; its code and tests; its entries.
 3. **Ambiguity.** Ask BOB (`QUESTION`, §13). Carry on with the rest of the job against your best reading, stated in the question; stop only if the answer decides what you would build next. When BOB answers, merge the tranche branch if BOB changed a requirement, and bring the work in line with the answer.
 4. **Change the module** to apply every entry. Deal with every flaw or improvement found in the module in the job whenever possible. Defer one to `next.md` through BOB only when it must.
@@ -142,11 +142,14 @@ A release runs the full regression, then follows the distribution process (a sep
 
 ## 13. Communication between BOB and a job (P9, P10, P13)
 
-BOB's session cannot message a job's session, and a job cannot message BOB's. **They speak through the job's pull request.** Before starting a job, BOB commits a started job record (`build/jobs/T<n>/<module>.md`, status STARTED) on the job's branch, opens a draft pull request from it into the tranche branch titled `T<n> <module>`, subscribes to its activity, and names it in the job's first message; the job subscribes to it first thing (§6 step 1). A comment on the pull request wakes the other side.
+Measured in the D1 dry run (2026-09-26), and the channel the old process measured first (bio `docs/development/ORCHESTRATION.md`, "The channels", BOB #28, 2026-09-22). **What does not work:** a comment on a pull request wakes nobody, because every session posts as the same account; firing a standing routine on demand starts a new, empty session instead of reaching the one it names; session-to-session messaging reaches no cloud session.
 
-- **A message is a pull request comment whose first line is its kind:** from the job, `QUESTION`, `REPORT` (a flaw or improvement in another module, a generated artifact it made stale), `COMPLETE` or `BLOCKED` (tests will not pass after three honest attempts); from BOB, `ANSWER`, `CHANGE` (a forwarded change, or a file on the tranche branch the job must merge) or `CLOSE`. The rest of the comment is the content.
-- **The job record stays the durable record.** A `QUESTION`, `REPORT` or `COMPLETE` is also written in the job record, which is pushed first.
-- **Silence is not an answer.** A side that expects an answer and has none keeps working where it can; BOB's backstop check (§5) finds a job that has gone quiet.
+**The channel is a one-time routine into the other side's session.** To send a message, a session calls `create_trigger` (claude-code-remote) with `persistent_session_id` = the recipient's session id (never a name: a name is not an address), `run_once_at` = the next whole minute in UTC, `initiation` = `own_followup`, a short `name`, and the message as `prompt`. It arrives as a new turn in that session, within one to two minutes. BOB gives every job its own session id and BOB's in the job's first message.
+
+- **A message's first line is `From <sender> (<tranche>): <KIND>`.** From a job: `QUESTION`, `REPORT` (a flaw or improvement in another module, a generated artifact it made stale, a flaw in the process's tools), `COMPLETE`, `BLOCKED` (tests will not pass after three honest attempts). From BOB: `ANSWER`, `CHANGE` (a forwarded change, or a file on the tranche branch the job must merge), `CLOSE`.
+- **State drives; the message only accelerates.** Whatever a message says is first committed and pushed where the recipient reads it (the job record, the tranche branch), and the recipient checks it there before acting. A lost message then loses nothing: BOB's backstop check (§5) finds the state.
+- **A side that waits says what it waits on,** in its record and its last message, and keeps working where it can.
+- **Never fire a standing routine to reach a session,** and delete any such routine found bound to a job's or BOB's session.
 
 ## 14. Generated artifacts (P7, P12)
 
