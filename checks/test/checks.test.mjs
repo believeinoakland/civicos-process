@@ -121,8 +121,38 @@ test('ownership: an extracting module may remove from its legacy module, never a
   r.commit({ 'src/legacy.mjs': 'export const old = 1;\n' });
   assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, []);
   r.commit({ 'src/legacy.mjs': 'export const old = 1;\nexport const added = 3;\n' });
-  assert.match(checkOwnership(r.root, 'b', 'HEAD~1').failures.join('\n'), /may only remove code from legacy/);
+  assert.match(checkOwnership(r.root, 'b', 'HEAD~1').failures.join('\n'), /src\/legacy\.mjs:2-2: added lines that neither import from nor use the module's own paths/);
   assert.match(checkOwnership(r.root, 'a', 'HEAD~1').failures.join('\n'), /outside a's paths/);
+});
+
+const BODY = 'export function moved(x) {\n  const y = x * 2;\n  const z = y + 1;\n  const w = z * 3;\n  const v = w - 2;\n  const u = v / 2;\n  return u + y;\n}\n';
+const CALLER = BODY + '\nexport class Store {\n  run(x) {\n    return moved(x);\n  }\n}\n';
+
+test('ownership: an extraction may rewire the legacy caller of the moved code to its own module (D4)', () => {
+  const r = repo(base({ 'src/legacy.mjs': CALLER }));
+  r.commit({
+    'src/b/moved.mjs': BODY,
+    'src/legacy.mjs': "import {\n  moved,\n} from './b/moved.mjs';\n\nexport { moved as movedAgain } from './b/moved.mjs';\nexport class Store {\n  run(x) {\n    return moved(x);\n  }\n  twice(x) {\n    return moved(moved(x));\n  }\n}\n",
+  });
+  const c = checkOwnership(r.root, 'b', 'HEAD~1');
+  assert.deepEqual(c.failures, []);
+  assert.ok(c.added.includes('src/legacy.mjs:1  import {'), c.added.join('\n'));
+  assert.ok(c.added.some((a) => /return moved\(moved\(x\)\)/.test(a)));
+  assert.match(c.summary, /legacy: \d+ line\(s\) added, \d+ removed/);
+});
+
+test('ownership: an extraction fails on an added import of another module, an unrelated addition, or a net addition', () => {
+  const r = repo(base({ 'src/legacy.mjs': CALLER }));
+  r.commit({
+    'src/b/moved.mjs': 'export function moved(x) { return x * 2 + 1; }\n',
+    'src/legacy.mjs': "import { moved } from './b/moved.mjs';\nimport { a } from './a/index.mjs';\n\nexport class Store {\n  run(x) {\n    return moved(x);\n  }\n}\n\nexport const unrelated = 3;\n",
+  });
+  const f = checkOwnership(r.root, 'b', 'HEAD~1').failures.join('\n');
+  assert.match(f, /src\/legacy\.mjs:2: adds to an import or re-export of \.\/a\/index\.mjs, which is not the module's own/);
+  assert.match(f, /src\/legacy\.mjs:10-10: added lines that neither import from nor use the module's own paths/);
+  const r2 = repo(base({ 'src/legacy.mjs': 'export function moved() { return 1; }\n' }));
+  r2.commit({ 'src/b/moved.mjs': 'export function moved() { return 1; }\n', 'src/legacy.mjs': "import { moved } from './b/moved.mjs';\nexport function one() {\n  return moved();\n}\nexport const two = () => moved();\n" });
+  assert.match(checkOwnership(r2.root, 'b', 'HEAD~1').failures.join('\n'), /legacy: b adds 5 line\(s\) and removes 1; an extraction's net change to its legacy module is a removal/);
 });
 
 test('ownership: a base that exists only as origin/<base> is found there', () => {

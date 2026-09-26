@@ -25,6 +25,7 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 | J3 | BLOCKED: tests will not pass after three attempts | BOB works it: re-scope or defer the entry; the job completes the rest | PROVEN D3 (beta BLOCKED on N4, `290eabb`; dropped by BOB, `caa0f42`; the rest completed) |
 | J4 | every requirement named by a test; coverage, architecture, format, ownership run as `roles/JOB.md` writes them | all four checks' summary lines in the record | PROVEN D1 (after fixes); re-proven D2, D3 |
 | J5 | extraction from a legacy module: the job removes the moved code, and only removes it | ownership passes on removal and fails on an addition | PROVEN D3 (ownership 0 failures on stats's removal; 1 failure, exit 1, on an added line) |
+| J8 | extraction whose moved code has a caller in the legacy module (BOB #42, bio TRANSITION §6): the job moves it, rewires the legacy caller by an import from its own paths and delegating lines, the legacy net change a removal | ownership passes on the rewiring and lists every added legacy line; fails on an added import of another module, on added lines that use nothing of the module's own, and on a net addition | PLANNED D4 |
 | J6 | metrics row in the job's own record, collected by BOB | the row is in `build/metrics/<tranche>.csv` | PROVEN D1; D3 (rows read from `archive_session`'s usage; see RUNS D3 finding 2) |
 | J7 | a job runs out of context mid-job | it records its state and a new session continues from the record | T1 at the earliest (a toy cannot fill a context); the check: every job's context use is read at each backstop |
 
@@ -51,6 +52,7 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 
 - **D1** (done): the channel, one layer's happy path; not certified, flaws fixed.
 - **D2** (done, 15:35Z): the same paths on the revised mechanics, clean; re-proved C1, C2, J1, J4, J6, B1, B6, and proved B2.
+- **D4** (planned): J8, by one extraction job (`stats`) moving `max` and `min` out of `legacy`, where `range` calls both; `legacy` placed after `stats` in the order, as BIO's `legacy-store` sits after the modules extracted from it. One job suffices: J8 is the only path the revision touches.
 - **D3** (done, 16:02Z; see `RUNS.md`): proved C3, C4, C5, C7, J2, J3, J5, B3, B4, B5, B7, B8; C6 partly; re-proved C1, C2, J1, J4, J6, B2, B6. Its design:
 
   **Toy product for D3.** Layer 1: `alpha` and `beta` as now, and `legacy`, a legacy module (`legacy/index.mjs` holds `mean(list)` and `max(list)`; `legacy/dist/legacy.bundle.txt` is generated from alpha's and legacy's source). Layer 2: `stats`, extracted `from` legacy, using alpha. The toy's own `main` is a branch, `dryrun-main/D3`, so the tranche can close onto it (B8) while this repository's `main` keeps moving.

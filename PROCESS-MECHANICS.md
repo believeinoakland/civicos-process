@@ -1,6 +1,6 @@
 # The process mechanics
 
-**Status** · APPROVED by Bob 2026-09-25 (second draft, written by BOB #36). REVISED 2026-09-26 by BOB #38 after T1 found the mechanics incomplete (bio TRANSITION.md C14): §4, §5, §6, §10, and the new §13 (communication), §14 (generated artifacts) and §15 (certification); proven by the dry runs D1–D3 (`dryrun/RUNS.md`, `dryrun/CERTIFICATION.md`); D3's nine findings folded in the same day. This document describes HOW the approved principles (`PROCESS-DESIGN.md`, P1–P16) are carried out. Each mechanism cites the principle it serves (P16). Where it and the principles disagree, the principles win. Its home is this repository, beside the principles (P2), since 2026-09-26. The product repository it is applied to is `believeinoakland/bio`.
+**Status** · APPROVED by Bob 2026-09-25 (second draft, written by BOB #36). REVISED 2026-09-26 by BOB #42 (§12.2, §8.3: an extraction rewires the legacy code that called the moved code; certified by D4) and by BOB #38 after T1 found the mechanics incomplete (bio TRANSITION.md C14): §4, §5, §6, §10, and the new §13 (communication), §14 (generated artifacts) and §15 (certification); proven by the dry runs D1–D3 (`dryrun/RUNS.md`, `dryrun/CERTIFICATION.md`); D3's nine findings folded in the same day. This document describes HOW the approved principles (`PROCESS-DESIGN.md`, P1–P16) are carried out. Each mechanism cites the principle it serves (P16). Where it and the principles disagree, the principles win. Its home is this repository, beside the principles (P2), since 2026-09-26. The product repository it is applied to is `believeinoakland/bio`.
 
 ## 1. Where things live (P2, P5)
 
@@ -112,7 +112,7 @@ Each question comes with a recommendation. When Bob rules a service change, BOB 
 Small tools in the process repository, and the only process tooling:
 1. **Architecture:** every product file is in exactly one module's `paths`, and every import is to the module itself or to a module earlier in the order that is declared in `uses`.
 2. **Coverage:** every live requirement id is named by at least one of the module's tests.
-3. **Ownership:** a job's diff touches only its module's `paths` and `tests` and its job record.
+3. **Ownership:** a job's diff touches only its module's `paths` and `tests` and its job record; an extraction job's additions to its legacy module are only imports from its own paths and lines that use them, with a net removal, each listed for BOB (§12.2).
 4. **Format:** the build state's files parse, and every id they reference exists.
 
 A new check is added only by BOB with Bob, and cites the principle it serves.
@@ -140,7 +140,7 @@ A release runs the full regression, then follows the distribution process (a sep
 ## 12. Starting BIO on this process
 
 1. **Canon and build state.** BOB, with Bob, assembles `requirements/` from the design corpus, then drafts `manifest.md`, `layers.md`, `modules.json` and the target modules' requirements.
-2. **The monoliths.** `store.mjs`, `index.mjs` and `app.html` are each registered as a temporary **legacy module**. An entry to extract a target module from a legacy module is applied by that target module's job, which is the one exception to ownership: it may remove the moved code from the legacy file. Extraction runs bottom-up, a layer at a time. A legacy module is retired when it is empty.
+2. **The monoliths.** `store.mjs`, `index.mjs` and `app.html` are each registered as a temporary **legacy module**, placed in the order after the modules extracted from it, so that it may use them (P4). An entry to extract a target module from a legacy module is applied by that target module's job, which is the one exception to ownership: in the legacy module's files it may remove the moved code, and **rewire the legacy code that called it** to the target module, adding only an import (or re-export) from its own paths and lines that use a name so imported (a delegating method, a call now made to the moved function); the legacy module's net change is a removal. The ownership check enforces this and lists every line added to the legacy module, and BOB reads that list at the layer close before merging (certification: D4, `dryrun/CERTIFICATION.md` J8). Extraction runs bottom-up, a layer at a time. A legacy module is retired when it is empty.
 3. **Tests.** Each extracted module's job writes its requirement-named tests at its interface. Source-anchored tests are retired with the legacy code they anchor on.
 4. **The old plan.** BOB rewrites each of the 225 open rows that affects the product as an entry against a target module, and drops the rest.
 5. **Batch30 is NOT landed** (Bob, 2026-09-25: no tokens for it). It stays reachable in `snapshot/pre-refactor-2026-09-25`, with all the old process's unmerged work. **Its value is judged by the requirements, not in advance:** a target module's extraction job reads the legacy and snapshot code for its module, keeps what meets its requirements, and discards the rest. The old process's own tooling is not carried forward.
