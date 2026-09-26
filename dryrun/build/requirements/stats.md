@@ -22,6 +22,9 @@ Statistics over lists of numbers.
 - **R6** Returns the smallest number in a non-empty `list`.
 - **R7** Refuses an empty `list` with a `RangeError`.
 
+**max and min, both**
+- **R8** Refuse an element that is not a finite number with a `TypeError`, coercing and skipping nothing; an empty list is refused first (R5, R7). `-0` and `+0` compare as `Math.max` and `Math.min` compare them. (stats QUESTION 1, D4.)
+
 ## Private
 
 ### Uses
