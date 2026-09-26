@@ -148,6 +148,14 @@ test('format: a use of a later module, a doubly claimed path, a stale layer row 
   assert.match(f, /zz\.md: ids given twice: R1/);
 });
 
+test('format: an entry may be listed under two modules, never twice under one', () => {
+  const plan = '# Plan\n\n**a**\n- N1 · x\n- D-5 · y\n\n**b** (3 ids)\n- N1 · x\n';
+  let { root } = repo(base({ 'build/plan/current.md': plan }));
+  assert.deepEqual(checkFormat(root).failures, []);
+  ({ root } = repo(base({ 'build/plan/current.md': plan + '- D-5 · again\n- D-5 · twice\n' })));
+  assert.deepEqual(checkFormat(root).failures, ['build/plan/current.md: entry ids given twice under one module: D-5']);
+});
+
 test('format: modules out of layer order fail', () => {
   const m = JSON.parse(MODULES());
   m.modules.push({ id: 'c', layer: 1, paths: ['src/c/'], tests: [], uses: [] });

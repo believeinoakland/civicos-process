@@ -71,12 +71,19 @@ export function checkFormat(root) {
     if (dup.length) failures.push(`${at}: ids given twice: ${[...new Set(dup)].join(' ')}`);
   }
 
-  // The plan: every entry id once.
+  // The plan: an entry id once per module. An entry shared by two modules (a provided service and its
+  // user) is listed under each; a module heading is a line that is only a bold module id, or several.
   for (const plan of ['build/plan/current.md', 'build/plan/next.md']) {
     if (!existsSync(join(root, plan))) continue;
-    const ids = [...readFileSync(join(root, plan), 'utf8').matchAll(/^- (N\d+) · /gm)].map((m) => m[1]);
-    const dup = ids.filter((r, i) => ids.indexOf(r) !== i);
-    if (dup.length) failures.push(`${plan}: entry ids given twice: ${[...new Set(dup)].join(' ')}`);
+    let under = '';
+    const keys = [];
+    for (const line of readFileSync(join(root, plan), 'utf8').split('\n')) {
+      if (/^\*\*[a-z][a-z0-9-]*\*\*(,\s*\*\*[a-z][a-z0-9-]*\*\*)*(\s*\(.*\))?\s*$/.test(line) || /^#/.test(line)) { under = line; continue; }
+      const m = line.match(/^- ((?:N|T\d+-)\d+|[A-Z]+-\d+) · /);
+      if (m) keys.push(`${m[1]}\u0000${under}`);
+    }
+    const dup = keys.filter((k, i) => keys.indexOf(k) !== i).map((k) => k.split('\u0000')[0]);
+    if (dup.length) failures.push(`${plan}: entry ids given twice under one module: ${[...new Set(dup)].join(' ')}`);
   }
   return { failures, summary: `${mods.length} modules, ${reqFiles} requirements files` };
 }
