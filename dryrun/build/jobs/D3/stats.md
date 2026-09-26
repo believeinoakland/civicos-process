@@ -45,4 +45,11 @@ My removal of `mean` from `legacy/index.mjs` makes `legacy/dist/legacy.bundle.tx
 - `node checks/format.mjs dryrun` · `format: 4 modules, 3 requirements files; 0 failures`
 - `node checks/architecture.mjs dryrun stats` · `architecture: 2 product files, 3 relative imports (0 naming no tracked file, not judged); 0 failures`
 - `node checks/coverage.mjs dryrun stats` · `coverage: 1 modules, 3 of 3 live requirement ids named by a test; 0 failures`
-- `node checks/ownership.mjs dryrun stats tranche/D3` · OWNERSHIP_LINE
+- `node checks/ownership.mjs dryrun stats tranche/D3` · `ownership: 4 files changed by stats between tranche/D3 and HEAD; 0 failures` (stats/src, stats/test, the removal in legacy/index.mjs, this record)
+
+## Metrics
+
+```csv
+session,role,module,cache_read,cache_write,input,output,turns,test_runs,module_lines
+1a7b0127-d4bc-501e-baa8-4bb3d305aca1,job,stats,953091,72635,26,6754,13,2,8
+```
