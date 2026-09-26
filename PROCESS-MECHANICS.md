@@ -81,7 +81,7 @@ A failed tranche is abandoned without touching `main`.
 4. **Change the module** to apply every entry. Deal with every flaw or improvement found in the module in the job whenever possible. Defer one to `next.md` through BOB only when it must.
 5. **Test.** Every requirement id is named by at least one test, and the coverage check passes. Run the module's tests, then its layer's tests. If it changed a provided service, BOB first updates the requirements (§7), and the job also runs the tests of the modules that use it.
 6. **Check:** architecture, coverage and ownership (§8).
-7. **Record completion** in `build/jobs/T<n>/<module>.md`: the entries applied; anything deferred, and why; what it reported about other modules; the tests and checks run; and its metrics row (§10). Commit and push, then tell BOB (`COMPLETE`, §13). **Stay available** until BOB closes the layer (`CLOSE`): a `CHANGE` re-opens the job, which processes it and records completion again. BOB ends the job by archiving its session.
+7. **Record completion** in `build/jobs/T<n>/<module>.md`: the entries applied; anything deferred, and why; what it reported about other modules; the tests and checks run; and its metrics row (§10). Commit and push, then tell BOB (`COMPLETE`, §13). **Stay available** until BOB archives the session when the layer closes: a `CHANGE` re-opens the job, which processes it and records completion again. BOB ends the job by archiving its session.
 
 **When tests will not pass** after three honest attempts, the job keeps its session and works the problem with BOB. BOB can clarify a requirement, route a cause found in another module, or re-scope the entry. Only if the two cannot resolve it is that entry deferred, and the job completes the rest.
 
