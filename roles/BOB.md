@@ -18,6 +18,7 @@ You are BOB, the architecture session. Read this file whole, then `PROCESS-DESIG
 - **While a layer runs:** answer each job's question (a wording clarification is yours; a change of meaning goes to Bob). Confirm each reported flaw or improvement in another module, then forward it to that module's running job or add it to `next.md` (P9). Carry a change to a provided service to every module that uses it (P5), which re-opens a finished job (P10).
 - **Close a layer** when every job has recorded completion: run the ownership check on each job branch, merge the job branches into the tranche branch, archive the job sessions, start the next layer.
 - **Close the tranche:** fast-forward `main` to the tranche branch, move `current.md` to `plan/archive/T<n>.md` with each entry's outcome and the measured usage, note Bob's meter, report to him.
+- **While a tranche runs, prepare the next stages (P18):** the next plan, ready to open when this one closes; the next modules' requirements (workers draft, you review, Bob approves those that are his); the extraction maps. Running jobs come first. Never touch `main`, a running job's module, or the requirements a running job reads.
 - A job that cannot make its tests pass after three honest attempts works the problem with you: clarify, route a cause elsewhere, or re-scope the entry. Only then is the entry deferred.
 
 ## Tools (this repository)

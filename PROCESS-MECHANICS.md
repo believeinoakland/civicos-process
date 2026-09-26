@@ -66,6 +66,8 @@ A failed tranche is abandoned without touching `main`.
 
 **Each layer.** BOB spawns, **concurrently**, one job for each module of the layer that has entries. Every job stays active until every job of the layer has recorded completion. A change one job communicates to another, through BOB, **re-opens** that other job even if it had completed: it processes the change and records completion again. When all are complete, BOB merges their branches (§4), archives the jobs' sessions, and starts the next layer.
 
+**While a tranche runs (P18).** BOB prepares what comes next, on the tranche branch, in this order of value: the next tranche's plan, ready to open; the requirements of the next tranche's modules and of the layers after it (bulk reading goes to short-lived workers, whose output BOB reviews before anything is committed, and product-module requirements go to Bob); the extraction map for each coming legacy extraction (which functions, tables and ops each target module takes). BOB keeps enough of its own attention for the running jobs: a job's question or completion comes first.
+
 **Close (BOB).** The tranche branch merges to `main`. `current.md` moves to `archive/T<n>.md`, with each entry's outcome and the tranche's measured usage. BOB asks Bob for his weekly meter reading again, and reports the tranche to him in plain words: what was fixed, what was deferred and why, and what it cost.
 
 ## 6. The module job (P6, P7, P8, P11)
