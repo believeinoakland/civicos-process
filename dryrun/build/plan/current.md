@@ -18,3 +18,7 @@
 **stats**
 - N6 · Extract `mean` from `legacy` into `stats`: `stats.mean` meets `stats` R1–R3, and `mean` is removed from `legacy/index.mjs`, which gains nothing.
 - N7 · Check `legacy.max([])` and report what it returns to BOB as a `REPORT` about `legacy` (a module with no job).
+
+## Deferred during D3
+
+- N4 (beta) · dropped by BOB, 2026-09-26: beta showed after three attempts that `total([0.1, 0.2])` cannot be exactly `0.3` while R1 holds (the exact sum is a tie between two doubles, and IEEE rounding picks `0.30000000000000004`). A rounding service would need its own requirement; none is planned.
