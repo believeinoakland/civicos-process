@@ -1,6 +1,6 @@
 # Job record: alpha, D3
 
-**Status** · RUNNING. Waiting on BOB's `ANSWER` to Q1 (the requirements of `sum`) before implementing `sum`; everything else proceeds on the best reading below.
+**Status** · RUNNING. Waiting on BOB's `ANSWER` to Q1 (the requirements of `sum`) before implementing `sum`; everything else proceeds on the best reading below. `sum` is implemented and tested to that reading on `job/D3/alpha`; its tests name no requirement id yet, and I will align them (and the code, if the answer differs) with the ids BOB writes.
 
 ## Questions
 
@@ -9,3 +9,8 @@
 ## Reports
 
 **REPORT 1** (N2; pushed here only, deliberately NOT sent to BOB) · `legacy/dist/legacy.bundle.txt` (owned by `legacy`, which has no job) is generated from `alpha/src/index.mjs` and `legacy/index.mjs`. My change to `alpha/src/index.mjs` (adding `sum`) makes it stale: `node legacy/scripts/bundle.mjs --verify` prints `legacy bundle: STALE`. It needs `node legacy/scripts/bundle.mjs` from `dryrun/` when the layer closes (mechanics §14). I did not write it.
+
+## Own-module improvements (P8)
+
+- The R1 test sampled two pairs; it now checks `add(a, b)` against `a + b` (by `Object.is`) for every pair drawn from each class of finite number (signed zeros, subnormals, extremes, rounding fractions, integers past 2^53, and 200 seeded values).
+- R2 had no test; one now checks, at the interface, that `add` writes nothing to stdout/stderr, adds no global, and returns the same results regardless of call history.
