@@ -1,8 +1,60 @@
 {
-  "status": "The dry run's toy product (PROCESS-MECHANICS §15). Not a real product.",
-  "not_product": ["build/", "RUNS.md", "README.md"],
+  "status": "The dry run's toy product (PROCESS-MECHANICS \u00a715). Not a real product.",
+  "not_product": [
+    "build/",
+    "RUNS.md",
+    "README.md"
+  ],
   "modules": [
-    {"id": "alpha", "layer": 1, "paths": ["alpha/src/"], "tests": ["alpha/test/"], "uses": []},
-    {"id": "beta", "layer": 1, "paths": ["beta/src/", "beta/scripts/", "beta/dist/"], "tests": ["beta/test/"], "uses": ["alpha"]}
+    {
+      "id": "legacy",
+      "layer": 1,
+      "legacy": true,
+      "paths": [
+        "legacy/"
+      ],
+      "tests": [],
+      "uses": []
+    },
+    {
+      "id": "alpha",
+      "layer": 1,
+      "paths": [
+        "alpha/src/"
+      ],
+      "tests": [
+        "alpha/test/"
+      ],
+      "uses": []
+    },
+    {
+      "id": "beta",
+      "layer": 1,
+      "paths": [
+        "beta/src/",
+        "beta/scripts/",
+        "beta/dist/"
+      ],
+      "tests": [
+        "beta/test/"
+      ],
+      "uses": [
+        "alpha"
+      ]
+    },
+    {
+      "id": "stats",
+      "layer": 2,
+      "from": "legacy",
+      "paths": [
+        "stats/src/"
+      ],
+      "tests": [
+        "stats/test/"
+      ],
+      "uses": [
+        "alpha"
+      ]
+    }
   ]
 }

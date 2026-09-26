@@ -11,3 +11,4 @@ Each module's tests: `node --test <module>/test/*.test.mjs` from `dryrun/`. No l
 | artifact | owned by | regenerate (from `dryrun/`) | verify |
 | --- | --- | --- | --- |
 | `beta/dist/bundle.txt` | beta | `node beta/scripts/bundle.mjs` | `node beta/scripts/bundle.mjs --verify` |
+| `legacy/dist/legacy.bundle.txt` | legacy (no job) | `node legacy/scripts/bundle.mjs` | `node legacy/scripts/bundle.mjs --verify` |
