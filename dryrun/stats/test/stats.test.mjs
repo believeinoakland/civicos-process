@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mean, max, min } from '../src/index.mjs';
+import { mean, max, min, distinct } from '../src/index.mjs';
 import { sum } from '../../alpha/src/index.mjs';
 
 // Finite numbers covering every class: zeros of both signs, subnormals, the extremes,
@@ -53,7 +53,7 @@ test('R2 mean refuses an element that is not a finite number as alpha.sum does',
   }
 });
 
-test('R3 mean, max and min are pure: no state, no input or output', () => {
+test('R3 mean, max, min and distinct are pure: no state, no input or output', () => {
   const globalsBefore = Object.getOwnPropertyNames(globalThis).sort();
   const writes = [];
   const out = process.stdout.write, err = process.stderr.write;
@@ -61,12 +61,12 @@ test('R3 mean, max and min are pure: no state, no input or output', () => {
   process.stderr.write = (...a) => { writes.push(a); return true; };
   let first, again;
   try {
-    const run = () => [...lists()].map((l) => [mean(l), max(l), min(l)]);
+    const run = () => [...lists()].map((l) => [mean(l), max(l), min(l), distinct(l), distinct([...l, l[0]])]);
     first = run();
     // Interleave other calls (throwing ones included), then repeat: results depend on the arguments alone.
     for (const a of FINITE) {
       for (const f of [mean, max, min]) { f([a, a]); assert.throws(() => f([a, NaN])); }
-      mean([]); assert.throws(() => max([])); assert.throws(() => min([]));
+      mean([]); distinct([]); distinct([a, a]); assert.throws(() => max([])); assert.throws(() => min([]));
     }
     again = run();
   } finally {
@@ -75,7 +75,7 @@ test('R3 mean, max and min are pure: no state, no input or output', () => {
   assert.deepEqual(again, first);
   assert.deepEqual(writes, []);
   assert.deepEqual(Object.getOwnPropertyNames(globalThis).sort(), globalsBefore);
-  for (const f of [mean, max, min]) {
+  for (const f of [mean, max, min, distinct]) {
     const list = [3, 1, 2];
     f(list);
     assert.deepEqual(list, [3, 1, 2]); // the argument is not changed
@@ -150,4 +150,49 @@ test('R8 max and min refuse an element that is not a finite number with a TypeEr
       assert.ok(Object.is(f(list), pick(...list)), `${who} of [${list.map((x) => Object.is(x, -0) ? '-0' : x)}]`);
     }
   }
+});
+
+// Distinct by the definition: no pair i < j whose elements a Set holds as one (SameValueZero).
+function noTwoSame(list) {
+  for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) if (new Set([list[i], list[j]]).size === 1) return false;
+  return true;
+}
+
+test('R9 distinct is true when no two elements are the same value as a Set compares them, else false; [] is distinct', () => {
+  assert.equal(distinct([]), true);
+  const o = {}, a = [1], f = () => 1, s = Symbol('s');
+  // Values of every kind, including ones a Set treats specially: NaN is one value, +0 and -0 are one value,
+  // objects are compared by identity, and no coercion ('1' and 1, 1n and 1, null and undefined differ).
+  const KINDS = [0, -0, 1, -1, 1.5, NaN, Infinity, -Infinity, '1', '', 'a', 1n, 0n, true, false, null, undefined,
+    o, {}, a, [1], f, s, Symbol('s'), new Number(1), Number.MIN_VALUE, Number.MAX_VALUE, 2 ** 53, 2 ** 53 + 2];
+  let checked = 0;
+  // Every list of up to three elements drawn from the kinds, with repeats: every pair and triple, in every order.
+  for (const x of KINDS) {
+    assert.equal(distinct([x]), true);
+    for (const y of KINDS) {
+      assert.equal(distinct([x, y]), noTwoSame([x, y]), `[${String(x)}, ${String(y)}]`);
+      for (const z of KINDS) { assert.equal(distinct([x, y, z]), noTwoSame([x, y, z])); checked++; }
+    }
+  }
+  assert.ok(checked === KINDS.length ** 3);
+  // Longer lists: every prefix and suffix of the finite classes and seeded values, with and without a repeat
+  // placed at each end and in the middle.
+  for (const list of lists()) {
+    assert.equal(distinct(list), noTwoSame(list));
+    for (const at of [0, list.length >> 1, list.length]) {
+      const withRepeat = [...list.slice(0, at), list[list.length - 1], ...list.slice(at)];
+      assert.equal(distinct(withRepeat), false);
+    }
+  }
+  assert.equal(distinct(KINDS), false); // 0 and -0
+  assert.equal(distinct(KINDS.filter((x) => !Object.is(x, -0))), true);
+  assert.equal(distinct([NaN, NaN]), false);
+  assert.equal(distinct([0, -0]), false);
+  assert.equal(distinct([o, {}]), true);
+  assert.equal(distinct([o, o]), false);
+  assert.equal(distinct([, undefined]), false); // a hole is read as undefined, as a Set built from the list reads it
+  const long = Array.from({ length: 1e6 }, (_, i) => i); // long lists: one pass
+  assert.equal(distinct(long), true);
+  long.push(999999);
+  assert.equal(distinct(long), false);
 });

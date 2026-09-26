@@ -1,13 +1,11 @@
 // legacy: the toy's legacy module, emptied by extraction (PROCESS-MECHANICS §12).
 import { checkList } from '../catalog/index.mjs';
-import { max, min } from '../stats/src/index.mjs';
+import { distinct, max, min } from '../stats/src/index.mjs';
 
 // The spread of a list: its largest element less its smallest.
 export function range(list) {
   return max(list) - min(list);
 }
 
-// The findings the catalogue makes about a list.
-export function validate(list) {
-  return checkList(list);
-}
+// The findings the catalogue makes about a list, and 'duplicate' when a list's elements are not distinct.
+export function validate(list) { return checkList(list).concat(Array.isArray(list) && !distinct(list) ? ['duplicate'] : []); }
