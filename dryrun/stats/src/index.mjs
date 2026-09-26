@@ -1,4 +1,5 @@
-// stats: statistics for the toy product; extracted from legacy (mean in D3, max and min in D4).
+// stats: statistics for the toy product; extracted from legacy (mean in D3, max and min in D4),
+// and from catalog (distinct in D5).
 import { sum } from '../../alpha/src/index.mjs';
 
 // R1–R2: alpha.sum / length, 0 for an empty list; alpha.sum refuses a non-finite element.
@@ -28,4 +29,15 @@ export function max(list) {
 // R6–R7, R8: the smallest number in a non-empty list; an empty list is a RangeError.
 export function min(list) {
   return extreme(list, 'min', Math.min);
+}
+
+// R9: true when no two elements are the same value as a Set compares them (SameValueZero), by one
+// pass that stops at the first repeat; an empty list is distinct.
+export function distinct(list) {
+  const seen = new Set();
+  for (const x of list) {
+    if (seen.has(x)) return false;
+    seen.add(x);
+  }
+  return true;
 }
