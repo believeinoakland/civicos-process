@@ -19,3 +19,9 @@ Result, 2026-09-26 15:25Z: **NOT CERTIFIED: the run found flaws, each now fixed;
 9. **Backstop check: not exercised** (no job went quiet); the channel made it unnecessary this run.
 
 Also found: the manifest's test command failed on the jobs' Node 22 (fixed: name the test files); beta noted that `total` now inherits `sum`'s refusal of non-numbers, which beta's R1 does not state. BOB should have reviewed the user's requirements when the provider's meaning changed (mechanics §7 says so); a lapse of BOB's, not a gap in the mechanics.
+
+## D2 · 2026-09-26 · the revision after D1
+
+The same toy tranche, from the toy's starting state on `main`, on the mechanics as revised after D1 (the channel of §13, archiving in place of `CLOSE`, the tool fixes). Paths to prove: (1) BOB to a job and a job to BOB by one-time routines, both ways; (2) QUESTION, requirement change, ANSWER, merge; (3) REPORT of a stale generated artifact; (4) COMPLETE; (5) early merge and CHANGE; (6) metrics in the job record and ownership, run exactly as `roles/JOB.md` writes them; (7) layer close.
+
+Result: pending.
