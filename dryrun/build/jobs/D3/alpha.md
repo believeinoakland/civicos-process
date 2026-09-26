@@ -47,3 +47,7 @@
 session,role,module,cache_read,cache_write,input,output,turns,test_runs,module_lines
 f9faa1ad-0bd8-5b51-8f2f-f3578bfbae57,job,alpha,1708868,81839,44,12071,21,5,14
 ```
+
+## CHANGE 1 (BOB, 15:41 UTC): R3 wording, caa0f42
+
+R3 now says left-to-right addition with `add`, not an exact or correctly rounded sum. I had already merged caa0f42 before my first `COMPLETE`, and both `sum` and the R3 test (a left-to-right fold with `add`, and `sum([0.1, 0.2]) === 0.30000000000000004`) already match it. Nothing needed changing. Re-run: alpha tests `# pass 4`, `# fail 0`; coverage `4 of 4 live requirement ids named by a test; 0 failures`. There are no new commits on `tranche/D3`. COMPLETE again.
