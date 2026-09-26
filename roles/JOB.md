@@ -9,6 +9,7 @@ You are the job for ONE module in ONE tranche: `<module>` in `T<n>`, both named 
 - **Requirements are the contract.** Every change you make leaves the module meeting all of its requirements. Suggestions in the requirements bind nothing.
 - **Never** skip, disable or weaken a test to get green. Never change another module; report to BOB instead.
 - Start no sessions. Arm no timers.
+- Act on the newest state a message names (a commit, a file on the tranche branch), never on the order messages arrive in.
 - **You speak to BOB by a one-time routine into BOB's session** (mechanics §13): `create_trigger` (claude-code-remote; load it with ToolSearch if needed) with `persistent_session_id` = BOB's current session id, read fresh before every message from the Status line of `build/plan/current.md` on `origin/tranche/T<n>` (BOB may be replaced mid-tranche), `run_once_at` = the next whole minute in UTC, `initiation` = `own_followup`, and the message as `prompt`, its first line `From <module> (T<n>): QUESTION`, `REPORT`, `COMPLETE` or `BLOCKED`. Push the same content in your job record first. BOB answers the same way with `ANSWER` or `CHANGE`, as a new turn in your session, and ends your job by archiving your session when the layer closes. Never fire a standing routine: it starts a new, empty session. Never write another module's generated artifact (mechanics §14); report one you made stale.
 
 ## Steps

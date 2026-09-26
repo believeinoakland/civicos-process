@@ -1,6 +1,6 @@
 # The process mechanics
 
-**Status** · APPROVED by Bob 2026-09-25 (second draft, written by BOB #36). REVISED 2026-09-26 by BOB #38 after T1 found the mechanics incomplete (bio TRANSITION.md C14): §4, §5, §6, §10, and the new §13 (communication) and §14 (generated artifacts). **The revision is not certified until the dry run of §15 passes (P3); no product work runs on it before then.** This document describes HOW the approved principles (`PROCESS-DESIGN.md`, P1–P16) are carried out. Each mechanism cites the principle it serves (P16). Where it and the principles disagree, the principles win. Its home is this repository, beside the principles (P2), since 2026-09-26. The product repository it is applied to is `believeinoakland/bio`.
+**Status** · APPROVED by Bob 2026-09-25 (second draft, written by BOB #36). REVISED 2026-09-26 by BOB #38 after T1 found the mechanics incomplete (bio TRANSITION.md C14): §4, §5, §6, §10, and the new §13 (communication), §14 (generated artifacts) and §15 (certification); proven by the dry runs D1–D3 (`dryrun/RUNS.md`, `dryrun/CERTIFICATION.md`); D3's nine findings folded in the same day. This document describes HOW the approved principles (`PROCESS-DESIGN.md`, P1–P16) are carried out. Each mechanism cites the principle it serves (P16). Where it and the principles disagree, the principles win. Its home is this repository, beside the principles (P2), since 2026-09-26. The product repository it is applied to is `believeinoakland/bio`.
 
 ## 1. Where things live (P2, P5)
 
@@ -31,7 +31,7 @@ A file is owned by exactly one module; `paths` never overlap.
 
 **Session names** (Bob, 2026-09-26). Every session is named by its lane in capitals followed by ` #n`, where n is that lane's iteration: `BOB #38`, `BOB #39`. A module job's lane is its module: `PDF-READER #1`, `PDF-READER #2` for the next job session of that module (a resumed or later job). The session that starts another names it at creation (`title`), and renames it with `set_session_title` if it was created otherwise.
 
-**Session depth stays minimal.** Bob starts BOB. BOB spawns the module jobs. Module jobs spawn no sessions. BOB's successor is created as a fresh top-level session by a routine, never as BOB's child.
+**Session depth stays minimal.** Bob starts BOB. BOB spawns the module jobs. Module jobs spawn no sessions. BOB's successor is created as a fresh top-level session by a routine, never as BOB's child: BOB writes its handoff, then calls `create_trigger` with `create_new_session_on_fire` true and the successor's first message as `prompt`, fires it once with `fire_trigger`, deletes it, and names the new session `BOB #<n+1>`. (A session made with `create_session` is always its maker's child; a fired routine's is not, measured in D1.)
 
 **BOB's lifetime.** BOB keeps working while its context is useful. It refreshes when its context passes about **2–3 times its working set**, the requirements and state it actually needs. The reason is cost: every turn re-reads the whole context, so a large, stale context costs more per turn than a fresh session pays to re-read its working set (measured in BOB #36, 2026-09-25). The threshold is confirmed or corrected by the metrics (§10). A refreshing BOB writes a lean handoff into the build state first.
 
@@ -59,7 +59,8 @@ A job for a module being written, or gaining capabilities, reads the **Purpose**
 - The next layer's jobs branch from the updated tranche branch.
 - **A provided service changed within a layer.** BOB first writes the change into the provider's requirements on the tranche branch (§7) and tells both jobs (§13). The providing job merges the tranche branch into its own and implements the change; when it records completion, BOB merges its branch into the tranche branch at once, and tells the using job, which merges the tranche branch into its own. Each job's ownership check, taken against the tranche branch, still sees only its own changes.
 - **Whenever BOB changes a file on the tranche branch that a running job reads** (its requirements, its entries, a used module's public part), BOB tells that job (§13), and the job merges the tranche branch into its own before continuing.
-- When the last layer completes, the tranche branch is merged to `main` as a fast-forward.
+- **A tool fix made on the process repository's `main` during a tranche** reaches running jobs as a `CHANGE` naming the fix; a fix to product state is committed on the tranche branch and announced the same way.
+- When the last layer completes, the plan is archived on the tranche branch first, and then `main` is fast-forwarded to it.
 
 A failed tranche is abandoned without touching `main`.
 
@@ -73,7 +74,7 @@ A failed tranche is abandoned without touching `main`.
 
 **While a tranche runs (P18).** BOB prepares what comes next, on the tranche branch, in this order of value: the next tranche's plan, ready to open; the requirements of the next tranche's modules and of the layers after it (bulk reading goes to short-lived workers, whose output BOB reviews before anything is committed, and product-module requirements go to Bob); the extraction map for each coming legacy extraction (which functions, tables and ops each target module takes). BOB keeps enough of its own attention for the running jobs: a job's question or completion comes first.
 
-**Close (BOB).** The tranche branch merges to `main`. `current.md` moves to `archive/T<n>.md`, with each entry's outcome and the tranche's measured usage. BOB asks Bob for his weekly meter reading again, and reports the tranche to him in plain words: what was fixed, what was deferred and why, and what it cost.
+**Close (BOB).** `current.md` moves to `archive/T<n>.md` on the tranche branch, with each entry's outcome and the tranche's measured usage; then `main` fast-forwards to the tranche branch. BOB asks Bob for his weekly meter reading again, and reports the tranche to him in plain words: what was fixed, what was deferred and why, and what it cost.
 
 ## 6. The module job (P6, P7, P8, P11)
 
@@ -126,7 +127,9 @@ A ruling that changes requirements is folded into them in the same act. A ruling
 
 ## 10. Metrics (P14)
 
-At its end, every session records one row: `session · role · module · cache-read · cache-write · input · output tokens · turns · test runs · module lines`. **A job writes its row into its own job record** (`node metrics/record.mjs … --record build/jobs/T<n>/<module>.md`), so it touches no shared file; BOB copies every job's row into `build/metrics/T<n>.csv` when it closes the layer. BOB and other sessions append to `build/metrics/T<n>.csv` directly (transition sessions under `T0`).
+**A job's usage is read from its session, by BOB.** When BOB archives a job session, `archive_session` returns that session's final usage (cache reads, cache writes, input, output). BOB writes the row into `build/metrics/T<n>.csv`, keyed by the cloud session id, for every session a job used, a dead one included (measured in D3: a job's own transcript misses a dead session and names no session BOB can match). The job still records its test runs, its module's lines and its own row in its job record, as a cross-check. BOB and other sessions record their own rows with `metrics/record.mjs`, which names the cloud session id. Transition sessions record under `T0`.
+
+Row: `session · role · module · cache-read · cache-write · input · output tokens · turns · test runs · module lines`.
 
 Bob's weekly meter is noted at each tranche's open and close when he gives it. **No bounds yet.** After a few tranches, BOB reports the model: tokens per job against module size, entries and test runs; tokens against the movement of the weekly meter; and BOB's own cost against its context size, which tests §2's refresh threshold. Bob then sets bounds.
 
@@ -146,9 +149,10 @@ A release runs the full regression, then follows the distribution process (a sep
 
 Measured in the D1 dry run (2026-09-26), and the channel the old process measured first (bio `docs/development/ORCHESTRATION.md`, "The channels", BOB #28, 2026-09-22). **What does not work:** a comment on a pull request wakes nobody, because every session posts as the same account; firing a standing routine on demand starts a new, empty session instead of reaching the one it names; session-to-session messaging reaches no cloud session.
 
-**The channel is a one-time routine into the other side's session.** To send a message, a session calls `create_trigger` (claude-code-remote) with `persistent_session_id` = the recipient's session id (never a name: a name is not an address), `run_once_at` = the next whole minute in UTC, `initiation` = `own_followup`, a short `name`, and the message as `prompt`. It arrives as a new turn in that session, within one to two minutes. **BOB's address is state, never a constant** (M1): the Status line of `build/plan/current.md` on the tranche branch names BOB's current session id. A job re-reads it from `origin/tranche/<id>` before every message it sends. A BOB that takes over mid-tranche commits and pushes its own id there before anything else, then tells every running job it has taken over.
+**The channel is a one-time routine into the other side's session.** To send a message, a session calls `create_trigger` (claude-code-remote) with `persistent_session_id` = the recipient's session id (never a name: a name is not an address), `run_once_at` = the next whole minute in UTC, `initiation` = `own_followup`, a short `name`, and the message as `prompt`. It arrives as a new turn in that session, within one to two minutes. **BOB's address is state, never a constant** (M1): the Status line of `build/plan/current.md` on the tranche branch names exactly one session id, the current BOB's. A job re-reads it from `origin/tranche/<id>` before every message it sends. A BOB that takes over mid-tranche commits and pushes its own id there before anything else, then tells every running job it has taken over.
 
 - **A message's first line is `From <sender> (<tranche>): <KIND>`.** From a job: `QUESTION`, `REPORT` (a flaw or improvement in another module, a generated artifact it made stale, a flaw in the process's tools), `COMPLETE`, `BLOCKED` (tests will not pass after three honest attempts). From BOB: `ANSWER`, `CHANGE` (a forwarded change, or a file on the tranche branch the job must merge). BOB ends a job by archiving its session when the layer closes; no message is needed.
+- **Messages can arrive out of order** (measured in D3). The recipient acts on the newest state a message names (a commit, a record), never on the order messages arrive in.
 - **State drives; the message only accelerates.** Whatever a message says is first committed and pushed where the recipient reads it (the job record, the tranche branch), and the recipient checks it there before acting. A lost message then loses nothing: BOB's backstop check (§5) finds the state.
 - **A side that waits says what it waits on,** in its record and its last message, and keeps working where it can.
 - **Never fire a standing routine to reach a session,** and delete any such routine found bound to a job's or BOB's session.
