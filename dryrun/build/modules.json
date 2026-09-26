@@ -1,0 +1,8 @@
+{
+  "status": "The dry run's toy product (PROCESS-MECHANICS §15). Not a real product.",
+  "not_product": ["build/", "RUNS.md", "README.md"],
+  "modules": [
+    {"id": "alpha", "layer": 1, "paths": ["alpha/src/"], "tests": ["alpha/test/"], "uses": []},
+    {"id": "beta", "layer": 1, "paths": ["beta/src/", "beta/scripts/", "beta/dist/"], "tests": ["beta/test/"], "uses": ["alpha"]}
+  ]
+}
