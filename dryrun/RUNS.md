@@ -32,4 +32,48 @@ BOB's own slip after D2, recorded because it is the kind of fault the process mu
 
 The plan in `build/plan/current.md` (D3) and the design in `CERTIFICATION.md`. The toy's `main` is the branch `dryrun-main/D3`.
 
-Result: pending.
+Result, 2026-09-26 16:02Z: **every row D3 was designed for is proven, except C6 at three jobs (two ran; three-way scale stays with T1). Findings below; none needed a fix to the process mid-run.** BOB #38 ran layer 1 and started layer 2. BOB #39 (the successor) took over during layer 2, closed it and closed the tranche: `dryrun-main/D3` = `tranche/D3` = `a76ba70`. Plan archived at `build/plan/archive/D3.md` on that branch. What each path did, with its evidence (commits on `tranche/D3`):
+
+- **C1, C2 · the channel, both ways: WORKS again.** Every message in both layers arrived as a turn in the session it named, 1–2 minutes after scheduling. For example, stats's COMPLETE and REPORT were scheduled at 15:56Z and delivered to BOB #39 at 15:58:21Z and 15:58:22Z.
+- **C3 · a message never sent: WORKS.** alpha pushed REPORT 1 (the stale legacy bundle) in its record without sending it (`c82dff7`, 15:36). BOB #38 found it in the record and regenerated the bundle at layer 1's close (`4ef678e`).
+- **C4 · a job's session dies mid-job: WORKS.** BOB #38 archived beta's first session (`session_01TQpjjNikfAHshU4qPFuGqb`) after it had pushed a QUESTION and a BLOCKED. A new session (`session_014VNyoK4tprbsgzVKycE9P3`) on `job/D3/beta` read the record, merged BOB's answers (`07a6224`, 15:39) and completed (`13c2ee6`). Detection was BOB's own, since BOB injected the fault. A backstop finding a death nobody caused is not yet exercised.
+- **C5 · BOB refreshed mid-tranche: WORKS.** BOB #39 wrote its id into the Status line first and verified it on the remote (`f9471d4`, 15:55:41; `f5f19a2`, 15:55:50: one id only). Then it sent stats a takeover CHANGE (delivered 15:57). stats had already re-read the Status line before it sent COMPLETE and REPORT at 15:56Z, so both reached the successor, **before the CHANGE announcing it arrived**: state drove and the message only accelerated (its record, `417a363`). Nothing went to the old BOB.
+- **C6 · many jobs at once: PARTLY.** Layer 1 ran two jobs whose messages crossed (15:36–15:52: two QUESTIONs, a BLOCKED, three REPORTs, three COMPLETEs), and every one was answered (both records). The design's three concurrent jobs did not happen, because layer 2 had one job.
+- **J1 · QUESTION → requirement → ANSWER → merge: WORKS again** (alpha Q1 → `ebfa39f` R3–R4).
+- **J2 · carrying on through a question: WORKS.** alpha did N2 and implemented `sum` on its best reading (`a3b7232`) before the answer, and the answer accepted that reading. beta's QUESTION 1 and alpha's Q2 went the same way.
+- **J3 · BLOCKED: WORKS.** beta made three documented attempts at N4 (Neumaier, exact BigInt, decimal scaling), then sent BLOCKED (`290eabb`). BOB #38 dropped N4 (`caa0f42`) and beta completed the rest.
+- **J4 · the four checks in the record: WORKS again** (all three records).
+- **J5 · extraction from legacy: WORKS.** stats removed `mean` from `legacy/index.mjs` and added nothing there: ownership reports 4 files and 0 failures. BOB #39 committed one added line to legacy on a throwaway copy of the branch (never pushed), and ownership failed with `legacy/index.mjs: stats may only remove code from legacy, and this diff adds 1 line(s)`, exit 1.
+- **J6 · metrics: WORKS, with a finding** (below). Every job row in `build/metrics/D3.csv` is read from `archive_session`'s final usage, including the dead session's.
+- **B2 · a service's meaning changes, users reviewed: WORKS again** (beta R4, `ebfa39f`).
+- **B3 · REPORT → forward → CHANGE re-opens a completed job: WORKS.** beta reported `alpha.add('1', 2)` returns `'12'` (`13c2ee6`). BOB #38 confirmed it and wrote alpha R5 (`a709075`). The CHANGE re-opened alpha, which had completed at `b2dc984`, and alpha completed again (`22f0b16`, `7dbe985`).
+- **B4 · REPORT about a module with no job → next work: WORKS.** stats reported `legacy.max([])` is `-Infinity`, plus four more flaws. BOB #39 confirmed them on the code and entered them as N8 under the plan's Next (`323ac62`); nothing changed in legacy. What `max([])` should return is a question of meaning, so BOB records that it would bring it to Bob, with a recommendation (throw `RangeError`).
+- **B5 · a job stales a no-job module's generated artifact; BOB regenerates at close: WORKS, twice.** Layer 1: alpha's `sum` staled `legacy/dist/legacy.bundle.txt`, regenerated in `4ef678e`. Layer 2: stats's removal staled it again; verify printed `legacy bundle: STALE` on the merge, and `fresh` after `node legacy/scripts/bundle.mjs` (`323ac62`).
+- **B6 · layer close: WORKS**, both layers. Layer 2: ownership 0 failures, merge `70b8f3e` with no conflict markers, both bundles verified fresh, 14 of 14 tests, `checks/run.mjs dryrun` with format, architecture and coverage (12 of 12) all at 0 failures, stats archived, metrics row `1f38542`.
+- **B7 · two layers: WORKS.** stats branched from `19f8ff2`, layer 1 closed and merged, and uses `alpha.sum`, which only layer 1 put there.
+- **B8 · tranche close: WORKS.** The plan was archived with each entry's outcome and the jobs' usage (9,041,883 tokens processed; BOB rows are appended separately). Then `dryrun-main/D3` fast-forwarded to `tranche/D3` by a plain push: `bab815f..7fc7412`, then `a76ba70` after a correction to the archive's arithmetic. The two branches are equal.
+- **B9: T1.** D3 records what would go to Bob (N8's `max([])`, above) and decides no meaning itself.
+
+**Findings** (BOB #38's, then BOB #39's):
+
+1. **Messages can arrive out of order,** so a recipient acts on the newest state they name, not on the order of arrival (BOB #38). Seen again in C5: stats's messages reached the successor before the takeover message reached stats.
+2. **A job's metrics are best read from `archive_session`'s usage,** not from the job's own transcript (BOB #38). A dead session's transcript is lost; the transcript id is not the session id; and a job records before its last turns. stats recorded 1,032,506 tokens processed, and its archived usage was 1,899,013.
+3. **BOB must not archive a job with a message to it still in flight** (BOB #38 archived a job seconds after answering it: alpha's ANSWER to Q2, `6299605`, pushed at 15:52:57, before archiving). BOB #39 checked before archiving stats: no enabled routine into its session, and its last message recorded in `417a363`.
+4. **A wording question from one job can force a change on another running job** (BOB #38): beta's QUESTION 1 changed alpha's R3 (`caa0f42`) and needed a CHANGE to alpha. A new row, below.
+5. **`metrics/record.mjs` names the transcript id, not the cloud session id** (alpha's REPORT 3). This was fixed on `main` during D3 (`253b20b`), but the job branches, cut from the tranche, ran the old tool. A tool fix reaches a running tranche only if it is merged into the tranche branch.
+6. **The Status line must name exactly one session id** (BOB #39). The first takeover commit named both BOBs, and a job that searches the line for an id could take the wrong one. It was corrected at once (`f5f19a2`).
+7. **B8's order** (BOB #39). Fast-forwarding `main` first and archiving the plan after leaves `main` one commit behind the tranche. Archive first, then fast-forward, so `main` carries the archive.
+8. **The successor was started as BOB #38's child** (BOB #39: its session's `parent_session_id` is BOB #38's). Mechanics §2 says a successor is a fresh top-level session started by a routine.
+9. **"Arm no timers" (`roles/BOB.md`) conflicts with the 20-minute backstop** (mechanics §5, a `send_later`). BOB #39 armed the backstop as the mechanics require and deleted it at the tranche's close.
+
+**Changes BOB #39 would make** (not made; the mechanics and roles change only as a process change, with Bob where a principle is touched):
+
+- Mechanics §13 and `roles/JOB.md`: act on the newest state a message names, never on the order messages arrive in (finding 1).
+- Mechanics §10 and `roles/BOB.md`, layer close: BOB writes each job's row from `archive_session`'s final usage, keyed by the cloud session id. The job's own row stays in its record as a cross-check (findings 2, 5).
+- `roles/BOB.md`, layer close: before archiving a job, check that no routine into its session is still enabled and that its record shows the last message processed (finding 3).
+- Mechanics §4: a tool fix made on `main` during a tranche is merged into the tranche branch and announced to running jobs as a CHANGE (finding 5).
+- Mechanics §13 (M1): the Status line names exactly one session id, the current BOB's (finding 6).
+- Mechanics §5 and `roles/BOB.md`, tranche close: archive the plan first, then fast-forward `main` (finding 7).
+- Mechanics §2: say how a successor BOB is started so that it is not BOB's child, or accept the parent link (it did no harm here) and say so (finding 8).
+- `roles/BOB.md`: make the 20-minute backstop an explicit exception to "arm no timers", deleted when the tranche closes (finding 9).
+- `CERTIFICATION.md`: the new row C7 (finding 4), and C6 at three concurrent jobs in a later run or T1.

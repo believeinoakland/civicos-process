@@ -8,23 +8,24 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 
 | # | path | evidence | status |
 | --- | --- | --- | --- |
-| C1 | BOB reaches a job: one-time routine into its session | the job acts on the message in its own session; no new session appears | PROVEN D1 (15:11); D2 |
-| C2 | a job reaches BOB the same way | BOB receives it as a turn within about 2 minutes | PROVEN D1 (15:14–15:18); D2 |
-| C3 | a message is lost or never sent | BOB's backstop finds the state (a pushed record, a quiet job) and acts | PLANNED D3 (a job told to push a QUESTION without messaging) |
-| C4 | a job's session dies or hangs mid-job | backstop detects it; a new session on the same branch resumes from the job record and completes | PLANNED D3 (BOB archives a running job deliberately) |
-| C5 | BOB is refreshed mid-tranche | jobs reach the successor: they address BOB by the session id recorded on the tranche branch, re-read before each message, and the successor updates it | PLANNED D3; needs the mechanics change M1 below |
-| C6 | many jobs message BOB at once | every message handled, none lost, while BOB is mid-turn | PLANNED D3 (three jobs); scale T1 (four jobs): the check is that every job record's messages are answered |
+| C1 | BOB reaches a job: one-time routine into its session | the job acts on the message in its own session; no new session appears | PROVEN D1 (15:11); D2; D3 |
+| C2 | a job reaches BOB the same way | BOB receives it as a turn within about 2 minutes | PROVEN D1 (15:14–15:18); D2; D3 |
+| C3 | a message is lost or never sent | BOB's backstop finds the state (a pushed record, a quiet job) and acts | PROVEN D3 (alpha's unsent REPORT 1 in `c82dff7`, found and acted on at layer 1's close, `4ef678e`) |
+| C4 | a job's session dies or hangs mid-job | backstop detects it; a new session on the same branch resumes from the job record and completes | PROVEN D3 (beta's first session archived mid-job; a new session resumed from the record, `07a6224`, and completed, `13c2ee6`). Detection of an uninjected death: T1, the check is the 20-minute backstop |
+| C5 | BOB is refreshed mid-tranche | jobs reach the successor: they address BOB by the session id recorded on the tranche branch, re-read before each message, and the successor updates it | PROVEN D3 (successor's id pushed first, `f9471d4`/`f5f19a2`; stats addressed it from the Status line before the takeover message reached it) |
+| C6 | many jobs message BOB at once | every message handled, none lost, while BOB is mid-turn | PARTLY D3 (two jobs' crossing messages, all answered); three or more at once: T1, the check is that every job record's messages are answered |
+| C7 | a wording answer to one job changes a requirement another running job reads | BOB sends that job a CHANGE; it merges and brings its work in line | PROVEN D3 (beta's QUESTION 1 → alpha's R3, `caa0f42`; alpha's CHANGE 1, `b2dc984`); found by BOB #38 |
 
 ## The job (mechanics §6; P6, P7, P8)
 
 | # | path | evidence | status |
 | --- | --- | --- | --- |
-| J1 | QUESTION → BOB changes the requirement on the tranche branch → ANSWER → the job merges and complies | the job's tests name the new ids and pass | PROVEN D1 |
-| J2 | a job carries on through a wording question on its best reading | it keeps working and only reconciles when answered | PLANNED D3 |
-| J3 | BLOCKED: tests will not pass after three attempts | BOB works it: re-scope or defer the entry; the job completes the rest | PLANNED D3 (an entry that cannot pass as written) |
-| J4 | every requirement named by a test; coverage, architecture, format, ownership run as `roles/JOB.md` writes them | all four checks' summary lines in the record | PROVEN D1 (after fixes); re-proven D2 |
-| J5 | extraction from a legacy module: the job removes the moved code, and only removes it | ownership passes on removal and fails on an addition | PLANNED D3 (a toy legacy module) |
-| J6 | metrics row in the job's own record, collected by BOB | the row is in `build/metrics/<tranche>.csv` | PROVEN D1 |
+| J1 | QUESTION → BOB changes the requirement on the tranche branch → ANSWER → the job merges and complies | the job's tests name the new ids and pass | PROVEN D1; D3 |
+| J2 | a job carries on through a wording question on its best reading | it keeps working and only reconciles when answered | PROVEN D3 (alpha built `sum` on its best reading, `a3b7232`, before the answer; beta likewise) |
+| J3 | BLOCKED: tests will not pass after three attempts | BOB works it: re-scope or defer the entry; the job completes the rest | PROVEN D3 (beta BLOCKED on N4, `290eabb`; dropped by BOB, `caa0f42`; the rest completed) |
+| J4 | every requirement named by a test; coverage, architecture, format, ownership run as `roles/JOB.md` writes them | all four checks' summary lines in the record | PROVEN D1 (after fixes); re-proven D2, D3 |
+| J5 | extraction from a legacy module: the job removes the moved code, and only removes it | ownership passes on removal and fails on an addition | PROVEN D3 (ownership 0 failures on stats's removal; 1 failure, exit 1, on an added line) |
+| J6 | metrics row in the job's own record, collected by BOB | the row is in `build/metrics/<tranche>.csv` | PROVEN D1; D3 (rows read from `archive_session`'s usage; see RUNS D3 finding 2) |
 | J7 | a job runs out of context mid-job | it records its state and a new session continues from the record | T1 at the earliest (a toy cannot fill a context); the check: every job's context use is read at each backstop |
 
 ## BOB and the layer (mechanics §4, §5, §7, §14; P5, P9, P10, P12)
@@ -32,14 +33,14 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 | # | path | evidence | status |
 | --- | --- | --- | --- |
 | B1 | a provided service changes within a layer: provider's requirements first, early merge, CHANGE to the user | the user merges and completes | PROVEN D1 |
-| B2 | when a service's meaning changes, BOB reviews and updates every user's requirements | the user's requirements state the inherited behaviour | PROVEN D2 (beta's R4, 15:25); missed by BOB in D1 |
-| B3 | REPORT of a flaw in another module whose job is running → BOB forwards → CHANGE re-opens a job that had completed | the re-opened job records completion again | PLANNED D3 |
-| B4 | REPORT about a module with no running job → an entry in `next.md` | the entry exists | PLANNED D3 |
-| B5 | a job stales a generated artifact of a module with no job; BOB regenerates it at layer close | verify reports stale before, fresh after BOB's commit | PLANNED D3 (in D1 beta regenerated its own; BOB's step did nothing) |
-| B6 | layer close: ownership on every branch, merge, metrics, archive | as recorded | PROVEN D1 |
-| B7 | two layers: the next layer's jobs branch from the closed layer | layer 2's job sees layer 1's merged work | PLANNED D3 (a two-layer toy) |
-| B8 | tranche close: `main` fast-forwards, plan archived with outcomes and usage | `main` equals the tranche branch; `plan/archive/<tranche>.md` exists | PLANNED D3 |
-| B9 | a question whose answer changes meaning goes to Bob; BOB carries his ruling back | the ruling is in `rulings.md` and the requirement | T1 or later (needs Bob; in a dry run BOB records what it would bring him) |
+| B2 | when a service's meaning changes, BOB reviews and updates every user's requirements | the user's requirements state the inherited behaviour | PROVEN D2 (beta's R4, 15:25); D3 (`ebfa39f`); missed by BOB in D1 |
+| B3 | REPORT of a flaw in another module whose job is running → BOB forwards → CHANGE re-opens a job that had completed | the re-opened job records completion again | PROVEN D3 (beta's REPORT → alpha R5, `a709075` → alpha re-opened after completing, completed again, `7dbe985`) |
+| B4 | REPORT about a module with no running job → an entry in `next.md` | the entry exists | PROVEN D3 (N8 in the plan's Next, `323ac62`) |
+| B5 | a job stales a generated artifact of a module with no job; BOB regenerates it at layer close | verify reports stale before, fresh after BOB's commit | PROVEN D3 (legacy bundle STALE, then fresh after BOB's commit, at both layers' closes: `4ef678e`, `323ac62`) |
+| B6 | layer close: ownership on every branch, merge, metrics, archive | as recorded | PROVEN D1; D3 (both layers) |
+| B7 | two layers: the next layer's jobs branch from the closed layer | layer 2's job sees layer 1's merged work | PROVEN D3 (stats branched from `19f8ff2` and uses layer 1's `alpha.sum`) |
+| B8 | tranche close: `main` fast-forwards, plan archived with outcomes and usage | `main` equals the tranche branch; `plan/archive/<tranche>.md` exists | PROVEN D3 (`dryrun-main/D3` = `tranche/D3` = `a76ba70`; `plan/archive/D3.md`) |
+| B9 | a question whose answer changes meaning goes to Bob; BOB carries his ruling back | the ruling is in `rulings.md` and the requirement | T1 or later (needs Bob; in D3 BOB recorded what it would bring him: N8's `max([])`) |
 | B10 | P18 preparation while a layer runs never touches a running job's files | ownership and a diff of the running job's reads | T1 |
 
 ## Mechanics changes this matrix already requires
@@ -50,7 +51,7 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 
 - **D1** (done): the channel, one layer's happy path; not certified, flaws fixed.
 - **D2** (done, 15:35Z): the same paths on the revised mechanics, clean; re-proved C1, C2, J1, J4, J6, B1, B6, and proved B2.
-- **D3** (designed 2026-09-26, prepared on `prep/D3`; runs after D2 closes, on the mechanics with M1):
+- **D3** (done, 16:02Z; see `RUNS.md`): proved C3, C4, C5, C7, J2, J3, J5, B3, B4, B5, B7, B8; C6 partly; re-proved C1, C2, J1, J4, J6, B2, B6. Its design:
 
   **Toy product for D3.** Layer 1: `alpha` and `beta` as now, and `legacy`, a legacy module (`legacy/index.mjs` holds `mean(list)` and `max(list)`; `legacy/dist/legacy.bundle.txt` is generated from alpha's and legacy's source). Layer 2: `stats`, extracted `from` legacy, using alpha. The toy's own `main` is a branch, `dryrun-main/D3`, so the tranche can close onto it (B8) while this repository's `main` keeps moving.
 
