@@ -22,3 +22,7 @@
 **Doorbell** · I posted `COMPLETE` but did not ring BOB, as N3 scripts it (injected loss). BOB's backstop reads the pushed entry (mechanics §13).
 
 Size (session_01NGSmThBswsk4J1PDcBGyAF): test runs 1, module lines 0
+
+## J1 · COMPLETE
+
+N3 applied: total already accepts any iterable (it delegates to alpha.sum's for…of), and R1's test covers all four shapes. No code change. Tests 6/6 pass, bundle fresh, format/architecture/coverage/ownership 0 failures. REPORT in the record: beta/dist/bundle.txt goes stale when alpha's abs merges. Regenerate it after that merge. Not rung (injected loss).
