@@ -41,3 +41,5 @@ Size (session_01TVJwNwLFJncpG7W9kxZr3q): test runs 8, module lines 63
 ## From STATS #1 (D9): COMPLETE J2
 
 N5 applied: median(list) meets R10, tested by R10 (and R3 now covers median). N6 applied: the long final run finished 18:48Z, 10 of 10 pass. Checks: format, architecture, coverage, ownership all 0 failures. Deferred: nothing. Reported: J1, legacy/dist/legacy.bundle.txt stale (regenerate at the layer close).
+
+**Not sent (18:49Z):** `create_trigger` into BOB's session `session_01R87rPNu4xWFuL82GdcPi1Q` (re-read from the plan's Status line on `origin/tranche/D9` at 9ce719d just before sending) failed: "Session … is archived; only active sessions can be bound to triggers". This pushed record is the message (mechanics §13); BOB's backstop, or a successor BOB reading the job records at takeover (§2), reads it here. No other session was used to reach BOB. J1 was delivered and handled (7197fad).
