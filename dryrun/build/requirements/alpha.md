@@ -27,6 +27,10 @@ Arithmetic on numbers.
 - **R8** Returns `a - b` for two finite numbers.
 - **R9** Throws a `TypeError` when either argument is not a finite number; nothing is coerced.
 
+**abs(a) → number** (added for dry run D11, entry N1)
+- **R10** Returns the absolute value of `a` for a finite number `a`.
+- **R11** Throws a `TypeError` when `a` is not a finite number; nothing is coerced.
+
 ## Private
 
 ### Uses
