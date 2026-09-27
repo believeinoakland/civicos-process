@@ -130,7 +130,7 @@ R1 (D8, start and takeover) and R2 (D9, messages and faults) passed the K164 rul
 
 ## D11 · 2026-09-27 · the K168 revision: mailbox and doorbell
 
-The revision: mechanics §2, §5, §6, §13, §16 and the roles rewritten around `tools/mail.mjs` (bio K168). Tranche `tranche/D11` from `dryrun-main/D9`; stand-ins D11-ROOT #1 (`…fdjiL`→`session_01NXws5gVpwuD1pvBCYafWjY`), D11-BOB #1 (`session_01H3XDB9goUxVa4G4Ma1HJep`, started by ROOT), jobs ALPHA #1 and BETA #1.
+The revision: mechanics §2, §5, §6, §13, §16 and the roles rewritten around `tools/mail.mjs` (bio K168). Tranche `tranche/D11` from `dryrun-main/D9`; stand-ins D11-ROOT #1 (`session_01NXws5gVpwuD1pvBCYafWjY`), D11-BOB #1 (`session_01H3XDB9goUxVa4G4Ma1HJep`, started by ROOT), jobs ALPHA #1 and BETA #1.
 
 Result, 23:24Z: **certified.** Started 23:16 (START BOB to ROOT), BOB's Status by `mail bob` 23:18:05, both STARTs posted and both jobs' addresses by `mail addjob` 23:18:42–23:19:01, both jobs confirmed by `mail start` within 20 s. Every message and cursor move is a `mail …` commit; no session hand-wrote a mailbox, cursor or address.
 - **A question revised in flight:** ALPHA posted J1 and J2 (replacing it) within 11 s and rang twice; BOB answered J2 only (`B2 ANSWER re J2`, with a wording ruling D11-K1) and read through J2; ALPHA applied it.
