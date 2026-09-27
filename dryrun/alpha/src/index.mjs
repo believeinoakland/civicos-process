@@ -23,3 +23,8 @@ export function sum(list) {
 export function neg(a) {
   return -finite(a, 'neg');
 }
+
+// R8–R9: a - b for finite numbers; anything else throws.
+export function sub(a, b) {
+  return finite(a, 'sub') - finite(b, 'sub');
+}

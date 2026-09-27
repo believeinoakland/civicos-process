@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { add, sum, neg } from '../src/index.mjs';
+import { add, sum, neg, sub } from '../src/index.mjs';
 
 // Finite numbers covering every class: zeros of both signs, subnormals, the extremes,
 // fractions whose sum rounds, integers beyond 2^53, and seeded random values.
@@ -43,7 +43,7 @@ test('R5 add throws a TypeError when either argument is not a finite number, coe
   assert.throws(() => add('1', 2), TypeError); // beta's report: once returned '12'
 });
 
-test('R2 add, sum and neg are pure: no state, no input or output', () => {
+test('R2 add, sum, neg and sub are pure: no state, no input or output', () => {
   const globalsBefore = Object.getOwnPropertyNames(globalThis).sort();
   const writes = [];
   const out = process.stdout.write, err = process.stderr.write;
@@ -52,10 +52,11 @@ test('R2 add, sum and neg are pure: no state, no input or output', () => {
   let first, again;
   try {
     const run = () => [...FINITE.map((a, i) => add(a, FINITE[(i * 7) % FINITE.length])),
-      ...FINITE.map((_, i) => sum(FINITE.slice(i))), ...FINITE.map(neg)];
+      ...FINITE.map((_, i) => sum(FINITE.slice(i))), ...FINITE.map(neg),
+      ...FINITE.map((a, i) => sub(a, FINITE[(i * 11) % FINITE.length]))];
     first = run();
     // Interleave other calls (throwing ones included), then repeat: results depend on the arguments alone.
-    for (const a of FINITE) { add(a, a); sum([a, a]); neg(a); assert.throws(() => sum([a, NaN])); assert.throws(() => neg(String(a))); }
+    for (const a of FINITE) { add(a, a); sum([a, a]); neg(a); assert.throws(() => sum([a, NaN])); assert.throws(() => neg(String(a))); sub(a, a); assert.throws(() => sub(a, String(a))); }
     again = run();
   } finally {
     process.stdout.write = out; process.stderr.write = err;
@@ -113,4 +114,29 @@ test('R7 neg throws a TypeError when a is not a finite number, coercing nothing'
   }
   assert.throws(() => neg('1'), TypeError); // -'1' would coerce to -1
   assert.throws(() => neg(1n), TypeError); // -1n is a BigInt, not a number
+});
+
+test('R8 sub returns a - b for every pair of finite numbers in each class', () => {
+  for (const a of FINITE) {
+    for (const b of FINITE) {
+      assert.ok(Object.is(sub(a, b), a - b), `sub(${a}, ${b})`);
+    }
+  }
+  assert.equal(sub(5, 3), 2);
+  assert.equal(sub(0.3, 0.1), 0.19999999999999998); // ordinary floating-point subtraction
+  assert.ok(Object.is(sub(0, 0), 0));
+  assert.ok(Object.is(sub(-0, 0), -0)); // the sign of zero, as a - b gives
+  assert.equal(sub(Number.MAX_VALUE, -Number.MAX_VALUE), Infinity); // a - b, overflow included
+});
+
+test('R9 sub throws a TypeError when either argument is not a finite number, coercing nothing', () => {
+  for (const bad of NOT_FINITE()) {
+    for (const ok of [0, -1, 2.5, Number.MAX_VALUE]) {
+      assert.throws(() => sub(bad, ok), TypeError, `sub(${typeof bad}, ${ok})`);
+      assert.throws(() => sub(ok, bad), TypeError, `sub(${ok}, ${typeof bad})`);
+    }
+    for (const bad2 of NOT_FINITE()) assert.throws(() => sub(bad, bad2), TypeError);
+  }
+  assert.throws(() => sub('3', 1), TypeError); // '3' - 1 would coerce to 2
+  assert.throws(() => sub(3n, 1n), TypeError); // 3n - 1n is a BigInt, not a number
 });
