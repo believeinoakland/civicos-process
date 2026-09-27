@@ -10,6 +10,7 @@
 //     "sessions": [{ "id": "session_…", "role": "ROOT|BOB|job|harness", "name": "ALPHA #1", "module": "alpha",
 //                    "prompt": true }],            // prompt: created with a first message in create_session's prompt
 //     "current_bob": "session_…",                   // else the plan's Status line
+//     "depth_root": "session_…",                    // a stand-in ROOT counted as depth 0 (a dry run below the real ROOT)
 //     "scenarios": ["A4", …], "required": [ … ],
 //     "snapshots": ["snap-1.json", …],             // { taken_at, get_session: [raw…], list_triggers: [raw…] }
 //     "injections": [{ "fault": "archive|duplicate|…", "target": "session_…", "time": "…" }],
@@ -51,7 +52,8 @@ export function loadRun(runPath, productDir) {
     for (const r of [`origin/${branch}`, branch]) { try { git(['rev-parse', '--verify', '--quiet', `${r}^{commit}`]); return r; } catch {} }
     return null;
   };
-  const show = (r, path) => { try { return r ? git(['show', `${r}:${path}`]) : null; } catch { return null; } };
+  // Paths are the product's (`build/…`), read relative to the product directory, which may sit inside its repository (`dryrun/`).
+  const show = (r, path) => { try { return r ? git(['show', `${r}:./${path}`]) : null; } catch { return null; } };
   const T = run.tranche;
   const file = (p) => (p && existsSync(rel(p)) ? readFileSync(rel(p), 'utf8') : null);
   const tranche = T ? ref(`tranche/${T}`) : null;
@@ -185,7 +187,8 @@ export const PREDICATES = {
       if (p.bob.depth !== 1) bad.push(`Status depth ${p.bob.depth}, not 1`);
       if (S.run.current_bob && p.bob.id !== S.run.current_bob) bad.push(`Status names ${short(p.bob.id)}, the current BOB is ${short(S.run.current_bob)}`);
       let d = 0, id = p.bob.id, o = latest(S, id);
-      while (o && o.parent_session_id) { d++; id = o.parent_session_id; o = latest(S, id); }
+      // `depth_root` (run.json): a stand-in ROOT that plays depth 0 in a dry run started below the real ROOT.
+      while (o && o.parent_session_id && id !== S.run.depth_root) { d++; id = o.parent_session_id; o = latest(S, id); }
       if (o) { if (d !== p.bob.depth) bad.push(`parent chain of ${short(p.bob.id)} has length ${d}, Status says ${p.bob.depth}`); }
       else if (d === 0 && !latest(S, p.bob.id)) bad.push(`${short(p.bob.id)} is in no snapshot, so its depth is unread`);
       if (S.git && S.tranche) {
@@ -194,7 +197,7 @@ export const PREDICATES = {
         if (!first) bad.push(`no commit on ${S.tranche} carries ${short(p.bob.id)}'s session`);
         else {
           const c = first.split('\t')[0];
-          const files = S.git(['diff-tree', '--no-commit-id', '--name-only', '-r', c]).split('\n').filter(Boolean);
+          const files = S.git(['diff-tree', '--relative', '--no-commit-id', '--name-only', '-r', c]).split('\n').filter(Boolean);
           const diff = S.git(['diff', '-U0', `${c}^`, c, '--', 'build/plan/current.md']).split('\n').filter((l) => /^[+-](?![+-])/.test(l));
           if (files.join() !== 'build/plan/current.md' || diff.some((l) => !/^[+-]\*\*Status\*\*/.test(l))) bad.push(`its first commit ${c.slice(0, 10)} changes more than the Status line (${files.join(', ')})`);
         }

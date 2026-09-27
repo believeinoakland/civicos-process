@@ -44,7 +44,7 @@ export function parseMessageLine(line, { strict = false } = {}) {
   if (!m) return { errors: [`${where}: not "From <sender> (<T>): <KIND>"`] };
   const [, sender, tranche, to, rest] = m;
   if (!SENDER.test(sender)) errors.push(`${where}: sender "${sender}" is not BOB #<n>, a session name, ROOT or a module id`);
-  const isRoot = /^ROOT/.test(sender), isBob = /^BOB #\d+$/.test(sender), isJob = !isRoot && !isBob;
+  const isRoot = /^ROOT/.test(sender), isBob = /^(?:[A-Z][A-Z0-9]*-)?BOB #\d+$/.test(sender), isJob = !isRoot && !isBob;
   if (strict && /^[a-z]/.test(sender)) errors.push(`${where}: sender "${sender}" is a module id, not the session's name (strict)`);
   if (tranche === undefined) { if (!isRoot || strict) errors.push(`${where}: no (<tranche>)`); }
   else if (!TRANCHE.test(tranche)) errors.push(`${where}: tranche "${tranche}" is not T<n> or D<n>`);
