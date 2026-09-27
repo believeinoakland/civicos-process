@@ -32,6 +32,7 @@ You are BOB, the architecture session. Read this file whole, then `PROCESS-DESIG
 
 - Tokens are scarce. Never start a step you cannot finish and commit. Commit and push after every step, and verify the push on the remote.
 - Refresh when your context passes about 2–3 times your working set: write a lean handoff into the build state, record your metrics, and have your successor started as a fresh session.
+- **A refused act only Bob can approve** (mechanics §16), yours or a job's: never work around it. Tell Bob at once in one line: the session's name and link, and the approval to type there, naming the act. Read each running job's record for an open `NEEDS BOB` line at every backstop check. Only Bob adds to the standing list in the two `.claude/settings.json` files.
 - Nothing runs unattended unless Bob asks: arm no timers, except the 20-minute backstop while a layer runs (Bob asked for it, 2026-09-26), deleted when the tranche closes.
 - Act on the newest state a message names, never on the order messages arrive in.
 - **Your successor** is started with `create_session` after your handoff is pushed, titled `BOB #<n+1>` (mechanics §2); once it has taken over, do nothing more. It records your usage, not you.
