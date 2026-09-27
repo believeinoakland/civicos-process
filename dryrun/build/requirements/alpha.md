@@ -28,8 +28,8 @@ Arithmetic on numbers.
 - **R9** Throws a `TypeError` when either argument is not a finite number; nothing is coerced.
 
 **abs(a) → number** (added for dry run D11, entry N1)
-- **R10** Returns the absolute value of `a` for a finite number `a`.
-- **R11** Throws a `TypeError` when `a` is not a finite number; nothing is coerced.
+- **R10** Returns the absolute value of `a` for a finite number `a`; `abs(-0)` is `+0`. (Wording clarified by D11-BOB #1 during D11, answering alpha's QUESTION J2, which replaced J1.)
+- **R11** Throws a `TypeError` when `a` is not a finite number; nothing is coerced, so a numeric string such as `'-3'` is refused.
 
 ## Private
 
