@@ -1,8 +1,8 @@
 # Plan: dry run D8 (K164 certification, live run R1: start and takeover)
 
-**Status** · OPEN · D8-BOB #2 · session_01R8actVSnNt8T3X3Sakin6g · depth 1 (took over 2026-09-27T17:10Z from D8-BOB #1)
+**Status** · OPEN · D8-BOB #2 · session_01R8actVSnNt8T3X3Sakin6g · depth 1 (took over 2026-09-27T17:09Z from D8-BOB #1)
 
-**Jobs** · layer 1, created 2026-09-27T16:58:39–42Z: ALPHA #1 `session_01PyUgxYhCfCQsoUx4e7BHCk` · handled J0 · sent B1; BETA #2 `session_01Ub5ZdVLMvEapjJGFZEZthj` · handled J0 · sent B2 (restart created 17:06:51Z: BETA #1, start confirmed, was found archived at the 17:06Z backstop, its record WAITING ON BOB (J1); its metrics row written); GAMMA #1 `session_01WMFJCpVNFRMgJU6QU23Ssb` · handled J0 · sent B1
+**Jobs** · layer 1, created 2026-09-27T16:58:39–42Z: ALPHA #1 `session_01PyUgxYhCfCQsoUx4e7BHCk` · handled J2 · sent B1 (COMPLETE; REPORT J1 confirmed and routed: beta's bundle to BETA, legacy's at the close; merged into the tranche at 7f58e62, §4); BETA #2 `session_01Ub5ZdVLMvEapjJGFZEZthj` · handled J1 · sent B3 (start confirmed 17:09Z; restart created 17:06:51Z: BETA #1, start confirmed, was found archived at the 17:06Z backstop, its record WAITING ON BOB (J1); its metrics row written); GAMMA #1 `session_01WMFJCpVNFRMgJU6QU23Ssb` · handled J1 · sent B1 (COMPLETE)
 
 ## The run (read whole; it adapts the roles to the toy)
 
