@@ -94,3 +94,19 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 
 **The mechanics as revised on `revision/K111` (§2, §10, §16, and §5's blocked-session backstop from D6's finding; bio K112, K113) are certified for use (P3).** A1 and A2 are PROVEN by D6; A4 is proven with its finding folded; A3 names why a dry run cannot prove it (the safety check's response to Bob's rules is outside the process) and the check in T4. No other row is touched.
 
+
+## The K154 revision (BOB #47, 2026-09-27; bio K154, K156)
+
+Session depth: ROOT, at depth 0, starts every BOB, so every BOB sits at depth 1 and every job at depth 2 (Bob's design); every BOB reads its depth; the backstop reads each job's record; a job that cannot send lets its pushed record speak.
+
+| # | path | evidence | status |
+| --- | --- | --- | --- |
+| L1 | a session's depth is read by following `parent_session_id` with `get_session` | the chain and the count match how each session was started | PLANNED D7 |
+| L2 | the cap: a session at depth 7 can start sessions and send routines; one at depth 8 can do neither | measured in a product tranche | PLANNED (T5 evidence) |
+| L3 | a routine-started session is never ROOT, a BOB or a job | it has no parent, and lacks the session and routine tools | PLANNED D7 probe |
+| L4 | a BOB started by ROOT reads depth 1 and records it in the Status line; its job, at depth 2, is told its depth and reaches that BOB by routine | the Status line; the job's record of its own chain; its COMPLETE arrives as a turn | PLANNED D7 |
+| L5 | a BOB refreshes through ROOT: `START BOB` by routine, ROOT checks the handoff and starts the successor, a sibling at depth 1, which takes over and archives its predecessor | the successor's parent is ROOT; its Status line reads depth 1; the predecessor archived, its row written | PLANNED D7 |
+| L6 | a job that cannot send: its pushed record is the message, and the backstop reads records | the backstop acts on a record whose message never arrived | PLANNED |
+| L7 | a BOB started by Bob directly (depth 0) or ROOT itself unreachable: `NEEDS BOB: start ROOT` | the handoff names the act and the steps | PLANNED |
+
+**D7 design.** One layer, one job (`alpha`, N1 `mul` R3; N2 the job records its own chain and depth) on `tranche/D7`, cut from the revision branch `claude/civicos-session-depth-limits-7c7dik`. BOB #47, started by Bob at depth 0, plays ROOT. It starts the stand-in `D7-BOB #2` (depth 1), which takes over the tranche, starts `ALPHA #2` (depth 2), receives its COMPLETE, closes the layer, and refreshes through ROOT: `START BOB` to BOB #47, which starts `D7-BOB #3`, a sibling at depth 1; D7-BOB #3 takes over, archives D7-BOB #2 and writes its row. BOB #47 then takes the tranche back, archives the job and D7-BOB #3, and closes. A probe first: a routine-started session reports what it holds (L3).
