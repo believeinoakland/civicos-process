@@ -2,7 +2,7 @@
 
 **Status** · OPEN · D8-BOB #1 · session_01LPHZFDBMZ6WXhvGqzzx1Hw · depth 1 (took over 2026-09-27T16:58Z)
 
-**Jobs** · none yet
+**Jobs** · layer 1, created 2026-09-27T16:58:39–42Z: ALPHA #1 `session_01PyUgxYhCfCQsoUx4e7BHCk` · handled J0 · sent B1; BETA #1 `session_01VtoY9g9KRKDsjWCU1MNDVS` · handled J0 · sent B1; GAMMA #1 `session_01WMFJCpVNFRMgJU6QU23Ssb` · handled J0 · sent B1
 
 ## The run (read whole; it adapts the roles to the toy)
 
