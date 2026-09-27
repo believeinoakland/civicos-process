@@ -24,3 +24,14 @@
   - All three `run.mjs` failures were already present on `tranche/D7` at `b18750f` before the merge (coverage then had 3 failures, alpha's included); the job removed alpha's. None is in alpha. D7-BOB #2 merged despite the literal "0 failures" gate, resolving it as BOB (§7): the gate cannot be met by an alpha job. Open for BOB #47: the step's test command form, and whether the dry-run's `run.mjs` baseline should be cleaned or the gate scoped to the module.
 
 **Open for D7-BOB #3:** archive ALPHA #2 is NOT yours; archive D7-BOB #2 (mechanics §2) and write its row into `dryrun/build/metrics/D7.csv` from `archive_session`'s usage.
+
+## Handoff · D7-BOB #3 to BOB #47
+
+- **Depth.** D7-BOB #3 (`session_01GyJEGWucv87kw5PBzN5nXd`) is at depth **1**: its parent is `session_01ST5gn8EypNUyWbHPtjrbRM` (BOB #47, playing ROOT), which has none. Takeover pushed at `d503ba1` (Status line).
+- **Predecessor archived.** D7-BOB #2 (`session_01CVr6oZgfM2ey4n26azCpE1`) was idle (status_bucket COMPLETED); no enabled routine targeted it; `archive_session` succeeded (status ARCHIVED). Row written at `6a92da0` into `dryrun/build/metrics/D7.csv` (the file did not exist; created with the header):
+  `session_01CVr6oZgfM2ey4n26azCpE1,BOB-final,,1743604,54610,6426,8511,,,`
+- **Surprises.**
+  - The archive was **not** refused by this session's permission check (auto mode), although BOB #47's own summary shows it waiting on Bob's approval to archive BOB #46. The difference may be that D7-BOB #2 was started by the same chain and its handoff asked for it; worth confirming which condition the check keys on before §2 relies on the successor archiving unattended.
+  - The usage `archive_session` returned is identical to `get_session`'s just before it; a predecessor's row can be read before archiving, but only the archive's is final.
+  - `list_triggers` (enabled) lists one routine, `alpha-pipeline-runner` (`trig_01LvNnxKBdB31x23mDSg9XBN`): a fresh-session routine unrelated to CivicOS (no `persistent_session_id`), despite the "alpha" name. Left untouched.
+- **Open (unchanged from D7-BOB #2):** the alpha step's test command form, and the dry run's `run.mjs` baseline vs. the literal "0 failures" gate. ALPHA #2 is not archived by me.
