@@ -76,7 +76,8 @@
   ],
   "snapshots": [
     "snap-1.json",
-    "snap-2.json"
+    "snap-2.json",
+    "snap-3.json"
   ],
   "injections": [
     {
