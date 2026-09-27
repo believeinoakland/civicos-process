@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { add } from '../../alpha/src/index.mjs';
-import { double } from '../src/index.mjs';
+import { double, triple } from '../src/index.mjs';
 
 // Every class of finite number: zeros of both signs, subnormals, extremes (doubling MAX_VALUE
 // overflows), integers around 2^53, fractions that round, and 500 seeded values across magnitudes.
@@ -34,11 +34,32 @@ test('R2 double refuses anything that is not a finite number with a TypeError, a
   assert.throws(() => double(), TypeError);
 });
 
-test('R3 double is pure: no state, no input or output', () => {
+test('R4 triple(x) returns 3 * x computed with alpha.add for every class of finite number', () => {
+  for (const x of finites()) {
+    assert.ok(Object.is(triple(x), 3 * x), `triple(${x}) = ${triple(x)}, expected ${3 * x}`);
+    if (Number.isFinite(x + x)) assert.ok(Object.is(triple(x), add(add(x, x), x)));
+  }
+  // Tripling overflows to ±Infinity exactly where 3 * x does, including past MAX_VALUE / 3 but below MAX_VALUE / 2.
+  for (const x of [Number.MAX_VALUE / 3, Number.MAX_VALUE / 2.9, -Number.MAX_VALUE / 2.9]) assert.ok(Object.is(triple(x), 3 * x));
+});
+
+test('R4 triple refuses anything that is not a finite number with a TypeError, as alpha.add does, coercing nothing', () => {
+  for (const bad of [...refused, '2', 2n]) {
+    const name = typeof bad === 'symbol' ? 'Symbol' : String(bad);
+    assert.throws(() => add(bad, bad), TypeError);
+    assert.throws(() => triple(bad), TypeError, `triple(${name}) did not throw a TypeError`);
+  }
+  assert.throws(() => triple(), TypeError);
+});
+
+test('R3 double and triple are pure: no state, no input or output', () => {
   const xs = finites();
   const first = xs.map((x) => double(x));
   const again = [...xs].reverse().map((x) => double(x)).reverse();
   for (let i = 0; i < xs.length; i++) assert.ok(Object.is(first[i], again[i]));
+  const firstT = xs.map((x) => triple(x));
+  const againT = [...xs].reverse().map((x) => triple(x)).reverse();
+  for (let i = 0; i < xs.length; i++) assert.ok(Object.is(firstT[i], againT[i]));
   const globals = Object.keys(globalThis).sort();
   const log = [];
   const orig = { log: console.log, error: console.error, warn: console.warn, info: console.info,
@@ -46,8 +67,8 @@ test('R3 double is pure: no state, no input or output', () => {
   console.log = console.error = console.warn = console.info = (...a) => log.push(a);
   process.stdout.write = process.stderr.write = (...a) => { log.push(a); return true; };
   try {
-    for (const x of xs) double(x);
-    for (const bad of refused) try { double(bad); } catch {}
+    for (const x of xs) { double(x); triple(x); }
+    for (const bad of refused) { try { double(bad); } catch {} try { triple(bad); } catch {} }
   } finally {
     Object.assign(console, { log: orig.log, error: orig.error, warn: orig.warn, info: orig.info });
     process.stdout.write = orig.out; process.stderr.write = orig.err;
