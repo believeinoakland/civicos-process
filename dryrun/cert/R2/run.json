@@ -41,6 +41,13 @@
       "name": "GAMMA #1",
       "module": "gamma",
       "prompt": true
+    },
+    {
+      "id": "session_01TVJwNwLFJncpG7W9kxZr3q",
+      "role": "job",
+      "name": "STATS #1",
+      "module": "stats",
+      "prompt": true
     }
   ],
   "scenarios": [
@@ -67,7 +74,10 @@
     "G4",
     "H6"
   ],
-  "snapshots": ["snap-1.json", "snap-2.json"],
+  "snapshots": [
+    "snap-1.json",
+    "snap-2.json"
+  ],
   "injections": [
     {
       "fault": "send",
@@ -82,6 +92,12 @@
       "time": "2026-09-27T17:49:22Z",
       "trigger": "trig_0111urCtXA7g6sYc5zyqGxiX",
       "note": "D4: a second delivery of BETA #1's COMPLETE J2 (its body says it is a harness duplicate), due 17:50"
+    },
+    {
+      "fault": "archive",
+      "target": "session_01R87rPNu4xWFuL82GdcPi1Q",
+      "time": "2026-09-27T18:44:10Z",
+      "note": "H7: D9-BOB #1 archived (dies) after its 18:41 check moved WATCH #1 to 19:42; its backstop into itself is due 19:02; STATS #1 RUNNING until 18:49"
     }
   ],
   "relays": []
