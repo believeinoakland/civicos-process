@@ -2,6 +2,8 @@
 
 **Status** · OPEN · D11-BOB #1 · session_01H3XDB9goUxVa4G4Ma1HJep · depth 1
 
+**Jobs** · alpha: ALPHA #1 session_011V7Yi2Fr9EzggtqCyXxoVb
+
 ## The run (read whole; it adapts the roles to the toy)
 
 This is dry run **D11**, certifying the K168 revision of the mechanics (mailbox and doorbell, `PROCESS-MECHANICS.md` §13, `tools/mail.mjs`), run by **BOB #49** (`session_01H7SnX45uHbDZ5fjH6mBHcN`) as the **harness**. You are a stand-in playing a real role exactly as `roles/` on **this branch** (`tranche/D11`) says, with the mechanics `PROCESS-MECHANICS.md` on this branch. Only these adaptations hold:
