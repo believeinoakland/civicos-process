@@ -41,8 +41,49 @@ test('model: a small bound with no faults and no spurious restart has no duplica
   assert.equal(r.results.oneBobPerStartBob, null);
 });
 
-test('model: the revised rule set is a stub with the same interface', () => {
-  for (const k of ['defaults', 'init', 'actions', 'key', 'invariants', 'done', 'terminalOk', 'TRANSITION', 'LIVENESS'])
+// ---- the revised rules (bio K164, K167): every property holds over every bound set ----
+
+const rev = certify(RULES.revised);
+for (const prop of [...Object.keys(RULES.revised.invariants), ...RULES.revised.TRANSITION, ...RULES.revised.LIVENESS]) {
+  test(`model, revised rules: ${prop} holds over every bound set`, () => {
+    assert.equal(rev.results[prop], null, `${prop}: ${rev.results[prop]?.set}: ${rev.results[prop]?.trace.join(' | ')}`);
+  });
+}
+
+test('model, revised rules: same interface, every bound set explored under 60 s, the same properties as current', () => {
+  for (const k of ['name', 'defaults', 'init', 'actions', 'key', 'invariants', 'done', 'terminalOk', 'TRANSITION', 'LIVENESS', 'BOUND_SETS'])
     assert.ok(k in RULES.revised, k);
-  assert.match(RULES.revised.name, /stub/);
+  assert.doesNotMatch(RULES.revised.name, /stub/);
+  assert.deepEqual(Object.keys(rev.results).sort(), Object.keys(run.results).sort());
+  assert.deepEqual(rev.runs.map((r) => r.set), RULES.revised.BOUND_SETS.map((b) => b.set));
+  assert.ok(rev.ms < 60000, `took ${rev.ms} ms`);
+  console.log(`model --rules revised: ${rev.states} states, ${rev.transitions} transitions, ${rev.ms} ms`);
+});
+
+// Negative controls: each K164 rule switched off breaks the property it carries, so the model exercises it.
+const set = (name) => RULES.revised.BOUND_SETS.find((b) => b.set === name);
+const CONTROLS = [
+  ['markIgnore', 'handledOnce', { jobs: 1, faults: 1 }],                 // §13 receipt idempotent (F3)
+  ['newestVersion', 'answerAppliedToItsVersion', { jobs: 1, faults: 1 }], // §6.3 (F5)
+  ['confirmStart', 'startOnce', { jobs: 1, faults: 1 }],                  // §5 start confirmed by the record (F1)
+  ['recordQuiet', 'noRestartOfLiveJob', { jobs: 1, faults: 1 }],          // §5 quiet by record state (X6)
+  ['relayByRecord', 'relayNeedsBob', { jobs: 1, faults: 1 }],             // §5 waits classified by record (F2)
+  ['archiveFirst', 'oneLiveSessionPerModule', set('job-pair')],           // §5 restart archives first (X12)
+  ['rootDedupe', 'oneBobPerStartBob', set('takeover-pair')],              // §2 ROOT starts each BOB once (X4)
+  ['ackClose', 'closeClean', set('job-pair')],                            // §5 complete = handled BOB's newest (X16)
+  ['resend', 'layersClose', { jobs: 1, faults: 1 }],                      // §5 a lost message sent again (lost ANSWER)
+  ['watch', 'layersClose', set('takeover-pair')],                         // §2, §5 the WATCH (X5)
+  ['watchAtOpen', 'layersClose', set('takeover-pair')],                   // §5 WATCH armed from the tranche's open
+  ['wakeMovesWatch', 'layersClose', set('backstop-triple')],              // §2 ROOT moves the WATCH on WAKE
+  ['restartReads', 'layersClose', set('job-pair')],                       // §6.1 a restart reads above its mark
+];
+for (const [rule, prop, bounds] of CONTROLS) {
+  test(`model, revised rules with ${rule} off: ${prop} fails (negative control)`, () => {
+    const until = RULES.revised.LIVENESS.includes(prop) ? undefined : prop;
+    const r = explore(RULES.revised, { ...bounds, off: [rule] }, { until, maxStates: 2e6 });
+    assert.ok(r.results[prop]?.length > 0, `${prop} still holds with ${rule} off`);
+  });
+}
+test('model: every rule switch of the revised rules has a negative control', () => {
+  assert.deepEqual(CONTROLS.map((c) => c[0]).sort(), [...RULES.revised.RULES].sort());
 });

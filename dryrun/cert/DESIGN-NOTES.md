@@ -21,6 +21,16 @@ The rules are in `PROCESS-MECHANICS.md` and `roles/*.md` on `revision/K164-desig
 | X15 toy baseline | no mechanics change: `run.mjs dryrun` is fixed in the harness (P3, §15) | — | H8 |
 | X16 ack | a job is complete only when its newest `COMPLETE` has handled BOB's newest message; merge at that commit (§5) | — | D7, G3, G4, C7 |
 
+| lost message | at a check ≥20 min after BOB last sent, record `handled` < plan `sent`, start confirmed, session not failed ⇒ BOB re-sends its newest message, same id, never a `START`; the job reads earlier ones from the tranche (§5, §13; P9, P10) | a per-kind rule for ANSWER only (a lost CHANGE or RESUME hangs the same way) | D1, D2, model `resend` |
+
+**Rule fixes found by the protocol model** (`rules-revised.mjs`; each also a negative control in `model.test.mjs`):
+- WATCH is created when BOB opens the tranche or takes over, not at its first check: a BOB dying before its first check was unwatched (takeover-pair: `die BOB1`; switch `watchAtOpen`).
+- ROOT moves the WATCH 60 min ahead when it sends `WAKE`: a lost backstop then a lost `WAKE` left BOB unchecked for the tranche, and a later lost `QUESTION` hung it (backstop-triple; `wakeMovesWatch`).
+- A restarted job first reads every BOB message above its record's mark, not `handled` = its `START` id: an `ANSWER` sent to the dead session was skipped (job-pair; `restartReads`).
+- `REFUSED` is acted on exactly as the second silence: ROOT never pushes, so its content must add nothing to state (contentInStateFirst).
+- A job is complete only when the plan's `handled` is also at its record's `sent`, and a layer closes only with no routine to or from its jobs (closeClean with a duplicated `COMPLETE` in flight).
+- One KIND per message; BOB→job envelopes name the module (`to <module>`), so the log is rebuilt from tranche commits alone (X13).
+
 **Notes for BOB (yours, P17):** SUITE C13 and A8's "takeover notice" go (X11). D6's "# rulings replaced = 0" is not reachable when the answer crosses the revision; suggest "the replacing ruling cites both question ids, and the job applies neither answer to a stale version". D7 f1 (A10) needs no new rule: §16 and the restart rule cover a refused archive.
 
 ## Questions for Bob (P17: policy only) — ANSWERED: yes to both (bio K167, 2026-09-27)

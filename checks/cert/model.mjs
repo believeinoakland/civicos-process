@@ -8,7 +8,8 @@ import * as revised from './rules-revised.mjs';
 
 export const RULES = { current, revised };
 
-export function explore(rules, bounds = {}, { maxStates = 5e6 } = {}) {
+// `until` (negative controls): stop at the first violation of that invariant, as a mutated rule set may be infinite.
+export function explore(rules, bounds = {}, { maxStates = 5e6, until } = {}) {
   const p = { ...rules.defaults, ...bounds };
   const t0 = Date.now();
   const index = new Map(), keys = [], parent = [], via = [], succ = [], off = [0];
@@ -21,6 +22,7 @@ export function explore(rules, bounds = {}, { maxStates = 5e6 } = {}) {
   };
   intern(rules.init(p)); parent.push(-1); via.push(null);
   const doneAt = [], terminalBad = [];
+  const trace = ([id, a]) => { const t = a ? [a] : []; for (; parent[id] >= 0; id = parent[id]) t.push(via[id]); return t.reverse(); };
   for (let id = 0; id < keys.length; id++) {
     if (keys.length > maxStates) throw new Error(`more than ${maxStates} states`);
     const s = JSON.parse(keys[id]);
@@ -30,6 +32,7 @@ export function explore(rules, bounds = {}, { maxStates = 5e6 } = {}) {
     if (!next.length && !rules.terminalOk(s)) terminalBad.push(id);
     for (const [a, t] of next) {
       for (const n of t._v) if (!(n in first)) first[n] = [id, a];
+      if (until && until in first) return { results: { [until]: trace(first[until]) }, states: keys.length };
       const before = keys.length, c = intern(t);
       if (c === before) { parent.push(id); via.push(a); }
       succ.push(c);
@@ -44,7 +47,6 @@ export function explore(rules, bounds = {}, { maxStates = 5e6 } = {}) {
   const stuck = ok.indexOf(0);
   if (terminalBad.length) first.messagesHandled = [terminalBad[0], null];
   if (stuck >= 0) first.layersClose = [stuck, null];
-  const trace = ([id, a]) => { const t = a ? [a] : []; for (; parent[id] >= 0; id = parent[id]) t.push(via[id]); return t.reverse(); };
   const results = {};
   for (const name of [...names, ...rules.TRANSITION, ...rules.LIVENESS]) results[name] = name in first ? trace(first[name]) : null;
   return { rules: rules.name, bounds: p, states: n, transitions: succ.length, ms: Date.now() - t0, results };
@@ -67,7 +69,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   let rules = 'current';
   for (let i = 0; i < argv.length; i += 2) {
     const k = argv[i].replace(/^--/, '');
-    if (k === 'rules') rules = argv[i + 1]; else bounds[k] = k === 'set' ? argv[i + 1] : Number(argv[i + 1]);
+    if (k === 'rules') rules = argv[i + 1]; else bounds[k] = k === 'set' ? argv[i + 1] : k === 'off' ? argv[i + 1].split(',') : Number(argv[i + 1]);
   }
   if (!RULES[rules]) { console.error(`unknown rules ${rules}`); process.exit(2); }
   const r = certify(RULES[rules], bounds);
