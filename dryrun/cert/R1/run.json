@@ -1,0 +1,115 @@
+{
+  "run": "R1",
+  "tranche": "D8",
+  "product": "../..",
+  "depth_root": "session_018g7Gv3xJ5zvnNAWMjP7syY",
+  "sessions": [
+    {
+      "id": "session_01H7SnX45uHbDZ5fjH6mBHcN",
+      "role": "harness",
+      "name": "BOB #49"
+    },
+    {
+      "id": "session_018g7Gv3xJ5zvnNAWMjP7syY",
+      "role": "ROOT",
+      "name": "D8-ROOT #1",
+      "prompt": true
+    },
+    {
+      "id": "session_01LPHZFDBMZ6WXhvGqzzx1Hw",
+      "role": "BOB",
+      "name": "D8-BOB #1",
+      "prompt": true
+    },
+    {
+      "id": "session_01PyUgxYhCfCQsoUx4e7BHCk",
+      "role": "job",
+      "name": "ALPHA #1",
+      "module": "alpha",
+      "prompt": true
+    },
+    {
+      "id": "session_01VtoY9g9KRKDsjWCU1MNDVS",
+      "role": "job",
+      "name": "BETA #1",
+      "module": "beta",
+      "prompt": true
+    },
+    {
+      "id": "session_01WMFJCpVNFRMgJU6QU23Ssb",
+      "role": "job",
+      "name": "GAMMA #1",
+      "module": "gamma",
+      "prompt": true
+    }
+  ],
+  "scenarios": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6",
+    "A7",
+    "A8",
+    "B1",
+    "B2",
+    "B3",
+    "D9",
+    "E1",
+    "G4",
+    "H2",
+    "H6",
+    "P1",
+    "P2",
+    "P3",
+    "P5",
+    "P6"
+  ],
+  "required": [
+    "A4",
+    "A5",
+    "B2",
+    "D9",
+    "G4",
+    "H6"
+  ],
+  "snapshots": [],
+  "injections": [
+    {
+      "fault": "bad-handoff",
+      "target": "session_018g7Gv3xJ5zvnNAWMjP7syY",
+      "time": "2026-09-27T16:52:29Z",
+      "trigger": "trig_01Q3GVmkD4QNV3uj9nEpivR4",
+      "note": "A2: START BOB #1 naming 65ca7681 (tranche/D7, not on tranche/D8), due 16:54"
+    },
+    {
+      "fault": "send",
+      "target": "session_018g7Gv3xJ5zvnNAWMjP7syY",
+      "time": "2026-09-27T16:52:41Z",
+      "trigger": "trig_01FjZLicYENVPUi4L2rG4Uag",
+      "note": "A1: START BOB #1 naming 9be9d5c9 (tranche/D8 head), due 16:57"
+    },
+    {
+      "fault": "duplicate",
+      "target": "session_018g7Gv3xJ5zvnNAWMjP7syY",
+      "time": "2026-09-27T16:52:41Z",
+      "trigger": "trig_015Loe8kzgpdiHymGmJBCeUY",
+      "note": "A3: the same START BOB #1 again, due 16:59"
+    },
+    {
+      "fault": "archive",
+      "target": "session_01VtoY9g9KRKDsjWCU1MNDVS",
+      "time": "2026-09-27T17:03:37Z",
+      "note": "H3/B3 variant: BETA #1 archived without notice while WAITING ON BOB (J1); B3's birth window (30 s) was missed, every job confirmed within 25 s"
+    },
+    {
+      "fault": "stray-routine",
+      "target": "session_01LPHZFDBMZ6WXhvGqzzx1Hw",
+      "time": "2026-09-27T17:03:37Z",
+      "trigger": "trig_01NYkjJRKvo3z31XQH1SaUhp",
+      "note": "A6: far-future routine into D8-BOB #1 (2026-12-01)"
+    }
+  ],
+  "relays": []
+}
