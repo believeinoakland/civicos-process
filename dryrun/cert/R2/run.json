@@ -67,7 +67,7 @@
     "G4",
     "H6"
   ],
-  "snapshots": [],
+  "snapshots": ["snap-1.json"],
   "injections": [
     {
       "fault": "send",
