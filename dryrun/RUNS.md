@@ -101,3 +101,12 @@ Result, 2026-09-26 18:50Z: **J9 PROVEN; certified, after one finding fixed.** Th
 **Finding 2:** a job's own throwaway commit with `-a` swept up BOB's uncommitted edits in the same checkout (BOB's slip at this close; recovered from the throwaway commit before anything was lost or pushed). BOB commits before making throwaway commits.
 
 Layer close: merge clean, no markers; the tranche's tooling brought to `main`'s (mechanics §4); the legacy bundle regenerated with `catalog` in its parts, verified fresh; 20 of 20 tests; format, architecture, coverage (18 of 18) at 0 failures; no routine into the job's session; archived; row in `build/metrics/D5.csv` (1,975,064 tokens processed); plan archived; `dryrun-main/D5` = `tranche/D5` = `ba63c5c`.
+
+## D6 · 2026-09-27 · the K111 revision (A1–A4)
+
+The revision: mechanics §2 (a successor BOB archives its predecessor), §10 (usage from archives; the recorder retired), §16 (acts only Bob can approve; written by Bob), on `revision/K111`. Tranche `tranche/D6`: a stand-in predecessor `D6-BOB #1` (`session_012Dxuxjs4AK7Jo4hNUYJLsF`) and one job `ALPHA #1 (D6)` (`session_01MhYh8xxCnNRRKVTHQJA9Lr`).
+
+Result, 01:40Z: **A1, A2 PROVEN; A4 proven with a finding; A3 not reachable; certified.** BOB #44 pushed its takeover (`3300fe0`), found the routine planted into the predecessor, deleted it, archived the idle predecessor and wrote its row from the archive (`6af4ea6`). The job built alpha R3 with passing tests, but the safety check refused its ordinary commit, most likely because D6's own entries (plant a hook, change permissions) made the branch look like an attempt on the check. The job did not work around it; it asked in its own window and sent BOB nothing, so Bob found it himself and brought it to BOB, which relayed the act to him in one line. Bob was stepping away, so BOB stopped D6 there and archived the job (row from its archive).
+
+**Findings:** (1) a refused job must message BOB before asking in its own window, and BOB's backstop reads each job's session state for blocked: both folded (mechanics §5, roles). (2) A dry run built to provoke the safety check makes it distrust ordinary work too; a later run should test one thing at a time. (3) An approval clears a refusal only when it names the act (K112).
+
