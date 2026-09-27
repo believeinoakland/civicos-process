@@ -98,4 +98,4 @@ dry/D7/build/metrics/D7.csv: row 5: role "probe" is not job or BOB-final
 dry/main/build/metrics/D6.csv: row 3: test_runs "" is not a count (copied from the record's Size line)
 dry/main/build/metrics/D6.csv: row 3: module_lines "" is not a count (copied from the record's Size line)
 dry/main/build/plan/current.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
-messages-T5-T6-D7.txt: line 21: "From BOB #47 (D7): CHANGE 1": "1" is neither a kind nor an id=/v=/re= field
+messages-T5-T6-D7.txt: line 21: "From BOB #47 (D7): CHANGE 1": "1" is neither an id (J<n>, B<n>, #<n>) nor re/replaces <id>

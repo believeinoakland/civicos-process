@@ -10,8 +10,8 @@ PROCESS-MECHANICS §8: the only process tooling. Each takes the product reposito
 | format | §8.4, P4, P5, P15 | `node checks/format.mjs <product>` | `build/modules.json` not parsing, ids twice, layers out of order, a use of a later or unknown module, a path claimed twice; a `layers.md` row that does not list its layer's modules; a requirements file with no module, sections missing or out of order, or an id given twice; a plan entry id given twice |
 
 **Certification harness** (`checks/cert/`, `dryrun/cert/SUITE.md` §4; bio K164; not one of the four checks, a test tool for revising them and the mechanics):
-- `node checks/cert/records.mjs [--strict] <file> ...` validates job records, the plan's Status line, handoffs, metrics CSVs and files of message first lines (`--message '<line>'` for one line); `--strict` requires the message id, version and reply-to the revised design adds (X3).
-- `node checks/cert/assert.mjs <run.json> [product]` judges a run's scenarios from git, records, CSV and snapshots: `<id> PASS|FAIL|UNOBSERVED <reason>`, exit 1 on a FAIL or a required UNOBSERVED. Predicates so far: A4, A5, B2, D3, D4, D9, E1, G4, H6.
+- `node checks/cert/records.mjs [--strict] <file> ...` validates job records, the plan's Status line, handoffs, metrics CSVs and files of message first lines (`--message '<line>'` for one line); `--strict` requires the K164 grammar exactly (mechanics §6, §10, §13): envelopes with ids, `re` and `replaces`; the record Status with `sent`/`handled` marks; Size lines naming their session; the plan Jobs line marks; the backstop line.
+- `node checks/cert/assert.mjs <run.json> [product]` judges a run's scenarios from git, records, CSV and snapshots: `<id> PASS|FAIL|UNOBSERVED <reason>`, exit 1 on a FAIL or a required UNOBSERVED. Predicates so far: A4, A5, B2, D3, D4, D6, D7 (X16), D9, E1, G4, H6.
 
 `node checks/run.mjs <product>` runs format, architecture and coverage. Each check ends with one summary line; it exits 1 on any failure. The checks' own tests: `node --test checks/test/*.test.mjs`.
 

@@ -1,7 +1,8 @@
 // Grammar validators for the build state's records (dryrun/cert/SUITE.md §0, §4 item 2; PROCESS-MECHANICS §2, §6,
 // §10, §13, §16): a job record, the plan's Status line, a message's first line, a handoff, and the metrics CSV.
-// Each validator returns { errors: [...], ...parsed }; an empty `errors` is a pass. `strict` requires what the revised
-// design adds for gap X3 (a message id, version and reply-to); the current corpus is judged non-strict.
+// Each validator returns { errors: [...], ...parsed }; an empty `errors` is a pass. `strict` requires the grammar of the
+// K164 mechanics exactly (envelopes with ids, handled marks, Size lines naming their session); the pre-K164 corpus is
+// judged non-strict.
 // Usage: node checks/cert/records.mjs [--strict] <file> ...            (the kind is read from the path)
 //        node checks/cert/records.mjs [--strict] --message '<first line>' ...
 //        node checks/cert/records.mjs [--strict] --kind record|plan|handoff|csv|messages <file> ...
@@ -13,64 +14,48 @@ export const SESSION_ID = /\bsession_[0-9A-Za-z]{20,}\b/g;
 const SESSION_ONE = /^session_[0-9A-Za-z]{20,}$/;
 const idsIn = (text) => [...new Set(text.match(SESSION_ID) || [])];
 
-// The message kinds (§13; §2 for ROOT). START is BOB's first message to a job (§6.1 names it only "BOB's first
-// message"; SUITE C1 and every T6 start used `START`). STARTED is ROOT's answer (roles/ROOT.md).
+// The message kinds (§13, *K164*), by direction. Each direction has its own id: `J<n>` from a job, `B<n>` from BOB to
+// a job, `#<n>` (the BOB concerned) between a BOB and ROOT. STARTED is ROOT's retired notice (F4): accepted non-strict.
 export const JOB_KINDS = ['QUESTION', 'REPORT', 'COMPLETE', 'BLOCKED'];
-export const BOB_KINDS = ['ANSWER', 'CHANGE', 'START', 'START BOB'];
-export const ROOT_KINDS = ['STARTED'];
-export const KINDS = [...JOB_KINDS, ...BOB_KINDS, ...ROOT_KINDS];
+export const BOB_JOB_KINDS = ['START', 'ANSWER', 'CHANGE', 'RESUME'];
+export const BOB_ROOT_KINDS = ['START BOB', 'WATCH'];
+export const ROOT_KINDS = ['REFUSED', 'WAKE'];
+export const BOB_KINDS = [...BOB_JOB_KINDS, ...BOB_ROOT_KINDS];
+export const KINDS = [...JOB_KINDS, ...BOB_KINDS, ...ROOT_KINDS, 'STARTED'];
+export const BLOCKED_CAUSES = ['tests', 'needs Bob', 'context'];
+const ID = /^(?:J\d+|B\d+|#\d+)$/;
 
-// Fields the revised design adds (gap X3): `id=<message id>`, `v=<version>`, `re=<id>[@<v>]`.
-const FIELD = /^(id|v|re)=(\S+)$/;
-const FIELD_VALUE = { id: /^[A-Za-z0-9][\w.:#-]*$/, v: /^\d+$/, re: /^[A-Za-z0-9][\w.:#-]*?(@\d+)?$/ };
-
-function fieldsOf(tokens, errors, where) {
-  const f = {};
-  for (const t of tokens) {
-    const m = t.match(FIELD);
-    if (!m) { errors.push(`${where}: "${t}" is neither a kind nor an id=/v=/re= field`); continue; }
-    if (m[1] in f) errors.push(`${where}: ${m[1]}= given twice`);
-    else if (!FIELD_VALUE[m[1]].test(m[2])) errors.push(`${where}: ${m[1]}=${m[2]} is malformed`);
-    f[m[1]] = m[2];
-  }
-  return f;
-}
-
-function strictFields(f, kinds, errors, where) {
-  if (!f.id) errors.push(`${where}: no id= (strict: every message carries its id, X3)`);
-  if (!f.v) errors.push(`${where}: no v= (strict: every message carries its version, X3)`);
-  if (kinds.includes('ANSWER') && !f.re) errors.push(`${where}: an ANSWER has no re= (strict: it names the question and version it answers, X3, F5)`);
-}
-
-// Senders: `BOB #<n>`, a session name `<LANE> #<k>` (`D7-BOB #2`), `ROOT` or `ROOT #<k>`, or a job's module id
-// (roles/JOB.md: `From <module> (T<n>)`).
+// Senders: `BOB #<n>`, a session name `<LANE> #<k>` (`D7-BOB #2`), `ROOT` or `ROOT #<k>`, or (non-strict) a job's
+// module id, as roles/JOB.md had it before K164.
 const SENDER = /^(?:BOB #\d+|ROOT(?: #\d+)?|[A-Z][A-Z0-9-]* #\d+|[a-z][a-z0-9-]*)$/;
 const TRANCHE = /^[TD]\d+$/;
-const FIRST = /^From (.+?)(?: \(([^)]*)\))?: (.*)$/;
+const FIRST = /^From (.+?)(?: \(([^)]*)\))?(?: to ([a-z][a-z0-9-]*))?: (.*)$/;
 
-// A message's first line (§13): `From <sender> (<T>): <KIND>`, kinds joined by ` + ` when one message carries
-// two (`ANSWER + CHANGE`, as BOB #45–#48 sent), `BLOCKED: needs Bob` (§16), then optional id=/v=/re= fields.
-// ROOT's `From ROOT: STARTED BOB #<n> <session id>` (roles/ROOT.md) names no tranche and carries the successor:
-// accepted non-strict for ROOT only.
+// A message's first line, its envelope (§13, *K164*):
+//   From <sender> (<T>)[ to <module>]: <KIND> <id>[ re <id>][ replaces <id>]      BLOCKED adds `: <cause>`
+// Non-strict (the pre-K164 corpus): kinds joined by ` + `, `BLOCKED: needs Bob`, no id, ROOT with no tranche and
+// `STARTED BOB #<n> <session id>`. Strict: exactly the grammar above, the KIND allowed for its direction, the id of
+// that direction; `to <module>` exactly on BOB's messages to a job; `re J<n>` exactly on an ANSWER; `replaces J<m>`
+// only on a QUESTION, m below its id; a BLOCKED cause one of BLOCKED_CAUSES.
 export function parseMessageLine(line, { strict = false } = {}) {
   const errors = [];
   const where = `"${line.length > 80 ? line.slice(0, 77) + '...' : line}"`;
   const m = line.match(FIRST);
   if (!m) return { errors: [`${where}: not "From <sender> (<T>): <KIND>"`] };
-  const [, sender, tranche, rest] = m;
+  const [, sender, tranche, to, rest] = m;
   if (!SENDER.test(sender)) errors.push(`${where}: sender "${sender}" is not BOB #<n>, a session name, ROOT or a module id`);
-  const isRoot = /^ROOT/.test(sender);
+  const isRoot = /^ROOT/.test(sender), isBob = /^BOB #\d+$/.test(sender), isJob = !isRoot && !isBob;
+  if (strict && /^[a-z]/.test(sender)) errors.push(`${where}: sender "${sender}" is a module id, not the session's name (strict)`);
   if (tranche === undefined) { if (!isRoot || strict) errors.push(`${where}: no (<tranche>)`); }
   else if (!TRANCHE.test(tranche)) errors.push(`${where}: tranche "${tranche}" is not T<n> or D<n>`);
   let text = rest.trim();
   const kinds = [];
-  let needsBob = false, named = null;
+  let needsBob = false, named = null, cause = null;
   for (;;) {
     const k = [...KINDS].sort((a, b) => b.length - a.length).find((x) => text === x || text.startsWith(x + ' ') || text.startsWith(x + ':'));
     if (!k) break;
     kinds.push(k);
     text = text.slice(k.length);
-    if (k === 'BLOCKED' && /^: needs Bob\b/.test(text)) { needsBob = true; text = text.slice(': needs Bob'.length); }
     if (k === 'STARTED' && isRoot) {
       const s = text.match(/^ (BOB #\d+) (session_[0-9A-Za-z]{20,})/);
       if (s) { named = { name: s[1], id: s[2] }; text = text.slice(s[0].length); }
@@ -81,12 +66,47 @@ export function parseMessageLine(line, { strict = false } = {}) {
     text = text.slice(2).trim();
   }
   if (!kinds.length) { errors.push(`${where}: kind "${rest.split(' ')[0]}" is not one of ${KINDS.join(', ')}`); return { errors, sender, tranche }; }
-  const fields = fieldsOf(text ? text.split(/\s+/) : [], errors, where);
-  if (strict) strictFields(fields, kinds, errors, where);
-  return { errors, sender, tranche: tranche ?? null, kinds, kind: kinds.join(' + '), needsBob, named, ...fields };
+  const c = text.match(/^(.*?):\s*(.+)$/);
+  if (c) { text = c[1].trim(); cause = c[2].trim(); if (/^needs Bob\b/.test(cause)) needsBob = true; }
+  const f = {};
+  const toks = text ? text.split(/\s+/) : [];
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i];
+    if (t === 're' || t === 'replaces') {
+      const v = toks[++i];
+      if (!v || !ID.test(v)) errors.push(`${where}: "${t}" names no id`);
+      else if (f[t]) errors.push(`${where}: "${t}" given twice`);
+      else f[t] = v;
+    } else if (ID.test(t) && !f.id && !f.re && !f.replaces) f.id = t;
+    else errors.push(`${where}: "${t}" is neither an id (J<n>, B<n>, #<n>) nor re/replaces <id>`);
+  }
+  const kind = kinds.join(' + ');
+  if (strict) {
+    const err = (e) => errors.push(`${where}: ${e} (strict, §13)`);
+    if (kinds.length > 1) err('one KIND per message');
+    const allowed = isRoot ? ROOT_KINDS : isBob ? BOB_KINDS : JOB_KINDS;
+    if (!allowed.includes(kinds[0])) err(`${kinds[0]} is not a KIND ${isRoot ? 'ROOT' : isBob ? 'BOB' : 'a job'} sends`);
+    const toJob = isBob && BOB_JOB_KINDS.includes(kinds[0]);
+    const want = isJob ? /^J\d+$/ : toJob ? /^B\d+$/ : /^#\d+$/;
+    if (!f.id) err('no id');
+    else if (!want.test(f.id)) err(`id ${f.id} is not ${isJob ? 'J<n>' : toJob ? 'B<n>' : '#<n>'}`);
+    if (toJob && !to) err(`BOB's ${kinds[0]} names no "to <module>"`);
+    if (!toJob && to) err('only BOB\'s messages to a job carry "to <module>"');
+    if (kinds[0] === 'ANSWER' && !/^J\d+$/.test(f.re || '')) err('an ANSWER names no "re J<n>", the question version it answers');
+    if (kinds[0] !== 'ANSWER' && f.re) err('only an ANSWER carries "re"');
+    if (f.replaces && (kinds[0] !== 'QUESTION' || !/^J\d+$/.test(f.replaces) || Number(f.replaces.slice(1)) >= Number((f.id || 'J0').slice(1)))) err(`"replaces ${f.replaces}" is not a QUESTION's earlier J<m>`);
+    if (kinds[0] === 'BLOCKED' ? !BLOCKED_CAUSES.includes(cause) : cause !== null) err(kinds[0] === 'BLOCKED' ? `BLOCKED's cause is not one of ${BLOCKED_CAUSES.join(', ')}` : 'only BLOCKED carries ": <cause>"');
+  }
+  return { errors, sender, tranche: tranche ?? null, to: to ?? null, kinds, kind, needsBob, cause, named, ...f };
 }
 
 export const validateMessage = (text, opts) => parseMessageLine(text.split('\n')[0], opts);
+
+// BOB's backstop, a one-time routine into its own session (§5, *K164*): first line `BACKSTOP (<T>, layer <k>)`.
+export const BACKSTOP = /^BACKSTOP \([TD]\d+, layer \d+\)$/;
+export function parseBackstopLine(line) {
+  return { errors: BACKSTOP.test(line) ? [] : [`"${line.slice(0, 80)}": not "BACKSTOP (<T>, layer <k>)" (§5)`] };
+}
 
 // `NEEDS BOB: <the one act>, <why>` (§16). A line saying there is none ("no `NEEDS BOB`") has no colon and is not one.
 const NEEDS = /NEEDS BOB:\s*(.*)$/;
@@ -101,70 +121,101 @@ export function needsBobLines(text) {
   return out;
 }
 
-const STATES = ['STARTED', 'WORKING', 'WAITING', 'BLOCKED', 'COMPLETE'];
+const STATES = ['STARTED', 'WORKING', 'RUNNING', 'WAITING', 'NEEDS BOB', 'BLOCKED', 'COMPLETE'];
 const SIZE_LINE = /^Size\b/;
-const SIZE = /^Size: test runs (\d+), module lines (\d+)$/;
-// A record's message entries: a `## ` heading, or a list item `- **…`, that opens with a kind or `Q<n>`.
+const SIZE = /^Size(?: \((session_[0-9A-Za-z]{20,})\))?: test runs (\d+), module lines (\d+)$/;
+// The revised Status line (§6.1, *K164*).
+const STATUS_K164 = /^\*\*Status\*\* · (session_[0-9A-Za-z]{20,}) · depth (\d+) · (WORKING|RUNNING until (\S+) \((.+)\)|WAITING ON BOB \((J\d+)\)|NEEDS BOB|COMPLETE) · sent J(\d+) · handled B(\d+)$/;
+// A record's message entries: a heading `## <envelope>` (*K164*, §13); before K164, a `## ` heading or a list item
+// `- **…` that opens with a kind or `Q<n>`.
+const ENVELOPE = /^##\s+(From .*)$/;
 const ENTRY = /^(?:##\s+|-\s+\*\*)(QUESTION|REPORT|ANSWER|CHANGE|COMPLETE|BLOCKED|START|Q\d+)\b(.*)$/;
 
-// A job record `build/jobs/<T>/<module>.md` (§6.7, §10, §13, §16). Grammar:
-// - a line `**Status** · <STATE> …`, STATE one of STATES;
-// - its header (the lines before the first `## `, where the Status and Session lines stand) names the job's own
-//   session id (the first one named) and `depth <d>` (§6.1, K154);
-// - COMPLETE ⇒ its last `Size…` line is exactly `Size: test runs <n>, module lines <n>` (§10);
+// A job record `build/jobs/<T>/<module>.md` (§6, §10, §13, §16). Grammar:
+// - a Status line: *K164* `**Status** · <session id> · depth <d> · <state> · sent J<n> · handled B<n>`; before it,
+//   `**Status** · <STATE> …` or a `## Status` section, the header (lines before the first `## `) naming the session
+//   id (the first one named) and `depth <d>`;
+// - COMPLETE ⇒ a Size line `Size (<session id>): test runs <n>, module lines <n>` (before K164, `Size: …` as the last);
 // - every `NEEDS BOB:` line is `NEEDS BOB: <act>, <why>` (§16);
-// - message entries (see ENTRY) carry well-formed id=/v=/re= fields when they carry any; strict: every entry
-//   carries id= and v=, and an ANSWER re= (X3).
+// - message entries: headings `## <envelope>`, each envelope well formed.
+// Strict (the K164 record): the K164 Status line; every entry a job's envelope heading, ids J1, J2, … in order and
+// `sent` the last; a `WAITING ON BOB (J<n>)` names an entry; one Size line per session, each naming it, and on
+// COMPLETE one naming the Status's session; no pre-K164 entries.
 export function parseRecord(text, { strict = false } = {}) {
   const errors = [];
   const lines = text.split('\n');
-  // The Status is a line `**Status** · <STATE> …`, or (four T4 records) a `## Status` section whose first paragraph
-  // opens with the state, bold or not: the same field, a grammar choice.
   let statusLine = lines.find((l) => /^\*\*Status\*\*\s*·/.test(l));
+  const k164 = statusLine && statusLine.trim().match(STATUS_K164);
   const sec = lines.findIndex((l) => /^## Status\s*$/.test(l));
   if (!statusLine && sec >= 0) statusLine = lines.slice(sec + 1).find((l) => l.trim() !== '');
-  let state = null;
-  if (!statusLine) errors.push('no "**Status** · <STATE>" line');
+  let state = null, marks = null;
+  if (k164) {
+    state = k164[3].startsWith('RUNNING') ? 'RUNNING' : k164[3].startsWith('WAITING') ? 'WAITING' : k164[3];
+    marks = { sent: Number(k164[7]), handled: Number(k164[8]), waitingOn: k164[6] ?? null, runningUntil: k164[4] ?? null };
+  } else if (!statusLine) errors.push('no "**Status** · <STATE>" line');
   else {
-    state = (statusLine.replace(/^\*\*Status\*\*\s*·\s*/, '').replace(/^\*\*/, '').match(/^[A-Z]+/) || [null])[0];
+    const t = statusLine.replace(/^\*\*Status\*\*\s*·\s*/, '').replace(/^\*\*/, '');
+    state = (t.match(/^NEEDS BOB|^[A-Z]+/) || [null])[0];
     if (!STATES.includes(state)) errors.push(`Status state "${state ?? statusLine.slice(0, 40)}" is not one of ${STATES.join(', ')}`);
+    if (strict) errors.push('the Status line is not "**Status** · <session id> · depth <d> · <state> · sent J<n> · handled B<n>" (strict, §6.1)');
   }
   const headEnd = lines.findIndex((l) => l.startsWith('## '));
   const header = lines.slice(0, headEnd < 0 ? lines.length : headEnd).join('\n');
   const ids = idsIn(header);
-  const sessionId = ids[0] || null;
+  const sessionId = k164 ? k164[1] : ids[0] || null;
   if (!sessionId) errors.push('the Status/Session header names no session id');
-  const d = header.match(/\bdepth (\d+)\b/);
+  const d = k164 ? [null, k164[2]] : header.match(/\bdepth (\d+)\b/);
   const depth = d ? Number(d[1]) : null;
   if (depth === null) errors.push('the Status/Session header names no depth');
-  const sizes = lines.filter((l) => SIZE_LINE.test(l));
-  const last = sizes.at(-1);
-  const sm = last && last.trim().match(SIZE);
-  const size = sm ? { testRuns: Number(sm[1]), moduleLines: Number(sm[2]) } : null;
-  if (state === 'COMPLETE') {
+  const sizeLines = lines.filter((l) => SIZE_LINE.test(l));
+  const parsedSizes = sizeLines.map((l) => ({ line: l, m: l.trim().match(SIZE) }));
+  const sizes = parsedSizes.filter((x) => x.m).map((x) => ({ session: x.m[1] ?? null, testRuns: Number(x.m[2]), moduleLines: Number(x.m[3]) }));
+  const own = sizes.find((x) => x.session && x.session === sessionId);
+  const last = parsedSizes.at(-1);
+  const size = own ? { testRuns: own.testRuns, moduleLines: own.moduleLines } : last?.m && !last.m[1] ? { testRuns: Number(last.m[2]), moduleLines: Number(last.m[3]) } : null;
+  if (strict) {
+    for (const x of parsedSizes) if (!x.m || !x.m[1]) errors.push(`Size line is not "Size (<session id>): test runs <n>, module lines <n>": "${x.line.slice(0, 90)}" (strict, §10)`);
+    const seen = new Set();
+    for (const x of sizes) if (x.session) { if (seen.has(x.session)) errors.push(`two Size lines for ${x.session} (strict: one per session, §10)`); seen.add(x.session); }
+    if (state === 'COMPLETE' && !own) errors.push(`COMPLETE with no Size line naming its session ${sessionId} (strict, §10)`);
+  } else if (state === 'COMPLETE') {
     if (!last) errors.push('COMPLETE with no "Size: test runs <n>, module lines <n>" line');
-    else if (!sm) errors.push(`last Size line is not "Size: test runs <n>, module lines <n>": "${last.slice(0, 90)}"`);
+    else if (!size) errors.push(`last Size line is not "Size: test runs <n>, module lines <n>": "${last.line.slice(0, 90)}"`);
   }
   const needs = needsBobLines(text);
   for (const nb of needs) if (!nb.ok) errors.push(`line ${nb.n}: not "NEEDS BOB: <act>, <why>": "${nb.line.slice(0, 90)}"`);
   const messages = [];
   lines.forEach((l, i) => {
+    const where = `line ${i + 1}`;
+    const env = l.match(ENVELOPE);
+    if (env) {
+      const p = parseMessageLine(env[1], { strict });
+      errors.push(...p.errors.map((e) => `${where}: ${e}`));
+      if (strict && p.kinds && !JOB_KINDS.includes(p.kinds[0])) errors.push(`${where}: a record's entries are its job's own messages (strict, §13)`);
+      messages.push({ n: i + 1, line: l.trim(), envelope: true, ...p });
+      return;
+    }
     const m = l.match(ENTRY);
     if (!m) return;
+    if (strict) errors.push(`${where}: a message entry that is not a "## <envelope>" heading (strict, §13): "${l.slice(0, 60)}"`);
     const kinds = /^Q\d+$/.test(m[1]) ? (/\bANSWER\b/.test(m[2]) ? ['ANSWER'] : ['QUESTION']) : [m[1], ...[...m[2].matchAll(/\+\s*(ANSWER|CHANGE)\b/g)].map((x) => x[1])];
-    const where = `line ${i + 1}`;
-    const errs = [];
-    const f = fieldsOf(m[2].match(/\b(?:id|v|re)=[^\s*`,;)]+/g) || [], errs, where);
-    if (strict) strictFields(f, kinds, errs, where);
-    errors.push(...errs);
-    messages.push({ n: i + 1, kinds, q: /^Q\d+$/.test(m[1]) ? m[1] : null, line: l.trim(), ...f });
+    messages.push({ n: i + 1, kinds, q: /^Q\d+$/.test(m[1]) ? m[1] : null, line: l.trim() });
   });
-  return { errors, state, sessionId, ids, depth, size, needsBob: needs, open: needs.filter((x) => x.ok), messages };
+  if (strict && k164) {
+    const env = messages.filter((x) => x.envelope && x.id);
+    env.forEach((x, k) => { if (x.id !== `J${k + 1}`) errors.push(`line ${x.n}: entry ${x.id} out of order, J${k + 1} expected (strict, §13)`); });
+    if (marks.sent !== env.length) errors.push(`Status "sent J${marks.sent}", but the record's last entry is J${env.length} (strict, §13)`);
+    if (marks.waitingOn && !env.some((x) => x.id === marks.waitingOn)) errors.push(`Status waits on ${marks.waitingOn}, which no entry is (strict, §6.1)`);
+  }
+  return { errors, state, sessionId, ids, depth, size, sizes, marks, needsBob: needs, open: needs.filter((x) => x.ok), messages };
 }
 export const validateRecord = parseRecord;
 
 // The plan's Status line (§2, §13): exactly one session id, BOB's, written `BOB #<n> · <session id> · depth <d>`.
-export function parsePlanStatus(text) {
+// Its `Jobs` line (*K164*, §13): per job `<MODULE> #k \`<session id>\` · handled J<n> · sent B<n>`, entries separated
+// by `;`; strict: every session id the line names carries both marks.
+const JOB_MARKS = /([A-Z][A-Z0-9-]* #\d+) `?(session_[0-9A-Za-z]{20,})`? · handled J(\d+) · sent B(\d+)/g;
+export function parsePlanStatus(text, { strict = false } = {}) {
   const errors = [];
   const line = text.split('\n').find((l) => /^\*\*Status\*\*\s*·/.test(l));
   if (!line) return { errors: ['no "**Status** · …" line'], ids: [] };
@@ -174,13 +225,16 @@ export function parsePlanStatus(text) {
   if (!m) errors.push('Status has no "BOB #<n> · <session id> · depth <d>" (§2)');
   const state = (line.replace(/^\*\*Status\*\*\s*·\s*/, '').match(/^[A-Z]+/) || [null])[0];
   const jobs = text.split('\n').find((l) => /^\*\*Jobs\*\*/.test(l)) || null;
-  return { errors, ids, state, bob: m ? { n: Number(m[1]), id: m[2], depth: Number(m[3]) } : null, depth: m ? Number(m[3]) : null, jobs };
+  const marks = jobs ? [...jobs.matchAll(JOB_MARKS)].map((x) => ({ name: x[1], session: x[2], handled: Number(x[3]), sent: Number(x[4]) })) : [];
+  if (strict && jobs) for (const id of idsIn(jobs)) if (!marks.some((x) => x.session === id)) errors.push(`Jobs line: ${id} has no "<MODULE> #k \`<session id>\` · handled J<n> · sent B<n>" (strict, §13)`);
+  return { errors, ids, marks, state, bob: m ? { n: Number(m[1]), id: m[2], depth: Number(m[3]) } : null, depth: m ? Number(m[3]) : null, jobs };
 }
 export const validatePlanStatus = parsePlanStatus;
 
 // A BOB's handoff (§2): its own line `BOB #<n> · <session id> · depth <d>`; when it asks Bob for a new ROOT, a line
 // `NEEDS BOB: start ROOT` followed by the prompt to paste (a fenced block or a quote) and plain numbered steps, and
-// nothing after them (the handoff "ends" with it, SUITE A9, A11). Other NEEDS BOB lines follow §16.
+// nothing after them (the handoff "ends" with it, SUITE A11; A9: only when ROOT is unreachable, since a BOB at any
+// depth has its successor started by ROOT, §2). Other NEEDS BOB lines follow §16.
 export function parseHandoff(text, { requireStartRoot = false } = {}) {
   const errors = [];
   const self = text.match(/BOB #(\d+) · `?(session_[0-9A-Za-z]{20,})`? · depth (\d+)/);
@@ -191,7 +245,7 @@ export function parseHandoff(text, { requireStartRoot = false } = {}) {
   for (const nb of loose) if (!nb.ok) errors.push(`line ${nb.n}: not "NEEDS BOB: <act>, <why>": "${nb.line.slice(0, 90)}"`);
   if (at < 0) {
     if (lines.some((l) => /NEEDS BOB: start ROOT/.test(l))) errors.push('"NEEDS BOB: start ROOT" is not at the start of its line');
-    else if (requireStartRoot) errors.push('no "NEEDS BOB: start ROOT" line (ROOT unreachable or this BOB not at depth 1)');
+    else if (requireStartRoot) errors.push('no "NEEDS BOB: start ROOT" line (ROOT unreachable)');
   } else {
     const tail = lines.slice(at + 1);
     if (!tail.some((l) => /^(```|>)/.test(l.trim()) || /^".{20,}"$/.test(l.trim()))) errors.push('"NEEDS BOB: start ROOT" is not followed by the prompt to paste (a fenced block or a quote)');
@@ -245,11 +299,14 @@ export function crossCheckSize(csvText, records) {
   const parsed = Object.entries(records).map(([path, text]) => ({ path, ...parseRecord(text) }));
   for (const r of parseCsv(csvText).rows) {
     if (r.role !== 'job') continue;
-    const rec = parsed.find((p) => p.sessionId === r.session);
+    // A Size line naming the row's session (*K164*: one per session), else the record's own when it is that session's.
+    const named = parsed.map((p) => ({ p, z: p.sizes.find((z) => z.session === r.session) })).find((x) => x.z);
+    const rec = named?.p ?? parsed.find((p) => p.sessionId === r.session);
     if (!rec) continue;
+    const size = named ? named.z : rec.size;
     const row = `${r.session} (${r.module}) test_runs ${r.test_runs || '""'}, module_lines ${r.module_lines || '""'}`;
-    if (!rec.size) errors.push(`${row}: its record ${rec.path} has no readable Size line`);
-    else if (String(rec.size.testRuns) !== r.test_runs || String(rec.size.moduleLines) !== r.module_lines) errors.push(`${row}: its record ${rec.path} says test runs ${rec.size.testRuns}, module lines ${rec.size.moduleLines}`);
+    if (!size) errors.push(`${row}: its record ${rec.path} has no readable Size line`);
+    else if (String(size.testRuns) !== r.test_runs || String(size.moduleLines) !== r.module_lines) errors.push(`${row}: its record ${rec.path} says test runs ${size.testRuns}, module lines ${size.moduleLines}`);
   }
   return { errors };
 }
@@ -258,6 +315,7 @@ export function crossCheckSize(csvText, records) {
 export function parseMessages(text, opts) {
   const errors = [], messages = [];
   text.split('\n').forEach((l, i) => {
+    if (opts?.strict && /^BACKSTOP\b/.test(l)) { errors.push(...parseBackstopLine(l).errors.map((e) => `line ${i + 1}: ${e}`)); return; }
     if (!l.startsWith('From ')) return;
     const m = parseMessageLine(l, opts);
     messages.push(m);

@@ -1,6 +1,6 @@
 # Certification suite (DRAFT, for BOB #48; bio K164)
 
-**Status** · DRAFT, written by a worker for BOB #48 on 2026-09-27, reviewed by BOB #48 and accepted as the basis of the post-T6 certification (bio K164). Nothing here is in force. The revision it certifies is written after T6 closes. Its gaps X1–X16 are the design inputs.
+**Status** · DRAFT, written by a worker for BOB #48 on 2026-09-27, reviewed by BOB #48 and accepted as the basis of the post-T6 certification (bio K164). Nothing here is in force. Its gaps X1–X16 are the design inputs. Rows A2, A4, A9, B2, C1, C12, C14, D3, D4, D6, D7, E1, E6, H4, H7 restated for the K164 revision (its envelope `From <sender> (<T>)[ to <module>]: <KIND> <id>[ re <id>][ replaces <id>]`, record and plan marks, mechanics §13); the protocol model passes every property on it (§4.3).
 
 **Purpose.** Certify the next revision of the mechanics (P3, §15) so that we *know* it works. The standard: every path a tranche takes is a scenario, each scenario has a pass condition a script evaluates from observable state, every finding (F1–F5 and the carried ones) is first reproduced as a failing scenario and then shown passing, and the protocol's ordering is checked exhaustively offline, not sampled live. D1–D7 proved rows by a run and a reading of its evidence; this suite replaces the reading with a tool.
 
@@ -29,14 +29,14 @@ Tier: **O** offline (model, validators, check tests), **L** live dry run, **O+L*
 | # | § | precondition | stimulus | PASS | tier | repro |
 | --- | --- | --- | --- | --- | --- | --- |
 | A1 | §2 | ROOT idle; BOB-n handoff commit H pushed | BOB-n sends `START BOB` naming H | exactly 1 session s with `title=BOB #n+1`, `parent=ROOT`, created after the trigger fired; `git`: H on the named branch | L | — |
-| A2 | §2 | as A1, H **not** on the branch | same | # new sessions with parent ROOT = 0; a trigger from ROOT to BOB-n with a defined refusal KIND exists | O+L | X4 |
+| A2 | §2 | as A1, H **not** on the branch | same | # new sessions with parent ROOT = 0; a trigger from ROOT to BOB-n, first line `From ROOT (<T>): REFUSED #n+1` (strict) | O+L | X4 |
 | A3 | §2 | as A1 | `inj`: the same `START BOB` delivered twice | # sessions titled `BOB #n+1` = 1 | O+L | X4 |
-| A4 | §2 | A1 done | ROOT sends `STARTED` | ∀ trigger from ROOT: target is a session that is not archived at `fired_at` and whose role reads it (the successor, or none sent); no trigger deleted unfired | O+L | **F4** |
+| A4 | §2 | A1 done | takeover | # `STARTED` from ROOT = 0; ∀ trigger from ROOT (`REFUSED`, `WAKE`): target not archived at `fired_at`; no trigger deleted unfired | O+L | **F4** |
 | A5 | §2, §13 | successor s running | takeover | s's first commit on the tranche branch changes only the Status line; Status names exactly 1 session id = s and `depth 1`; depth = length of `parent` chain of s | L | — |
 | A6 | §2, §10 | predecessor p idle; `inj`: a far-future routine into p | takeover | before `archived(p)`: # enabled triggers targeting p = 0; `ses(p).status` idle at archive; `csv` has 1 row for p, role `BOB-final`, usage = archived usage of p | L | — |
 | A7 | §2 | p mid-turn at takeover | takeover | p never archived while `status` running; p archived by the end of the run | L | — |
 | A8 | §2, §13 | jobs running | takeover | ∀ message from a job with `created_at` ≻ `t↑`(A5 commit): target = s; every record entry above the plan's `handled` marks at takeover is handled by s | O+L | X11 |
-| A9 | §2 | a BOB at depth ≠ 1 (started by Bob, or by a BOB) | it refreshes | # sessions it created titled `BOB #…` = 0; its handoff has a `NEEDS BOB: start ROOT` line (regex) | O | — (L7) |
+| A9 | §2 | a BOB at depth ≠ 1 (started by Bob, or by a BOB) | it refreshes | # sessions it created titled `BOB #…` = 0; its handoff names its depth; ROOT reachable ⇒ its `START BOB #n+1` goes to ROOT and no `NEEDS BOB: start ROOT`; else the handoff has that line (grammar) | O | — (L7) |
 | A10 | §2, §16 | predecessor not a sibling (started outside ROOT) | successor archives it | archive done, or refused ⇒ `NEEDS BOB` line in the successor's plan/handoff and p unarchived, with no other archive attempt in `trg`/`ses` | L | D7 f1 |
 | A11 | §2 | ROOT context > 300k or ROOT dead | BOB refreshes | handoff ends with `NEEDS BOB: start ROOT`, prompt text and steps (grammar) | O | — |
 
@@ -45,7 +45,7 @@ Tier: **O** offline (model, validators, check tests), **L** live dry run, **O+L*
 | # | § | precondition | stimulus | PASS | tier | repro |
 | --- | --- | --- | --- | --- | --- | --- |
 | B1 | §4, §6 | layer opens | BOB creates jobs | ∀ m: `job/<T>/m` base = tranche head at creation; `title` = `<M> #k` with k = previous k + 1; `parent` = BOB; record Status names its own session id and depth 2 within 10 min | L | — |
-| B2 | §2, §5 | job just created (reads idle, no context, 1–2 min) | BOB checks at t+60 s | # first messages delivered to the job (creation prompt + START routines) = 1; the start is confirmed by a named observable before a named deadline, and the confirmation is in `plan` (`Jobs` line) | O+L | **F1** |
+| B2 | §2, §5 | job just created (reads idle, no context, 1–2 min) | BOB checks at t+60 s | # first messages delivered to the job (creation prompt + START routines) = 1; confirmed by the record Status naming the session with `handled B<start>` pushed ≤ 15 min after creation; no RESUME or restart before then; the job named in `plan` (`Jobs` line) | O+L | **F1** |
 | B3 | §5 | `inj`: a job whose creation never starts (archive it at t+30 s) | wait | by deadline + backstop + SLACK: a session `<M> #k+1` exists on the same branch; # unarchived sessions for m ≤ 1 at every snapshot (P8) | L | X12 |
 
 ### C. Every message kind, each direction (§13)
@@ -54,7 +54,7 @@ Common PASS for every row (**C-common**): (a) the content is in state first: `t�
 
 | # | kind | direction | effect checked |
 | --- | --- | --- | --- |
-| C1 | first message / START (job) | BOB → job | record Status pushed |
+| C1 | START (the creation prompt; `START B1`, or `B<n>` on a restart) | BOB → job | record Status pushed, naming the session, `handled` = the START id |
 | C2 | QUESTION | job → BOB | ANSWER (C6) for that question version, or a ruling line citing it |
 | C3 | REPORT (other module, running job) | job → BOB | CHANGE to that module's job (P9) |
 | C4 | REPORT (no running job) | job → BOB | entry in `next.md` citing the report |
@@ -65,9 +65,9 @@ Common PASS for every row (**C-common**): (a) the content is in state first: `t�
 | C9 | BLOCKED (tests) | job → BOB | three attempts listed; BOB re-scope commit; later COMPLETE with the entry deferred |
 | C10 | BLOCKED: needs Bob | job → BOB | E2's relay |
 | C11 | START BOB | BOB → ROOT | A1 |
-| C12 | STARTED / refusal | ROOT → BOB | A2, A4 |
+| C12 | REFUSED / WAKE (no STARTED) | ROOT → BOB | A2, A4; WAKE: a backstop check by that BOB, its WATCH moved |
 | C13 | *(retired, K164 design X11: no takeover notice; jobs read BOB's address before each send)* | — | — |
-| C14 | backstop | BOB → itself | H6 |
+| C14 | backstop, first line `BACKSTOP (<T>, layer <k>)`; WATCH `From BOB #n (<T>): WATCH #n` | BOB → itself; BOB → ROOT | H6, H7 |
 
 ### D. Delivery faults (§5, §13)
 
@@ -75,11 +75,11 @@ Common PASS for every row (**C-common**): (a) the content is in state first: `t�
 | --- | --- | --- | --- | --- | --- | --- |
 | D1 | §13, §5 | job pushes a QUESTION | `inj`: no routine sent (lost before send) | BOB's answer commit `t↑` ≤ record `t↑` + 20 min + SLACK | O+L | — (C3) |
 | D2 | §13 | message routine created | `inj`: trigger deleted before firing (lost in flight) | as D1 | O+L | — |
-| D3 | §13 | job pushes record then sends | routine lands 40–60 s late; BOB answers from the record first | per message id: # BOB answer commits = 1, # ANSWER triggers = 1, and the late arrival yields no commit and no trigger (idempotent receipt, provable by id) | O+L | **F3** |
-| D4 | §13 | any message | `inj`: same prompt delivered twice | as D3 | O+L | F3, X3 |
+| D3 | §13 | job pushes record then sends | routine lands 40–60 s late; BOB answers from the record first | per question `J<n>`: # distinct ANSWER ids re it ≤ 1; per BOB message id: # tranche commits = 1; the late arrival yields no commit and no new id (copies of one id are re-sends) | O+L | **F3** |
+| D4 | §13 | any message | `inj`: same prompt delivered twice | as D3; the record's `handled` moves once | O+L | F3, X3 |
 | D5 | §13 | two messages A ≺ B from one sender | `inj`: B delivered before A | final state = state B names; no commit reverting to A's state | O+L | — |
-| D6 | §13 | job revises QUESTION v1 → v2 while ANSWER(v1) in flight | ANSWER(v1) lands | ANSWER names the version it answers; the job applies an answer only to its current version and re-asks otherwise with the version named; a ruling replaced for this cause cites both question ids (K164 design) | O+L | **F5** |
-| D7 | §4, §13 | job sent COMPLETE | CHANGE crosses it | layer not merged until the job's newest COMPLETE ≻ its newest CHANGE; merged job head = head at that COMPLETE | O+L | X16 |
+| D6 | §13 | job revises QUESTION v1 → v2 while ANSWER(v1) in flight | ANSWER(v1) lands | every ANSWER names its question (`re J<n>`); the newest version (not `replaces`d) has exactly one ANSWER id; no ANSWER re a replaced version committed after the replacement's push; the job's newest COMPLETE follows the newest version's ANSWER | O+L | **F5** |
+| D7 | §4, §13 | job sent COMPLETE | CHANGE crosses it | at merge: record `COMPLETE` with `handled B<h>`, h ≥ BOB's newest `B<n>` to it (commits, triggers, plan `sent`); plan `handled` ≥ record `sent`; merged job head = head at that COMPLETE | O+L | X16 |
 | D8 | §13 | ≥3 jobs | all send within one minute while BOB is mid-turn | ∀ messages: effect present (C-common d); none unanswered at layer close | L | — (C6) |
 | D9 | §13 | any | a message targets an archived or finished session | never occurs: ∀ trigger, target not archived at `run_once_at` | O+L | F4 |
 
@@ -87,12 +87,12 @@ Common PASS for every row (**C-common**): (a) the content is in state first: `t�
 
 | # | § | precondition | stimulus | PASS | tier | repro |
 | --- | --- | --- | --- | --- | --- | --- |
-| E1 | §5, §13 | job ends its turn on an open QUESTION | backstop runs | record marks "waiting on BOB: Q<v>"; # relays to Bob for this job = 0; BOB answers it; and either `ses.status_bucket` ≠ BLOCKED or the mechanics classify by record, not bucket | O+L | **F2** |
+| E1 | §5, §13 | job ends its turn on an open QUESTION | backstop runs | record Status `WAITING ON BOB (J<n>)`; # relays to Bob for this job = 0 (no open `NEEDS BOB`); an ANSWER `re` its newest question exists; its turn ends on `Waiting on BOB (J<n>). Nothing for Bob to do.` | O+L | **F2** |
 | E2 | §16 | job's act refused (off the standing list) | — | record has `NEEDS BOB: <act>, <why>` pushed; BLOCKED: needs Bob trigger with the same line, `created_at` ≺ any turn asking in its own window; BOB's relay recorded durably (session link + act); no commit/ref change achieving the act by another session | L (Bob present) | X7 |
 | E3 | §5, §16 | job refused, asks in its own window only | backstop | relay within 20 min + SLACK of the job's `needs_action` appearing | L | — (D6 f1) |
 | E4 | §16 | act on the standing list | job does it | `ses.status_bucket` never BLOCKED for it; the act's effect in `git` | L (Bob's rules) | A3 unproven |
 | E5 | §16 | BOB's own act refused (merge/ff to `main`, K153; archive, D7 f1) | BOB tries | `main` unchanged by any other session; `NEEDS BOB` in plan/handoff; the tranche's partial close state (plan archived, `main` behind) is named and resumable | L | K153 |
-| E6 | §5 | job running a long command (reads idle) | backstop | # restarts/resume messages to it = 0 while its heartbeat is fresh | O+L | long-command idle, X6 |
+| E6 | §5 | job running a long command (reads idle) | backstop | record `RUNNING until <t>` pushed before the command; # RESUME or restarts to it = 0 before t | O+L | long-command idle, X6 |
 | E7 | §7 | a question whose answer changes meaning | BOB brings it to Bob | ruling line with `Bob` source; requirement changed in the same commit; job answered after | L (Bob) | — (B9) |
 
 ### F. Job lifecycle within a layer (§4, §6, §7)
@@ -125,10 +125,10 @@ Common PASS for every row (**C-common**): (a) the content is in state first: `t�
 | H1 | §5 | last layer closed | close | `plan/archive/<T>.md` ≺ ff; `main` = tranche head; archive's usage total = Σ `csv`; # enabled triggers targeting BOB = 0 after close | L | — |
 | H2 | §2, §5 | layer running, a message in flight to BOB | BOB refreshes | A5–A8; the in-flight message answered by the successor; an enabled backstop into the successor exists, none into p | L | X10, X11 |
 | H3 | §5 | a job `inj`-archived without notice | wait | detection (a new `<M> #k+1` or a resume message) ≤ 20 min + SLACK after `inj`; the job completes | L | — (C4 uninjected) |
-| H4 | §5 | a job hangs (idle, nothing recorded since BOB spoke) | wait | resume message ≤ 20 min + SLACK; no restart while E6's heartbeat is fresh | L | — |
+| H4 | §5 | a job hangs (idle, nothing recorded since BOB spoke) | wait | RESUME ≤ 20 min + SLACK after its record went quiet (WORKING, no push); restart only after a second quiet check, the old session archived first; none while `RUNNING until` is unexpired | L | — |
 | H5 | §5, §16 | open `NEEDS BOB` in a record, no message | backstop | relay ≤ 20 min + SLACK | L | — |
 | H6 | §5, K128 | layer running | — | at every snapshot: exactly 1 enabled backstop trigger targeting the current BOB, `run_once_at` ≤ now + 20 min + SLACK | L | — |
-| H7 | §5 | BOB dies mid-layer | `inj`: archive BOB | some session detects it within a bound and a successor takes over | O+L | X5 |
+| H7 | §5 | BOB dies mid-layer | `inj`: archive BOB | the WATCH fires ≤ 60 min + SLACK after BOB's last check; ROOT starts exactly one `BOB #n+1`, which takes over (A5) and archives BOB-n | O+L | X5 |
 | H8 | §2 | toy baseline | before any run | `run.mjs dryrun` 0 failures; every toy file owned | O | D7 f2 |
 
 ### P. Platform facts (calibration, every live run, first)
@@ -161,7 +161,7 @@ F1–F5 were observed live in T6, so each is reproduced by the tool on **T6's ow
 **Offline (no sessions; seconds; run in CI of civicos-process):**
 1. **The four checks' tests** (existing 25) plus G5 (K140) and negative controls for every new predicate.
 2. **`checks/cert/records.mjs`** · grammar validators: job record (Status with id and depth; messages with id, version and reply-to; `NEEDS BOB`; `Size`), plan Status (exactly one id, depth), message first line and envelope, handoff (`NEEDS BOB: start ROOT`), `csv` schema (columns, one row per session). Corpus: bio T4–T6 and D1–D7 records (the T6 ones must fail on F5's missing version).
-3. **`checks/cert/model.mjs`** · an explicit-state model of the protocol, exhaustively explored (BFS). Actors: ROOT, 2 BOBs (takeover), 3 jobs, Bob (approves). Environment: container-start delay 0–2 ticks, routine latency 1–2 ticks, loss ≤ 1, duplication ≤ 1, reordering, a job death, a long command, a refusal. Rules are guarded actions each citing its § (`--rules current|revised`). Invariants: ≤ 1 live session per module; every message's content in state before send; each question version answered at most once, and an answer applied only to its version; no layer close with a message in flight or a COMPLETE older than a CHANGE; no relay to Bob without `NEEDS BOB`; no restart of a live job; exactly one BOB address; no message to an archived session. Liveness (under fairness, finite faults): every message handled, every layer closes. Expected: counterexamples for F1–F5, X4, X5 on `current`; none on `revised`. Bound: ~10⁵–10⁶ states, under a minute in node.
+3. **`checks/cert/model.mjs`** · an explicit-state model of the protocol, exhaustively explored (BFS). Actors: ROOT, 2 BOBs (takeover), 3 jobs, Bob (approves). Environment: container-start delay 0–2 ticks, routine latency 1–2 ticks, loss ≤ 1, duplication ≤ 1, reordering, a job death, a long command, a refusal. Rules are guarded actions each citing its § (`--rules current|revised`). Invariants: ≤ 1 live session per module; every message's content in state before send; each question version answered at most once, and an answer applied only to its version; no layer close with a message in flight or a COMPLETE older than a CHANGE; no relay to Bob without `NEEDS BOB`; no restart of a live job; exactly one BOB address; no message to an archived session. Liveness (under fairness, finite faults): every message handled, every layer closes. Expected: counterexamples for F1–F5, X4 on `current`; none on `revised` (met: every property PASSes over the revised rules' five bound sets, and each K164 rule switched off breaks its property, `checks/test/model.test.mjs`). Bound: ~10⁵–10⁶ states, under a minute in node.
 4. **`checks/cert/assert.mjs`** run on fixtures: each predicate given a passing and a failing fixture.
 
 **Live (on the platform; only what the model assumes):** P1–P6 and every **L** row. Three runs, one concern each (D6 f2): **R1** start and takeover (A, B, H2, H6: ROOT stand-in, 2 stand-in BOBs, 3 jobs); **R2** messages and faults (C, D, E1, E6, F, G, H3–H5: 1 BOB, 3 jobs in layer 1, 1 in layer 2, restarts); **R3** refusals with Bob present (E2–E5, E7, A10). The certifying BOB is the harness: it injects (`inj`) with its own triggers and archives, and never answers for a stand-in.

@@ -94,7 +94,7 @@ A failed tranche is abandoned without touching `main`.
 
 ## 6. The module job (P6, P7, P8, P11)
 
-1. **Start** on `job/T<n>/<module>`. BOB's first message gives the job its own session id and BOB's, and the job's depth (BOB's plus one, §2), for the channel of §13. **The job's first act is to push its record's Status line**, which confirms its start (§5), and it pushes that line again whenever it changes (*K164*, P9, P13; F1, X1, X6, X16):
+1. **Start** on `job/T<n>/<module>`. BOB's first message gives the job its own session id and BOB's, and the job's depth (BOB's plus one, §2), for the channel of §13. **The job's first act is to push its record's Status line**, which confirms its start (§5; a restarted job first processes every BOB message above its record's `handled` mark, §13), and it pushes that line again whenever it changes (*K164*, P9, P13; F1, X1, X6, X16):
    `**Status** · <session id> · depth <d> · <state> · sent J<n> · handled B<n>`, the state one of `WORKING`, `RUNNING until <UTC time> (<command>)` (set before waiting on a command expected to take over ten minutes), `WAITING ON BOB (J<n>)`, `NEEDS BOB`, `COMPLETE`.
    **A job that ends its turn on a wait** pushes that state first and ends with the one line `Waiting on BOB (J<n>). Nothing for Bob to do.` (or `on my command`): its session then reads BLOCKED, and this line is what Bob's app shows (*K164*, P17; F2).
    **A job whose context passes half its window** (`get_session`) finishes its current step, pushes its record with the next step named, sends `BLOCKED J<n>: context`, and ends its turn; BOB restarts it (§5). The threshold is confirmed or corrected by the metrics (§10) (*K164*, P13; X14).

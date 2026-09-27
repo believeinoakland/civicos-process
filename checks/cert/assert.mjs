@@ -18,7 +18,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { parseMessageLine, parseRecord, parsePlanStatus, parseCsv } from './records.mjs';
+import { parseMessageLine, parseRecord, parsePlanStatus, parseCsv, BACKSTOP } from './records.mjs';
 
 const SLACK_MS = 3 * 60e3;
 const BACKSTOP_MS = 20 * 60e3;
@@ -104,9 +104,37 @@ export function messageOf(tr) {
   const m = parseMessageLine(line);
   return m.kinds ? { ...m, line } : null;
 }
-// A backstop (§5, K128): a one-time routine into BOB's own session that is not a message. Its first line has no
-// defined grammar (C14): T5 wrote "Backstop check (…)", T6 "BACKSTOP (T6, layer n): …" as a reminder.
-export const isBackstop = (tr) => !messageOf(tr) && (/backstop/i.test(promptOf(tr).split('\n')[0]) || /backstop/i.test(tr.name || ''));
+// A backstop (§5, K128): a one-time routine into BOB's own session that is not a message; *K164* its first line is
+// `BACKSTOP (<T>, layer <k>)`. Before K164 it had none (T5 "Backstop check (…)", T6 "BACKSTOP (T6, layer n): …").
+export const isBackstop = (tr) => !messageOf(tr) && (BACKSTOP.test(promptOf(tr).split('\n')[0]) || /backstop/i.test(promptOf(tr).split('\n')[0]) || /backstop/i.test(tr.name || ''));
+
+// The K164 message log (§13): every message with an id, from the triggers and from BOB's tranche commits (subject =
+// envelope), each keyed by the job's module: a job's by its sender session (or the name's lane), BOB's by `to`.
+function messageLog(S) {
+  const moduleByName = (name) => S.sessions.find((x) => x.name === name)?.module ?? (/^[A-Z][A-Z0-9-]* #\d+$/.test(name) && !/^(BOB|ROOT)\b/.test(name) ? name.replace(/ #\d+$/, '').toLowerCase() : null);
+  const out = [];
+  const push = (m, src, extra) => {
+    if (!m.kinds || !m.id) return;
+    const fromJob = /^J\d+$/.test(m.id);
+    const module = fromJob ? moduleByName(m.sender) : m.to ?? (extra.target ? S.moduleOf(extra.target) : null);
+    out.push({ ...m, module, fromJob, src, ...extra });
+  };
+  for (const tr of S.triggers) { const m = messageOf(tr); if (m) push(m, 'trigger', { trigger: tr.id, target: tr.persistent_session_id }); }
+  if (S.git && S.tranche) {
+    for (const c of S.git(['log', '--format=%H%x09%ct%x09%s', S.tranche]).split('\n').filter(Boolean)) {
+      const [h, ct, subj] = c.split('\t');
+      if (!subj.startsWith('From ')) continue;
+      const m = parseMessageLine(subj);
+      if (!m.errors.length) push(m, 'commit', { commit: h, time: Number(ct) * 1000 });
+    }
+  }
+  return out;
+}
+// The modules of the run's jobs and their records (K164 records only: a Status with marks).
+function k164Records(S) {
+  const mods = [...new Set([...S.sessions.filter((x) => x.role === 'job' && x.module).map((x) => x.module), ...Object.keys(S.run.records || {})])];
+  return mods.map((module) => ({ module, text: S.record(module) })).filter((x) => x.text).map((x) => ({ ...x, r: parseRecord(x.text) })).filter((x) => x.r.marks);
+}
 
 const res = (status, reason) => ({ status, reason });
 const PASS = (r) => res('PASS', r), FAIL = (r) => res('FAIL', r), UNOBSERVED = (r) => res('UNOBSERVED', r);
@@ -195,6 +223,52 @@ export const PREDICATES = {
   D3(S) { return oneAnswerPerId(S); },
   D4(S) { return oneAnswerPerId(S); },
 
+  // D6 (F5, *K164* §6.3): every ANSWER names its question (`re J<n>`); where a QUESTION replaces another, the newest
+  // version has exactly one ANSWER id, and no ANSWER re a replaced version was committed after the replacement's record push.
+  D6(S) {
+    const log = messageLog(S);
+    const recs = k164Records(S);
+    const entries = recs.flatMap((x) => x.r.messages.filter((m) => m.envelope && m.id).map((m) => ({ ...m, module: x.module, fromJob: true })));
+    const all = [...log, ...entries];
+    const chains = all.filter((x) => x.fromJob && x.kinds.includes('QUESTION') && x.replaces);
+    if (!chains.length) return UNOBSERVED('no QUESTION that replaces another');
+    const bad = [];
+    for (const x of log.filter((y) => y.kinds.includes('ANSWER') && !y.re)) bad.push(`${x.module}: ANSWER ${x.id} names no question (re)`);
+    for (const mod of [...new Set(chains.map((x) => x.module))]) {
+      const replaced = new Set(chains.filter((x) => x.module === mod).map((x) => x.replaces));
+      const newest = [...new Set(all.filter((x) => x.module === mod && x.fromJob && x.kinds.includes('QUESTION')).map((x) => x.id))].filter((id) => !replaced.has(id));
+      for (const q of newest) {
+        const ids = [...new Set(log.filter((y) => y.module === mod && y.kinds.includes('ANSWER') && y.re === q).map((y) => y.id))];
+        if (ids.length !== 1) bad.push(`${mod}: newest version ${q} has ${ids.length} ANSWER ids`);
+      }
+      // With git: the replacing QUESTION's heading first pushed on the job branch; an ANSWER re the replaced id after it is stale.
+      const jref = S.ref && S.ref(`job/${S.run.tranche}/${mod}`);
+      if (jref) for (const r of entries.filter((x) => x.module === mod && x.replaces)) {
+        const first = S.git(['log', '--reverse', '--format=%ct', `-S${r.line}`, jref, '--', `build/jobs/${S.run.tranche}/${mod}.md`]).split('\n')[0];
+        if (!first) continue;
+        for (const x of log.filter((y) => y.src === 'commit' && y.module === mod && y.kinds.includes('ANSWER') && y.re === r.replaces && y.time > Number(first) * 1000)) bad.push(`${mod}: ANSWER ${x.id} re ${r.replaces} committed after ${r.id} replaced it`);
+      }
+    }
+    return bad.length ? FAIL(bad.join('; ')) : PASS(`${chains.length} revised question(s), each newest version answered once`);
+  },
+
+  // D7 / X16 (*K164* §5): each job's record is COMPLETE with \`handled\` at BOB's newest message to it (the highest B
+  // id in the triggers, the tranche commits and the plan's \`sent\` mark), and the plan's \`handled\` at its \`sent\`.
+  D7(S) {
+    const recs = k164Records(S);
+    if (!recs.length) return UNOBSERVED('no job record with the K164 Status (sent/handled marks)');
+    const log = messageLog(S), bad = [];
+    for (const { module, r } of recs) {
+      const sentB = Math.max(0, ...log.filter((x) => !x.fromJob && x.module === module && /^B\d+$/.test(x.id)).map((x) => Number(x.id.slice(1))));
+      const pm = (S.plan?.marks || []).find((x) => x.session === r.sessionId);
+      const sent = Math.max(sentB, pm?.sent ?? 0);
+      if (r.state !== 'COMPLETE') bad.push(`${module}: record ${r.state}, not COMPLETE`);
+      if (r.marks.handled < sent) bad.push(`${module}: record handled B${r.marks.handled}, BOB sent B${sent}`);
+      if (pm && pm.handled < r.marks.sent) bad.push(`${module}: plan handled J${pm.handled}, record sent J${r.marks.sent}`);
+    }
+    return bad.length ? FAIL(bad.join('; ')) : PASS(`${recs.length} job(s) COMPLETE, each having handled BOB's newest message`);
+  },
+
   // D9 (F4): no message targets a session archived when it fires.
   D9(S) {
     const msgs = S.triggers.filter((tr) => messageOf(tr));
@@ -203,17 +277,25 @@ export const PREDICATES = {
     return bad.length ? FAIL(bad.join('; ')) : PASS(`${judged} of ${msgs.length} messages judged (their target observed), none to an archived session`);
   },
 
-  // E1 (F2): no relay to Bob for a job whose record held no open NEEDS BOB line then.
+  // E1 (F2): no relay to Bob for a job whose record held no open NEEDS BOB line then; *K164*: every question's
+  // newest version in a record is answered (a wait on BOB is BOB's, never Bob's).
   E1(S) {
-    if (!S.run.relays) return UNOBSERVED('relays to Bob leave no durable state (X7); run.json lists none');
+    const recs = k164Records(S);
+    if (!S.run.relays && !recs.length) return UNOBSERVED('relays to Bob leave no durable state (X7); run.json lists none');
     const bad = [];
-    for (const r of S.run.relays) {
+    const log = messageLog(S);
+    for (const { module, r } of recs) {
+      const qs = r.messages.filter((m) => m.envelope && m.kinds?.includes('QUESTION'));
+      const replaced = new Set(qs.map((m) => m.replaces).filter(Boolean));
+      for (const q of qs.filter((m) => !replaced.has(m.id))) if (!log.some((x) => x.module === module && x.kinds.includes('ANSWER') && x.re === q.id)) bad.push(`${module}: QUESTION ${q.id} has no ANSWER`);
+    }
+    for (const r of S.run.relays || []) {
       const module = S.moduleOf(r.job) ?? r.job;
       const text = S.record(module, r.time);
       const open = text ? parseRecord(text).open : [];
       if (!open.length) bad.push(`relay for ${module} at ${r.time}${r.act ? ` (${r.act})` : ''}: its record had no open "NEEDS BOB: <act>, <why>"`);
     }
-    return bad.length ? FAIL(bad.join('; ')) : PASS(`${S.run.relays.length} relay(s), each on an open NEEDS BOB line`);
+    return bad.length ? FAIL(bad.join('; ')) : PASS(`${(S.run.relays || []).length} relay(s), each on an open NEEDS BOB line; ${recs.length} K164 record(s), every question answered`);
   },
 
   // G4: each archived session has one CSV row, usage equal to its archived usage, a job's Size equal to its record's;
@@ -264,27 +346,29 @@ export const PREDICATES = {
     return bad.length ? FAIL(bad.join('; ')) : PASS(`${snaps.length} snapshot(s), one backstop into the current BOB in each`);
   },
 };
+PREDICATES.X16 = PREDICATES.D7;
 // D9 and A4 share their rule with A6's first half; H6 is also H2's "a backstop into the successor, none into p".
 
+// D3/D4 (F3, *K164* §13): per question (module, J<n>) at most one ANSWER id, and per BOB message id at most one
+// tranche commit; copies of one id (a re-send, a duplicate delivery) are allowed, a second id or commit is not.
 function oneAnswerPerId(S) {
-  const msgs = S.triggers.map((tr) => ({ tr, m: messageOf(tr) })).filter((x) => x.m);
-  const questions = msgs.filter((x) => x.m.kinds.includes('QUESTION'));
-  if (!questions.length) return UNOBSERVED('no QUESTION in any snapshot');
-  if (!msgs.some((x) => x.m.id)) return UNOBSERVED(`${msgs.length} messages, none with an id= (X3): "handled once" is undecidable`);
+  const all = S.triggers.map(messageOf).filter(Boolean);
+  if (!all.some((m) => m.kinds.includes('QUESTION'))) return UNOBSERVED('no QUESTION in any snapshot');
+  const log = messageLog(S);
+  if (!log.length) return UNOBSERVED(`${all.length} messages, none with an id (X3): "handled once" is undecidable`);
   const bad = [];
-  const ids = [...new Set(questions.map((x) => x.m.id).filter(Boolean))];
-  const noId = questions.filter((x) => !x.m.id).length;
+  const noId = all.filter((m) => m.kinds.includes('QUESTION') && !m.id).length;
   if (noId) bad.push(`${noId} QUESTION(s) without an id`);
-  const log = S.git && S.tranche ? S.git(['log', '--format=%B%x1e', S.tranche]).split('\x1e') : null;
-  for (const q of ids) {
-    const answers = msgs.filter((x) => x.m.kinds.includes('ANSWER') && (x.m.re || '').split('@')[0] === q);
-    if (answers.length > 1) bad.push(`${q}: ${answers.length} ANSWER triggers (${answers.map((x) => x.tr.id).join(', ')})`);
-    if (log) {
-      const commits = log.filter((b) => new RegExp(`\\bre=${q.replace(/[.#]/g, '\\$&')}(@\\d+)?\\b`).test(b)).length;
-      if (commits > 1) bad.push(`${q}: ${commits} answer commits on ${S.tranche}`);
-    }
+  const qs = [...new Set(log.filter((x) => x.fromJob && x.kinds.includes('QUESTION')).map((x) => `${x.module}:${x.id}`))];
+  for (const q of qs) {
+    const answers = log.filter((x) => x.kinds.includes('ANSWER') && `${x.module}:${x.re}` === q);
+    const ids = [...new Set(answers.map((x) => x.id))];
+    if (ids.length > 1) bad.push(`${q}: ${ids.length} ANSWER ids (${ids.join(', ')})`);
   }
-  return bad.length ? FAIL(bad.join('; ')) : PASS(`${ids.length} question id(s), at most one answer each`);
+  const commits = new Map();
+  for (const x of log.filter((y) => y.src === 'commit' && !y.fromJob)) { const k = `${x.module}:${x.id}`; commits.set(k, (commits.get(k) || 0) + 1); }
+  for (const [k, n] of commits) if (n > 1) bad.push(`${k}: ${n} commits on ${S.tranche}`);
+  return bad.length ? FAIL(bad.join('; ')) : PASS(`${qs.length} question id(s), at most one answer each`);
 }
 
 export function assertRun(runPath, productDir) {

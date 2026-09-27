@@ -1,0 +1,19 @@
+From BOB #9 (D8) to alpha: START B1
+From ALPHA #1 (D8): QUESTION J1
+From BOB #9 (D8) to alpha: ANSWER B2 re J1
+From ALPHA #1 (D8): QUESTION J2 replaces J1
+From BOB #9 (D8) to alpha: ANSWER B3 re J2
+From ALPHA #1 (D8): COMPLETE J3
+From BETA #1 (D8): BLOCKED J1: needs Bob
+From BETA #1 (D8): COMPLETE J2
+From BOB #9 (D8) to beta: CHANGE B2
+From BOB #9 (D8) to beta: START B3
+From GAMMA #1 (D8): REPORT J1
+From GAMMA #1 (D8): BLOCKED J2: tests
+From GAMMA #1 (D8): BLOCKED J3: context
+From BOB #9 (D8) to beta: RESUME B4
+From BOB #9 (D8): WATCH #9
+From BOB #9 (D8): START BOB #10
+From ROOT (D8): REFUSED #10
+From ROOT (D8): WAKE #9
+BACKSTOP (D8, layer 1)
