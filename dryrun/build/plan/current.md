@@ -1,6 +1,6 @@
 # Plan: dry run D9 (K164 certification, live run R2: messages and faults)
 
-**Status** · OPEN · D9-BOB #1 · session_01R87rPNu4xWFuL82GdcPi1Q · depth 1 (took over 2026-09-27T17:36Z; parent D9-ROOT #1 `session_01M7dTMxF29Uu5J88vbHveCE`; no earlier stand-in BOB; backstop `trig_0158rVsYeCBA8j5odQwSGKjW`, WATCH #1 into ROOT `trig_016DTJVrVGos1Kk5Pf7mumJf`)
+**Status** · OPEN · D9-BOB #1 · session_01R87rPNu4xWFuL82GdcPi1Q · depth 1 (took over 2026-09-27T17:36Z; parent D9-ROOT #1 `session_01M7dTMxF29Uu5J88vbHveCE`; no earlier stand-in BOB; backstop `trig_01Rqjv5tGVW6BSkhry1GM5Jq`, WATCH #1 into ROOT `trig_016DTJVrVGos1Kk5Pf7mumJf`)
 
 **Jobs** · layer 1, created 2026-09-27T17:37:21–24Z: ALPHA #1 `session_018rLM8Fi2LAHzANB3ne58dT` · handled J0 · sent B2; start confirmed 17:37Z; quiet at the 17:58Z backstop (idle, WORKING, no push since 17:37:52Z), sent RESUME B2; BETA #1 `session_01GyWyX3WXeusEGHPUXeSYnu` · handled J2 · sent B2 · COMPLETE (e8057d8); start confirmed 17:39Z; BLOCKED J1: tests (N3 impossible under R1) answered B2: N3 deferred, R1 stands (D9-K2); GAMMA #1 `session_01Vjx9RW3FuDxN3aCuCAgQqC` · handled J3 · sent B2 · COMPLETE (ae741ad); start confirmed 17:39Z; J1 replaced by J2, answered B2 (R4 wording, D9-K1)
 
