@@ -1,0 +1,17 @@
+{
+  "run": "R2",
+  "tranche": "D9",
+  "product": "../..",
+  "depth_root": "session_01M7dTMxF29Uu5J88vbHveCE",
+  "sessions": [
+    { "id": "session_01H7SnX45uHbDZ5fjH6mBHcN", "role": "harness", "name": "BOB #49" },
+    { "id": "session_01M7dTMxF29Uu5J88vbHveCE", "role": "ROOT", "name": "D9-ROOT #1", "prompt": true }
+  ],
+  "scenarios": ["A4", "A5", "B2", "D3", "D4", "D6", "D7", "D9", "E1", "G4", "H6"],
+  "required": ["A5", "B2", "D3", "D4", "D6", "D7", "E1", "G4", "H6"],
+  "snapshots": [],
+  "injections": [
+    { "fault": "send", "target": "session_01M7dTMxF29Uu5J88vbHveCE", "time": "2026-09-27T17:33:49Z", "trigger": "trig_015m7ekw9rjEJ6PZpTAzrdCJ", "note": "START BOB #1 naming 8498d589, due 17:35" }
+  ],
+  "relays": []
+}
