@@ -1,6 +1,6 @@
 # Plan: dry run D6
 
-**Status** · OPEN. The dry run certifying the K111 revision (mechanics §2, §10, §16; `CERTIFICATION.md` A1–A4). BOB's session: `D6_BOB_1`. Each entry is written to drive a path of the mechanics: do exactly what it says.
+**Status** · OPEN. The dry run certifying the K111 revision (mechanics §2, §10, §16; `CERTIFICATION.md` A1–A4). BOB's session: `session_01PcJjeNeDjQeced6Yphu5r9` (BOB #44, took over from D6-BOB #1 `session_012Dxuxjs4AK7Jo4hNUYJLsF`). Each entry is written to drive a path of the mechanics: do exactly what it says.
 
 ## Layer 1
 
