@@ -4,14 +4,85 @@
   "product": "../..",
   "depth_root": "session_01M7dTMxF29Uu5J88vbHveCE",
   "sessions": [
-    { "id": "session_01H7SnX45uHbDZ5fjH6mBHcN", "role": "harness", "name": "BOB #49" },
-    { "id": "session_01M7dTMxF29Uu5J88vbHveCE", "role": "ROOT", "name": "D9-ROOT #1", "prompt": true }
+    {
+      "id": "session_01H7SnX45uHbDZ5fjH6mBHcN",
+      "role": "harness",
+      "name": "BOB #49"
+    },
+    {
+      "id": "session_01M7dTMxF29Uu5J88vbHveCE",
+      "role": "ROOT",
+      "name": "D9-ROOT #1",
+      "prompt": true
+    },
+    {
+      "id": "session_01R87rPNu4xWFuL82GdcPi1Q",
+      "role": "BOB",
+      "name": "D9-BOB #1",
+      "prompt": true
+    },
+    {
+      "id": "session_018rLM8Fi2LAHzANB3ne58dT",
+      "role": "job",
+      "name": "ALPHA #1",
+      "module": "alpha",
+      "prompt": true
+    },
+    {
+      "id": "session_01GyWyX3WXeusEGHPUXeSYnu",
+      "role": "job",
+      "name": "BETA #1",
+      "module": "beta",
+      "prompt": true
+    },
+    {
+      "id": "session_01Vjx9RW3FuDxN3aCuCAgQqC",
+      "role": "job",
+      "name": "GAMMA #1",
+      "module": "gamma",
+      "prompt": true
+    }
   ],
-  "scenarios": ["A4", "A5", "B2", "D3", "D4", "D6", "D7", "D9", "E1", "G4", "H6"],
-  "required": ["A5", "B2", "D3", "D4", "D6", "D7", "E1", "G4", "H6"],
+  "scenarios": [
+    "A4",
+    "A5",
+    "B2",
+    "D3",
+    "D4",
+    "D6",
+    "D7",
+    "D9",
+    "E1",
+    "G4",
+    "H6"
+  ],
+  "required": [
+    "A5",
+    "B2",
+    "D3",
+    "D4",
+    "D6",
+    "D7",
+    "E1",
+    "G4",
+    "H6"
+  ],
   "snapshots": [],
   "injections": [
-    { "fault": "send", "target": "session_01M7dTMxF29Uu5J88vbHveCE", "time": "2026-09-27T17:33:49Z", "trigger": "trig_015m7ekw9rjEJ6PZpTAzrdCJ", "note": "START BOB #1 naming 8498d589, due 17:35" }
+    {
+      "fault": "send",
+      "target": "session_01M7dTMxF29Uu5J88vbHveCE",
+      "time": "2026-09-27T17:33:49Z",
+      "trigger": "trig_015m7ekw9rjEJ6PZpTAzrdCJ",
+      "note": "START BOB #1 naming 8498d589, due 17:35"
+    },
+    {
+      "fault": "duplicate",
+      "target": "session_01R87rPNu4xWFuL82GdcPi1Q",
+      "time": "2026-09-27T17:49:22Z",
+      "trigger": "trig_0111urCtXA7g6sYc5zyqGxiX",
+      "note": "D4: a second delivery of BETA #1's COMPLETE J2 (its body says it is a harness duplicate), due 17:50"
+    }
   ],
   "relays": []
 }
