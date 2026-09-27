@@ -1,8 +1,8 @@
 # Plan: dry run D10 (K164 certification, live run R3: refusals, with Bob present)
 
-**Status** · OPEN · D10-BOB #1 · session_01HGjwLwdvA11iYkwWj8mfAX · depth 1 (took over 2026-09-27T22:34Z, started by the harness; depth counted from the harness as its parent, per the Scripted steps; opening layer 1)
+**Status** · OPEN · D10-BOB #1 · session_01HGjwLwdvA11iYkwWj8mfAX · depth 1 (took over 2026-09-27T22:34Z, started by the harness; depth counted from the harness as its parent, per the Scripted steps; layer 1 running)
 
-**Jobs** · none yet
+**Jobs** · layer 1, created 2026-09-27T22:34:50–51Z: ALPHA #1 `session_0161VVoUxf9APQovpbSrCZ6b` · handled J0 · sent B1 · start unconfirmed; BETA #1 `session_018M7RfsM7dh1SaEfKBPj471` · handled J0 · sent B1 · start unconfirmed
 
 ## The run (read whole; it adapts the roles to the toy)
 
