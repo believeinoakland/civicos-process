@@ -13,6 +13,9 @@ Arithmetic on numbers.
 **add(a, b) → number**
 - **R1** Returns `a + b` for two finite numbers.
 
+**sub(a, b) → number**
+- **R3** Returns `a - b` for two finite numbers.
+
 ## Private
 
 ### Uses
