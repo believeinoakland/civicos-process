@@ -1,10 +1,12 @@
 # Job record: beta (D8)
 
-**Status** · session_01Ub5ZdVLMvEapjJGFZEZthj · depth 2 · WORKING · sent J1 · handled B2
+**Status** · session_01Ub5ZdVLMvEapjJGFZEZthj · depth 2 · WAITING ON BOB (J1) · sent J1 · handled B2
 
 ## Read
 
 `roles/JOB.md` and `PROCESS-MECHANICS.md` §6, §13, §14 (on `tranche/D8`); `dryrun/build/plan/current.md` (whole); `dryrun/build/requirements/beta.md` (both parts); alpha's public part; `dryrun/build/layers.md` (layer 1: pure functions, no state); `dryrun/build/manifest.md`; beta's code, script, generated bundle and tests. Baseline: `node --test beta/test/*.test.mjs` · `# pass 6`, `# fail 0`.
+
+BETA #2 (`session_01Ub5ZdVLMvEapjJGFZEZthj`, restart on B2 after BETA #1 was archived) re-read the same, whole, on `tranche/D8` at `efe9104`: nothing changed; no message to beta on the tranche above B2. Baseline again `# pass 6`, `# fail 0`. QUESTION J1 stands (not re-sent); waiting on `re J1`.
 
 ## Entries
 
