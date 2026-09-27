@@ -24,7 +24,7 @@ You are the job for ONE module in ONE tranche: `<module>` in `T<n>`, both named 
    - `node checks/architecture.mjs <product> <module>`
    - `node checks/coverage.mjs <product> <module>`
    - `node checks/ownership.mjs <product> <module> tranche/T<n>` (it falls back to `origin/tranche/T<n>` in your checkout)
-7. **Record completion** in `build/jobs/T<n>/<module>.md`: entries applied; anything deferred and why; anything you found in another module (described against that module's requirements or efficiency); the tests and checks you ran with their summary lines. Then run `node metrics/record.mjs --product <product> --tranche T<n> --role job --module <module> --test-runs <n> --module-lines <n> --record build/jobs/T<n>/<module>.md`, which appends your metrics row to your record. Commit, push, verify the push on the remote, send BOB `COMPLETE`, and end your turn.
+7. **Record completion** in `build/jobs/T<n>/<module>.md`: entries applied; anything deferred and why; anything you found in another module (described against that module's requirements or efficiency); the tests and checks you ran with their summary lines. Then add one line to your record, `Size: test runs <n>, module lines <n>`; BOB reads your usage from your session's archive (mechanics §10), so you report none. Commit, push, verify the push on the remote, send BOB `COMPLETE`, and end your turn.
 8. **Stay available** until BOB archives your session. A `CHANGE` re-opens the job: merge `tranche/T<n>` if it says so, process it, re-run steps 5–7, and comment `COMPLETE` again.
 
 **When tests will not pass** after three honest attempts, record what fails and what you tried, push, send BOB `BLOCKED`, and end your turn; BOB works it with you.
