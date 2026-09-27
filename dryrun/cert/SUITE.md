@@ -35,7 +35,7 @@ Tier: **O** offline (model, validators, check tests), **L** live dry run, **O+L*
 | A5 | §2, §13 | successor s running | takeover | s's first commit on the tranche branch changes only the Status line; Status names exactly 1 session id = s and `depth 1`; depth = length of `parent` chain of s | L | — |
 | A6 | §2, §10 | predecessor p idle; `inj`: a far-future routine into p | takeover | before `archived(p)`: # enabled triggers targeting p = 0; `ses(p).status` idle at archive; `csv` has 1 row for p, role `BOB-final`, usage = archived usage of p | L | — |
 | A7 | §2 | p mid-turn at takeover | takeover | p never archived while `status` running; p archived by the end of the run | L | — |
-| A8 | §2, §13 | jobs running | takeover | ∀ message from a job with `created_at` ≻ `t↑`(A5 commit): target = s; ∀ message to p after that time: handled by s (its record entry answered) | O+L | X11 |
+| A8 | §2, §13 | jobs running | takeover | ∀ message from a job with `created_at` ≻ `t↑`(A5 commit): target = s; every record entry above the plan's `handled` marks at takeover is handled by s | O+L | X11 |
 | A9 | §2 | a BOB at depth ≠ 1 (started by Bob, or by a BOB) | it refreshes | # sessions it created titled `BOB #…` = 0; its handoff has a `NEEDS BOB: start ROOT` line (regex) | O | — (L7) |
 | A10 | §2, §16 | predecessor not a sibling (started outside ROOT) | successor archives it | archive done, or refused ⇒ `NEEDS BOB` line in the successor's plan/handoff and p unarchived, with no other archive attempt in `trg`/`ses` | L | D7 f1 |
 | A11 | §2 | ROOT context > 300k or ROOT dead | BOB refreshes | handoff ends with `NEEDS BOB: start ROOT`, prompt text and steps (grammar) | O | — |
@@ -66,7 +66,7 @@ Common PASS for every row (**C-common**): (a) the content is in state first: `t�
 | C10 | BLOCKED: needs Bob | job → BOB | E2's relay |
 | C11 | START BOB | BOB → ROOT | A1 |
 | C12 | STARTED / refusal | ROOT → BOB | A2, A4 |
-| C13 | takeover notice | successor → jobs | A8 |
+| C13 | *(retired, K164 design X11: no takeover notice; jobs read BOB's address before each send)* | — | — |
 | C14 | backstop | BOB → itself | H6 |
 
 ### D. Delivery faults (§5, §13)
@@ -78,7 +78,7 @@ Common PASS for every row (**C-common**): (a) the content is in state first: `t�
 | D3 | §13 | job pushes record then sends | routine lands 40–60 s late; BOB answers from the record first | per message id: # BOB answer commits = 1, # ANSWER triggers = 1, and the late arrival yields no commit and no trigger (idempotent receipt, provable by id) | O+L | **F3** |
 | D4 | §13 | any message | `inj`: same prompt delivered twice | as D3 | O+L | F3, X3 |
 | D5 | §13 | two messages A ≺ B from one sender | `inj`: B delivered before A | final state = state B names; no commit reverting to A's state | O+L | — |
-| D6 | §13 | job revises QUESTION v1 → v2 while ANSWER(v1) in flight | ANSWER(v1) lands | ANSWER names the version it answers; the job applies an answer only to its current version and re-asks otherwise with the version named; # rulings replaced for this cause = 0 | O+L | **F5** |
+| D6 | §13 | job revises QUESTION v1 → v2 while ANSWER(v1) in flight | ANSWER(v1) lands | ANSWER names the version it answers; the job applies an answer only to its current version and re-asks otherwise with the version named; a ruling replaced for this cause cites both question ids (K164 design) | O+L | **F5** |
 | D7 | §4, §13 | job sent COMPLETE | CHANGE crosses it | layer not merged until the job's newest COMPLETE ≻ its newest CHANGE; merged job head = head at that COMPLETE | O+L | X16 |
 | D8 | §13 | ≥3 jobs | all send within one minute while BOB is mid-turn | ∀ messages: effect present (C-common d); none unanswered at layer close | L | — (C6) |
 | D9 | §13 | any | a message targets an archived or finished session | never occurs: ∀ trigger, target not archived at `run_once_at` | O+L | F4 |
