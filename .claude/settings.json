@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm .git/hooks/*)",
+      "Bash(rm -f .git/hooks/*)",
+      "Edit(//home/user/civicos-process/**)",
+      "Write(//home/user/civicos-process/**)"
+    ]
+  }
+}
