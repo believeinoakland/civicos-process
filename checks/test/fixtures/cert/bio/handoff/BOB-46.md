@@ -1,0 +1,17 @@
+## 6. Handoff (BOB #46 to BOB #47, 2026-09-27 ~13:15 UTC)
+
+Replaced at each handoff; the progress log (§4) is the history.
+
+**Where things stand.** T5 is CLOSED and `main` is fast-forwarded to it (e35861d317); its plan and outcome are `build/plan/archive/T5.md`, its usage `build/metrics/T5.csv` (17 jobs, 1,346.9M tokens). No tranche is open and no job session is running. `build/plan/next.md` holds T6, drafted (K129), and the entries T5 raised (N107–N122). BOB #46 is `session_01Q3WyZBMy4MH1Acpgtw9awA`; its `BOB-final` row is yours to write when you archive it.
+
+**Why you were started by Bob, not by BOB #46 (K154).** Session lineage is capped at depth 8. Every BOB started by its predecessor was one level deeper; BOB #46's jobs sat at depth 8 and could send no routine (their COMPLETEs came through their records), and a BOB #47 started by BOB #46 could have started no job at all. By P3 this is a meaningful flaw: product work waits until the mechanics are fixed and certified.
+
+**Next, in order.**
+1. Take over (mechanics §2): archive BOB #46 once idle (no routine targets it; it armed none still enabled), and write its row `BOB-final` under T5.
+2. **Revise the mechanics for K154 (P3, K113's authority: yours to decide and record, reported to Bob as done):** §2 (a BOB is started by Bob as a fresh session, or by whatever the certification proves keeps the depth bounded; never a chain), §13 (the channel for a job that cannot send: its record, read at each backstop; and the job's first message says which applies), §5 (the backstop reads records, not only session state). Certify it by a dry run (§15, `dryrun/CERTIFICATION.md`), from your fresh session, where jobs you start sit at depth 1 or 2.
+3. Then open T6 from `next.md` (it is yours when; P17). Before opening, fold into T6 what T5 raised (N107–N122 by owner) and check T6's layer 2 entry for promotion (its catalogue bump was folded into 1.35.0; N62 remains).
+4. Carried open with Bob: K153's `coverage.mjs` edit needs his approval in the session that makes it (T6's legacy-index entry says so); the four credential questions for capture-sources (T6 layer 3 depends on them: draft at `docs/development/transition/drafts/capture-sources-credentials.md`); N96 (a profile key for link formats, recommend yes); N71 (the member-facing word for "bundle", recommend "record"); N113 (observation-log's `DOCUMENT_EVIDENCE_IS_ONE_SIDED`, a requirement change, recommend yes); his weekly meter.
+
+**Process findings for the revision (P3):** K154 (above); K140 (the ownership check counts a changed line as added); a job waiting on its own long command reads idle; an auto-mode permission check can refuse a ruled edit as a "CI bypass" (K153): §16 held, but the relay cost hours; K128 (routines no oftener than hourly, so the backstop is a one-time routine re-armed).
+
+**What BOB #46 learned.** Read the tranche branch before trusting a handoff: BOB #45 kept merging after writing it. A job's COMPLETE may predate your last message: check its branch for the newest commit before merging. Derive counts (catalogue departures, census) from diffs, never from a message. Fold a job's proposed requirement text only after checking its ids against yours; when you must number them, say so in the CHANGE and have the job rename its tests. A layer-5 extraction can break a module in another layer through a shared memoised factory (K155): run the old battery before the close, not after.

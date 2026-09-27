@@ -1,0 +1,101 @@
+bio/build/jobs/T4/capture-2.md: the Status/Session header names no depth
+bio/build/jobs/T4/capture-sources.md: no "**Status** · <STATE>" line
+bio/build/jobs/T4/capture-sources.md: the Status/Session header names no depth
+bio/build/jobs/T4/capture.md: the Status/Session header names no depth
+bio/build/jobs/T4/host-governor.md: the Status/Session header names no depth
+bio/build/jobs/T4/image-codecs.md: the Status/Session header names no depth
+bio/build/jobs/T4/legacy-checks.md: the Status/Session header names no depth
+bio/build/jobs/T4/legacy-index-2.md: the Status/Session header names no depth
+bio/build/jobs/T4/legacy-index-2.md: last Size line is not "Size: test runs <n>, module lines <n>": "Size: test runs 11, module lines 11,256 (`index.mjs`)"
+bio/build/jobs/T4/legacy-index.md: the Status/Session header names no depth
+bio/build/jobs/T4/legacy-index.md: last Size line is not "Size: test runs <n>, module lines <n>": "Size: test runs 31, module lines 11,256 (`index.mjs`) + 42 (`scripts/jsonc.mjs`)"
+bio/build/jobs/T4/legacy-tests.md: the Status/Session header names no depth
+bio/build/jobs/T4/legacy-tests.md: last Size line is not "Size: test runs <n>, module lines <n>": "Size: test runs about 1,700 (two full plane runs and a diagnostic run of 126 suites, two c"
+bio/build/jobs/T4/pdf-pixels.md: the Status/Session header names no depth
+bio/build/jobs/T4/pdf-worker.md: no "**Status** · <STATE>" line
+bio/build/jobs/T4/pdf-worker.md: the Status/Session header names no depth
+bio/build/jobs/T4/promotion.md: the Status/Session header names no depth
+bio/build/jobs/T4/provenance.md: the Status/Session header names no depth
+bio/build/jobs/T5/bias.md: the Status/Session header names no depth
+bio/build/jobs/T5/calibration.md: the Status/Session header names no depth
+bio/build/jobs/T5/connections.md: the Status/Session header names no depth
+bio/build/jobs/T5/content.md: the Status/Session header names no depth
+bio/build/jobs/T5/entities.md: the Status/Session header names no depth
+bio/build/jobs/T5/extraction.md: the Status/Session header names no depth
+bio/build/jobs/T5/legacy-index.md: last Size line is not "Size: test runs <n>, module lines <n>": "Size: test runs 540, module lines 11,676 (`index.mjs` 9,069, `scripts/coverage.mjs` 2,607)"
+bio/build/jobs/T5/legacy-tests.md: last Size line is not "Size: test runs <n>, module lines <n>": "Size (this CHANGE): test runs 14, module lines 1 file, +13 / −5."
+bio/build/jobs/T5/membership.md: the Status/Session header names no depth
+bio/build/jobs/T5/observation-log.md: the Status/Session header names no depth
+bio/build/jobs/T5/progressions.md: the Status/Session header names no depth
+bio/build/jobs/T5/promotion.md: the Status/Session header names no depth
+bio/build/jobs/T5/query-language.md: the Status/Session header names no depth
+bio/build/jobs/T5/record-core.md: the Status/Session header names no depth
+bio/build/jobs/T5/retrieval.md: the Status/Session header names no depth
+bio/build/metrics/T5.csv: row 18: module_lines "" is not a count (copied from the record's Size line)
+bio/build/plan/archive/T4.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
+bio/build/plan/archive/T5.md: Status names 2 session ids (session_01Q3WyZBMy4MH1Acpgtw9awA, session_01XMEw4Evvi4UHjyRFmaUvvr); BOB's address is exactly one (§13)
+bio/build/plan/archive/T5.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
+bio/handoff/BOB-44.md: no "BOB #<n> · <session id> · depth <d>" line (§2: the handoff carries the BOB's depth)
+bio/handoff/BOB-45.md: no "BOB #<n> · <session id> · depth <d>" line (§2: the handoff carries the BOB's depth)
+bio/handoff/BOB-46.md: no "BOB #<n> · <session id> · depth <d>" line (§2: the handoff carries the BOB's depth)
+bio/handoff/BOB-47.md: no "BOB #<n> · <session id> · depth <d>" line (§2: the handoff carries the BOB's depth)
+dry/D1/build/jobs/D1/alpha.md: the Status/Session header names no session id
+dry/D1/build/jobs/D1/alpha.md: the Status/Session header names no depth
+dry/D1/build/jobs/D1/alpha.md: COMPLETE with no "Size: test runs <n>, module lines <n>" line
+dry/D1/build/jobs/D1/beta.md: the Status/Session header names no session id
+dry/D1/build/jobs/D1/beta.md: the Status/Session header names no depth
+dry/D1/build/metrics/D1.csv: row 2: session "6aad1e65-d6f3-527d-ac3f-24fd6da7931e" is not a cloud session id
+dry/D1/build/metrics/D1.csv: row 2: turns "21" is not empty (the archive does not report it)
+dry/D1/build/metrics/D1.csv: row 3: session "55ace54c-7a83-5194-95ba-25472b8de4d7" is not a cloud session id
+dry/D1/build/metrics/D1.csv: row 3: turns "29" is not empty (the archive does not report it)
+dry/D1/build/plan/current.md: Status names 0 session ids (none); BOB's address is exactly one (§13)
+dry/D1/build/plan/current.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
+dry/D2/build/jobs/D2/alpha.md: no "**Status** · <STATE>" line
+dry/D2/build/jobs/D2/alpha.md: the Status/Session header names no session id
+dry/D2/build/jobs/D2/alpha.md: the Status/Session header names no depth
+dry/D2/build/jobs/D2/beta.md: the Status/Session header names no session id
+dry/D2/build/jobs/D2/beta.md: the Status/Session header names no depth
+dry/D2/build/jobs/D2/beta.md: COMPLETE with no "Size: test runs <n>, module lines <n>" line
+dry/D2/build/metrics/D2.csv: row 2: session "f1d2a93e-e471-5e0b-b862-a513b68f4d2e" is not a cloud session id
+dry/D2/build/metrics/D2.csv: row 2: turns "21" is not empty (the archive does not report it)
+dry/D2/build/metrics/D2.csv: row 3: session "e1d7098d-a0c3-5f97-bac7-84b536d2f598" is not a cloud session id
+dry/D2/build/metrics/D2.csv: row 3: turns "20" is not empty (the archive does not report it)
+dry/D2/build/plan/current.md: Status names 0 session ids (none); BOB's address is exactly one (§13)
+dry/D2/build/plan/current.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
+dry/D3/build/jobs/D3/alpha.md: the Status/Session header names no session id
+dry/D3/build/jobs/D3/alpha.md: the Status/Session header names no depth
+dry/D3/build/jobs/D3/alpha.md: COMPLETE with no "Size: test runs <n>, module lines <n>" line
+dry/D3/build/jobs/D3/beta.md: the Status/Session header names no depth
+dry/D3/build/jobs/D3/beta.md: COMPLETE with no "Size: test runs <n>, module lines <n>" line
+dry/D3/build/jobs/D3/stats.md: the Status/Session header names no session id
+dry/D3/build/jobs/D3/stats.md: the Status/Session header names no depth
+dry/D3/build/jobs/D3/stats.md: COMPLETE with no "Size: test runs <n>, module lines <n>" line
+dry/D3/build/metrics/D3.csv: row 2: test_runs "" is not a count (copied from the record's Size line)
+dry/D3/build/metrics/D3.csv: row 2: module_lines "" is not a count (copied from the record's Size line)
+dry/D3/build/metrics/D3.csv: row 3: test_runs "" is not a count (copied from the record's Size line)
+dry/D3/build/metrics/D3.csv: row 3: module_lines "" is not a count (copied from the record's Size line)
+dry/D3/build/metrics/D3.csv: row 4: test_runs "" is not a count (copied from the record's Size line)
+dry/D3/build/metrics/D3.csv: row 4: module_lines "" is not a count (copied from the record's Size line)
+dry/D3/build/metrics/D3.csv: row 5: test_runs "" is not a count (copied from the record's Size line)
+dry/D3/build/metrics/D3.csv: row 5: module_lines "" is not a count (copied from the record's Size line)
+dry/D3/build/metrics/D3.csv: row 6: role "BOB" is not job or BOB-final
+dry/D3/build/metrics/D3.csv: row 6: turns "36" is not empty (the archive does not report it)
+dry/D3/build/plan/archive/D3.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
+dry/D4/build/jobs/D4/stats.md: the Status/Session header names no depth
+dry/D4/build/jobs/D4/stats.md: COMPLETE with no "Size: test runs <n>, module lines <n>" line
+dry/D4/build/metrics/D4.csv: row 2: turns "27" is not empty (the archive does not report it)
+dry/D4/build/plan/archive/D4.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
+dry/D5/build/jobs/D5/stats.md: the Status/Session header names no depth
+dry/D5/build/jobs/D5/stats.md: COMPLETE with no "Size: test runs <n>, module lines <n>" line
+dry/D5/build/metrics/D5.csv: row 2: test_runs "" is not a count (copied from the record's Size line)
+dry/D5/build/metrics/D5.csv: row 2: module_lines "" is not a count (copied from the record's Size line)
+dry/D5/build/plan/archive/D5.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
+dry/D6/build/plan/current.md: Status names 2 session ids (session_01PcJjeNeDjQeced6Yphu5r9, session_012Dxuxjs4AK7Jo4hNUYJLsF); BOB's address is exactly one (§13)
+dry/D6/build/plan/current.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
+dry/D7/build/jobs/D7/alpha.md: no "**Status** · <STATE>" line
+dry/D7/build/jobs/D7/alpha.md: the Status/Session header names no depth
+dry/D7/build/metrics/D7.csv: row 5: role "probe" is not job or BOB-final
+dry/main/build/metrics/D6.csv: row 3: test_runs "" is not a count (copied from the record's Size line)
+dry/main/build/metrics/D6.csv: row 3: module_lines "" is not a count (copied from the record's Size line)
+dry/main/build/plan/current.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
+messages-T5-T6-D7.txt: line 21: "From BOB #47 (D7): CHANGE 1": "1" is neither a kind nor an id=/v=/re= field

@@ -1,0 +1,22 @@
+{
+  "run": "T6 (bio, layers 1-2, as it ran under the K154 mechanics)",
+  "tranche": "T6",
+  "sessions": [
+    { "id": "session_0183DmvWFhkpLgr7EBFwPZMr", "role": "ROOT", "name": "ROOT #1" },
+    { "id": "session_01ST5gn8EypNUyWbHPtjrbRM", "role": "BOB", "name": "BOB #47" },
+    { "id": "session_01E4YZNiY3MRoRn59Wr5NnLW", "role": "BOB", "name": "BOB #48" },
+    { "id": "session_01DAomLCBqmFvF1k6WfbWamt", "role": "job", "name": "ID-SPACES #2", "module": "id-spaces", "prompt": true },
+    { "id": "session_01FUNffcNqviJLVTLYAn267C", "role": "job", "name": "LEGACY-CHECKS #2", "module": "legacy-checks", "prompt": true }
+  ],
+  "current_bob": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+  "scenarios": ["A4", "A5", "B2", "D3", "D4", "D9", "E1", "G4", "H6"],
+  "snapshots": ["snap-1.json"],
+  "plan": "../bio/build/plan/archive/T6.md",
+  "csv": ["../bio/build/metrics/T6.csv", "../bio/build/metrics/T5.csv"],
+  "records": {
+    "id-spaces": "../bio/build/jobs/T6/id-spaces.md",
+    "legacy-checks": "../bio/build/jobs/T6/legacy-checks.md",
+    "record-core": "../bio/build/jobs/T6/record-core.md",
+    "promotion": "../bio/build/jobs/T6/promotion.md"
+  }
+}

@@ -1,0 +1,105 @@
+From promotion (T6): COMPLETE
+From record-core (T6): COMPLETE
+From legacy-checks (T6): COMPLETE
+BACKSTOP (T6, layer 2): check RECORD-CORE #3 (session_019pNVf5zMt4wodgEg4ecanZ) and PROMOTION #5 (session_01427pQXmQ6fgyFr7aVbmuBL): session state (not before 15:28, K161) and their records on origin/job/T6/<module> (any QUESTION/REPORT/COMPLETE/BLOCKED/NEEDS BOB); act, then re-arm this 20-minute check.
+From BOB #48 (T6): ANSWER + CHANGE
+From legacy-checks (T6): QUESTION
+From legacy-checks (T6): COMPLETE
+BACKSTOP (T6, layer 1): ID-SPACES #2 is COMPLETE (7c80ffe5df). Check LEGACY-CHECKS #2 (session_01FUNffcNqviJLVTLYAn267C): session state and its record on origin/job/T6/legacy-checks (any QUESTION/REPORT/COMPLETE/BLOCKED/NEEDS BOB newer than K162's ANSWER); act, then re-arm this 20-minute check.
+From id-spaces (T6): COMPLETE
+From BOB #48 (T6): ANSWER
+From legacy-checks (T6): QUESTION
+From BOB #48 (T6): ANSWER
+From id-spaces (T6): QUESTION
+From BOB #48 (T6): START
+From BOB #48 (T6): START
+BACKSTOP (T6, layer 1): check ID-SPACES #2 (session_01DAomLCBqmFvF1k6WfbWamt) and LEGACY-CHECKS #2 (session_01FUNffcNqviJLVTLYAn267C): session state and their records on origin/job/T6/<module> (any QUESTION/REPORT/COMPLETE/BLOCKED/NEEDS BOB newer than my last message); act, then re-arm this 20-minute check.
+From BOB #47 (T6): START BOB
+From D7-BOB #3 (D7): REPORT
+From D7-BOB #2 (D7): START BOB
+From alpha (D7): COMPLETE
+From BOB #47 (D7): CHANGE 1
+You are a measurement probe for the CivicOS process (dry run D7), started by BOB #47 (session_01ST5gn8EypNUyWbHPtjrbRM). Change nothing: no commits, no pushes, no archiving, no new sessions. Do only this, then end:
+Backstop check (mechanics §5, K128, K154): read job/T5/legacy-tests' record for "COMPLETE again" after BOB's 12:44 CHANGE (re-pin derivation-bounds after K155), and job/T5/legacy-index's for Bob's approval having cleared the coverage.mjs edit. When legacy-tests is complete: ownership check, merge, then close layer 11 and T5 (regenerate bundles per build/manifest.md and verify; archive LEGACY-TESTS #3, CONNECTIONS #2 and, if still blocked, LEGACY-INDEX #3 with K153's edit moved to T6's legacy-index entry; metrics rows; archive current.md to plan/archive/T5.md with outcomes and usage; fast-forward main; delete the backstop; report to Bob). Otherwise re-arm this one-time backstop 20 minutes out.
+From BOB #46 (T5): CHANGE
+Backstop check (mechanics §5, K128, K154): read the records on job/T5/connections (CONNECTIONS #2, K155), job/T5/legacy-index and job/T5/legacy-tests for COMPLETE and NEEDS BOB lines, and each session's state. CONNECTIONS #2: when its record's Status says COMPLETE, run the ownership check, merge, re-run all module tests, and tell LEGACY-TESTS #3 (CHANGE) to re-run the suites REPORTs 1–6 named. LEGACY-INDEX #3 waits on Bob's approval of the coverage.mjs edit (do not remind again). Resume any quiet job; re-arm this one-time backstop 20 minutes out while the layer runs.
+Backstop check (mechanics §5, K128, K154): read each layer-11 job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for COMPLETE and NEEDS BOB lines, and each session's state. LEGACY-INDEX #3 waits on Bob's approval of the coverage.mjs edit (K153; relayed and reminded; do not remind again): merge it once its record says done. LEGACY-TESTS #3: last commit 12b80c5c43 (~11:43), then its battery ran; if its record says COMPLETE, run its ownership check and merge; if idle with no newer commit, resume it. Re-arm this one-time backstop 20 minutes out while the layer runs.
+Backstop check (mechanics §5, K128, K154): read each layer-11 job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for COMPLETE and NEEDS BOB lines, and each session's state. LEGACY-INDEX #3 waits on Bob's approval of the coverage.mjs edit (K153; relayed and reminded; do not remind again): merge it once its record says done. LEGACY-TESTS #3: last commit fe4797a752 (~11:00); resume it only if idle with no newer commit. Merge what is complete; re-arm this one-time backstop 20 minutes out while the layer runs.
+Backstop check (mechanics §5, K128, K154): read each layer-11 job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for COMPLETE and NEEDS BOB lines, and each session's state. LEGACY-INDEX #3 waits on Bob's approval of the coverage.mjs edit (K153; relayed and reminded; do not remind again): merge it once its record says done. LEGACY-TESTS #3: last commit fe4797a752 (~11:00); resume it only if idle with no newer commit. Merge what is complete; re-arm this one-time backstop 20 minutes out while the layer runs.
+Backstop check (mechanics §5, K128, K154): read each layer-11 job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for COMPLETE and NEEDS BOB lines, and each session's state. LEGACY-INDEX #3 waits on Bob's approval of the coverage.mjs edit (K153; relayed and reminded; do not remind again): merge it once its record says done. LEGACY-TESTS #3: running at 10:51 with no commit since b23e790664 (10:00); if still no commit and its session is idle, resume it. Merge what is complete; re-arm this one-time backstop 20 minutes out while the layer runs.
+Backstop check (mechanics §5, K128, K154): read each layer-11 job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for COMPLETE and NEEDS BOB lines, and each session's state. LEGACY-INDEX #3 waits on Bob's approval of the coverage.mjs edit (K153; relayed ~10:10, reminded ~10:30; do not remind again): merge it once its record says done. LEGACY-TESTS #3: if no commit since b23e790664 and its session is idle, resume it. Merge what is complete; re-arm this one-time backstop 20 minutes out while the layer runs.
+Backstop check (mechanics §5, K128, K154): read each layer-11 job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for COMPLETE and NEEDS BOB lines, and each session's state. LEGACY-INDEX #3 is blocked on Bob's approval of the coverage.mjs edit (K153, relayed ~10:10): if its record now says the edit is done, merge after the ownership check; if still blocked, remind Bob once. Merge what is complete; resume a quiet job; re-arm this one-time backstop 20 minutes out while the layer runs.
+Backstop check (mechanics §5, K128, K154): the layer-11 jobs cannot message BOB (lineage depth), so read each job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for "COMPLETE" and NEEDS BOB lines, and each session's state; merge what is complete after its ownership check; resume a quiet job; relay a blocked-on-Bob one to Bob (§16); re-arm this one-time backstop 20 minutes out while the layer runs.
+From BOB #46 (T5): CHANGE
+From BOB #46 (T5): ANSWER + CHANGE
+Backstop check (mechanics §5, K128): check every running T5 job's session state (get_session) and record (NEEDS BOB lines); resume or restart a failed or quiet job (LEGACY-INDEX #3 read idle at 09:26 while its battery ran: if still idle with no newer commit than 83b1853a97, resume it); relay a blocked one to Bob (§16); then re-arm this one-time backstop 20 minutes out while a layer runs.
+Backstop check (mechanics §5, K128): check every running T5 job's session state (get_session) and record (NEEDS BOB lines); resume or restart a failed or quiet job; relay a blocked one to Bob (§16); archive any predecessor BOB now idle; then re-arm this one-time backstop 20 minutes out while a layer runs.
+From progressions (T5): COMPLETE
+From BOB #46 (T5): CHANGE
+From connections (T5): COMPLETE
+Backstop check (mechanics §5, K128): check every running T5 job's session state (get_session) and record (NEEDS BOB lines); resume or restart a failed or quiet job; relay a blocked one to Bob (§16); archive any predecessor BOB now idle; then re-arm this one-time backstop 20 minutes out while a layer runs.
+From connections (T5): COMPLETE
+From retrieval (T5): COMPLETE
+From BOB #46 (T5): ANSWER + CHANGE
+From BOB #46 (T5): CHANGE
+From BOB #46 (T5): CHANGE
+From connections (T5): COMPLETE
+From connections (T5): QUESTION
+From retrieval (T5): COMPLETE
+From BOB #46 (T5): ANSWER
+From BOB #46 (T5): CHANGE
+From BOB #46 (T5): CHANGE
+From bias (T5): COMPLETE
+From observation-log (T5): COMPLETE
+From BOB #46 (T5): ANSWER
+From progressions (T5): COMPLETE
+From observation-log (T5): COMPLETE
+Backstop check (mechanics §5, K128): check every running T5 job's session state (get_session) and record (NEEDS BOB lines); resume or restart a failed or quiet job; relay a blocked one to Bob (§16); archive any predecessor BOB now idle; then re-arm this one-time backstop 20 minutes out while a layer runs.
+From BOB #46 (T5): CHANGE
+From BOB #46 (T5): CHANGE
+From BOB #46 (T5): CHANGE
+From BOB #46 (T5): CHANGE
+From BOB #46 (T5): CHANGE
+From BOB #46 (T5): CHANGE
+From BOB #46 (T5): CHANGE
+From BOB #45 (T5): CHANGE
+From BOB #45 (T5): ANSWER
+From entities (T5): COMPLETE
+From BOB #45 (T5): ANSWER
+From BOB #45 (T5): CHANGE
+From BOB #45 (T5): CHANGE
+From bias (T5): COMPLETE
+From progressions (T5): COMPLETE
+From BOB #45 (T5): ANSWER
+From observation-log (T5): QUESTION
+From BOB #45 (T5): CHANGE
+From entities (T5): QUESTION
+From progressions (T5): COMPLETE
+From observation-log (T5): QUESTION
+From BOB #45 (T5): ANSWER
+From BOB #45 (T5): CHANGE
+From BOB #45 (T5): CHANGE
+From BOB #45 (T5): CHANGE
+From BOB #45 (T5): CHANGE
+From BOB #45 (T5): CHANGE
+From entities (T5): COMPLETE
+From entities (T5): COMPLETE
+From entities (T5): REPORT
+From BOB #45 (T5): CHANGE
+From BOB #45 (T5): CHANGE
+From BOB #45 (T5): ANSWER
+From BOB #45 (T5): ANSWER
+From BOB #45 (T5): CHANGE
+From query-language (T5): COMPLETE
+From progressions (T5): QUESTION
+From query-language (T5): COMPLETE
+From query-language (T5): REPORT
+From BOB #45 (T5): ANSWER
+From BOB #45 (T5): ANSWER
+From BOB #45 (T5): CHANGE
+From BOB #45 (T5): ANSWER
+From BOB #45 (T5): ANSWER
+From BOB #45 (T5): ANSWER
+From bias (T5): QUESTION
+From BOB #45 (T5): ANSWER
+From retrieval (T5): QUESTION
