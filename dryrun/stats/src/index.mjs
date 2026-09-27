@@ -1,5 +1,5 @@
 // stats: statistics for the toy product; extracted from legacy (mean in D3, max and min in D4),
-// and from catalog (distinct in D5).
+// and from catalog (distinct in D5); median added in D9.
 import { sum } from '../../alpha/src/index.mjs';
 
 // R1–R2: alpha.sum / length, 0 for an empty list; alpha.sum refuses a non-finite element.
@@ -40,4 +40,24 @@ export function distinct(list) {
     seen.add(x);
   }
   return true;
+}
+
+// R10: the middle element of the sorted non-empty list, or the mean of the two middle elements when
+// its length is even; an empty list is a RangeError first, an element that is not a finite number a
+// TypeError. The list is sorted on a copy, -0 before +0, so the result does not depend on the order
+// the list is given in. The mean of two is (a + b) / 2, correctly rounded; where a + b would overflow,
+// a / 2 + b / 2, which is then exact in each half and rounded once.
+export function median(list) {
+  if (list.length === 0) throw new RangeError('median: empty list');
+  const sorted = [];
+  for (const x of list) {
+    if (typeof x !== 'number' || !Number.isFinite(x)) throw new TypeError(`median: not a finite number: ${String(x)}`);
+    sorted.push(x);
+  }
+  sorted.sort((a, b) => a - b || (Object.is(a, -0) ? -1 : 0) + (Object.is(b, -0) ? 1 : 0));
+  const mid = sorted.length >> 1;
+  if (sorted.length % 2) return sorted[mid];
+  const a = sorted[mid - 1], b = sorted[mid];
+  const m = (a + b) / 2;
+  return Number.isFinite(m) ? m : a / 2 + b / 2;
 }

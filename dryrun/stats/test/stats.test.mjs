@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mean, max, min, distinct } from '../src/index.mjs';
+import { mean, max, min, distinct, median } from '../src/index.mjs';
 import { sum } from '../../alpha/src/index.mjs';
 
 // Finite numbers covering every class: zeros of both signs, subnormals, the extremes,
@@ -53,7 +53,7 @@ test('R2 mean refuses an element that is not a finite number as alpha.sum does',
   }
 });
 
-test('R3 mean, max, min and distinct are pure: no state, no input or output', () => {
+test('R3 mean, max, min, distinct and median are pure: no state, no input or output', () => {
   const globalsBefore = Object.getOwnPropertyNames(globalThis).sort();
   const writes = [];
   const out = process.stdout.write, err = process.stderr.write;
@@ -61,12 +61,13 @@ test('R3 mean, max, min and distinct are pure: no state, no input or output', ()
   process.stderr.write = (...a) => { writes.push(a); return true; };
   let first, again;
   try {
-    const run = () => [...lists()].map((l) => [mean(l), max(l), min(l), distinct(l), distinct([...l, l[0]])]);
+    const run = () => [...lists()].map((l) => [mean(l), max(l), min(l), distinct(l), distinct([...l, l[0]]), median(l)]);
     first = run();
     // Interleave other calls (throwing ones included), then repeat: results depend on the arguments alone.
     for (const a of FINITE) {
-      for (const f of [mean, max, min]) { f([a, a]); assert.throws(() => f([a, NaN])); }
+      for (const f of [mean, max, min, median]) { f([a, a]); assert.throws(() => f([a, NaN])); }
       mean([]); distinct([]); distinct([a, a]); assert.throws(() => max([])); assert.throws(() => min([]));
+      assert.throws(() => median([]));
     }
     again = run();
   } finally {
@@ -75,7 +76,7 @@ test('R3 mean, max, min and distinct are pure: no state, no input or output', ()
   assert.deepEqual(again, first);
   assert.deepEqual(writes, []);
   assert.deepEqual(Object.getOwnPropertyNames(globalThis).sort(), globalsBefore);
-  for (const f of [mean, max, min, distinct]) {
+  for (const f of [mean, max, min, distinct, median]) {
     const list = [3, 1, 2];
     f(list);
     assert.deepEqual(list, [3, 1, 2]); // the argument is not changed
@@ -195,4 +196,92 @@ test('R9 distinct is true when no two elements are the same value as a Set compa
   assert.equal(distinct(long), true);
   long.push(999999);
   assert.equal(distinct(long), false);
+});
+
+// Exact arithmetic for R10: every finite double is an integer multiple of 2^-1074, so x * 2^1075 is an
+// exact BigInt, and so is the sum of two of them, which is twice their exact mean in the same units.
+function units(x) {
+  const v = new DataView(new ArrayBuffer(8));
+  v.setFloat64(0, x);
+  const hi = v.getUint32(0), lo = v.getUint32(4);
+  const e = (hi >>> 20) & 0x7ff;
+  const m = (BigInt(hi & 0xfffff) << 32n) | BigInt(lo);
+  const mag = e === 0 ? m : (m | (1n << 52n)) << BigInt(e - 1);
+  return (hi >>> 31 ? -mag : mag) * 2n;
+}
+// The doubles next above and below a finite x (non-finite at the ends of the range).
+function step(x, dir) {
+  if (x === 0) return dir * Number.MIN_VALUE;
+  const v = new DataView(new ArrayBuffer(8));
+  v.setFloat64(0, x);
+  v.setBigUint64(0, v.getBigUint64(0) + ((x > 0) === (dir > 0) ? 1n : -1n));
+  return v.getFloat64(0);
+}
+// The order the median is taken in, independently of the module: by exact value, -0 below +0.
+const key = (x) => units(x) * 2n - (Object.is(x, -0) ? 1n : 0n);
+const sortedRef = (list) => [...list].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
+const show = (list) => `[${list.slice(0, 6).map((x) => (Object.is(x, -0) ? '-0' : String(x))).join(', ')}${list.length > 6 ? ', …' : ''}] (${list.length})`;
+
+// Full compliance for one list: odd, the middle element of the sorted list, itself (sign of zero included);
+// even, the double nearest the exact mean of the two middle elements (no other double is nearer), lying
+// between them, and a zero carrying the sign of the mean it rounds (+0 for an exact zero unless both are -0).
+function checkMedian(list) {
+  const got = median(list);
+  const s = sortedRef(list), mid = s.length >> 1;
+  if (s.length % 2) { assert.ok(Object.is(got, s[mid]), `median of ${show(list)}: ${got} is not ${s[mid]}`); return; }
+  const a = s[mid - 1], b = s[mid];
+  assert.ok(Number.isFinite(got), `median of ${show(list)} is finite`);
+  assert.ok(a <= got && got <= b, `median of ${show(list)} lies between the middle two`);
+  const twice = units(a) + units(b);
+  const off = (y) => { const d = units(y) * 2n - twice; return d < 0n ? -d : d; };
+  for (const n of [step(got, 1), step(got, -1)]) {
+    if (Number.isFinite(n)) assert.ok(off(got) <= off(n), `median of ${show(list)}: ${n} is nearer the mean than ${got}`);
+  }
+  // A zero result carries the sign of the exact mean it rounds; an exact zero is +0 unless both are -0.
+  const negative = twice < 0n || (twice === 0n && Object.is(a, -0) && Object.is(b, -0));
+  if (got === 0) assert.ok(Object.is(got, negative ? -0 : 0), `sign of the zero median of ${show(list)}`);
+}
+
+test('R10 median is the middle of the sorted list, or the mean of the middle two; [] is a RangeError, a non-finite element a TypeError', () => {
+  let checked = 0;
+  // Every prefix and suffix of the classes and seeded values, forwards and backwards (odd and even lengths).
+  for (const list of lists()) { checkMedian(list); checked++; }
+  // Every ordering of every list of up to four elements drawn from the edge classes, with repeats.
+  const SMALL = [0, -0, 1, -1, 0.1, 0.2, 2 ** 53, 2 ** 53 + 2, Number.MIN_VALUE, -Number.MIN_VALUE,
+    Number.MAX_VALUE, -Number.MAX_VALUE, 1e-300, 1e300];
+  for (const x of SMALL) {
+    checkMedian([x]);
+    for (const y of SMALL) {
+      checkMedian([x, y]);
+      for (const z of SMALL) {
+        checkMedian([x, y, z]);
+        for (const w of SMALL) { checkMedian([x, y, z, w]); checked++; }
+      }
+    }
+  }
+  assert.ok(checked >= SMALL.length ** 4);
+  // Pairs over the whole range: rounding, subnormals, overflow of a + b, opposite signs, adjacent doubles.
+  for (const a of FINITE) for (const b of [a, step(a, 1), step(a, -1), -a, ...EDGES]) if (Number.isFinite(b)) checkMedian([a, b]);
+  assert.equal(median([3, 1, 2]), 2);
+  assert.equal(median([4, 1, 3, 2]), 2.5);
+  assert.equal(median([5]), 5);
+  assert.equal(median([1, 2]), 1.5);
+  assert.equal(median([0.1, 0.2]), 0.15000000000000002); // (0.1 + 0.2) / 2, the double nearest the exact mean
+  assert.equal(median([Number.MAX_VALUE, Number.MAX_VALUE]), Number.MAX_VALUE); // no overflow to Infinity
+  assert.equal(median([-Number.MAX_VALUE, -Number.MAX_VALUE]), -Number.MAX_VALUE);
+  assert.equal(median([Number.MIN_VALUE, Number.MIN_VALUE]), Number.MIN_VALUE);
+  assert.ok(Object.is(median([0, -0, 1]), 0) && Object.is(median([-0, 0, 1]), 0)); // -0 sorts below +0
+  assert.ok(Object.is(median([0, -0, -1]), -0) && Object.is(median([-0, -0]), -0) && Object.is(median([-0, 0]), 0));
+  const long = Array.from({ length: 1e6 + 1 }, (_, i) => (i * 7919) % (1e6 + 1)); // long lists: no spread or recursion limit
+  assert.equal(median(long), 5e5);
+  // Refusals: an empty list with a RangeError; an element that is not a finite number, anywhere, with a TypeError.
+  assert.throws(() => median([]), RangeError);
+  assert.throws(() => median(new Array(0)), RangeError);
+  for (const bad of NOT_FINITE()) {
+    for (const list of [[bad], [bad, 1], [1, bad], [1, bad, 2], [...FINITE, bad], [bad, ...FINITE]]) {
+      assert.throws(() => median(list), (e) => e instanceof TypeError && e.message.startsWith('median: not a finite number'),
+        `median: ${typeof bad} in a list of ${list.length}`);
+    }
+  }
+  assert.throws(() => median([1, , 2]), TypeError); // a hole is read as undefined
 });
