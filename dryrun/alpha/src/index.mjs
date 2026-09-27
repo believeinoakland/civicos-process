@@ -18,3 +18,8 @@ export function sum(list) {
   for (const x of list) t += finite(x, 'sum');
   return t;
 }
+
+// R6–R7: -a for a finite number; anything else throws.
+export function neg(a) {
+  return -finite(a, 'neg');
+}
