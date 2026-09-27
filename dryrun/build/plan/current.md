@@ -2,7 +2,7 @@
 
 **Status** · OPEN · D11-BOB #1 · session_01H3XDB9goUxVa4G4Ma1HJep · depth 1
 
-**Jobs** · alpha: ALPHA #1 session_011V7Yi2Fr9EzggtqCyXxoVb
+**Jobs** · alpha: ALPHA #1 session_011V7Yi2Fr9EzggtqCyXxoVb; beta: BETA #1 session_01NGSmThBswsk4J1PDcBGyAF
 
 ## The run (read whole; it adapts the roles to the toy)
 
