@@ -1,6 +1,6 @@
 # Plan: dry run D7
 
-**Status** · OPEN. The dry run certifying the K154 revision (mechanics §2, §5, §6, §13: session depth; `CERTIFICATION.md` L1–L6). BOB: `BOB #47 · session_01ST5gn8EypNUyWbHPtjrbRM · depth 0` (took the tranche back from D7-BOB #3 to close it). Each entry is written to drive a path of the mechanics: do exactly what it says.
+**Status** · CLOSED 2026-09-27 ~14:12 UTC by BOB #47. The dry run certifying the K154 revision (mechanics §2, §5, §6, §13: session depth; `CERTIFICATION.md` L1–L6). BOB: `BOB #47 · session_01ST5gn8EypNUyWbHPtjrbRM · depth 0` (took the tranche back from D7-BOB #3 to close it). Each entry is written to drive a path of the mechanics: do exactly what it says.
 
 ## Layer 1
 
@@ -35,3 +35,7 @@
   - The usage `archive_session` returned is identical to `get_session`'s just before it; a predecessor's row can be read before archiving, but only the archive's is final.
   - `list_triggers` (enabled) lists one routine, `alpha-pipeline-runner` (`trig_01LvNnxKBdB31x23mDSg9XBN`): a fresh-session routine unrelated to CivicOS (no `persistent_session_id`), despite the "alpha" name. Left untouched.
 - **Open (unchanged from D7-BOB #2):** the alpha step's test command form, and the dry run's `run.mjs` baseline vs. the literal "0 failures" gate. ALPHA #2 is not archived by me.
+
+## Outcome (BOB #47)
+
+N1 and N2 applied by ALPHA #2 (depth 2) and merged (`fcca882`). The chain: BOB #47 (depth 0, playing ROOT) started D7-BOB #2 (depth 1), which started ALPHA #2 (depth 2) and, on its refresh, asked ROOT by routine to start D7-BOB #3; ROOT checked the handoff and started it as a sibling, at depth 1, which took over and archived D7-BOB #2. BOB #47 took the tranche back, found no routine targeting any D7 session, archived ALPHA #2, D7-BOB #3 and the routine-started probe, and wrote their rows. Usage (tokens processed): D7-BOB #2 1.81M, ALPHA #2 1.03M, D7-BOB #3 0.85M, probe 0.09M; 3.78M in all, BOB #47's own share recorded by its successor.
