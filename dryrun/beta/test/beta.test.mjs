@@ -25,14 +25,34 @@ function lists() {
   return out;
 }
 
-test('R1 total returns the sum of the numbers in a list (left-to-right addition), and 0 for an empty list', () => {
+// The same numbers as every kind of iterable R1 names: an array, a Set, a generator, a one-shot iterator.
+function* gen(l) { for (const x of l) yield x; }
+function oneShot(l) {
+  let i = 0;
+  const it = { next: () => (i < l.length ? { value: l[i++], done: false } : { value: undefined, done: true }), [Symbol.iterator]: () => it };
+  return it;
+}
+const leftToRight = (l) => { let s = 0; for (const x of l) s += x; return s; };
+
+test('R1 total returns the sum of the numbers in any iterable (left-to-right addition in the order yielded), and 0 for an empty one', () => {
   assert.equal(total([]), 0);
   assert.ok(Object.is(total([]), 0));
+  for (const empty of [new Set(), gen([]), oneShot([])]) assert.ok(Object.is(total(empty), 0));
   for (const l of lists()) {
-    let expected = 0;
-    for (const x of l) expected += x;
+    const expected = leftToRight(l);
     assert.ok(Object.is(total(l), expected), `total(${JSON.stringify(l)}) = ${total(l)}, expected ${expected}`);
+    assert.ok(Object.is(total(gen(l)), expected), `total(generator of ${JSON.stringify(l)}) = ${total(gen(l))}, expected ${expected}`);
+    assert.ok(Object.is(total(oneShot(l)), expected), `total(one-shot iterator of ${JSON.stringify(l)}) = ${total(oneShot(l))}, expected ${expected}`);
+    const set = new Set(l);
+    const inOrder = [];
+    for (const x of set) inOrder.push(x);
+    assert.ok(Object.is(total(set), leftToRight(inOrder)), `total(new Set(${JSON.stringify(l)})) = ${total(set)}, expected ${leftToRight(inOrder)}`);
   }
+  // A one-shot iterator is walked once, in the order it yields: order matters to a floating-point sum.
+  const it = oneShot([1e16, 1, 1]);
+  assert.equal(total(it), leftToRight([1e16, 1, 1]));
+  assert.equal(total(it), 0);
+  assert.notEqual(total(oneShot([1e16, 1, 1])), total(oneShot([1, 1, 1e16])));
   for (let n = 0; n <= 200; n++) {
     const l = Array.from({ length: n }, (_, i) => i + 1);
     assert.equal(total(l), (n * (n + 1)) / 2);
