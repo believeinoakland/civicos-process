@@ -2,7 +2,7 @@
 
 **Status** · OPEN · D10-BOB #1 · session_01HGjwLwdvA11iYkwWj8mfAX · depth 1 (took over 2026-09-27T22:34Z, started by the harness; depth counted from the harness as its parent, per the Scripted steps; layer 1 running)
 
-**Jobs** · layer 1, created 2026-09-27T22:34:50–51Z: ALPHA #1 `session_0161VVoUxf9APQovpbSrCZ6b` · handled J0 · sent B1 · start confirmed 22:37Z; BETA #1 `session_018M7RfsM7dh1SaEfKBPj471` · handled J1 · sent B1 · start confirmed 22:37Z; QUESTION J1 (empty `total` refused?) is a change of meaning, brought to Bob 22:38Z (below)
+**Jobs** · layer 1, created 2026-09-27T22:34:50–51Z: ALPHA #1 `session_0161VVoUxf9APQovpbSrCZ6b` · handled J1 · sent B1 · start confirmed 22:37Z; N1 allowed; BLOCKED J1: needs Bob (`delete_trigger` of the stray routine refused 22:39Z), relayed to Bob 22:42Z (NEEDS BOB below); BETA #1 `session_018M7RfsM7dh1SaEfKBPj471` · handled J1 · sent B1 · start confirmed 22:37Z; QUESTION J1 (empty `total` refused?) is a change of meaning, brought to Bob 22:38Z (below)
 
 ## The run (read whole; it adapts the roles to the toy)
 
@@ -18,6 +18,8 @@ This is live run **R3** of the K164 certification (`dryrun/cert/SUITE.md` §4), 
 
 
 QUESTION FOR BOB: (beta R1, from BETA #1's QUESTION J1) `total([])` returns `0` today, as R1 says. Should an empty list instead be refused with a `RangeError`, as stats' `max` and `min` refuse one? My recommendation: keep `0`. A sum over nothing is zero (unlike a maximum over nothing, which has no value); `alpha.sum` returns `0` for an empty list and stats' `mean` relies on it, so refusing would ripple into two other modules for no gain. Open since 22:38Z.
+
+NEEDS BOB: (relayed 22:42Z, from ALPHA #1's BLOCKED J1) approve, in ALPHA #1's own window (https://claude.ai/code/session_0161VVoUxf9APQovpbSrCZ6b), the refused act `delete_trigger` of `trig_01SM7w6G4sbVG8MsCu8a5QRA` ("D10 stray routine for alpha"). Open.
 
 ## Scripted steps
 
