@@ -1,0 +1,94 @@
+# T5 · progressions — job record
+
+**Session** PROGRESSIONS #1, `session_01MqohHm1mTdqg92oxu4112q`, on `job/T5/progressions` (from `tranche/T5` @ `f05090bcad`). Process: civicos-process `main`, `roles/JOB.md`, mechanics §6, §12.2, §13, §14, §16. BOB: read from the Status line of `build/plan/current.md` on `origin/tranche/T5`.
+
+**Status** · COMPLETE (~08:57 UTC); Q1–Q3 answered (K147, K149); entities and connections reached through their own modules, no bridge left. Entry T5-6: extract `progressions` from `legacy-store` and `legacy-checks` per `build/extraction/progressions.md` and `build/requirements/progressions.md`, with every requirement marked not yet met (R8, R14, R19, R27, R31, R33; R32 deferred by K102).
+
+**Read whole:** `roles/JOB.md`; PROCESS-MECHANICS §12–§16; `build/manifest.md`; `build/requirements/progressions.md` and `README.md`; `build/extraction/progressions.md`; `build/layers.md`; `build/plan/current.md`; `build/modules.json`; the public parts of `entities` and `connections`, and of `record-core`, `membership`, `extraction`, `provenance` the services used (`transact`, `declarePurge`, `perItem` R49–R55, `viewerPredicate` R43, `readingOf` R30, `homeOf`); rulings K3, K4, K6, K23, K31, K57, K61, K64, K76, K78, K90, K96, K102, K107; the legacy code moved (`store.mjs` the definition, instance, exception, overdue, feed and dispose regions, the dispatch arms, the migration, the overdue consumer; `schema.mjs` the seven tables; `bio-checks.mjs` C-33.26, C-33.42, C-33.43); CONTENT #1's record as the pattern.
+
+## Questions to BOB
+
+Sent together as one QUESTION. None blocks the job: each is built on the best reading given, and I carry on.
+
+- **Q1 · Provides text for what K102's rows made observable (R8, R14, R31, R33).** The requirements state the behaviour; these are the names I gave it, for you to fold in (or rename, and I follow):
+  - **R8** `readInstance` (and the thread and discharge echoes) answers `threads`: every threading, oldest first, each `{version, version_recorded, threaded_by, at, placements: [{stage_key, capture_sha, bundle_id, grade}]}`, and `thread_version`, the current one's number. An instance threaded before versions were kept reads its current rows as version 1 (`version_recorded: false`) and its next thread writes them as version 1 first (D-128's pattern). Bundle ids in `threads` are withheld as R13.
+  - **R14, R15** `dischargeStage` answers `exception_version`; each exception `readExceptions` lists carries `version` (the current) and `versions: [{version, bundle_id, reason, citation, declared_by, at}]`, oldest first. An exception recorded before versions were kept is written as version 1 on its next recording.
+  - **R31** the finding is `{kind: "cardinality_exceeded", stage_key, stage_label, required, after_stage, definition_version, cardinality, document_count, dischargeable: false, grade, grade_determined}`, the grade the instance's (as R11's). It is published wherever findings are (R10, R12, R19, and R18's `instances[]`) but **not aggregated into `proposals[]`**: their one consumer, `queue`'s finding item, words every proposal as "the stage is required and absent", which this finding is not. Best reading: `queue` aggregates it when its job can word it (a REPORT to queue below).
+  - **R33** a second registration is refused `LISTENER_DECLARED`, with its row (C-100.23), as every refusal (R27).
+- **Q2 · The legacy readers of the tables (map §3).** Left today: `queueFeed`'s sight join (`SELECT DISTINCT pi.bundle_id FROM progression_instances pi WHERE pi.progression_key=? AND pi.entity_id=? AND (<viewer predicate>)`) and `#counts`' table counts (`progression_defs`, `progression_stages`, `progression_def_versions`, `progression_stage_versions`, `progression_instances`, `progression_exceptions`, `proposal_dispositions`). The map's other readers (`#findingsExportPerformed`, `#queueCaseFor`) no longer read these tables. Proposed, as content R45 and record-core R37: **R34** *The tables `progression_instances` (`progression_key`, `entity_id`, `stage_key`, `capture_sha`, `bundle_id`) and the row counts of every table of R29 are a stated read contract: a later module may join them in its own SQL, and this module changes none of those names, types or meanings without a change to this requirement. Every write stays this module's.* Built so (the legacy SQL is untouched); I will test it as R34 when you fold it.
+- **Q3 · The grade order, `established` and the weaker grade are in no Provides.** K76 (3) says `entities` exports `#GRADE_RANK` and `#isEstablished`, and progressions' Uses name `connections` for "the weaker of two grades", but neither module's Provides states them. Built: `progressionsOf(ctx, deps)` takes `deps.entities` `{has (R7), readEntity (R5), strongestByCapture (R16), gradeRank, isEstablished(grade)}` and `deps.connections` `{weakerGrade(a, b)}`, and until both are merged a bridge in the module (`legacyEntityBridge`) answers exactly those over the legacy `entities` and `resolutions` tables (content's extraction-bridge pattern). Best reading: add `gradeRank` (the catalogue's `BASIS_GRADES`, strongest highest) and `isEstablished(grade)` (A or B) to entities' Provides and `weakerGrade(a, b)` (the lower rank; an unknown grade ranks lowest) to connections', and tell ENTITIES #1 and CONNECTIONS #1 the names; on your CHANGE I switch to `entitiesOf(ctx)` / `connectionsOf(ctx)` and drop the bridge.
+
+## Decisions made in the module (P17: recorded, not asked)
+
+- **Refusal rows (R27, K107 (3)).** Each code gets a row `{check, where, translation}` in `src/progressions/checks.mjs` (`PROGRESSION_CHECKS`), answered by `refusal(code, detail, extra)` as `{ok: false, reason, code, check, translation, …, detail}`. The three moved rows keep their ids and translations (C-33.26, C-33.42, C-33.43, R28); the other 23 codes are a new family, **C-100.1–C-100.23** (C-99 is D-419's, reserved by CONTENT #1; C-100 and above are used nowhere in the catalogue or the build state). `NO_BASIS` and `NO_CITATION` answer the catalogue's shared rows C-33.40 and C-33.41 (R28).
+- **`op=proposedispose` stays in legacy-store's dispatch.** Its `{project, finding}` arm and class bridge are `queue`'s (map §5.1, K78 (2)) and stay in `legacy-store`: `proposeDispose` keeps the per-item wrapper, the scoped refusals and the class bridge, and hands every progression-shaped call to `progressionsOf(ctx).disposeProposal` (R20–R22), which checks R21 in full. `progressionOps` carries the other eight ops (K3).
+- **`disposeProposal`'s set form** is record-core's `perItem` (R50–R52) with this act's own identity (`[["key"], ["progressionKey", "stageKey"]]`) and shared keys (`to`, `reason`, `definitionVersion`), the decider stamped onto every item.
+- **The overdue clock (R16).** The module keeps its own `nowMs` (map §5.5); the store's `#nowMs` stays, used across the store. Fixed here: an unset or empty `BIO_NOW_MS` read as the epoch (`Number(null)`, `Number("")` are 0) when the module is built with no `env`; now it falls through to the wall clock. A capture's date is `extraction.readingOf(sha).reading.at` (the same value as the legacy `readings.at` column) else `provenance.homeOf(sha).registered`.
+- **R33's `nextDeadline`** is `overdueScan(<the thread's instant>).next_deadline`, the whole store's next deadline (R17's), computed only when a listener is registered; listeners are awaited in registration order, each isolated. `legacy-store` registers `#armScheduler` until `scheduler` is extracted (replacing the direct call in `threadInstance`).
+- **Vocabulary (K78 (3)).** `STAGE_REQUIREDNESS` and `DISPOSITIONS` are defined here (identical to `affordances.mjs`'s); `affordances` re-exports and deletes its copy in its own job (N49). `legacy-store`'s scoped arm still reads `DISPOSITIONS` from `affordances` (unchanged).
+- **Transactions** go through `record-core.transact` (K31); the definition, thread and exception writes each in one.
+- **Purge (R29).** Declared by the module: the four bundle-keyed tables (`progression_instances`, `progression_exceptions`, and the new `progression_thread_placements`, `progression_exception_versions`) and six whole-store ones. `legacy-store` filters them out of its own declaration (content's pattern).
+
+## Entries applied (T5-6)
+
+- **Extraction** per map and requirements: `bio-plane/src/progressions/` (`index.mjs` the service, `progressionsOf(ctx, deps)` and `progressionOps`; `checks.mjs` the refusal rows; `schema.mjs` the tables and `migrateProgressions`). Removed: from `store.mjs` the definition and version code, the instance assembly, thread, read, discharge and exception reads, the overdue clock, `proposalsFeed`, `captureProgressions`, the progression arm of `proposeDispose`, REC-184's migration entry and eight dispatch arms (1,412 lines); from `schema.mjs` the seven tables (211); from `bio-checks.mjs` C-33.26, C-33.42, C-33.43 with REC-211's header (66). Kept in `store.mjs` as the map says: `#strongestResolutionsFor` (entities'), `#nowMs` (shared), the project arm and class bridge of `proposeDispose` (queue's). `legacy-store` now delegates (17 added lines, each listed by the ownership check below: the import, the purge filter, the `onThreaded` registration, the migrate call, the overdue consumer's two lines, eight delegating one-liners, the dispose delegation, the ops spread).
+- **R8 (K102):** every thread is a dated version (`progression_threads`, `progression_thread_placements`); nothing is overwritten.
+- **R14 (K102):** every recording of an exception is a dated version (`progression_exception_versions`); the current applies, earlier ones read back through R15.
+- **R19:** each instance of `captureProgressions` carries `open_finding_count` (and `finding_count`).
+- **R27:** every refusal carries its code, row and translation (26 rows; C-100 minted, Decisions above).
+- **R31 (K102):** `cardinality_exceeded`, a finding for a `1` or `0..1` stage holding more than one document.
+- **R33 (N63):** `onThreaded`; `threadInstance` no longer arms the store's scheduler itself.
+- **R28:** the three rows are the module's invariants with their tests; R11's unless_exception doctrine (DEC-9, K102) kept as built, the provisional marker gone.
+- **Built work (§12.5):** the requirements name D-623 and D-688, neither this module's (map §5.1–5.2); nothing else on the snapshot is named for it.
+
+## Deferred
+
+- **R32** (junction checks): deferred by K102 until the record holds amounts and funds as values; named by a `test.todo`.
+- The bridge to `entities`/`connections` goes on their CHANGE (Q3).
+
+## Found in other modules (REPORT)
+
+1. **legacy-tests** (T5-12): four old suites red on this change and green (or less red) on `tranche/T5`, all source-anchored on moved code, none on behaviour: `d484-refusal-translation` (counts `actNoBasis`/`actNoCitation` call sites in `store.mjs`: two sites moved to `refusal("NO_BASIS"|"NO_CITATION")` in the module; its behaviour arms, NO_BASIS/NO_CITATION translated through `op=progressiondefine`, pass); `machinefences-dec49` ARM D-PIN-A (the catalogue no longer holds C-33.26, C-33.42, C-33.43: they are `PROGRESSION_CHECKS` rows); `derivation-bounds` (70/2 → 64/8: its by-name rosters of `store.mjs` methods list `#assembleInstance`, `#overdueScan`, `proposalsFeed` and `op=proposals`' dispatch, which moved); `hygiene` (the purge-coverage census reads the legacy list: +3 uncovered, `progression_threads`, `progression_thread_placements`, `progression_exception_versions`, which the module declares to record-core, R29, tested). Also the map §4 anchors (`proposedispose`, `d266*.control`, `current.*`, `gate-reads`, `versions`, `queue-state`, `identity-claims.control`, `project-authority.control`) read moved text; those I ran are unchanged.
+2. **promotion** (`CATALOG_VERSION`, `gate.mjs`): three rows left the catalogue (C-33.26, C-33.42, C-33.43, now progressions' rows with ids and translations unchanged); the gate never ran them. `d470-catalog-census`'s own failures are unchanged by it (11/2 on both).
+3. **queue**: R31's `cardinality_exceeded` is published in `proposalsFeed.instances[]` but not aggregated into `proposals[]`, because `queueFeed` words each proposal "required and absent"; queue should aggregate and word it (Q1). `queueFeed` still reads `progression_instances` in SQL (Q2's R34). The project arm of `proposeDispose`, C-33.44 and `finding_dispositions` wait in `legacy-store` for queue's job.
+4. **affordances** (N49): `STAGE_REQUIREDNESS` and `DISPOSITIONS` are now `progressions`' exports (identical values); affordances should re-export them and delete its copy.
+5. **entities, connections** (Q3): their Provides should state the grade order, `isEstablished` and the weaker grade progressions reads (K76 (3)).
+6. **scheduler** (T6+): registers its `arm` with `onThreaded` (R33) and calls `overdueScan` (R17); until then `legacy-store` does both.
+7. **Generated artifact (§14):** `bio-plane/dist/bio-plane.bundled.mjs` is stale (store, schema, catalogue changed; the plane now bundles `src/progressions/`); `newgroup/dist/newgroup.bundled.mjs` embeds the catalogue and is stale too.
+
+## Tests and checks
+
+- **Module:** `node --test bio-plane/test/m/progressions/` on this branch: tests 40, pass 39, fail 0, todo 1 (R32) (6 files: define, instance, exceptions, overdue, feeds, dispose).
+- **Checks** (civicos-process `main`): `format: 69 modules, 64 requirements files; 0 failures`; `architecture: 10 product files, 25 relative imports; 0 failures`; `coverage: 1 modules, 33 of 33 live requirement ids named by a test; 0 failures`; `ownership: 13 files changed; legacy-store: 17 line(s) added, 1412 removed; legacy-checks: 0 line(s) added, 66 removed; 0 failures`.
+- **Old battery, before and after on the same machine:** the 37 `*.test.mjs` suites that drive or read these ops and tables (every one naming `progressiondefine`, `thread`, `instance`, `discharge`, `exceptions`, `proposals`, `captureprogressions`, `proposedispose`, `proposalsFeed` or a progression table), plus `hygiene`, against `tranche/T5` @ `f05090bcad`. 27 green on both, including every behaviour suite the map names (`progression-instance`, `progression-exception`, `progression-versions`, `overdue-successor`, `proposals-feed`, `capture-progressions`, `d552-instance-disposition`, `proposedispose`, `queue`, `queue-state`, `current`, `versions`, `gate-reads`). Red here only: `d484-refusal-translation`, `machinefences-dec49`, and more red: `derivation-bounds`, `hygiene` (REPORT 1). Red on both with identical failures: `affordances`, `d470-catalog-census`, `identity-claims`, `meaning-bounds`, `peritem`, `project-discoverable`, `project-sight`.
+- No layer tests are named in `build/manifest.md`; no extracted module uses progressions yet.
+
+Size: test runs 16, module lines 1493
+
+## ANSWER 08:15 UTC · Q1–Q3 (K147; `tranche/T5` @ `4405b936fe`, merged here @ `41f0a7b83b`)
+
+- Merge conflicts, all in `store.mjs` and all neighbouring one-liners from entities' early merge: the purge filters (both kept), the migrate calls and the ops spreads (entities first, then progressions, the modules' order). The legacy-store diff is unchanged: 17 added, 1,412 removed.
+- Q1, Q2 folded by BOB. R34 is tested (the columns with their types and meaning, queue's sight join as written, every R29 table counted). Q3: the bridge stays until BOB's CHANGE for entities and connections (entities is on the tranche now, and already exports `isEstablished`).
+- **REPORT (BOB, the requirements file):** `node checks/format.mjs` fails on `build/requirements/progressions.md`: "ids given twice: R8 R33 R31". The "Named interfaces" block repeats `**R8**`, `**R31**` and `**R33**` as ids; writing them plain (e.g. "R8 names:") would clear it. The file is BOB's, so I left it. It was 0 failures before the fold.
+- Module tests: 41, pass 40, fail 0, todo 1 (R32). Checks: format 1 failure (above, not this job's); architecture 0; coverage 37 of 37; ownership 0 (legacy-store 17/1,412, legacy-checks 0/66). Behaviour suites on the merged tree, all green: progression-instance, progression-exception, progression-versions, overdue-successor, proposals-feed, capture-progressions, d552-instance-disposition, proposedispose, queue, queue-state, current, versions, gate-reads, connection.
+
+Size: test runs 19, module lines 1493
+
+## CHANGE 08:20 UTC · entities merged (`tranche/T5` @ `5dfd4134a8`, merged here)
+
+- `progressionsOf` now reaches entities through `entitiesOf(ctx)` (`has` R7, `readEntity` R5 read as `{found, entity}`, `strongestByCapture` R16), with the grade order and `established` from its exports. The CHANGE named `GRADE_RANK`, but the newer tranche state (entities R33, `8796d21a47`) exports `gradeRank`, so I used that. The bridge now answers only `connections`' `weakerGrade`, over `gradeRank`, until connections merges.
+- Module tests: 41, pass 40, fail 0, todo 1. Checks: format 0 failures (69 modules); architecture 0; coverage 34 of 34; ownership 0 (legacy-store 17/1,412, legacy-checks 0/66). Behaviour suites through the store and the real `entitiesOf`, all green: progression-instance, progression-exception, progression-versions, overdue-successor, proposals-feed, capture-progressions, d552-instance-disposition, proposedispose, queue, queue-state, current, versions, gate-reads, connection.
+
+Size: test runs 22, module lines 1463
+
+## CHANGEs 08:21 and 08:22 UTC · requirements reworded; `gradeRank` confirmed (K149; `tranche/T5` @ `db6d98b656`, merged here)
+
+- Both were already met: the module uses `gradeRank` and `isEstablished`. Checks after the merge: format 0 failures, architecture 0, coverage 34 of 34, ownership 0. Module tests: 40 pass, 0 fail, 1 todo.
+- `tranche/T5` holds progressions as of `899fe8731a` ("T5: merge progressions"). This branch is ahead of it only by the entities switch (`src/progressions/index.mjs`, the test fixture, this record); legacy-store and legacy-checks have no further change.
+
+## CHANGE 08:54 UTC · connections merged (`tranche/T5` @ `b9271bfcbb`, merged here)
+
+- The bridge is gone. `weakerGrade` is connections' module-level export (its R50), imported by the module; `deps.connections` still lets a test pass its own. The module's tests now use connections' real `weakerGrade`.
+- Module tests: 41, pass 40, fail 0, todo 1 (R32). Checks: format 0 failures (69 modules); architecture 0 (25 relative imports); coverage 34 of 34; ownership 0 (2 files changed since the tranche, both the module's; legacy-store 0/0, legacy-checks 0/0). Behaviour suites through the store, all green: progression-instance, progression-exception, progression-versions, overdue-successor, proposals-feed, capture-progressions, d552-instance-disposition, proposedispose, queue, queue-state, current, versions, gate-reads, connection.
+
+Size: test runs 24, module lines 1460

@@ -2,7 +2,7 @@
 // Each test builds exactly the state it needs, and asserts the named failure appears or does not.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -235,4 +235,61 @@ test('ownership: the net removal is judged over all the legacy modules together 
   const c = checkOwnership(r.root, 'b', 'HEAD~1');
   assert.deepEqual(c.failures, []);
   assert.match(c.summary, /cat: 0 line\(s\) added, 5 removed; legacy: 3 line\(s\) added, 1 removed/);
+});
+
+// K140 (SUITE G5, gap X8): a changed line that only removes is a removal, not an addition.
+const K140 = (f) => readFileSync(new URL(`./fixtures/cert/k140/${f}`, import.meta.url), 'utf8');
+const B_CONTENT = 'export function contentOf(ctx, deps) {\n  return { extraction: deps.extraction };\n}\n';
+
+test('ownership: a legacy line that only loses a key is a removal, not an addition (K140, the T5 content case)', () => {
+  const r = repo(base({ 'src/legacy.mjs': K140('legacy-before.mjs') }));
+  r.commit({ 'src/b/index.mjs': B_CONTENT, 'src/legacy.mjs': K140('legacy-after.mjs') });
+  const c = checkOwnership(r.root, 'b', 'HEAD~1');
+  assert.deepEqual(c.failures, []);
+  assert.ok(!c.added.some((a) => /return \{ observed/.test(a)), c.added.join('\n'));
+  assert.deepEqual(c.edited, ['src/legacy.mjs:7  return { observed: { written: ex.written ?? 0, states: ex.states || [], reextraction: !!ex.reextraction } };']);
+  assert.deepEqual(c.added, ["src/legacy.mjs:2  import { contentOf } from './b/index.mjs';", 'src/legacy.mjs:5  contentOf(ctx, { extraction: extractionOf(ctx) }).extraction.onReading("legacy-store", (e) => {']);
+  assert.match(c.summary, /legacy: 2 line\(s\) added, 8 removed/);
+});
+
+test('ownership: a legacy import that only loses a name is a removal, even from another module (K140)', () => {
+  const r = repo(base({ 'src/legacy.mjs': "import { a, other } from './a/index.mjs';\nexport const old = a + other;\nexport const moved = 2;\n" }));
+  r.commit({ 'src/b/index.mjs': 'export const moved = 2;\n', 'src/legacy.mjs': "import { a } from './a/index.mjs';\nexport const old = a;\n" });
+  const c = checkOwnership(r.root, 'b', 'HEAD~1');
+  assert.deepEqual(c.failures, []);
+  assert.deepEqual(c.added, []);
+  assert.equal(c.edited.length, 2);
+});
+
+test('ownership: a changed legacy line that adds or replaces anything is still listed and judged (K140)', () => {
+  const r = repo(base({ 'src/legacy.mjs': K140('legacy-before.mjs') }));
+  r.commit({ 'src/b/index.mjs': B_CONTENT, 'src/legacy.mjs': K140('legacy-after.mjs').replace('return { observed:', 'return { extra: 1, observed:') });
+  let c = checkOwnership(r.root, 'b', 'HEAD~1');
+  assert.match(c.failures.join('\n'), /src\/legacy\.mjs:7-7: added lines that neither import from nor use the module's own paths/);
+  assert.ok(c.added.some((a) => /^src\/legacy\.mjs:7 {2}return \{ extra: 1/.test(a)), c.added.join('\n'));
+  assert.deepEqual(c.edited, []);
+  const r2 = repo(base({ 'src/legacy.mjs': "import { a } from './a/index.mjs';\nexport const old = a;\nexport function moved() {\n  return 1;\n}\n" }));
+  r2.commit({ 'src/b/index.mjs': 'export const moved = 2;\n', 'src/legacy.mjs': "import { a, b } from './a/index.mjs';\nexport const old = 'a';\n" });
+  c = checkOwnership(r2.root, 'b', 'HEAD~1');
+  const f = c.failures.join('\n');
+  assert.match(f, /src\/legacy\.mjs:1: adds to an import or re-export of \.\/a\/index\.mjs/);
+  assert.match(f, /src\/legacy\.mjs:2-2: added lines that neither import from nor use/);
+  assert.equal(c.added.length, 2);
+  // Only removing `this.` so that the line now calls the module's own import is a rewire: listed, judged, passing.
+  const r3 = repo(base({ 'src/legacy.mjs': 'export class Store {\n  run(x) {\n    return this.moved(x);\n  }\n  moved(x) {\n    return x;\n  }\n}\n' }));
+  r3.commit({ 'src/b/index.mjs': 'export const moved = (x) => x;\n', 'src/legacy.mjs': "import { moved } from './b/index.mjs';\nexport class Store {\n  run(x) {\n    return moved(x);\n  }\n}\n" });
+  c = checkOwnership(r3.root, 'b', 'HEAD~1');
+  assert.deepEqual(c.failures, []);
+  assert.deepEqual(c.edited, []);
+  assert.ok(c.added.includes('src/legacy.mjs:4  return moved(x);'), c.added.join('\n'));
+});
+
+test('ownership: onlyRemoves reads tokens, and a string literal is one token (K140)', async () => {
+  const { onlyRemoves, removalEdits } = await import('../ownership.mjs');
+  assert.equal(onlyRemoves('return { staled, observed };', 'return { observed };'), true);
+  assert.equal(onlyRemoves('f(a,  b)', 'f(a,b)'), true);
+  assert.equal(onlyRemoves('x = foo;', 'x = bar;'), false);
+  assert.equal(onlyRemoves("say('abc def')", "say('abc')"), false);
+  const hunk = { gone: ['const x = f(a, b);'], lines: [{ n: 1, text: 'const x = f(a);' }, { n: 2, text: 'const y = 2;' }] };
+  assert.deepEqual([...removalEdits(hunk)].map((l) => l.n), [1]);
 });

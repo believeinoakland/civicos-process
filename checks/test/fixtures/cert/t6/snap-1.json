@@ -1,0 +1,2255 @@
+{
+ "taken_at": "2026-09-27T15:40:00Z",
+ "note": "Real get_session and list_triggers(include_completed) output read by a worker of BOB #48, 15:38-15:41 UTC; trimmed to the fields the asserter reads (each prompt to its first line). Two list_triggers pages merged.",
+ "get_session": [
+  {
+   "ccr": {
+    "id": "session_0183DmvWFhkpLgr7EBFwPZMr",
+    "title": "ROOT #1",
+    "session_status": "SESSION_STATUS_IDLE",
+    "created_at": "2026-09-27T14:17:10.454306Z",
+    "updated_at": "2026-09-27T14:25:57.617171Z",
+    "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+    "external_metadata": {
+     "context_usage": {
+      "max_tokens": 1000000,
+      "used_tokens": 81220
+     },
+     "post_turn_summary": {
+      "needs_action": ""
+     },
+     "usage": {
+      "cache_read_tokens": 620269,
+      "cache_write_tokens": 40574,
+      "input_tokens": 18,
+      "output_tokens": 1857
+     }
+    }
+   }
+  },
+  {
+   "ccr": {
+    "id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+    "title": "BOB #48",
+    "session_status": "SESSION_STATUS_RUNNING",
+    "created_at": "2026-09-27T14:25:49.471127Z",
+    "updated_at": "2026-09-27T15:38:15.243905Z",
+    "parent_session_id": "session_0183DmvWFhkpLgr7EBFwPZMr",
+    "status_bucket": "SESSION_STATUS_BUCKET_WORKING",
+    "external_metadata": {
+     "context_usage": {
+      "max_tokens": 1000000,
+      "used_tokens": 297707
+     },
+     "post_turn_summary": {
+      "needs_action": ""
+     },
+     "usage": {
+      "cache_read_tokens": 39453443,
+      "cache_write_tokens": 978958,
+      "input_tokens": 6451,
+      "output_tokens": 164131
+     }
+    }
+   }
+  },
+  {
+   "ccr": {
+    "id": "session_01ST5gn8EypNUyWbHPtjrbRM",
+    "title": "BOB #47",
+    "session_status": "SESSION_STATUS_ARCHIVED",
+    "created_at": "2026-09-27T13:51:45.457013Z",
+    "updated_at": "2026-09-27T14:26:08.811466Z",
+    "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+    "external_metadata": {
+     "context_usage": {
+      "max_tokens": 1000000,
+      "used_tokens": 284102
+     },
+     "post_turn_summary": {
+      "needs_action": ""
+     },
+     "usage": {
+      "cache_read_tokens": 20648688,
+      "cache_write_tokens": 459757,
+      "input_tokens": 1765,
+      "output_tokens": 97760
+     }
+    }
+   }
+  },
+  {
+   "ccr": {
+    "id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+    "title": "BOB #45",
+    "session_status": "SESSION_STATUS_ARCHIVED",
+    "created_at": "2026-09-27T05:40:36.516905Z",
+    "updated_at": "2026-09-27T08:22:11.101934Z",
+    "parent_session_id": "session_01PcJjeNeDjQeced6Yphu5r9",
+    "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+    "external_metadata": {
+     "context_usage": {
+      "max_tokens": 1000000,
+      "used_tokens": 577732
+     },
+     "post_turn_summary": {
+      "needs_action": ""
+     },
+     "usage": {
+      "cache_read_tokens": 104469426,
+      "cache_write_tokens": 803700,
+      "input_tokens": 9351,
+      "output_tokens": 184501
+     }
+    }
+   }
+  },
+  {
+   "ccr": {
+    "id": "session_01DAomLCBqmFvF1k6WfbWamt",
+    "title": "ID-SPACES #2",
+    "session_status": "SESSION_STATUS_ARCHIVED",
+    "created_at": "2026-09-27T14:30:27.679992Z",
+    "updated_at": "2026-09-27T14:39:02.209694Z",
+    "parent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+    "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+    "external_metadata": {
+     "context_usage": {
+      "max_tokens": 1000000,
+      "used_tokens": 174621
+     },
+     "post_turn_summary": {
+      "needs_action": ""
+     },
+     "usage": {
+      "cache_read_tokens": 5278191,
+      "cache_write_tokens": 123786,
+      "input_tokens": 586,
+      "output_tokens": 14683
+     }
+    }
+   }
+  },
+  {
+   "ccr": {
+    "id": "session_01FUNffcNqviJLVTLYAn267C",
+    "title": "LEGACY-CHECKS #2",
+    "session_status": "SESSION_STATUS_ARCHIVED",
+    "created_at": "2026-09-27T14:30:28.933172Z",
+    "updated_at": "2026-09-27T15:18:45.634132Z",
+    "parent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+    "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+    "external_metadata": {
+     "context_usage": {
+      "max_tokens": 1000000,
+      "used_tokens": 447662
+     },
+     "post_turn_summary": {
+      "needs_action": ""
+     },
+     "usage": {
+      "cache_read_tokens": 42382105,
+      "cache_write_tokens": 396159,
+      "input_tokens": 303,
+      "output_tokens": 95283
+     }
+    }
+   }
+  }
+ ],
+ "list_triggers": [
+  {
+   "data": [
+    {
+     "id": "trig_01AxXh6JqAuSLhtrJArAiW1w",
+     "name": "PROMOTION #5 COMPLETE (T6)",
+     "enabled": true,
+     "created_at": "2026-09-27T15:38:20.504171Z",
+     "updated_at": "2026-09-27T15:38:20.504171Z",
+     "run_once_at": "2026-09-27T15:39:00Z",
+     "next_run_at": "2026-09-27T15:39:00Z",
+     "ended_reason": "",
+     "persistent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "derived_state": {
+      "prompt": "From promotion (T6): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01HmabkCJuamZrJBPEiXf1P4",
+     "name": "RECORD-CORE #3 COMPLETE",
+     "enabled": false,
+     "created_at": "2026-09-27T15:31:00.971328Z",
+     "updated_at": "2026-09-27T15:32:27.441227Z",
+     "run_once_at": "2026-09-27T15:32:00Z",
+     "next_run_at": "2026-09-28T15:32:27.164959851Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T15:32:27.403433Z",
+     "persistent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T15:32:27.393551477Z"
+     },
+     "derived_state": {
+      "prompt": "From record-core (T6): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_013jSUwyZe9YXYYqzhSxbjQY",
+     "name": "legacy-checks T6 COMPLETE (after CHANGE)",
+     "enabled": false,
+     "created_at": "2026-09-27T15:18:37.482355Z",
+     "updated_at": "2026-09-27T15:20:41.503954Z",
+     "run_once_at": "2026-09-27T15:20:00Z",
+     "next_run_at": "2026-09-28T15:20:41.239192513Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T15:20:41.467350Z",
+     "persistent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T15:20:41.457213393Z"
+     },
+     "derived_state": {
+      "prompt": "From legacy-checks (T6): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_016YS95Ytp77mKfocsq852Fr",
+     "name": "BOB #48 backstop T6 layer 2",
+     "enabled": true,
+     "created_at": "2026-09-27T15:14:52.890873Z",
+     "updated_at": "2026-09-27T15:23:43.566638Z",
+     "run_once_at": "2026-09-27T15:44:00Z",
+     "next_run_at": "2026-09-27T15:44:00Z",
+     "ended_reason": "",
+     "persistent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+     "created_kind": "ROUTINE_CREATED_KIND_REMINDER",
+     "derived_state": {
+      "prompt": "BACKSTOP (T6, layer 2): check RECORD-CORE #3 (session_019pNVf5zMt4wodgEg4ecanZ) and PROMOTION #5 (session_01427pQXmQ6fgyFr7aVbmuBL): session state (not before 15:28, K161) and their records on origin/job/T6/<module> (any QUESTION/REPORT/COMPLETE/BLOCKED/NEEDS BOB); act, then re-arm this 20-minute check."
+     }
+    },
+    {
+     "id": "trig_01QsDRWJP4edfxX754mBYh6X",
+     "name": "BOB #48 to LEGACY-CHECKS #2: ANSWER Q2 + CHANGE",
+     "enabled": false,
+     "created_at": "2026-09-27T15:11:09.379650Z",
+     "updated_at": "2026-09-27T15:13:51.656035Z",
+     "run_once_at": "2026-09-27T15:12:00Z",
+     "next_run_at": "2026-09-28T15:13:51.417672850Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T15:13:51.623515Z",
+     "persistent_session_id": "session_01FUNffcNqviJLVTLYAn267C",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T15:13:51.613236108Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #48 (T6): ANSWER + CHANGE"
+     }
+    },
+    {
+     "id": "trig_01CFhxjCcLrhhXq24DsS1Vy2",
+     "name": "legacy-checks T6 QUESTION 2",
+     "enabled": false,
+     "created_at": "2026-09-27T15:07:47.119382Z",
+     "updated_at": "2026-09-27T15:10:33.390463Z",
+     "run_once_at": "2026-09-27T15:09:00Z",
+     "next_run_at": "2026-09-28T15:10:33.144384214Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T15:10:33.361292Z",
+     "persistent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T15:10:33.351758929Z"
+     },
+     "derived_state": {
+      "prompt": "From legacy-checks (T6): QUESTION"
+     }
+    },
+    {
+     "id": "trig_01KZFBry136KcGetnahPhTbX",
+     "name": "legacy-checks T6 COMPLETE",
+     "enabled": false,
+     "created_at": "2026-09-27T15:06:55.701673Z",
+     "updated_at": "2026-09-27T15:09:35.285991Z",
+     "run_once_at": "2026-09-27T15:08:00Z",
+     "next_run_at": "2026-09-28T15:09:35.022840179Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T15:09:35.257306Z",
+     "persistent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T15:09:35.245336395Z"
+     },
+     "derived_state": {
+      "prompt": "From legacy-checks (T6): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01SJadRRsd12E8RpEbtRYwmG",
+     "name": "BOB #48 backstop T6 layer 1",
+     "enabled": false,
+     "created_at": "2026-09-27T14:52:22.502363Z",
+     "updated_at": "2026-09-27T15:14:38.311660Z",
+     "run_once_at": "2026-09-27T15:13:00Z",
+     "next_run_at": "2026-09-28T15:14:38.080081841Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T15:14:38.274904Z",
+     "persistent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+     "created_kind": "ROUTINE_CREATED_KIND_REMINDER",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T15:14:38.267545067Z"
+     },
+     "derived_state": {
+      "prompt": "BACKSTOP (T6, layer 1): ID-SPACES #2 is COMPLETE (7c80ffe5df). Check LEGACY-CHECKS #2 (session_01FUNffcNqviJLVTLYAn267C): session state and its record on origin/job/T6/legacy-checks (any QUESTION/REPORT/COMPLETE/BLOCKED/NEEDS BOB newer than K162's ANSWER); act, then re-arm this 20-minute check."
+     }
+    },
+    {
+     "id": "trig_01R9SXMFh7Kbn7Mo1W9YV9ex",
+     "name": "ID-SPACES #2 to BOB: COMPLETE",
+     "enabled": false,
+     "created_at": "2026-09-27T14:38:58.547957Z",
+     "updated_at": "2026-09-27T14:40:38.683955Z",
+     "run_once_at": "2026-09-27T14:40:00Z",
+     "next_run_at": "2026-09-28T14:40:38.433307585Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:40:38.645639Z",
+     "persistent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:40:38.635768718Z"
+     },
+     "derived_state": {
+      "prompt": "From id-spaces (T6): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01MM1gY4nGVKaoy3VHbEJseT",
+     "name": "BOB #48 to LEGACY-CHECKS #2: ANSWER Q1",
+     "enabled": false,
+     "created_at": "2026-09-27T14:37:52.832494Z",
+     "updated_at": "2026-09-27T14:39:30.849330Z",
+     "run_once_at": "2026-09-27T14:39:00Z",
+     "next_run_at": "2026-09-28T14:39:30.600122605Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:39:30.819709Z",
+     "persistent_session_id": "session_01FUNffcNqviJLVTLYAn267C",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:39:30.812920475Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #48 (T6): ANSWER"
+     }
+    },
+    {
+     "id": "trig_01QipYgabyGNEFBYSfo4FdJ9",
+     "name": "legacy-checks T6 QUESTION 1",
+     "enabled": false,
+     "created_at": "2026-09-27T14:37:19.485632Z",
+     "updated_at": "2026-09-27T14:39:33.225874Z",
+     "run_once_at": "2026-09-27T14:39:00Z",
+     "next_run_at": "2026-09-28T14:39:33.013933224Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:39:33.192582Z",
+     "persistent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:39:33.181737998Z"
+     },
+     "derived_state": {
+      "prompt": "From legacy-checks (T6): QUESTION"
+     }
+    },
+    {
+     "id": "trig_016jDMR2tttbQ1xPgwo93gZw",
+     "name": "BOB #48 to ID-SPACES #2: ANSWER Q1",
+     "enabled": false,
+     "created_at": "2026-09-27T14:36:34.942535Z",
+     "updated_at": "2026-09-27T14:38:29.176756Z",
+     "run_once_at": "2026-09-27T14:38:00Z",
+     "next_run_at": "2026-09-28T14:38:28.927791502Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:38:29.146964Z",
+     "persistent_session_id": "session_01DAomLCBqmFvF1k6WfbWamt",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:38:29.136666325Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #48 (T6): ANSWER"
+     }
+    },
+    {
+     "id": "trig_013zG2pf7RdpjMKXFM6Tk4N4",
+     "name": "ID-SPACES #2 to BOB: QUESTION",
+     "enabled": false,
+     "created_at": "2026-09-27T14:35:24.739212Z",
+     "updated_at": "2026-09-27T14:36:55.250998Z",
+     "run_once_at": "2026-09-27T14:36:00Z",
+     "next_run_at": "2026-09-28T14:36:55.018590426Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:36:55.223996Z",
+     "persistent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:36:55.213893501Z"
+     },
+     "derived_state": {
+      "prompt": "From id-spaces (T6): QUESTION"
+     }
+    },
+    {
+     "id": "trig_01JBiYXrMumHth666tTw6dJW",
+     "name": "BOB #48 to LEGACY-CHECKS #2: START",
+     "enabled": false,
+     "created_at": "2026-09-27T14:32:34.654338Z",
+     "updated_at": "2026-09-27T14:34:39.212937Z",
+     "run_once_at": "2026-09-27T14:34:00Z",
+     "next_run_at": "2026-09-28T14:34:38.968551044Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:34:39.181059Z",
+     "persistent_session_id": "session_01FUNffcNqviJLVTLYAn267C",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:34:39.165620262Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #48 (T6): START"
+     }
+    },
+    {
+     "id": "trig_01TPDdjnUz7B3npHMmsxcC2D",
+     "name": "BOB #48 to ID-SPACES #2: START",
+     "enabled": false,
+     "created_at": "2026-09-27T14:32:34.148956Z",
+     "updated_at": "2026-09-27T14:34:40.765461Z",
+     "run_once_at": "2026-09-27T14:34:00Z",
+     "next_run_at": "2026-09-28T14:34:40.578750056Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:34:40.741703Z",
+     "persistent_session_id": "session_01DAomLCBqmFvF1k6WfbWamt",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:34:40.731958715Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #48 (T6): START"
+     }
+    },
+    {
+     "id": "trig_01GryWQGzN25jzjVqiUwgkex",
+     "name": "BOB #48 backstop T6 layer 1",
+     "enabled": false,
+     "created_at": "2026-09-27T14:30:42.134878Z",
+     "updated_at": "2026-09-27T14:51:50.526482Z",
+     "run_once_at": "2026-09-27T14:51:00Z",
+     "next_run_at": "2026-09-28T14:51:50.256787751Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:51:50.496924Z",
+     "persistent_session_id": "session_01E4YZNiY3MRoRn59Wr5NnLW",
+     "created_kind": "ROUTINE_CREATED_KIND_REMINDER",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:51:50.486111311Z"
+     },
+     "derived_state": {
+      "prompt": "BACKSTOP (T6, layer 1): check ID-SPACES #2 (session_01DAomLCBqmFvF1k6WfbWamt) and LEGACY-CHECKS #2 (session_01FUNffcNqviJLVTLYAn267C): session state and their records on origin/job/T6/<module> (any QUESTION/REPORT/COMPLETE/BLOCKED/NEEDS BOB newer than my last message); act, then re-arm this 20-minute check."
+     }
+    },
+    {
+     "id": "trig_01CrVL3gkc1MAQssq2VoHkWF",
+     "name": "BOB #47 to ROOT #1: START BOB",
+     "enabled": false,
+     "created_at": "2026-09-27T14:24:01.948880Z",
+     "updated_at": "2026-09-27T14:25:31.492556Z",
+     "run_once_at": "2026-09-27T14:25:00Z",
+     "next_run_at": "2026-09-28T14:25:31.248398349Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:25:31.455197Z",
+     "persistent_session_id": "session_0183DmvWFhkpLgr7EBFwPZMr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:25:31.444456554Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #47 (T6): START BOB"
+     }
+    },
+    {
+     "id": "trig_01HgJx3UwiobcYpVgWTTfoV9",
+     "name": "D7-BOB #3 REPORT",
+     "enabled": false,
+     "created_at": "2026-09-27T14:07:26.612049Z",
+     "updated_at": "2026-09-27T14:09:39.853588Z",
+     "run_once_at": "2026-09-27T14:08:00Z",
+     "next_run_at": "2026-09-28T14:09:39.607565098Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:09:39.822512Z",
+     "persistent_session_id": "session_01ST5gn8EypNUyWbHPtjrbRM",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:09:39.810867579Z"
+     },
+     "derived_state": {
+      "prompt": "From D7-BOB #3 (D7): REPORT"
+     }
+    },
+    {
+     "id": "trig_01RNHKCvLfwGqz4pag4kX39X",
+     "name": "D7: D7-BOB #2 to ROOT, START BOB",
+     "enabled": false,
+     "created_at": "2026-09-27T14:03:50.644745Z",
+     "updated_at": "2026-09-27T14:05:53.225450Z",
+     "run_once_at": "2026-09-27T14:05:00Z",
+     "next_run_at": "2026-09-28T14:05:52.993951554Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:05:53.193744Z",
+     "persistent_session_id": "session_01ST5gn8EypNUyWbHPtjrbRM",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:05:53.181586697Z"
+     },
+     "derived_state": {
+      "prompt": "From D7-BOB #2 (D7): START BOB"
+     }
+    },
+    {
+     "id": "trig_01EPYMbZCRcir6YmNEk7jvR7",
+     "name": "alpha D7 COMPLETE",
+     "enabled": false,
+     "created_at": "2026-09-27T14:01:04.477274Z",
+     "updated_at": "2026-09-27T14:02:55.455094Z",
+     "run_once_at": "2026-09-27T14:02:00Z",
+     "next_run_at": "2026-09-28T14:02:55.181477281Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:02:55.417240Z",
+     "persistent_session_id": "session_01CVr6oZgfM2ey4n26azCpE1",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:02:55.406143746Z"
+     },
+     "derived_state": {
+      "prompt": "From alpha (D7): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01HizwVTfpupqfADUmbwMAH4",
+     "name": "D7: BOB #47 to D7-BOB #2, CHANGE 1",
+     "enabled": false,
+     "created_at": "2026-09-27T13:59:21.731127Z",
+     "updated_at": "2026-09-27T14:01:57.701907Z",
+     "run_once_at": "2026-09-27T14:01:00Z",
+     "next_run_at": "2026-09-28T14:01:57.470270398Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T14:01:57.670301Z",
+     "persistent_session_id": "session_01CVr6oZgfM2ey4n26azCpE1",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T14:01:57.659871208Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #47 (D7): CHANGE 1"
+     }
+    },
+    {
+     "id": "trig_01VRri2zBLjjPeAcb4Q8JXEj",
+     "name": "D7 probe: tools of a routine-started session",
+     "enabled": false,
+     "created_at": "2026-09-27T13:55:05.948505Z",
+     "updated_at": "2026-09-27T13:57:09.323685Z",
+     "run_once_at": "2026-09-27T13:57:00Z",
+     "next_run_at": "2026-09-28T13:57:08.989553712Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T13:57:09.295839Z",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T13:57:09.277670139Z"
+     },
+     "derived_state": {
+      "prompt": "You are a measurement probe for the CivicOS process (dry run D7), started by BOB #47 (session_01ST5gn8EypNUyWbHPtjrbRM). Change nothing: no commits, no pushes, no archiving, no new sessions. Do only this, then end:"
+     }
+    },
+    {
+     "id": "trig_01MNJV1QTazfVWSWhrvhk9p3",
+     "name": "BOB #46 backstop (layer 11)",
+     "enabled": false,
+     "created_at": "2026-09-27T12:42:33.353818Z",
+     "updated_at": "2026-09-27T13:04:38.562355Z",
+     "run_once_at": "2026-09-27T13:03:00Z",
+     "next_run_at": "2026-09-28T13:04:38.281682311Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T13:04:38.528724Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T13:04:38.516732871Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128, K154): read job/T5/legacy-tests' record for \"COMPLETE again\" after BOB's 12:44 CHANGE (re-pin derivation-bounds after K155), and job/T5/legacy-index's for Bob's approval having cleared the coverage.mjs edit. When legacy-tests is complete: ownership check, merge, then close layer 11 and T5 (regenerate bundles per build/manifest.md and verify; archive LEGACY-TESTS #3, CONNECTIONS #2 and, if still blocked, LEGACY-INDEX #3 with K153's edit moved to T6's legacy-index entry; metrics rows; archive current.md to plan/archive/T5.md with outcomes and usage; fast-forward main; delete the backstop; report to Bob). Otherwise re-arm this one-time backstop 20 minutes out."
+     }
+    },
+    {
+     "id": "trig_016Jm3LNfdJ7f8oKc117MScB",
+     "name": "BOB #46 CHANGE to LEGACY-TESTS #3: connections K155",
+     "enabled": false,
+     "created_at": "2026-09-27T12:42:23.575149Z",
+     "updated_at": "2026-09-27T12:45:03.339151Z",
+     "run_once_at": "2026-09-27T12:44:00Z",
+     "next_run_at": "2026-09-28T12:45:03.049314883Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T12:45:03.304747Z",
+     "persistent_session_id": "session_01TW5ASSYtwo47MkR2AdX1H6",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T12:45:03.286217534Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01UqNZL7HveP9gmcYXiGpWH7",
+     "name": "BOB #46 backstop (layer 11)",
+     "enabled": false,
+     "created_at": "2026-09-27T12:19:46.953857Z",
+     "updated_at": "2026-09-27T12:40:37.484168Z",
+     "run_once_at": "2026-09-27T12:40:00Z",
+     "next_run_at": "2026-09-28T12:40:37.238996325Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T12:40:37.449475Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T12:40:37.436478071Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128, K154): read the records on job/T5/connections (CONNECTIONS #2, K155), job/T5/legacy-index and job/T5/legacy-tests for COMPLETE and NEEDS BOB lines, and each session's state. CONNECTIONS #2: when its record's Status says COMPLETE, run the ownership check, merge, re-run all module tests, and tell LEGACY-TESTS #3 (CHANGE) to re-run the suites REPORTs 1–6 named. LEGACY-INDEX #3 waits on Bob's approval of the coverage.mjs edit (do not remind again). Resume any quiet job; re-arm this one-time backstop 20 minutes out while the layer runs."
+     }
+    },
+    {
+     "id": "trig_01Cyvqvex7tnLmgxCMLwRmwt",
+     "name": "BOB #46 backstop (layer 11)",
+     "enabled": false,
+     "created_at": "2026-09-27T11:56:01.594176Z",
+     "updated_at": "2026-09-27T12:17:17.256314Z",
+     "run_once_at": "2026-09-27T12:16:00Z",
+     "next_run_at": "2026-09-28T12:17:16.966833232Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T12:17:17.216484Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T12:17:17.203781844Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128, K154): read each layer-11 job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for COMPLETE and NEEDS BOB lines, and each session's state. LEGACY-INDEX #3 waits on Bob's approval of the coverage.mjs edit (K153; relayed and reminded; do not remind again): merge it once its record says done. LEGACY-TESTS #3: last commit 12b80c5c43 (~11:43), then its battery ran; if its record says COMPLETE, run its ownership check and merge; if idle with no newer commit, resume it. Re-arm this one-time backstop 20 minutes out while the layer runs."
+     }
+    },
+    {
+     "id": "trig_011C3LtPzYGvtjXJLV9DwEHC",
+     "name": "BOB #46 backstop (layer 11)",
+     "enabled": false,
+     "created_at": "2026-09-27T11:35:10.085678Z",
+     "updated_at": "2026-09-27T11:55:32.972868Z",
+     "run_once_at": "2026-09-27T11:55:00Z",
+     "next_run_at": "2026-09-28T11:55:32.720152808Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T11:55:32.938673Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T11:55:32.929504912Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128, K154): read each layer-11 job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for COMPLETE and NEEDS BOB lines, and each session's state. LEGACY-INDEX #3 waits on Bob's approval of the coverage.mjs edit (K153; relayed and reminded; do not remind again): merge it once its record says done. LEGACY-TESTS #3: last commit fe4797a752 (~11:00); resume it only if idle with no newer commit. Merge what is complete; re-arm this one-time backstop 20 minutes out while the layer runs."
+     }
+    },
+    {
+     "id": "trig_01TkD8Q7kXcU2EuBNM1jXSGM",
+     "name": "BOB #46 backstop (layer 11)",
+     "enabled": false,
+     "created_at": "2026-09-27T11:13:43.231706Z",
+     "updated_at": "2026-09-27T11:34:43.864445Z",
+     "run_once_at": "2026-09-27T11:34:00Z",
+     "next_run_at": "2026-09-28T11:34:43.589435405Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T11:34:43.832693Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T11:34:43.821321020Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128, K154): read each layer-11 job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for COMPLETE and NEEDS BOB lines, and each session's state. LEGACY-INDEX #3 waits on Bob's approval of the coverage.mjs edit (K153; relayed and reminded; do not remind again): merge it once its record says done. LEGACY-TESTS #3: last commit fe4797a752 (~11:00); resume it only if idle with no newer commit. Merge what is complete; re-arm this one-time backstop 20 minutes out while the layer runs."
+     }
+    },
+    {
+     "id": "trig_01V3WEsu4AfMzSrdW8zF6z9f",
+     "name": "BOB #46 backstop (layer 11)",
+     "enabled": false,
+     "created_at": "2026-09-27T10:51:49.557018Z",
+     "updated_at": "2026-09-27T11:13:11.221011Z",
+     "run_once_at": "2026-09-27T11:12:00Z",
+     "next_run_at": "2026-09-28T11:13:10.986054592Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T11:13:11.188124Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T11:13:11.180382859Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128, K154): read each layer-11 job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for COMPLETE and NEEDS BOB lines, and each session's state. LEGACY-INDEX #3 waits on Bob's approval of the coverage.mjs edit (K153; relayed and reminded; do not remind again): merge it once its record says done. LEGACY-TESTS #3: running at 10:51 with no commit since b23e790664 (10:00); if still no commit and its session is idle, resume it. Merge what is complete; re-arm this one-time backstop 20 minutes out while the layer runs."
+     }
+    },
+    {
+     "id": "trig_01Kaa4vxPCCtyRLAquXw7Q9B",
+     "name": "BOB #46 backstop (layer 11)",
+     "enabled": false,
+     "created_at": "2026-09-27T10:30:46.536592Z",
+     "updated_at": "2026-09-27T10:51:17.693570Z",
+     "run_once_at": "2026-09-27T10:51:00Z",
+     "next_run_at": "2026-09-28T10:51:17.459298868Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T10:51:17.663614Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T10:51:17.654106070Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128, K154): read each layer-11 job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for COMPLETE and NEEDS BOB lines, and each session's state. LEGACY-INDEX #3 waits on Bob's approval of the coverage.mjs edit (K153; relayed ~10:10, reminded ~10:30; do not remind again): merge it once its record says done. LEGACY-TESTS #3: if no commit since b23e790664 and its session is idle, resume it. Merge what is complete; re-arm this one-time backstop 20 minutes out while the layer runs."
+     }
+    },
+    {
+     "id": "trig_018SE2YiLZ61CN5LaMuv71Qy",
+     "name": "BOB #46 backstop (layer 11)",
+     "enabled": false,
+     "created_at": "2026-09-27T10:10:20.485578Z",
+     "updated_at": "2026-09-27T10:30:14.422728Z",
+     "run_once_at": "2026-09-27T10:30:00Z",
+     "next_run_at": "2026-09-28T10:30:14.198584138Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T10:30:14.396502Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T10:30:14.388404737Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128, K154): read each layer-11 job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for COMPLETE and NEEDS BOB lines, and each session's state. LEGACY-INDEX #3 is blocked on Bob's approval of the coverage.mjs edit (K153, relayed ~10:10): if its record now says the edit is done, merge after the ownership check; if still blocked, remind Bob once. Merge what is complete; resume a quiet job; re-arm this one-time backstop 20 minutes out while the layer runs."
+     }
+    },
+    {
+     "id": "trig_01RseaTgoiXoiMmMtkzAQ3Nk",
+     "name": "BOB #46 backstop (layer 11)",
+     "enabled": false,
+     "created_at": "2026-09-27T09:49:40.374120Z",
+     "updated_at": "2026-09-27T10:09:40.649576Z",
+     "run_once_at": "2026-09-27T10:09:00Z",
+     "next_run_at": "2026-09-28T10:09:40.411031167Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T10:09:40.621894Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T10:09:40.615550938Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128, K154): the layer-11 jobs cannot message BOB (lineage depth), so read each job's record on its branch (job/T5/legacy-index, job/T5/legacy-tests) for \"COMPLETE\" and NEEDS BOB lines, and each session's state; merge what is complete after its ownership check; resume a quiet job; relay a blocked-on-Bob one to Bob (§16); re-arm this one-time backstop 20 minutes out while the layer runs."
+     }
+    },
+    {
+     "id": "trig_016mcjeUuehQ4Pjb1thM5wft",
+     "name": "BOB #46 CHANGE to LEGACY-TESTS #3: legacy-index merged",
+     "enabled": false,
+     "created_at": "2026-09-27T09:49:33.782269Z",
+     "updated_at": "2026-09-27T09:51:40.380198Z",
+     "run_once_at": "2026-09-27T09:51:00Z",
+     "next_run_at": "2026-09-28T09:51:40.101564485Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T09:51:40.347003Z",
+     "persistent_session_id": "session_01TW5ASSYtwo47MkR2AdX1H6",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T09:51:40.336639674Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01Wb1DbhUXiezPRopyX3qyBw",
+     "name": "BOB #46 ANSWER+CHANGE to LEGACY-INDEX #3",
+     "enabled": false,
+     "created_at": "2026-09-27T09:49:33.116811Z",
+     "updated_at": "2026-09-27T09:51:40.384597Z",
+     "run_once_at": "2026-09-27T09:51:00Z",
+     "next_run_at": "2026-09-28T09:51:40.176440472Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T09:51:40.356168Z",
+     "persistent_session_id": "session_01R1fW8dH921CoT7ggxG5wrw",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T09:51:40.345721994Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): ANSWER + CHANGE"
+     }
+    },
+    {
+     "id": "trig_01Wo8F7BtVDwieLticDhkRxo",
+     "name": "BOB #46 backstop (layer 11)",
+     "enabled": false,
+     "created_at": "2026-09-27T09:27:01.939517Z",
+     "updated_at": "2026-09-27T09:47:41.843409Z",
+     "run_once_at": "2026-09-27T09:47:00Z",
+     "next_run_at": "2026-09-28T09:47:41.648465490Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T09:47:41.821282Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T09:47:41.810097012Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128): check every running T5 job's session state (get_session) and record (NEEDS BOB lines); resume or restart a failed or quiet job (LEGACY-INDEX #3 read idle at 09:26 while its battery ran: if still idle with no newer commit than 83b1853a97, resume it); relay a blocked one to Bob (§16); then re-arm this one-time backstop 20 minutes out while a layer runs."
+     }
+    },
+    {
+     "id": "trig_01BijwEeQBk3nBc8C64syyqL",
+     "name": "BOB #46 backstop (layer 11)",
+     "enabled": false,
+     "created_at": "2026-09-27T09:05:45.353118Z",
+     "updated_at": "2026-09-27T09:26:35.893263Z",
+     "run_once_at": "2026-09-27T09:26:00Z",
+     "next_run_at": "2026-09-28T09:26:35.639775754Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T09:26:35.865573Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T09:26:35.854135828Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128): check every running T5 job's session state (get_session) and record (NEEDS BOB lines); resume or restart a failed or quiet job; relay a blocked one to Bob (§16); archive any predecessor BOB now idle; then re-arm this one-time backstop 20 minutes out while a layer runs."
+     }
+    },
+    {
+     "id": "trig_014TkkBTwp1NhLNJe6P5wvMa",
+     "name": "PROGRESSIONS #1 COMPLETE (connections)",
+     "enabled": false,
+     "created_at": "2026-09-27T08:56:15.783785Z",
+     "updated_at": "2026-09-27T08:58:48.975560Z",
+     "run_once_at": "2026-09-27T08:58:00Z",
+     "next_run_at": "2026-09-28T08:58:48.680391616Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:58:48.943603Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:58:48.931879867Z"
+     },
+     "derived_state": {
+      "prompt": "From progressions (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_0112R2frPaTjJMG11Vzpkf75",
+     "name": "BOB #46 CHANGE to PROGRESSIONS #1: weakerGrade",
+     "enabled": false,
+     "created_at": "2026-09-27T08:53:16.800759Z",
+     "updated_at": "2026-09-27T08:54:20.057633Z",
+     "run_once_at": "2026-09-27T08:54:00Z",
+     "next_run_at": "2026-09-28T08:54:19.808786474Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:54:20.022357Z",
+     "persistent_session_id": "session_01MqohHm1mTdqg92oxu4112q",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:54:20.012298748Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01C9BA5JgHsZm8Dv2YuZHmyk",
+     "name": "connections T5 COMPLETE after K152",
+     "enabled": false,
+     "created_at": "2026-09-27T08:49:54.695986Z",
+     "updated_at": "2026-09-27T08:51:34.955697Z",
+     "run_once_at": "2026-09-27T08:51:00Z",
+     "next_run_at": "2026-09-28T08:51:34.747954515Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:51:34.925529Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:51:34.916858623Z"
+     },
+     "derived_state": {
+      "prompt": "From connections (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_017APW349cTBx1a2Zf9jDyis",
+     "name": "BOB #46 backstop (layer 5)",
+     "enabled": false,
+     "created_at": "2026-09-27T08:45:36.447435Z",
+     "updated_at": "2026-09-27T09:05:29.661374Z",
+     "run_once_at": "2026-09-27T09:05:00Z",
+     "next_run_at": "2026-09-28T09:05:29.395721452Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T09:05:29.625469Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T09:05:29.611530458Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128): check every running T5 job's session state (get_session) and record (NEEDS BOB lines); resume or restart a failed or quiet job; relay a blocked one to Bob (§16); archive any predecessor BOB now idle; then re-arm this one-time backstop 20 minutes out while a layer runs."
+     }
+    },
+    {
+     "id": "trig_01Fhyy2jMKj5quzzCnJJAx3u",
+     "name": "connections T5 COMPLETE after observation-log",
+     "enabled": false,
+     "created_at": "2026-09-27T08:41:55.315781Z",
+     "updated_at": "2026-09-27T08:44:19.326538Z",
+     "run_once_at": "2026-09-27T08:44:00Z",
+     "next_run_at": "2026-09-28T08:44:19.109675267Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:44:19.292393Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:44:19.282434004Z"
+     },
+     "derived_state": {
+      "prompt": "From connections (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01WhmXL5neDy7gWu6rVuWtmC",
+     "name": "RETRIEVAL #1 COMPLETE (R55-R58)",
+     "enabled": false,
+     "created_at": "2026-09-27T08:41:19.382045Z",
+     "updated_at": "2026-09-27T08:43:27.423049Z",
+     "run_once_at": "2026-09-27T08:43:00Z",
+     "next_run_at": "2026-09-28T08:43:27.224159674Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:43:27.396941Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:43:27.387129757Z"
+     },
+     "derived_state": {
+      "prompt": "From retrieval (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01VMQFFubDBP4awQyagD3BiB",
+     "name": "BOB #46 ANSWER+CHANGE to CONNECTIONS #1: K152",
+     "enabled": false,
+     "created_at": "2026-09-27T08:39:30.650933Z",
+     "updated_at": "2026-09-27T08:42:32.116631Z",
+     "run_once_at": "2026-09-27T08:42:00Z",
+     "next_run_at": "2026-09-28T08:42:31.881111939Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:42:32.088073Z",
+     "persistent_session_id": "session_01WfxC8Lht5EmaF2m5vmrG2i",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:42:32.076246548Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): ANSWER + CHANGE"
+     }
+    },
+    {
+     "id": "trig_01Ppy6h7cLeXAkjMEjhyW2gY",
+     "name": "BOB #46 CHANGE to PROMOTION #4: retrieval rows",
+     "enabled": false,
+     "created_at": "2026-09-27T08:38:09.582007Z",
+     "updated_at": "2026-09-27T08:39:17.332821Z",
+     "run_once_at": "2026-09-27T08:39:00Z",
+     "next_run_at": "2026-09-28T08:39:17.060258857Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:39:17.296500Z",
+     "persistent_session_id": "session_01W2PTadnDKxA16EUS4CW7Bz",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:39:17.283363969Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01T448miiPYVDTKEr3vNkPsa",
+     "name": "BOB #46 CHANGE to RETRIEVAL #1: R55-R58 folded",
+     "enabled": false,
+     "created_at": "2026-09-27T08:38:08.883356Z",
+     "updated_at": "2026-09-27T08:39:17.796567Z",
+     "run_once_at": "2026-09-27T08:39:00Z",
+     "next_run_at": "2026-09-28T08:39:17.599449832Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:39:17.759427Z",
+     "persistent_session_id": "session_01Fv7FCJzWqLPnaNpjhg33rD",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:39:17.746986805Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_013zhZKZdAdmy4PKaUV1QP7a",
+     "name": "connections T5 COMPLETE",
+     "enabled": false,
+     "created_at": "2026-09-27T08:34:06.388470Z",
+     "updated_at": "2026-09-27T08:37:22.653282Z",
+     "run_once_at": "2026-09-27T08:37:00Z",
+     "next_run_at": "2026-09-28T08:37:22.396702165Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:37:22.609003Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:37:22.598928633Z"
+     },
+     "derived_state": {
+      "prompt": "From connections (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01KT5bi44gm5Rdfe6srodhrU",
+     "name": "connections T5 QUESTION 2",
+     "enabled": false,
+     "created_at": "2026-09-27T08:33:54.776503Z",
+     "updated_at": "2026-09-27T08:36:18.222027Z",
+     "run_once_at": "2026-09-27T08:36:00Z",
+     "next_run_at": "2026-09-28T08:36:17.992665437Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:36:18.180068Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:36:18.170191180Z"
+     },
+     "derived_state": {
+      "prompt": "From connections (T5): QUESTION"
+     }
+    },
+    {
+     "id": "trig_01Ny1W4nG49rRuYvQji5reML",
+     "name": "RETRIEVAL #1 COMPLETE",
+     "enabled": false,
+     "created_at": "2026-09-27T08:33:28.524376Z",
+     "updated_at": "2026-09-27T08:35:27.705243Z",
+     "run_once_at": "2026-09-27T08:35:00Z",
+     "next_run_at": "2026-09-28T08:35:27.456898217Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:35:27.665572Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:35:27.657885424Z"
+     },
+     "derived_state": {
+      "prompt": "From retrieval (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01XVkYRi4F3txmJV8oqy4jr1",
+     "name": "BOB #46 ANSWER to PROGRESSIONS #1: merged",
+     "enabled": false,
+     "created_at": "2026-09-27T08:27:53.290637Z",
+     "updated_at": "2026-09-27T08:30:56.460569Z",
+     "run_once_at": "2026-09-27T08:30:00Z",
+     "next_run_at": "2026-09-28T08:30:56.254715404Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:30:56.426563Z",
+     "persistent_session_id": "session_01MqohHm1mTdqg92oxu4112q",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:30:56.417713257Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_01WGScD7uhdBDu7AbsP45w8j",
+     "name": "BOB #46 CHANGE to CONNECTIONS #1: observation-log merged",
+     "enabled": false,
+     "created_at": "2026-09-27T08:27:22.114900Z",
+     "updated_at": "2026-09-27T08:30:03.854806Z",
+     "run_once_at": "2026-09-27T08:29:00Z",
+     "next_run_at": "2026-09-28T08:30:03.578923951Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:30:03.822348Z",
+     "persistent_session_id": "session_01WfxC8Lht5EmaF2m5vmrG2i",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:30:03.811137707Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01Q91npg8eLT2C9n19iyFKUQ",
+     "name": "BOB #46 CHANGE to RETRIEVAL #1: observation-log merged",
+     "enabled": false,
+     "created_at": "2026-09-27T08:27:21.463491Z",
+     "updated_at": "2026-09-27T08:29:15.055293Z",
+     "run_once_at": "2026-09-27T08:29:00Z",
+     "next_run_at": "2026-09-28T08:29:14.856953085Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:29:15.021748Z",
+     "persistent_session_id": "session_01Fv7FCJzWqLPnaNpjhg33rD",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:29:15.008508508Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01XnDCSvX7re4vPh9oviB8sm",
+     "name": "bias T5 COMPLETE to BOB #46",
+     "enabled": false,
+     "created_at": "2026-09-27T08:26:10.139338Z",
+     "updated_at": "2026-09-27T08:28:26.112458Z",
+     "run_once_at": "2026-09-27T08:28:00Z",
+     "next_run_at": "2026-09-28T08:28:25.895303624Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:28:26.076751Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:28:26.065516875Z"
+     },
+     "derived_state": {
+      "prompt": "From bias (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_016wQBF2JhU9tDXmGAfXAeWd",
+     "name": "observation-log T5 COMPLETE (merged)",
+     "enabled": false,
+     "created_at": "2026-09-27T08:25:20.777635Z",
+     "updated_at": "2026-09-27T08:28:24.120662Z",
+     "run_once_at": "2026-09-27T08:28:00Z",
+     "next_run_at": "2026-09-28T08:28:23.835150077Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:28:24.091638Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:28:24.080856436Z"
+     },
+     "derived_state": {
+      "prompt": "From observation-log (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01TiTCcNC5NArZ8ujkFGqRfd",
+     "name": "BOB #46 ANSWER to BIAS #1: REPORT 1-2",
+     "enabled": false,
+     "created_at": "2026-09-27T08:24:55.230358Z",
+     "updated_at": "2026-09-27T08:26:23.340534Z",
+     "run_once_at": "2026-09-27T08:26:00Z",
+     "next_run_at": "2026-09-28T08:26:23.149898075Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:26:23.306832Z",
+     "persistent_session_id": "session_018B4eA3jst9ZcAUibKhY5FK",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:26:23.293967026Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_01Gj9szJaZV4VSa3VuT4gejR",
+     "name": "PROGRESSIONS #1 to BOB #46: unmerged follow-up",
+     "enabled": false,
+     "created_at": "2026-09-27T08:24:45.346891Z",
+     "updated_at": "2026-09-27T08:27:14.971204Z",
+     "run_once_at": "2026-09-27T08:27:00Z",
+     "next_run_at": "2026-09-28T08:27:14.761385114Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:27:14.938406Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:27:14.923018896Z"
+     },
+     "derived_state": {
+      "prompt": "From progressions (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01CaWYbaJo6ioiDx2V8nFMDo",
+     "name": "observation-log T5 COMPLETE",
+     "enabled": false,
+     "created_at": "2026-09-27T08:24:26.926933Z",
+     "updated_at": "2026-09-27T08:26:38.469160Z",
+     "run_once_at": "2026-09-27T08:26:00Z",
+     "next_run_at": "2026-09-28T08:26:38.238176925Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:26:38.436279Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:26:38.422149445Z"
+     },
+     "derived_state": {
+      "prompt": "From observation-log (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01YJ6cm59rxTZHWSYqTst7na",
+     "name": "BOB #46 backstop (layer 5)",
+     "enabled": false,
+     "created_at": "2026-09-27T08:23:16.167399Z",
+     "updated_at": "2026-09-27T08:43:40.453834Z",
+     "run_once_at": "2026-09-27T08:43:00Z",
+     "next_run_at": "2026-09-28T08:43:40.221640315Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:43:40.420596Z",
+     "persistent_session_id": "session_01Q3WyZBMy4MH1Acpgtw9awA",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:43:40.405152450Z"
+     },
+     "derived_state": {
+      "prompt": "Backstop check (mechanics §5, K128): check every running T5 job's session state (get_session) and record (NEEDS BOB lines); resume or restart a failed or quiet job; relay a blocked one to Bob (§16); archive any predecessor BOB now idle; then re-arm this one-time backstop 20 minutes out while a layer runs."
+     }
+    },
+    {
+     "id": "trig_015SNV3MRmytnmgkSGz44gk8",
+     "name": "BOB #46 address to QUERY-LANGUAGE #1",
+     "enabled": false,
+     "created_at": "2026-09-27T08:23:07.036816Z",
+     "updated_at": "2026-09-27T08:24:29.829235Z",
+     "run_once_at": "2026-09-27T08:24:00Z",
+     "next_run_at": "2026-09-28T08:24:29.625376099Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:24:29.795839Z",
+     "persistent_session_id": "session_012jSiJ21iiBkFYdQgY49Gbe",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:24:29.782884511Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01ErHJFvshKGtQ5N1gLroK4E",
+     "name": "BOB #46 address to PROGRESSIONS #1",
+     "enabled": false,
+     "created_at": "2026-09-27T08:23:06.403037Z",
+     "updated_at": "2026-09-27T08:24:28.966747Z",
+     "run_once_at": "2026-09-27T08:24:00Z",
+     "next_run_at": "2026-09-28T08:24:28.704939454Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:24:28.934664Z",
+     "persistent_session_id": "session_01MqohHm1mTdqg92oxu4112q",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:24:28.923120226Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01T5bfWtNuzasHN9DRyqEb2z",
+     "name": "BOB #46 address to ENTITIES #1",
+     "enabled": false,
+     "created_at": "2026-09-27T08:23:05.783744Z",
+     "updated_at": "2026-09-27T08:24:28.992455Z",
+     "run_once_at": "2026-09-27T08:24:00Z",
+     "next_run_at": "2026-09-28T08:24:28.760328036Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:24:28.962043Z",
+     "persistent_session_id": "session_01FFJSjwZY11KjjofLSWARDy",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:24:28.949158058Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01PuXNv36uPaTCKJwcWjMY1b",
+     "name": "BOB #46 address to RETRIEVAL #1",
+     "enabled": false,
+     "created_at": "2026-09-27T08:23:05.167144Z",
+     "updated_at": "2026-09-27T08:24:48.497657Z",
+     "run_once_at": "2026-09-27T08:24:00Z",
+     "next_run_at": "2026-09-28T08:24:48.292600308Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:24:48.462152Z",
+     "persistent_session_id": "session_01Fv7FCJzWqLPnaNpjhg33rD",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:24:48.448242753Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01RXRHS4FsonEpPXQMG8hWtX",
+     "name": "BOB #46 address to OBSERVATION-LOG #1",
+     "enabled": false,
+     "created_at": "2026-09-27T08:23:04.505229Z",
+     "updated_at": "2026-09-27T08:24:46.347073Z",
+     "run_once_at": "2026-09-27T08:24:00Z",
+     "next_run_at": "2026-09-28T08:24:46.168808896Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:24:46.316861Z",
+     "persistent_session_id": "session_01YZefWwyAhTE5bdBCeBJe3j",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:24:46.305461693Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01Bq5x1GdMsLRkvfrPhPfJg2",
+     "name": "BOB #46 address to BIAS #1",
+     "enabled": false,
+     "created_at": "2026-09-27T08:23:03.898364Z",
+     "updated_at": "2026-09-27T08:24:45.173816Z",
+     "run_once_at": "2026-09-27T08:24:00Z",
+     "next_run_at": "2026-09-28T08:24:44.970523273Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:24:45.147190Z",
+     "persistent_session_id": "session_018B4eA3jst9ZcAUibKhY5FK",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:24:45.134958586Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01HDp7aXUzy4PPUb2PTwptCg",
+     "name": "BOB #46 address to CONNECTIONS #1",
+     "enabled": false,
+     "created_at": "2026-09-27T08:23:03.273989Z",
+     "updated_at": "2026-09-27T08:24:32.043837Z",
+     "run_once_at": "2026-09-27T08:24:00Z",
+     "next_run_at": "2026-09-28T08:24:31.822120898Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:24:32.003280Z",
+     "persistent_session_id": "session_01WfxC8Lht5EmaF2m5vmrG2i",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:24:31.992174897Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #46 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01WB17ia64eHTwDfRHmLczUz",
+     "name": "BOB CHANGE to bias: merge conflict; answers",
+     "enabled": false,
+     "created_at": "2026-09-27T08:22:05.553985Z",
+     "updated_at": "2026-09-27T08:26:21.667044Z",
+     "run_once_at": "2026-09-27T08:26:00Z",
+     "next_run_at": "2026-09-28T08:26:21.426206282Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:26:21.633776Z",
+     "persistent_session_id": "session_018B4eA3jst9ZcAUibKhY5FK",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:26:21.622853458Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01FMQgxZbaPdGYYUJGTEJkwV",
+     "name": "BOB ANSWER to observation-log: R29 folded",
+     "enabled": false,
+     "created_at": "2026-09-27T08:21:19.090372Z",
+     "updated_at": "2026-09-27T08:24:49.526555Z",
+     "run_once_at": "2026-09-27T08:24:00Z",
+     "next_run_at": "2026-09-28T08:24:49.345671434Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:24:49.492625Z",
+     "persistent_session_id": "session_01YZefWwyAhTE5bdBCeBJe3j",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:24:49.481521359Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_013fFX4DcTg7uyoMmj1WvHb5",
+     "name": "ENTITIES #1 COMPLETE (K149)",
+     "enabled": false,
+     "created_at": "2026-09-27T08:20:07.979656Z",
+     "updated_at": "2026-09-27T08:21:16.112251Z",
+     "run_once_at": "2026-09-27T08:21:00Z",
+     "next_run_at": "2026-09-28T08:21:15.906331514Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:21:16.073736Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:21:16.062762138Z"
+     },
+     "derived_state": {
+      "prompt": "From entities (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_017did7Jw2NQE9UCQDG3P1ja",
+     "name": "BOB ANSWER to entities: R33-R34 folded",
+     "enabled": false,
+     "created_at": "2026-09-27T08:19:21.983051Z",
+     "updated_at": "2026-09-27T08:22:06.008512Z",
+     "run_once_at": "2026-09-27T08:22:00Z",
+     "next_run_at": "2026-09-28T08:22:05.802881343Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:22:05.973630Z",
+     "persistent_session_id": "session_01FFJSjwZY11KjjofLSWARDy",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:22:05.962145401Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_018kqyGdoL46R5fJZ9Yg2P5H",
+     "name": "BOB CHANGE to connections: gradeRank (supersedes 08:19)",
+     "enabled": false,
+     "created_at": "2026-09-27T08:19:21.416960Z",
+     "updated_at": "2026-09-27T08:22:07.200761Z",
+     "run_once_at": "2026-09-27T08:22:00Z",
+     "next_run_at": "2026-09-28T08:22:06.996099529Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:22:07.161506Z",
+     "persistent_session_id": "session_01WfxC8Lht5EmaF2m5vmrG2i",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:22:07.149716862Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_011HKMThM1z9D1Sx8BZHeqir",
+     "name": "BOB CHANGE to progressions: gradeRank (supersedes 08:19)",
+     "enabled": false,
+     "created_at": "2026-09-27T08:19:20.795667Z",
+     "updated_at": "2026-09-27T08:22:04.222265Z",
+     "run_once_at": "2026-09-27T08:22:00Z",
+     "next_run_at": "2026-09-28T08:22:04.018651705Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:22:04.185427Z",
+     "persistent_session_id": "session_01MqohHm1mTdqg92oxu4112q",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:22:04.171482719Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01Bq6m4wNHNo5ru5nCyeU9yQ",
+     "name": "bias T5 COMPLETE",
+     "enabled": false,
+     "created_at": "2026-09-27T08:19:12.389053Z",
+     "updated_at": "2026-09-27T08:20:59.995003Z",
+     "run_once_at": "2026-09-27T08:20:00Z",
+     "next_run_at": "2026-09-28T08:20:59.769200495Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:20:59.953907Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:20:59.940393366Z"
+     },
+     "derived_state": {
+      "prompt": "From bias (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01XfYS5ieBs9SA31kZcmMjDZ",
+     "name": "PROGRESSIONS #1 COMPLETE again to BOB",
+     "enabled": false,
+     "created_at": "2026-09-27T08:19:11.073739Z",
+     "updated_at": "2026-09-27T08:21:14.339091Z",
+     "run_once_at": "2026-09-27T08:21:00Z",
+     "next_run_at": "2026-09-28T08:21:14.107206296Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:21:14.309062Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:21:14.298524642Z"
+     },
+     "derived_state": {
+      "prompt": "From progressions (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01U8niMR1ao1RCCdCisStpzX",
+     "name": "BOB ANSWER to observation-log: Q4",
+     "enabled": false,
+     "created_at": "2026-09-27T08:18:37.474524Z",
+     "updated_at": "2026-09-27T08:21:15.199440Z",
+     "run_once_at": "2026-09-27T08:21:00Z",
+     "next_run_at": "2026-09-28T08:21:15.014003582Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:21:15.171617Z",
+     "persistent_session_id": "session_01YZefWwyAhTE5bdBCeBJe3j",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:21:15.161245981Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_0141GWAy9xPTvEconrzPUCwC",
+     "name": "observation-log T5 QUESTION R29",
+     "enabled": false,
+     "created_at": "2026-09-27T08:18:16.951150Z",
+     "updated_at": "2026-09-27T08:20:55.949999Z",
+     "run_once_at": "2026-09-27T08:20:00Z",
+     "next_run_at": "2026-09-28T08:20:55.757467570Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:20:55.918712Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:20:55.909601001Z"
+     },
+     "derived_state": {
+      "prompt": "From observation-log (T5): QUESTION"
+     }
+    },
+    {
+     "id": "trig_015enUuqLnP86Gvfjjp9cqyR",
+     "name": "BOB CHANGE to progressions: requirements reworded",
+     "enabled": false,
+     "created_at": "2026-09-27T08:17:41.442617Z",
+     "updated_at": "2026-09-27T08:21:14.908412Z",
+     "run_once_at": "2026-09-27T08:21:00Z",
+     "next_run_at": "2026-09-28T08:21:14.713317733Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:21:14.878732Z",
+     "persistent_session_id": "session_01MqohHm1mTdqg92oxu4112q",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:21:14.869249782Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01NnqQVJmKpV9Kiyo2xm4Tcn",
+     "name": "ENTITIES #1 QUESTION + REPORT (K147)",
+     "enabled": false,
+     "created_at": "2026-09-27T08:17:09.976298Z",
+     "updated_at": "2026-09-27T08:18:42.624632Z",
+     "run_once_at": "2026-09-27T08:18:00Z",
+     "next_run_at": "2026-09-28T08:18:42.406992502Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:18:42.587825Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:18:42.576687759Z"
+     },
+     "derived_state": {
+      "prompt": "From entities (T5): QUESTION"
+     }
+    },
+    {
+     "id": "trig_01UhpkT3qyqRAsqscY4EhMf2",
+     "name": "PROGRESSIONS #1 COMPLETE to BOB",
+     "enabled": false,
+     "created_at": "2026-09-27T08:17:03.570734Z",
+     "updated_at": "2026-09-27T08:19:24.703542Z",
+     "run_once_at": "2026-09-27T08:19:00Z",
+     "next_run_at": "2026-09-28T08:19:24.519914954Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:19:24.677556Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:19:24.670790018Z"
+     },
+     "derived_state": {
+      "prompt": "From progressions (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01TknjDF559QpR6N9H11SCpd",
+     "name": "observation-log T5 QUESTION Q4",
+     "enabled": false,
+     "created_at": "2026-09-27T08:16:59.826373Z",
+     "updated_at": "2026-09-27T08:18:10.838346Z",
+     "run_once_at": "2026-09-27T08:18:00Z",
+     "next_run_at": "2026-09-28T08:18:10.600480340Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:18:10.805506Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:18:10.791824507Z"
+     },
+     "derived_state": {
+      "prompt": "From observation-log (T5): QUESTION"
+     }
+    },
+    {
+     "id": "trig_013RCkQ7VKgcrGd9Jz3w1TpW",
+     "name": "BOB to entities: merged early; K147 names",
+     "enabled": false,
+     "created_at": "2026-09-27T08:16:33.147888Z",
+     "updated_at": "2026-09-27T08:19:31.864205Z",
+     "run_once_at": "2026-09-27T08:19:00Z",
+     "next_run_at": "2026-09-28T08:19:31.647991421Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:19:31.823161Z",
+     "persistent_session_id": "session_01FFJSjwZY11KjjofLSWARDy",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:19:31.810454921Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_015HgX5nGKjZiWf2VDrPqPeK",
+     "name": "BOB CHANGE to retrieval: entities merged",
+     "enabled": false,
+     "created_at": "2026-09-27T08:16:32.542772Z",
+     "updated_at": "2026-09-27T08:19:59.118768Z",
+     "run_once_at": "2026-09-27T08:19:00Z",
+     "next_run_at": "2026-09-28T08:19:58.914713394Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:19:59.081909Z",
+     "persistent_session_id": "session_01Fv7FCJzWqLPnaNpjhg33rD",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:19:59.069527158Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_013BAmRTw6Gr91SuXCEA1hsd",
+     "name": "BOB CHANGE to bias: entities merged",
+     "enabled": false,
+     "created_at": "2026-09-27T08:16:31.914840Z",
+     "updated_at": "2026-09-27T08:20:00.638309Z",
+     "run_once_at": "2026-09-27T08:19:00Z",
+     "next_run_at": "2026-09-28T08:20:00.439431826Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:20:00.599426Z",
+     "persistent_session_id": "session_018B4eA3jst9ZcAUibKhY5FK",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:20:00.586892464Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_017deAx1iGuW6tboVu2wMxYz",
+     "name": "BOB CHANGE to progressions: entities merged",
+     "enabled": false,
+     "created_at": "2026-09-27T08:16:31.220345Z",
+     "updated_at": "2026-09-27T08:19:58.202050Z",
+     "run_once_at": "2026-09-27T08:19:00Z",
+     "next_run_at": "2026-09-28T08:19:58.003516224Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:19:58.171430Z",
+     "persistent_session_id": "session_01MqohHm1mTdqg92oxu4112q",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:19:58.158508455Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_015BZ6rH43HDSAxSY3KmwSJo",
+     "name": "BOB CHANGE to observation-log: entities merged",
+     "enabled": false,
+     "created_at": "2026-09-27T08:16:30.642759Z",
+     "updated_at": "2026-09-27T08:19:56.386716Z",
+     "run_once_at": "2026-09-27T08:19:00Z",
+     "next_run_at": "2026-09-28T08:19:56.174221378Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:19:56.357062Z",
+     "persistent_session_id": "session_01YZefWwyAhTE5bdBCeBJe3j",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:19:56.345448383Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_011DCjmxvE1YRpks946q1fGg",
+     "name": "BOB CHANGE to connections: entities merged",
+     "enabled": false,
+     "created_at": "2026-09-27T08:16:30.068954Z",
+     "updated_at": "2026-09-27T08:19:27.448055Z",
+     "run_once_at": "2026-09-27T08:19:00Z",
+     "next_run_at": "2026-09-28T08:19:27.246228536Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:19:27.417268Z",
+     "persistent_session_id": "session_01WfxC8Lht5EmaF2m5vmrG2i",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:19:27.407122977Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01NjVYePtjqcf1UmP7E3Ba8Z",
+     "name": "ENTITIES #1 COMPLETE (after K143)",
+     "enabled": false,
+     "created_at": "2026-09-27T08:15:43.002256Z",
+     "updated_at": "2026-09-27T08:17:12.627781Z",
+     "run_once_at": "2026-09-27T08:17:00Z",
+     "next_run_at": "2026-09-28T08:17:12.387825620Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:17:12.586556Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:17:12.573020657Z"
+     },
+     "derived_state": {
+      "prompt": "From entities (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01W2k1apZn3K9TASFMbZbv5G",
+     "name": "ENTITIES #1 COMPLETE",
+     "enabled": false,
+     "created_at": "2026-09-27T08:14:37.280912Z",
+     "updated_at": "2026-09-27T08:16:57.146895Z",
+     "run_once_at": "2026-09-27T08:16:00Z",
+     "next_run_at": "2026-09-28T08:16:56.910822590Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:16:57.119307Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:16:57.107811171Z"
+     },
+     "derived_state": {
+      "prompt": "From entities (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_01YZfWZxKXLamBrhJS4mFbrv",
+     "name": "ENTITIES #1 REPORT",
+     "enabled": false,
+     "created_at": "2026-09-27T08:14:36.632867Z",
+     "updated_at": "2026-09-27T08:15:35.661080Z",
+     "run_once_at": "2026-09-27T08:15:00Z",
+     "next_run_at": "2026-09-28T08:15:35.450127063Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:15:35.626020Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:15:35.614192436Z"
+     },
+     "derived_state": {
+      "prompt": "From entities (T5): REPORT"
+     }
+    },
+    {
+     "id": "trig_01XzJ9U2jo7wVd5XXhzjG6DJ",
+     "name": "BOB CHANGE to connections: weakerGrade",
+     "enabled": false,
+     "created_at": "2026-09-27T08:12:15.120154Z",
+     "updated_at": "2026-09-27T08:15:21.958200Z",
+     "run_once_at": "2026-09-27T08:15:00Z",
+     "next_run_at": "2026-09-28T08:15:21.734163517Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:15:21.924724Z",
+     "persistent_session_id": "session_01WfxC8Lht5EmaF2m5vmrG2i",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:15:21.913905308Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01ULykwNEdaMuvDqQDqSWPXL",
+     "name": "BOB CHANGE to entities: gradeRank, isEstablished",
+     "enabled": false,
+     "created_at": "2026-09-27T08:12:14.499877Z",
+     "updated_at": "2026-09-27T08:15:44.595635Z",
+     "run_once_at": "2026-09-27T08:15:00Z",
+     "next_run_at": "2026-09-28T08:15:44.402374768Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:15:44.562037Z",
+     "persistent_session_id": "session_01FFJSjwZY11KjjofLSWARDy",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:15:44.550522966Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01Y8RywC3VU4y2YMVmCbvx2i",
+     "name": "BOB ANSWER to progressions: Q1-Q3",
+     "enabled": false,
+     "created_at": "2026-09-27T08:12:13.894529Z",
+     "updated_at": "2026-09-27T08:15:13.921454Z",
+     "run_once_at": "2026-09-27T08:15:00Z",
+     "next_run_at": "2026-09-28T08:15:13.676704960Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:15:13.891898Z",
+     "persistent_session_id": "session_01MqohHm1mTdqg92oxu4112q",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:15:13.882478231Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_014jLp4HcwYpZU2GeQfnUQQu",
+     "name": "BOB ANSWER to query-language: COMPLETE received",
+     "enabled": false,
+     "created_at": "2026-09-27T08:10:48.492675Z",
+     "updated_at": "2026-09-27T08:13:24.604963Z",
+     "run_once_at": "2026-09-27T08:13:00Z",
+     "next_run_at": "2026-09-28T08:13:24.346555030Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:13:24.570027Z",
+     "persistent_session_id": "session_012jSiJ21iiBkFYdQgY49Gbe",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:13:24.558040064Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_01YTSQC1WVxkc1tzqbtSk5Qh",
+     "name": "BOB CHANGE to retrieval: query-language merged",
+     "enabled": false,
+     "created_at": "2026-09-27T08:10:05.612897Z",
+     "updated_at": "2026-09-27T08:13:38.161125Z",
+     "run_once_at": "2026-09-27T08:12:00Z",
+     "next_run_at": "2026-09-28T08:13:37.908042728Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:13:38.118729Z",
+     "persistent_session_id": "session_01Fv7FCJzWqLPnaNpjhg33rD",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:13:38.106220385Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_019ogMMdovY8YfDnAZQyhTtR",
+     "name": "query-language COMPLETE (K143, K144)",
+     "enabled": false,
+     "created_at": "2026-09-27T08:09:42.739846Z",
+     "updated_at": "2026-09-27T08:11:22.916700Z",
+     "run_once_at": "2026-09-27T08:11:00Z",
+     "next_run_at": "2026-09-28T08:11:22.718820480Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:11:22.884965Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:11:22.874711236Z"
+     },
+     "derived_state": {
+      "prompt": "From query-language (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_018zyDUe4XXnvFfvQSVBz4ai",
+     "name": "PROGRESSIONS #1 QUESTION to BOB",
+     "enabled": false,
+     "created_at": "2026-09-27T08:09:42.674902Z",
+     "updated_at": "2026-09-27T08:11:28.291169Z",
+     "run_once_at": "2026-09-27T08:11:00Z",
+     "next_run_at": "2026-09-28T08:11:28.096021284Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:11:28.260776Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:11:28.248989499Z"
+     },
+     "derived_state": {
+      "prompt": "From progressions (T5): QUESTION"
+     }
+    },
+    {
+     "id": "trig_01RZv2F2gFGyCe9TBTqwUVEQ",
+     "name": "query-language COMPLETE to BOB",
+     "enabled": false,
+     "created_at": "2026-09-27T08:09:02.107690Z",
+     "updated_at": "2026-09-27T08:10:38.968160Z",
+     "run_once_at": "2026-09-27T08:10:00Z",
+     "next_run_at": "2026-09-28T08:10:38.735544032Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:10:38.939311Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:10:38.928523376Z"
+     },
+     "derived_state": {
+      "prompt": "From query-language (T5): COMPLETE"
+     }
+    },
+    {
+     "id": "trig_015FDHSbs3ez6qeroufFWPYd",
+     "name": "query-language REPORT to BOB",
+     "enabled": false,
+     "created_at": "2026-09-27T08:08:54.586855Z",
+     "updated_at": "2026-09-27T08:09:32.937658Z",
+     "run_once_at": "2026-09-27T08:09:00Z",
+     "next_run_at": "2026-09-28T08:09:32.704929767Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:09:32.901321Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:09:32.892031452Z"
+     },
+     "derived_state": {
+      "prompt": "From query-language (T5): REPORT"
+     }
+    },
+    {
+     "id": "trig_01FcLthbyZPzWMJo5UDWGhYw",
+     "name": "BOB ANSWER to bias: Q1-Q7",
+     "enabled": false,
+     "created_at": "2026-09-27T08:02:46.519165Z",
+     "updated_at": "2026-09-27T08:07:45.779163Z",
+     "run_once_at": "2026-09-27T08:07:00Z",
+     "next_run_at": "2026-09-28T08:07:45.539676265Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:07:45.740740Z",
+     "persistent_session_id": "session_018B4eA3jst9ZcAUibKhY5FK",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:07:45.731036230Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_01RqTMeq1Tj3imJzqCyHorye",
+     "name": "BOB ANSWER to connections: Q1-Q6",
+     "enabled": false,
+     "created_at": "2026-09-27T08:02:45.877063Z",
+     "updated_at": "2026-09-27T08:08:04.770549Z",
+     "run_once_at": "2026-09-27T08:07:00Z",
+     "next_run_at": "2026-09-28T08:08:04.529440199Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:08:04.734419Z",
+     "persistent_session_id": "session_01WfxC8Lht5EmaF2m5vmrG2i",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:08:04.722265829Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_01JBZhufnoHCGvxBkmZfv4Q1",
+     "name": "BOB CHANGE to query-language: K144",
+     "enabled": false,
+     "created_at": "2026-09-27T08:02:13.148386Z",
+     "updated_at": "2026-09-27T08:06:02.295162Z",
+     "run_once_at": "2026-09-27T08:05:00Z",
+     "next_run_at": "2026-09-28T08:06:02.049680918Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:06:02.265916Z",
+     "persistent_session_id": "session_012jSiJ21iiBkFYdQgY49Gbe",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:06:02.255513967Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): CHANGE"
+     }
+    },
+    {
+     "id": "trig_01SVAhC86pMece1ZwXMX2a7Z",
+     "name": "BOB ANSWER to retrieval: Q1",
+     "enabled": false,
+     "created_at": "2026-09-27T08:02:12.527464Z",
+     "updated_at": "2026-09-27T08:06:03.248727Z",
+     "run_once_at": "2026-09-27T08:05:00Z",
+     "next_run_at": "2026-09-28T08:06:03.051147596Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:06:03.217760Z",
+     "persistent_session_id": "session_01Fv7FCJzWqLPnaNpjhg33rD",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:06:03.208010861Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_01MvVzrG9uooEB22hmmo1862",
+     "name": "BOB ANSWER to entities: Q1",
+     "enabled": false,
+     "created_at": "2026-09-27T08:00:16.494526Z",
+     "updated_at": "2026-09-27T08:04:26.113285Z",
+     "run_once_at": "2026-09-27T08:04:00Z",
+     "next_run_at": "2026-09-28T08:04:25.900730512Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:04:26.084428Z",
+     "persistent_session_id": "session_01FFJSjwZY11KjjofLSWARDy",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:04:26.077142746Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_01DtNtPXjo67rTEoA69KFJXt",
+     "name": "BOB ANSWER to query-language: Q1",
+     "enabled": false,
+     "created_at": "2026-09-27T08:00:15.872253Z",
+     "updated_at": "2026-09-27T08:04:53.696579Z",
+     "run_once_at": "2026-09-27T08:04:00Z",
+     "next_run_at": "2026-09-28T08:04:53.452245570Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:04:53.654467Z",
+     "persistent_session_id": "session_012jSiJ21iiBkFYdQgY49Gbe",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:04:53.642746590Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_01NuKMzbUtw6xxoYuy6oV7ay",
+     "name": "bias T5 QUESTION",
+     "enabled": false,
+     "created_at": "2026-09-27T08:00:09.955769Z",
+     "updated_at": "2026-09-27T08:01:57.725792Z",
+     "run_once_at": "2026-09-27T08:01:00Z",
+     "next_run_at": "2026-09-28T08:01:57.514808034Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:01:57.689164Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:01:57.676315673Z"
+     },
+     "derived_state": {
+      "prompt": "From bias (T5): QUESTION"
+     }
+    },
+    {
+     "id": "trig_019fp5MBMhprC88kxKgMJs96",
+     "name": "BOB ANSWER to observation-log: Q1-Q3",
+     "enabled": false,
+     "created_at": "2026-09-27T07:59:43.032264Z",
+     "updated_at": "2026-09-27T08:02:38.224788Z",
+     "run_once_at": "2026-09-27T08:02:00Z",
+     "next_run_at": "2026-09-28T08:02:38.045435103Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:02:38.197198Z",
+     "persistent_session_id": "session_01YZefWwyAhTE5bdBCeBJe3j",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:02:38.186952878Z"
+     },
+     "derived_state": {
+      "prompt": "From BOB #45 (T5): ANSWER"
+     }
+    },
+    {
+     "id": "trig_01PAHwAUuNgyJMe9xRcQpFsK",
+     "name": "RETRIEVAL #1 QUESTION Q1",
+     "enabled": false,
+     "created_at": "2026-09-27T07:59:42.131361Z",
+     "updated_at": "2026-09-27T08:01:43.753596Z",
+     "run_once_at": "2026-09-27T08:01:00Z",
+     "next_run_at": "2026-09-28T08:01:43.523437868Z",
+     "ended_reason": "run_once_fired",
+     "last_fired_at": "2026-09-27T08:01:43.721978Z",
+     "persistent_session_id": "session_01XMEw4Evvi4UHjyRFmaUvvr",
+     "created_kind": "ROUTINE_CREATED_KIND_ROUTINE",
+     "last_run": {
+      "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+      "fired_at": "2026-09-27T08:01:43.709177577Z"
+     },
+     "derived_state": {
+      "prompt": "From retrieval (T5): QUESTION"
+     }
+    }
+   ]
+  }
+ ]
+}
