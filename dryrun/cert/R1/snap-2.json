@@ -1,0 +1,458 @@
+{
+  "taken_at": "2026-09-27T17:22:02Z",
+  "label": "after D8-BOB #2's close step 1 (CLOSING); layer 1 closed",
+  "layer_running": false,
+  "current_bob": "session_01R8actVSnNt8T3X3Sakin6g",
+  "get_session": [
+    {
+      "id": "session_018g7Gv3xJ5zvnNAWMjP7syY",
+      "title": "D8-ROOT #1",
+      "session_status": "SESSION_STATUS_IDLE",
+      "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+      "parent_session_id": "session_01H7SnX45uHbDZ5fjH6mBHcN",
+      "created_at": "2026-09-27T16:51:53.772406Z",
+      "updated_at": "2026-09-27T17:08:28.950059Z",
+      "external_metadata": {
+        "context_usage": {
+          "max_tokens": 1000000,
+          "used_tokens": 100787
+        },
+        "post_turn_summary": {
+          "needs_action": "",
+          "recent_action": "D8-ROOT session active on tranche/D8; D8-BOB #1 (01LPHZFDBMZ6WXhvGqzzx1Hw) & #2 (01R8actVSnNt8T3X3Sakin6g) started",
+          "status_category": "completed",
+          "status_detail": "D8-ROOT ready; D8-BOB #1 & #2 started; duplicate ignored"
+        },
+        "usage": {
+          "cache_read_tokens": 1720163,
+          "cache_write_tokens": 83686,
+          "cost_usd": 1.1050846,
+          "input_tokens": 6426,
+          "output_tokens": 3293
+        }
+      }
+    },
+    {
+      "id": "session_01LPHZFDBMZ6WXhvGqzzx1Hw",
+      "title": "D8-BOB #1",
+      "session_status": "SESSION_STATUS_ARCHIVED",
+      "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+      "parent_session_id": "session_018g7Gv3xJ5zvnNAWMjP7syY",
+      "created_at": "2026-09-27T16:57:23.578722Z",
+      "updated_at": "2026-09-27T17:07:43.323141Z",
+      "external_metadata": {
+        "context_usage": {
+          "max_tokens": 1000000,
+          "used_tokens": 143935
+        },
+        "post_turn_summary": {
+          "needs_action": "",
+          "recent_action": "",
+          "status_category": "review_ready",
+          "status_detail": "backstop fired; handed off to D8-BOB #2 at 17:08Z"
+        },
+        "usage": {
+          "cache_read_tokens": 4453300,
+          "cache_write_tokens": 117156,
+          "cost_usd": 2.17024,
+          "input_tokens": 12843,
+          "output_tokens": 14548
+        }
+      }
+    },
+    {
+      "id": "session_01R8actVSnNt8T3X3Sakin6g",
+      "title": "D8-BOB #2",
+      "session_status": "SESSION_STATUS_IDLE",
+      "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+      "parent_session_id": "session_018g7Gv3xJ5zvnNAWMjP7syY",
+      "created_at": "2026-09-27T17:08:25.952628Z",
+      "updated_at": "2026-09-27T17:15:24.243767Z",
+      "external_metadata": {
+        "context_usage": {
+          "max_tokens": 1000000,
+          "used_tokens": 152350
+        },
+        "post_turn_summary": {
+          "needs_action": "",
+          "recent_action": "Layer 1 closed (alpha/beta/gamma done, 23/23 requirements met); plan archived at dryrun/build/plan/archive/D8.md; D8-BOB #1 and all jobs archived",
+          "status_category": "completed",
+          "status_detail": "D8 tranche closed: 3 jobs complete, all checks pass, plan archived"
+        },
+        "usage": {
+          "cache_read_tokens": 3867987,
+          "cache_write_tokens": 112325,
+          "cost_usd": 2.0593214,
+          "input_tokens": 576,
+          "output_tokens": 19241
+        }
+      }
+    },
+    {
+      "id": "session_01PyUgxYhCfCQsoUx4e7BHCk",
+      "title": "ALPHA #1",
+      "session_status": "SESSION_STATUS_ARCHIVED",
+      "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+      "parent_session_id": "session_01LPHZFDBMZ6WXhvGqzzx1Hw",
+      "created_at": "2026-09-27T16:58:39.679853Z",
+      "updated_at": "2026-09-27T17:00:42.511958Z",
+      "external_metadata": {
+        "context_usage": {
+          "max_tokens": 1000000,
+          "used_tokens": 93126
+        },
+        "post_turn_summary": {
+          "needs_action": "",
+          "recent_action": "neg(a) implemented in dryrun/alpha/src/index.mjs; ALPHA #1 job complete with REPORT J1 + COMPLETE J2 sent",
+          "status_category": "completed",
+          "status_detail": "ALPHA #1 complete: neg() added, 7/7 tests pass, J2 sent to BOB"
+        },
+        "usage": {
+          "cache_read_tokens": 1205920,
+          "cache_write_tokens": 75689,
+          "cost_usd": 1.019804,
+          "input_tokens": 32,
+          "output_tokens": 8649
+        }
+      }
+    },
+    {
+      "id": "session_01VtoY9g9KRKDsjWCU1MNDVS",
+      "title": "BETA #1",
+      "session_status": "SESSION_STATUS_ARCHIVED",
+      "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+      "parent_session_id": "session_01LPHZFDBMZ6WXhvGqzzx1Hw",
+      "created_at": "2026-09-27T16:58:40.834451Z",
+      "updated_at": "2026-09-27T16:59:51.509503Z",
+      "external_metadata": {
+        "context_usage": {
+          "max_tokens": 1000000,
+          "used_tokens": 92172
+        },
+        "post_turn_summary": {
+          "needs_action": "",
+          "recent_action": "",
+          "status_category": "review_ready",
+          "status_detail": "BETA #1: awaiting D8-BOB #1 answer to QUESTION J1 (iterable scope)"
+        },
+        "usage": {
+          "cache_read_tokens": 870030,
+          "cache_write_tokens": 74726,
+          "cost_usd": 0.85629,
+          "input_tokens": 24,
+          "output_tokens": 4219
+        }
+      }
+    },
+    {
+      "id": "session_01Ub5ZdVLMvEapjJGFZEZthj",
+      "title": "BETA #2",
+      "session_status": "SESSION_STATUS_ARCHIVED",
+      "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+      "parent_session_id": "session_01LPHZFDBMZ6WXhvGqzzx1Hw",
+      "created_at": "2026-09-27T17:06:51.971675Z",
+      "updated_at": "2026-09-27T17:13:02.770303Z",
+      "external_metadata": {
+        "context_usage": {
+          "max_tokens": 1000000,
+          "used_tokens": 99093
+        },
+        "post_turn_summary": {
+          "needs_action": "",
+          "recent_action": "",
+          "status_category": "review_ready",
+          "status_detail": "waiting on BOB for response to J2"
+        },
+        "usage": {
+          "cache_read_tokens": 1720477,
+          "cache_write_tokens": 71391,
+          "cost_usd": 1.0930314,
+          "input_tokens": 547,
+          "output_tokens": 8781
+        }
+      }
+    },
+    {
+      "id": "session_01WMFJCpVNFRMgJU6QU23Ssb",
+      "title": "GAMMA #1",
+      "session_status": "SESSION_STATUS_ARCHIVED",
+      "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+      "parent_session_id": "session_01LPHZFDBMZ6WXhvGqzzx1Hw",
+      "created_at": "2026-09-27T16:58:42.006508Z",
+      "updated_at": "2026-09-27T17:00:14.207086Z",
+      "external_metadata": {
+        "context_usage": {
+          "max_tokens": 1000000,
+          "used_tokens": 91090
+        },
+        "post_turn_summary": {
+          "needs_action": "",
+          "recent_action": "",
+          "status_category": "review_ready",
+          "status_detail": "GAMMA #1 complete, sent J1 to BOB; awaiting BOB reply"
+        },
+        "usage": {
+          "cache_read_tokens": 1034036,
+          "cache_write_tokens": 73652,
+          "cost_usd": 0.9297952,
+          "input_tokens": 28,
+          "output_tokens": 6683
+        }
+      }
+    }
+  ],
+  "list_triggers": [
+    {
+      "id": "trig_017n6o6jLrrTcDfohenqxn4y",
+      "name": "D8 beta\u2192BOB COMPLETE J2",
+      "persistent_session_id": "session_01R8actVSnNt8T3X3Sakin6g",
+      "run_once_at": "2026-09-27T17:13:00Z",
+      "created_at": "2026-09-27T17:12:50.528976Z",
+      "updated_at": "2026-09-27T17:13:35.700658Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T17:13:35.670167Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T17:13:35.663006701Z"
+      },
+      "derived_state": {
+        "prompt": "From BETA #2 (D8): COMPLETE J2\nN2 applied on ANSWER B3 (any iterable): total unchanged, its R1 test extended with a Set, a generator and a one-shot iterator. CHANGE B4 applied: beta/dist/bundle.txt regenerated and fresh. beta # pass 6, # fail 0; alpha # pass 7, # fail 0; format, architecture, coverage and ownership 0 failures. Record: dryrun/build/jobs/D8/beta.md on job/D8/beta (463eff4), handled B4."
+      }
+    },
+    {
+      "id": "trig_015Dz5eXrkB3cYzM5RLUzndG",
+      "name": "D8 BOB\u2192beta CHANGE B4",
+      "persistent_session_id": "session_01Ub5ZdVLMvEapjJGFZEZthj",
+      "run_once_at": "2026-09-27T17:11:00Z",
+      "created_at": "2026-09-27T17:10:20.648219Z",
+      "updated_at": "2026-09-27T17:11:40.294877Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T17:11:40.268925Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T17:11:40.259857742Z"
+      },
+      "derived_state": {
+        "prompt": "From D8-BOB #2 (D8) to beta: CHANGE B4\nForwarded from ALPHA #1's REPORT J1, confirmed: alpha now provides neg (R6, R7) and job/D8/alpha is merged into tranche/D8 (7c0a849). After you merge tranche/D8, beta/dist/bundle.txt is stale and beta's R2 test fails until you regenerate it (from dryrun/: node beta/scripts/bundle.mjs, then --verify). Details in commit 0abdfbc on tranche/D8."
+      }
+    },
+    {
+      "id": "trig_01EVdLxfoHdZ5dhcxNQRA1Re",
+      "name": "D8 BOB\u2192beta ANSWER B3",
+      "persistent_session_id": "session_01Ub5ZdVLMvEapjJGFZEZthj",
+      "run_once_at": "2026-09-27T17:11:00Z",
+      "created_at": "2026-09-27T17:10:20.100293Z",
+      "updated_at": "2026-09-27T17:11:43.623291Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T17:11:43.596958Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T17:11:43.588523435Z"
+      },
+      "derived_state": {
+        "prompt": "From D8-BOB #2 (D8) to beta: ANSWER B3 re J1\nAny iterable of numbers: your best reading stands. It is a wording clarification (total and alpha.sum already behave so). beta R1 on tranche/D8 now says it (commit e394255, subject is this envelope). Merge tranche/D8 into job/D8/beta, keep total as it is, and extend its R1 test with a Set, a generator and a one-shot iterator. D8-BOB #2 (session_01R8actVSnNt8T3X3Sakin6g) is now BOB; its address is the plan's Status line."
+      }
+    },
+    {
+      "id": "trig_01LwUKeue9h9SrgfNURoQaE7",
+      "name": "D8 START BOB #2",
+      "persistent_session_id": "session_018g7Gv3xJ5zvnNAWMjP7syY",
+      "run_once_at": "2026-09-27T17:08:00Z",
+      "created_at": "2026-09-27T17:07:34.305643Z",
+      "updated_at": "2026-09-27T17:08:07.355925Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T17:08:07.323813Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T17:08:07.310322228Z"
+      },
+      "derived_state": {
+        "prompt": "From D8-BOB #1 (D8): START BOB #2\nWorking branch: tranche/D8 of believeinoakland/civicos-process. Handoff commit: f7c9026f7cdb5880d1535172014fe1023a105c64 (the Handoff section of dryrun/build/plan/current.md). D8-BOB #1 is session_01LPHZFDBMZ6WXhvGqzzx1Hw."
+      }
+    },
+    {
+      "id": "trig_01GyA5rSVJk1QAejZe5fwfpd",
+      "name": "ALPHA #1 D8 COMPLETE J2",
+      "persistent_session_id": "session_01LPHZFDBMZ6WXhvGqzzx1Hw",
+      "run_once_at": "2026-09-27T17:02:00Z",
+      "created_at": "2026-09-27T17:00:33.209030Z",
+      "updated_at": "2026-09-27T17:02:38.481165Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T17:02:38.450720Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T17:02:38.441003275Z"
+      },
+      "derived_state": {
+        "prompt": "From ALPHA #1 (D8): COMPLETE J2\n\nN1 applied: `neg(a)` meets R6 and R7, tested (alpha `# pass 7`, `# fail 0`); format, architecture, coverage (7 of 7) and ownership all `0 failures`. Deferred: nothing. REPORT J1 stands: beta's and legacy's bundles need regenerating after alpha merges (beta's R2 test fails on this branch until then).\n\nRecord: dryrun/build/jobs/D8/alpha.md on job/D8/alpha (Status COMPLETE \u00b7 sent J2 \u00b7 handled B1)."
+      }
+    },
+    {
+      "id": "trig_018QCdoLPfR5s2jSvvHr72aD",
+      "name": "GAMMA #1 COMPLETE J1",
+      "persistent_session_id": "session_01LPHZFDBMZ6WXhvGqzzx1Hw",
+      "run_once_at": "2026-09-27T17:01:00Z",
+      "created_at": "2026-09-27T17:00:07.309075Z",
+      "updated_at": "2026-09-27T17:01:56.202243Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T17:01:56.169399Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T17:01:56.158217036Z"
+      },
+      "derived_state": {
+        "prompt": "From GAMMA #1 (D8): COMPLETE J1\n\nN3 applied: gamma's `double(x)` meets R1\u2013R3, each named by a test that checks it in full. Module tests 3/3 pass; format, architecture, coverage and ownership checks report 0 failures. Nothing deferred, nothing found in other modules. Record: `dryrun/build/jobs/D8/gamma.md` on `job/D8/gamma` (head 9ee95e4)."
+      }
+    },
+    {
+      "id": "trig_01GeWr4L2Au4D1i2hn71jjGn",
+      "name": "ALPHA #1 D8 REPORT J1",
+      "persistent_session_id": "session_01LPHZFDBMZ6WXhvGqzzx1Hw",
+      "run_once_at": "2026-09-27T17:01:00Z",
+      "created_at": "2026-09-27T17:00:04.190280Z",
+      "updated_at": "2026-09-27T17:01:44.953483Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T17:01:44.924309Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T17:01:44.914211910Z"
+      },
+      "derived_state": {
+        "prompt": "From ALPHA #1 (D8): REPORT J1\n\nREPORT 1 \u00b7 Two generated artifacts (mechanics \u00a714) are built from `alpha/src/index.mjs`, so adding `neg` makes both stale on `job/D8/alpha` (both `fresh` on `tranche/D8`). I wrote neither.\n- `beta/dist/bundle.txt` (owned by `beta`): `node beta/scripts/bundle.mjs --verify` prints `bundle: STALE`, and so beta's test `R2 the committed bundle is exactly what the bundle script would write` fails on this branch (`# pass 5`, `# fail 1`; on `tranche/D8` `# fail 0`). Needs `node beta/scripts/bundle.mjs` from `dryrun/` after alpha merges; beta's job is open this layer, so it may simply regenerate after merging `tranche/D8`.\n- `legacy/dist/legacy.bundle.txt` (owned by `legacy`, no job): `node legacy/scripts/bundle.mjs --verify` prints `legacy bundle: STALE`. Needs `node legacy/scripts/bundle.mjs` from `dryrun/` when the layer closes.\n\nRecord: dryrun/build/jobs/D8/alpha.md on job/D8/alpha."
+      }
+    },
+    {
+      "id": "trig_01HZEvJqUUJgwnhcK6zF53Z3",
+      "name": "BETA #1 QUESTION J1",
+      "persistent_session_id": "session_01LPHZFDBMZ6WXhvGqzzx1Hw",
+      "run_once_at": "2026-09-27T17:00:00Z",
+      "created_at": "2026-09-27T16:59:45.709682Z",
+      "updated_at": "2026-09-27T17:00:02.067950Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T17:00:02.031991Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T17:00:02.020209435Z"
+      },
+      "derived_state": {
+        "prompt": "From BETA #1 (D8): QUESTION J1\nMust `total` accept any iterable of numbers (a Set, a generator), or only an array? Today `total` returns `alpha.sum(list)`, which iterates with for\u2026of, so it already accepts any iterable; R1 says only \"the numbers in `list`\". Best reading: any iterable (total unchanged, R1 wording gains \"any iterable\", R1 test adds a Set, a generator and a one-shot iterator). If only an array: total refuses a non-array with a TypeError (a new or widened requirement), and the R1 test adds those refusals. Full text in dryrun/build/jobs/D8/beta.md on job/D8/beta, under this heading. N2 waits on the answer."
+      }
+    },
+    {
+      "id": "trig_01GyH5pQxuRYwZpxhSocnaG6",
+      "name": "D8 backstop layer 1",
+      "persistent_session_id": "session_01LPHZFDBMZ6WXhvGqzzx1Hw",
+      "run_once_at": "2026-09-27T17:05:00Z",
+      "created_at": "2026-09-27T16:59:02.029924Z",
+      "updated_at": "2026-09-27T17:06:03.172359Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T17:06:03.143563Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T17:06:03.134839173Z"
+      },
+      "derived_state": {
+        "prompt": "BACKSTOP (D8, layer 1)\nBackstop check by D8-BOB #1: read every running job's record on its branch first, its session second; move the WATCH into ROOT 60 minutes ahead; re-arm this backstop. (Scripted: this first check at least five minutes after job creation handles no job message, then refreshes.)"
+      }
+    },
+    {
+      "id": "trig_012iSWWXFQcigWt6dz2FtU83",
+      "name": "D8: REFUSED #1",
+      "persistent_session_id": "session_01H7SnX45uHbDZ5fjH6mBHcN",
+      "run_once_at": "2026-09-27T16:57:00Z",
+      "created_at": "2026-09-27T16:54:40.151536Z",
+      "updated_at": "2026-09-27T16:57:10.508498Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T16:57:10.476977Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T16:57:10.464259527Z"
+      },
+      "derived_state": {
+        "prompt": "From ROOT (D8): REFUSED #1\nThe handoff commit 65ca7681abbc35377e1c598674ec296e9424e5c6 is not on tranche/D8 (tip 9be9d5c9cad84dbf24cbcfe2059c73458b6b6e50); it is the tip of tranche/D7. No D8-BOB #1 was started."
+      }
+    },
+    {
+      "id": "trig_015Loe8kzgpdiHymGmJBCeUY",
+      "name": "D8: START BOB #1 (A3, duplicate)",
+      "persistent_session_id": "session_018g7Gv3xJ5zvnNAWMjP7syY",
+      "run_once_at": "2026-09-27T16:59:00Z",
+      "created_at": "2026-09-27T16:52:41.935277Z",
+      "updated_at": "2026-09-27T17:00:00.951344Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T17:00:00.913535Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T17:00:00.902781777Z"
+      },
+      "derived_state": {
+        "prompt": "From D8-BOB #0 (D8): START BOB #1\nBranch: tranche/D8 of believeinoakland/civicos-process. Handoff commit: 9be9d5c9cad84dbf24cbcfe2059c73458b6b6e50 (the plan, dryrun/build/plan/current.md, is the handoff). Requester: D8-BOB #0 is the harness, BOB #49, session_01H7SnX45uHbDZ5fjH6mBHcN (it plays the predecessor for this start only; the new BOB must not archive or message it)."
+      }
+    },
+    {
+      "id": "trig_01FjZLicYENVPUi4L2rG4Uag",
+      "name": "D8: START BOB #1 (A1)",
+      "persistent_session_id": "session_018g7Gv3xJ5zvnNAWMjP7syY",
+      "run_once_at": "2026-09-27T16:57:00Z",
+      "created_at": "2026-09-27T16:52:41.414161Z",
+      "updated_at": "2026-09-27T16:57:09.934495Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T16:57:09.904826Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T16:57:09.893117078Z"
+      },
+      "derived_state": {
+        "prompt": "From D8-BOB #0 (D8): START BOB #1\nBranch: tranche/D8 of believeinoakland/civicos-process. Handoff commit: 9be9d5c9cad84dbf24cbcfe2059c73458b6b6e50 (the plan, dryrun/build/plan/current.md, is the handoff). Requester: D8-BOB #0 is the harness, BOB #49, session_01H7SnX45uHbDZ5fjH6mBHcN (it plays the predecessor for this start only; the new BOB must not archive or message it)."
+      }
+    },
+    {
+      "id": "trig_01Q3GVmkD4QNV3uj9nEpivR4",
+      "name": "D8: START BOB #1 (A2, bad handoff)",
+      "persistent_session_id": "session_018g7Gv3xJ5zvnNAWMjP7syY",
+      "run_once_at": "2026-09-27T16:54:00Z",
+      "created_at": "2026-09-27T16:52:29.246471Z",
+      "updated_at": "2026-09-27T16:54:25.295392Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T16:54:25.265975Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T16:54:25.254458344Z"
+      },
+      "derived_state": {
+        "prompt": "From D8-BOB #0 (D8): START BOB #1\nBranch: tranche/D8 of believeinoakland/civicos-process. Handoff commit: 65ca7681abbc35377e1c598674ec296e9424e5c6. Requester: D8-BOB #0 is the harness, BOB #49, session_01H7SnX45uHbDZ5fjH6mBHcN (it plays the predecessor for this start only)."
+      }
+    },
+    {
+      "id": "trig_01SuB46F23m2J9yHD2KQX9qa",
+      "name": "HARNESS P-cal: fire then re-arm",
+      "persistent_session_id": "session_01H7SnX45uHbDZ5fjH6mBHcN",
+      "run_once_at": "2026-09-27T17:21:00Z",
+      "created_at": "2026-09-27T16:49:19.622363Z",
+      "updated_at": "2026-09-27T17:21:27.842905Z",
+      "enabled": false,
+      "ended_reason": "run_once_fired",
+      "last_fired_at": "2026-09-27T17:21:27.815346Z",
+      "last_run": {
+        "status": "ROUTINE_RUN_STATUS_SUCCEEDED",
+        "fired_at": "2026-09-27T17:21:27.805743636Z"
+      },
+      "derived_state": {
+        "prompt": "HARNESS check (BOB #49): R1 close. Check dryrun-main/D8 = the archived plan commit, D8-BOB #2 idle, its backstop and WATCH deleted; then take the final snapshot and run the asserter."
+      }
+    }
+  ]
+}
