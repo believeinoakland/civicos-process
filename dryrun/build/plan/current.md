@@ -1,6 +1,6 @@
 # Plan: dry run D7
 
-**Status** · OPEN. The dry run certifying the K154 revision (mechanics §2, §5, §6, §13: session depth; `CERTIFICATION.md` L1–L6). BOB: `D7-BOB #3 · session_01GyJEGWucv87kw5PBzN5nXd · depth 1`. Each entry is written to drive a path of the mechanics: do exactly what it says.
+**Status** · OPEN. The dry run certifying the K154 revision (mechanics §2, §5, §6, §13: session depth; `CERTIFICATION.md` L1–L6). BOB: `BOB #47 · session_01ST5gn8EypNUyWbHPtjrbRM · depth 0` (took the tranche back from D7-BOB #3 to close it). Each entry is written to drive a path of the mechanics: do exactly what it says.
 
 ## Layer 1
 
