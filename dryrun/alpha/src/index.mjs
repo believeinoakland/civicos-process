@@ -28,3 +28,8 @@ export function neg(a) {
 export function sub(a, b) {
   return finite(a, 'sub') - finite(b, 'sub');
 }
+
+// R10–R11: the absolute value of a finite number (abs(-0) is +0); anything else throws.
+export function abs(a) {
+  return Math.abs(finite(a, 'abs'));
+}
