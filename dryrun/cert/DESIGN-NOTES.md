@@ -23,7 +23,7 @@ The rules are in `PROCESS-MECHANICS.md` and `roles/*.md` on `revision/K164-desig
 
 **Notes for BOB (yours, P17):** SUITE C13 and A8's "takeover notice" go (X11). D6's "# rulings replaced = 0" is not reachable when the answer crosses the revision; suggest "the replacing ruling cites both question ids, and the job applies neither answer to a stale version". D7 f1 (A10) needs no new rule: §16 and the restart rule cover a refused archive.
 
-## Questions for Bob (P17: policy only)
+## Questions for Bob (P17: policy only) — ANSWERED: yes to both (bio K167, 2026-09-27)
 
 1. **Unattended routines.** Your rule is that nothing runs unattended except the 20-minute backstop while a layer runs. The revision adds two related to it: the backstop also runs while a successor BOB is starting, and each check pushes a one-hour "dead-man" routine into ROOT that fires only if BOB has died. *Recommend yes:* otherwise a dead BOB waits for you to notice.
 2. **ROOT's duty.** You designed ROOT to do only one thing, start a BOB when asked. The revision has it also start a successor when a BOB's dead-man routine fires (or wake an idle BOB). *Recommend yes:* no other session is alive to notice.
