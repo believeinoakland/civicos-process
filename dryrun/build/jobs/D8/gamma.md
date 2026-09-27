@@ -23,7 +23,7 @@ Nothing. (Note, not a flaw: an R1 result can be `±Infinity` for a finite `x` pa
 - `node checks/format.mjs dryrun`: `format: 6 modules, 4 requirements files; 0 failures`
 - `node checks/architecture.mjs dryrun gamma`: `architecture: 2 product files, 3 relative imports (0 naming no tracked file, not judged); 0 failures`
 - `node checks/coverage.mjs dryrun gamma`: `coverage: 1 modules, 3 of 3 live requirement ids named by a test; 0 failures`
-- `node checks/ownership.mjs dryrun gamma tranche/D8`: OWNERSHIP_LINE
+- `node checks/ownership.mjs dryrun gamma tranche/D8`: `ownership: 3 files changed by gamma between tranche/D8 and HEAD; 0 failures`
 
 Size (session_01WMFJCpVNFRMgJU6QU23Ssb): test runs 1, module lines 7
 
