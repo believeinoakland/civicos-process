@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { add, sum, neg, sub } from '../src/index.mjs';
+import { add, sum, neg, sub, abs } from '../src/index.mjs';
 
 // Finite numbers covering every class: zeros of both signs, subnormals, the extremes,
 // fractions whose sum rounds, integers beyond 2^53, and seeded random values.
@@ -43,7 +43,7 @@ test('R5 add throws a TypeError when either argument is not a finite number, coe
   assert.throws(() => add('1', 2), TypeError); // beta's report: once returned '12'
 });
 
-test('R2 add, sum, neg and sub are pure: no state, no input or output', () => {
+test('R2 add, sum, neg, sub and abs are pure: no state, no input or output', () => {
   const globalsBefore = Object.getOwnPropertyNames(globalThis).sort();
   const writes = [];
   const out = process.stdout.write, err = process.stderr.write;
@@ -53,10 +53,10 @@ test('R2 add, sum, neg and sub are pure: no state, no input or output', () => {
   try {
     const run = () => [...FINITE.map((a, i) => add(a, FINITE[(i * 7) % FINITE.length])),
       ...FINITE.map((_, i) => sum(FINITE.slice(i))), ...FINITE.map(neg),
-      ...FINITE.map((a, i) => sub(a, FINITE[(i * 11) % FINITE.length]))];
+      ...FINITE.map((a, i) => sub(a, FINITE[(i * 11) % FINITE.length])), ...FINITE.map(abs)];
     first = run();
     // Interleave other calls (throwing ones included), then repeat: results depend on the arguments alone.
-    for (const a of FINITE) { add(a, a); sum([a, a]); neg(a); assert.throws(() => sum([a, NaN])); assert.throws(() => neg(String(a))); sub(a, a); assert.throws(() => sub(a, String(a))); }
+    for (const a of FINITE) { add(a, a); sum([a, a]); neg(a); assert.throws(() => sum([a, NaN])); assert.throws(() => neg(String(a))); sub(a, a); assert.throws(() => sub(a, String(a))); abs(a); assert.throws(() => abs(String(a))); }
     again = run();
   } finally {
     process.stdout.write = out; process.stderr.write = err;
@@ -139,4 +139,29 @@ test('R9 sub throws a TypeError when either argument is not a finite number, coe
   }
   assert.throws(() => sub('3', 1), TypeError); // '3' - 1 would coerce to 2
   assert.throws(() => sub(3n, 1n), TypeError); // 3n - 1n is a BigInt, not a number
+});
+
+test('R10 abs returns the absolute value of every finite number in each class, and +0 for -0', () => {
+  for (const a of FINITE) {
+    const expected = a < 0 ? -a : a === 0 ? 0 : a; // +0 for either zero
+    assert.ok(Object.is(abs(a), expected), `abs(${a})`);
+    assert.ok(Object.is(abs(-a), expected), `abs(${-a})`);
+    assert.ok(abs(a) >= 0 && !Object.is(abs(a), -0));
+  }
+  assert.ok(Object.is(abs(-0), 0)); // abs(-0) is +0
+  assert.ok(Object.is(abs(0), 0));
+  assert.equal(abs(-3), 3);
+  assert.equal(abs(2.5), 2.5);
+  assert.equal(abs(-Number.MAX_VALUE), Number.MAX_VALUE);
+  assert.equal(abs(-Number.MIN_VALUE), Number.MIN_VALUE);
+});
+
+test('R11 abs throws a TypeError when a is not a finite number, coercing nothing', () => {
+  for (const bad of NOT_FINITE()) {
+    assert.throws(() => abs(bad), TypeError, `abs(${typeof bad})`);
+  }
+  assert.throws(() => abs('-3'), TypeError); // a numeric string is refused, not coerced to 3
+  assert.throws(() => abs('3'), TypeError);
+  assert.throws(() => abs(-3n), TypeError); // a BigInt is not a number
+  assert.throws(() => abs(new Number(-3)), TypeError);
 });
