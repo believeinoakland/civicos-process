@@ -11,3 +11,5 @@ Times UTC, 2026-09-27. Tranche D9; stand-ins D9-ROOT #1 `…HveCE`, D9-BOB #1 `�
 - Layer 1 closed 18:20:04–18:20:44 (merges at each COMPLETE, beta and legacy bundles regenerated, jobs archived, rows written); layer 2 opened 18:21:09 (STATS #1, B1), WATCH #1 to 19:21.
 - E6: STATS #1 pushed `RUNNING until 18:49Z (long test run)` (8597406, 18:25:06) and ended its turn on its background command. BOB's 18:41 backstop read it as not quiet (9ce719d): no RESUME; backstop re-armed 19:02, WATCH #1 to 19:42.
 - 18:44:10 H7 injection: D9-BOB #1 archived (its archived usage: 9,177,224 cache reads).
+- 18:48:40 STATS #1 recorded COMPLETE J2 (ae7df6a); before sending it read BOB's session, found it archived, and did not send: "the record is the message" (e7b8419, 18:49:02), as §13 says for a session that cannot send. No message went to an archived session.
+- 19:02 D9-BOB #1's backstop fired into the archived session: the session stayed archived, not updated since 18:42 (a routine into an archived session does not revive it; the WATCH design's assumption holds).
