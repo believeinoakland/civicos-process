@@ -1,0 +1,1 @@
+D8-ROOT #1 session_018g7Gv3xJ5zvnNAWMjP7syY archived 2026-09-27T17:3xZ by the harness: cache_read 1720163, cache_write 83686, input 6426, output 3293 (a ROOT has no metrics row, mechanics §10).

@@ -1,0 +1,7 @@
+A4 PASS 1 trigger(s) from ROOT, each to a live successor
+A5 PASS Status: BOB #2 · …akin6g · depth 1, taken over by a Status-only commit
+B2 PASS one first message each: ALPHA #1, BETA #1, GAMMA #1, BETA #2
+D9 PASS 12 of 13 messages judged (their target observed), none to an archived session
+E1 PASS 0 relay(s), each on an open NEEDS BOB line; 3 K164 record(s), every question answered
+G4 FAIL BETA #1: 0 CSV rows; D8-BOB #1: 0 CSV rows; ALPHA #1: 0 CSV rows; BETA #2: 0 CSV rows; GAMMA #1: 0 CSV rows
+H6 PASS 1 snapshot(s), one backstop into the current BOB in each
