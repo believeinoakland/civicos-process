@@ -110,3 +110,16 @@ Result, 01:40Z: **A1, A2 PROVEN; A4 proven with a finding; A3 not reachable; cer
 
 **Findings:** (1) a refused job must message BOB before asking in its own window, and BOB's backstop reads each job's session state for blocked: both folded (mechanics §5, roles). (2) A dry run built to provoke the safety check makes it distrust ordinary work too; a later run should test one thing at a time. (3) An approval clears a refusal only when it names the act (K112).
 
+
+## D7 · 2026-09-27 · the K154 revision (L1–L7)
+
+The revision: session depth (mechanics §2, §5, §6, §13; `roles/ROOT.md`), after bio T5 found the lineage cap (K154): every BOB had started its successor, so BOB #46 sat at depth 7 and its job LEGACY-INDEX #3, at depth 8, was refused `create_trigger` ("lineage depth 8 (limit 8)"). BOB #47's first draft bounded the chain (a BOB starts its successor only at depth 5 or less; Bob restarts it every seven BOBs); Bob proposed a ROOT session as the parent of every BOB, which replaced it (K156). Tranche `tranche/D7`, from the revision branch; BOB #47 (depth 0, started by Bob) plays ROOT.
+
+Result, 14:12Z: **L1, L3, L4, L5 PROVEN; certified.** A probe routine with `create_new_session_on_fire` started a session with no parent but no connector, session or routine tools: it could not reply (L3). BOB #47 started D7-BOB #2 (`session_01CVr6oZ…`), which read depth 1 and pushed it in the Status line (`b18750f`), started ALPHA #2 (`session_01ManYyU…`) telling it depth 2; the job built `mul` (R3), recorded its chain with depth 2 matching, and sent COMPLETE by routine (14:02:55Z). D7-BOB #2 merged it (`fcca882`), pushed its handoff (`624827e`) and sent ROOT `START BOB` (14:05:53Z); ROOT checked the handoff and started D7-BOB #3 (`session_01GyJEGW…`) as its own child, a sibling at depth 1, which took over (`d503ba1`), archived D7-BOB #2 with no routine targeting it and wrote its row (`6a92da0`). BOB #47 took the tranche back, archived ALPHA #2, D7-BOB #3 and the probe, and wrote their rows (`65ca768`): 3.78M tokens processed by the D7 sessions.
+
+**Findings:**
+
+1. **Archiving a session outside one's own lineage can be refused by the permission check.** BOB #47's `archive_session` of BOB #46 (started by BOB #45, not by BOB #47) was refused as an irreversible deletion; D7-BOB #3's archive of its sibling predecessor, named in the handoff, passed, as did BOB #47's of its own children. Under ROOT every BOB's predecessor is a sibling it is told to archive, so §2 stands; a refusal goes through §16.
+2. **The dry-run toy's full check run is not clean** (`d6/plant-hook.sh` owned by no module; beta and stats coverage): a baseline left by earlier runs, none of it alpha's. D7-BOB #2 merged anyway, rightly (§7). A later run starts by cleaning it.
+3. **`node --test <directory>/` fails on Node 22**: the command in BOB #47's first message to the stand-in was wrong, not a mechanics flaw; name the test files (`<dir>/*.test.mjs`).
+4. **`archive_session` returns the same usage as `get_session` read just before it** for an idle session: a row can be drafted before archiving, but only the archive's is written.
