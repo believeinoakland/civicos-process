@@ -21,7 +21,7 @@ Timeline and platform measurements, as observed. Times UTC, 2026-09-27.
 
 ## Verdicts
 
-`node checks/cert/assert.mjs dryrun/cert/R1/run.json` (at 9785306): A4, A5, B2, D9, E1, G4, H6 PASS; the rest have no predicate and are judged here from the evidence above.
+`node checks/cert/assert.mjs dryrun/cert/R1/run.json` (`assert.txt`; the tranche's metrics copied as `D8.csv`): A4, A5, B2, D9, E1, G4, H6 PASS; the rest have no predicate and are judged here from the evidence above.
 
 | row | verdict | evidence |
 | --- | --- | --- |

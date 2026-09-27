@@ -137,7 +137,7 @@
   "relays": [],
   "current_bob": "session_01R8actVSnNt8T3X3Sakin6g",
   "csv": [
-    "../../build/metrics/D8.csv",
+    "D8.csv",
     "harness.csv"
   ]
 }
