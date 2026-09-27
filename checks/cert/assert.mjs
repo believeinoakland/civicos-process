@@ -28,7 +28,8 @@ const t = (x) => (x ? Date.parse(x) : NaN);
 // ---- reading the run ----
 
 const unwrapSession = (x) => x?.ccr ?? x?.session ?? x;
-const unwrapTriggers = (x) => (Array.isArray(x) ? x : x?.data ?? x?.triggers ?? []);
+// A snapshot's `list_triggers` holds raw pages ({ data: [...] }) or the triggers themselves, flattened.
+const unwrapTriggers = (x) => (Array.isArray(x) ? x : x?.data ?? x?.triggers ?? (typeof x?.id === 'string' && x.id.startsWith('trig_') ? [x] : []));
 const promptOf = (tr) => tr.derived_state?.prompt ?? tr.prompt ?? '';
 const firedAt = (tr) => tr.last_run?.fired_at ?? tr.last_fired_at ?? null;
 export const isArchived = (s) => /ARCHIVED/i.test(s.session_status ?? s.status ?? '') || s.archived === true;
@@ -217,7 +218,9 @@ export const PREDICATES = {
       const n = (j.prompt === false ? 0 : 1) + starts.length;
       if (n !== 1) bad.push(`${j.name || short(j.id)}: ${n} first messages (${j.prompt === false ? 'no creation prompt' : 'creation prompt'}${starts.length ? ` + START ${starts.map((x) => x.id).join(', ')}` : ''})`);
       else ok.push(j.name || short(j.id));
-      if (S.plan && !(S.plan.jobs || '').includes(j.id)) bad.push(`${j.name || short(j.id)}: its start is not confirmed in the plan's Jobs line`);
+      // Confirmed in the Jobs line as it stood at any commit: a restarted job's old session leaves the line (§5).
+      const inPlan = (S.plan?.jobs || '').includes(j.id) || (S.git && S.tranche && S.git(['log', '--format=%H', `-S${j.id}`, S.tranche, '--', 'build/plan/']).trim() !== '');
+      if (S.plan && !inPlan) bad.push(`${j.name || short(j.id)}: its start is not confirmed in the plan's Jobs line`);
     }
     return bad.length ? FAIL(bad.join('; ')) : PASS(`one first message each: ${ok.join(', ')}`);
   },
@@ -322,7 +325,9 @@ export const PREDICATES = {
       const module = S.moduleOf(id) ?? (r.role === 'job' ? r.module : null);
       if (r.role === 'job' && module) {
         const text = S.record(module);
-        const size = text && parseRecord(text).size;
+        // *K164* §10: one Size line per session of a job; a session that died before writing one has an empty count.
+        const pr = text && parseRecord(text);
+        const size = pr ? (pr.sizes.find((x) => x.session === id) ?? (pr.sizes.some((x) => x.session) ? { testRuns: '', moduleLines: '' } : pr.size)) : null;
         if (size && (String(size.testRuns) !== r.test_runs || String(size.moduleLines) !== r.module_lines)) bad.push(`${who}: CSV test_runs ${r.test_runs}, module_lines ${r.module_lines}; record Size ${size.testRuns}, ${size.moduleLines}`);
       }
       const a = archivedAt(S, id);

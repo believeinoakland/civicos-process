@@ -258,7 +258,8 @@ export const validateHandoff = parseHandoff;
 
 // `build/metrics/<T>.csv` (§10): the header below; one row per session, keyed by its cloud session id; role `job`
 // or `BOB-final`; the four usage counts non-negative integers; `turns` empty (the archive does not report it);
-// `test_runs` and `module_lines` integers on a job row (copied from its Size line), empty on a BOB-final row.
+// `test_runs` and `module_lines` integers on a job row (copied from its Size line), both empty on the row of a job
+// session that died before writing one (*K164*), empty on a BOB-final row.
 export const CSV_HEADER = 'session,role,module,cache_read,cache_write,input,output,turns,test_runs,module_lines';
 const USAGE = ['cache_read', 'cache_write', 'input', 'output'];
 export function parseCsv(text) {
@@ -282,8 +283,10 @@ export function parseCsv(text) {
     if (r.role === 'BOB-final' && r.module) errors.push(`row ${n}: a BOB-final row names a module`);
     for (const c of USAGE) if (!/^\d+$/.test(r[c])) errors.push(`row ${n}: ${c} "${r[c]}" is not a count`);
     if (r.turns !== '') errors.push(`row ${n}: turns "${r.turns}" is not empty (the archive does not report it)`);
+    // *K164* §10: a job session that died before writing its Size line has both counts empty (SUITE G4 checks the record).
+    const died = r.role === 'job' && r.test_runs === '' && r.module_lines === '';
     for (const c of ['test_runs', 'module_lines']) {
-      if (r.role === 'job' && !/^\d+$/.test(r[c])) errors.push(`row ${n}: ${c} "${r[c]}" is not a count (copied from the record's Size line)`);
+      if (r.role === 'job' && !died && !/^\d+$/.test(r[c])) errors.push(`row ${n}: ${c} "${r[c]}" is not a count (copied from the record's Size line)`);
       if (r.role === 'BOB-final' && r[c] !== '') errors.push(`row ${n}: ${c} on a BOB-final row`);
     }
   });

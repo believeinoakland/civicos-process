@@ -41,6 +41,19 @@
       "name": "GAMMA #1",
       "module": "gamma",
       "prompt": true
+    },
+    {
+      "id": "session_01R8actVSnNt8T3X3Sakin6g",
+      "role": "BOB",
+      "name": "D8-BOB #2",
+      "prompt": true
+    },
+    {
+      "id": "session_01Ub5ZdVLMvEapjJGFZEZthj",
+      "role": "job",
+      "name": "BETA #2",
+      "module": "beta",
+      "prompt": true
     }
   ],
   "scenarios": [
@@ -112,7 +125,15 @@
       "time": "2026-09-27T17:03:37Z",
       "trigger": "trig_01NYkjJRKvo3z31XQH1SaUhp",
       "note": "A6: far-future routine into D8-BOB #1 (2026-12-01)"
+    },
+    {
+      "fault": "wake",
+      "target": "session_01R8actVSnNt8T3X3Sakin6g",
+      "time": "2026-09-27T17:24:36Z",
+      "trigger": "trig_01T4dGjpBd6Y3Jw1Vmiy5h42",
+      "note": "X9 probe: D8-BOB #2 left the plan CLOSING, dryrun-main/D8 behind, its backstop and WATCH deleted; a wake standing for the deleted WATCH"
     }
   ],
-  "relays": []
+  "relays": [],
+  "current_bob": "session_01R8actVSnNt8T3X3Sakin6g"
 }

@@ -126,7 +126,9 @@ test('records: the metrics CSV header, one row per session, roles, counts, empty
   assert.match(e('session_01ManYyUbFq3sKEucLdTy1nU,job,alpha,1,2,3,4,,3,57\nsession_01ManYyUbFq3sKEucLdTy1nU,job,alpha,1,2,3,4,,3,57'), /has a row already/);
   assert.match(e('6aad1e65-d6f3-527d-ac3f-24fd6da7931e,job,alpha,1,2,3,4,21,1,17'), /is not a cloud session id[\s\S]*turns "21" is not empty/);
   assert.match(e('session_01ManYyUbFq3sKEucLdTy1nU,probe,,1,2,3,4,,,'), /role "probe"/);
-  assert.match(e('session_01ManYyUbFq3sKEucLdTy1nU,job,alpha,1,2,x,4,,,'), /input "x" is not a count[\s\S]*test_runs "" is not a count/);
+  assert.match(e('session_01ManYyUbFq3sKEucLdTy1nU,job,alpha,1,2,x,4,,,3'), /input "x" is not a count[\s\S]*test_runs "" is not a count/);
+  // *K164* §10: a job session that died before writing its Size line: both counts empty (G4 checks it against the record).
+  assert.deepEqual(parseCsv(row('session_01ManYyUbFq3sKEucLdTy1nU,job,alpha,1,2,3,4,,,')).errors, []);
   assert.match(e('session_01ManYyUbFq3sKEucLdTy1nU,BOB-final,,1,2,3,4,,5,'), /test_runs on a BOB-final row/);
   assert.match(parseCsv('session,role\n').errors.join(), /header is not/);
 });

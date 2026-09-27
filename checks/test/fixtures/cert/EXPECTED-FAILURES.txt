@@ -70,14 +70,6 @@ dry/D3/build/jobs/D3/beta.md: COMPLETE with no "Size: test runs <n>, module line
 dry/D3/build/jobs/D3/stats.md: the Status/Session header names no session id
 dry/D3/build/jobs/D3/stats.md: the Status/Session header names no depth
 dry/D3/build/jobs/D3/stats.md: COMPLETE with no "Size: test runs <n>, module lines <n>" line
-dry/D3/build/metrics/D3.csv: row 2: test_runs "" is not a count (copied from the record's Size line)
-dry/D3/build/metrics/D3.csv: row 2: module_lines "" is not a count (copied from the record's Size line)
-dry/D3/build/metrics/D3.csv: row 3: test_runs "" is not a count (copied from the record's Size line)
-dry/D3/build/metrics/D3.csv: row 3: module_lines "" is not a count (copied from the record's Size line)
-dry/D3/build/metrics/D3.csv: row 4: test_runs "" is not a count (copied from the record's Size line)
-dry/D3/build/metrics/D3.csv: row 4: module_lines "" is not a count (copied from the record's Size line)
-dry/D3/build/metrics/D3.csv: row 5: test_runs "" is not a count (copied from the record's Size line)
-dry/D3/build/metrics/D3.csv: row 5: module_lines "" is not a count (copied from the record's Size line)
 dry/D3/build/metrics/D3.csv: row 6: role "BOB" is not job or BOB-final
 dry/D3/build/metrics/D3.csv: row 6: turns "36" is not empty (the archive does not report it)
 dry/D3/build/plan/archive/D3.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
@@ -87,15 +79,11 @@ dry/D4/build/metrics/D4.csv: row 2: turns "27" is not empty (the archive does no
 dry/D4/build/plan/archive/D4.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
 dry/D5/build/jobs/D5/stats.md: the Status/Session header names no depth
 dry/D5/build/jobs/D5/stats.md: COMPLETE with no "Size: test runs <n>, module lines <n>" line
-dry/D5/build/metrics/D5.csv: row 2: test_runs "" is not a count (copied from the record's Size line)
-dry/D5/build/metrics/D5.csv: row 2: module_lines "" is not a count (copied from the record's Size line)
 dry/D5/build/plan/archive/D5.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
 dry/D6/build/plan/current.md: Status names 2 session ids (session_01PcJjeNeDjQeced6Yphu5r9, session_012Dxuxjs4AK7Jo4hNUYJLsF); BOB's address is exactly one (§13)
 dry/D6/build/plan/current.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
 dry/D7/build/jobs/D7/alpha.md: no "**Status** · <STATE>" line
 dry/D7/build/jobs/D7/alpha.md: the Status/Session header names no depth
 dry/D7/build/metrics/D7.csv: row 5: role "probe" is not job or BOB-final
-dry/main/build/metrics/D6.csv: row 3: test_runs "" is not a count (copied from the record's Size line)
-dry/main/build/metrics/D6.csv: row 3: module_lines "" is not a count (copied from the record's Size line)
 dry/main/build/plan/current.md: Status has no "BOB #<n> · <session id> · depth <d>" (§2)
 messages-T5-T6-D7.txt: line 21: "From BOB #47 (D7): CHANGE 1": "1" is neither an id (J<n>, B<n>, #<n>) nor re/replaces <id>
