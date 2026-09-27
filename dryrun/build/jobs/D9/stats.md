@@ -1,6 +1,6 @@
 # Job record: stats (D9)
 
-**Status** · session_01TVJwNwLFJncpG7W9kxZr3q · depth 2 · WORKING · sent J1 · handled B1
+**Status** · session_01TVJwNwLFJncpG7W9kxZr3q · depth 2 · RUNNING until 18:49Z (long test run) · sent J1 · handled B1
 
 ## Messages handled
 
@@ -13,7 +13,7 @@ Whole: `dryrun/build/plan/current.md` (on `tranche/D9`), `roles/JOB.md`, `PROCES
 ## Entries applied
 
 - **N5** · `median(list)` in `stats/src/index.mjs`, meeting R10: an empty list is a `RangeError`; an element that is not a finite number (anywhere, a hole included) is a `TypeError`, nothing coerced; otherwise the list is sorted on a copy (the argument is untouched, R3) and the middle element returned, or for an even length the mean of the two middle elements, `(a + b) / 2`, and `a / 2 + b / 2` where `a + b` would overflow, so the result is always the double nearest the exact mean. My reading, not asked (R10 is silent and both readings meet it): `-0` sorts below `+0`, so the result does not depend on the order of the input (`median([0, -0, 1])` and `median([-0, 0, 1])` are both `+0`). Test `R10`: every prefix and suffix of the edge classes and seeded values in both directions, every ordered list of up to four elements from fourteen edge values (38,416 lists of four), and pairs over the whole range (adjacent doubles, opposite signs, overflow, subnormals), each checked against an independent reference: the exact order by `BigInt` value, and for even lengths the exact mean in units of 2^-1075, the result required to be no farther from it than either neighbouring double, between the middle two, and with the sign of zero the exact mean gives; plus both refusals for every kind of non-finite value in each position. Mutation-checked: dropping the overflow guard, rounding by halves always, or sorting `-0` and `+0` as equal each fails `R10`. `R3` (purity) now also covers `median`.
-- **N6** · the long final test run (SUITE E6): pending.
+- **N6** · the long final test run (SUITE E6): `sleep 1380 && node --test stats/test/*.test.mjs` from `dryrun/`, started in the background at 18:25Z, due by 18:49Z.
 
 ## Found in other modules
 
