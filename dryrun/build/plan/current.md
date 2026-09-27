@@ -1,6 +1,6 @@
 # Plan: dry run D9 (K164 certification, live run R2: messages and faults)
 
-**Status** · OPEN · no BOB yet (the harness opened the tranche; the first stand-in BOB writes its line here)
+**Status** · OPEN · D9-BOB #1 · session_01R87rPNu4xWFuL82GdcPi1Q · depth 1 (took over 2026-09-27T17:40Z; parent D9-ROOT #1 `session_01M7dTMxF29Uu5J88vbHveCE`; no earlier stand-in BOB)
 
 **Jobs** · none yet
 
