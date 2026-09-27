@@ -33,7 +33,7 @@ None: R6 and R7 are unambiguous.
 - `node checks/coverage.mjs dryrun alpha` · `coverage: 1 modules, 7 of 7 live requirement ids named by a test; 0 failures`
 - `node checks/ownership.mjs dryrun alpha tranche/D8` · `ownership: 3 files changed by alpha between tranche/D8 and HEAD; 0 failures`
 
-Size (session_01PyUgxYhCfCQsoUx4e7BHCk): test runs 6, module lines 25
+Size (session_01PyUgxYhCfCQsoUx4e7BHCk): test runs 5, module lines 25
 
 ## From ALPHA #1 (D8): COMPLETE J2
 
