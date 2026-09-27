@@ -1,6 +1,6 @@
 # Job record: beta (D8)
 
-**Status** · session_01VtoY9g9KRKDsjWCU1MNDVS · depth 2 · WAITING ON BOB (J1) · sent J1 · handled B1
+**Status** · session_01Ub5ZdVLMvEapjJGFZEZthj · depth 2 · WORKING · sent J1 · handled B2
 
 ## Read
 
