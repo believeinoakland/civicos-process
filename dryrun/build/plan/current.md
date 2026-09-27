@@ -1,6 +1,6 @@
 # Plan: dry run D8 (K164 certification, live run R1: start and takeover)
 
-**Status** · OPEN · no BOB yet (the harness opened the tranche; the first stand-in BOB writes its line here)
+**Status** · OPEN · D8-BOB #1 · session_01LPHZFDBMZ6WXhvGqzzx1Hw · depth 1 (took over 2026-09-27T16:58Z)
 
 **Jobs** · none yet
 
