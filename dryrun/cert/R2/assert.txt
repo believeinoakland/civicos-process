@@ -1,0 +1,11 @@
+A4 UNOBSERVED no trigger from ROOT in any snapshot
+A5 FAIL Status names 3 session ids
+B2 PASS one first message each: ALPHA #1, BETA #1, GAMMA #1, STATS #1
+D3 PASS 2 question id(s), at most one answer each
+D4 PASS 2 question id(s), at most one answer each
+D6 PASS 2 revised question(s), each newest version answered once
+D7 PASS 4 job(s) COMPLETE, each having handled BOB's newest message
+D9 PASS 12 of 12 messages judged (their target observed), none to an archived session
+E1 PASS 0 relay(s), each on an open NEEDS BOB line; 4 K164 record(s), every question answered
+G4 PASS 5 archived session(s), each one row with its archived usage
+H6 PASS 2 snapshot(s), one backstop into the current BOB in each

@@ -118,6 +118,8 @@ function messageLog(S) {
   const out = [];
   const push = (m, src, extra) => {
     if (!m.kinds || !m.id) return;
+    // Only the run's own tranche: a toy tranche branched from an earlier closed one carries its envelopes too.
+    if (S.run.tranche && m.tranche && m.tranche !== S.run.tranche) return;
     const fromJob = /^J\d+$/.test(m.id);
     const module = fromJob ? moduleByName(m.sender) : m.to ?? (extra.target ? S.moduleOf(extra.target) : null);
     out.push({ ...m, module, fromJob, src, ...extra });

@@ -48,6 +48,12 @@
       "name": "STATS #1",
       "module": "stats",
       "prompt": true
+    },
+    {
+      "id": "session_018VeRDv16LsLg6LJW2Lvviu",
+      "role": "BOB",
+      "name": "D9-BOB #2",
+      "prompt": true
     }
   ],
   "scenarios": [
@@ -101,5 +107,10 @@
       "note": "H7: D9-BOB #1 archived (dies) after its 18:41 check moved WATCH #1 to 19:42; its backstop into itself is due 19:02; STATS #1 RUNNING until 18:49"
     }
   ],
-  "relays": []
+  "relays": [],
+  "current_bob": "session_018VeRDv16LsLg6LJW2Lvviu",
+  "csv": [
+    "D9.csv",
+    "harness.csv"
+  ]
 }
