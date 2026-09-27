@@ -123,3 +123,20 @@ Result, 14:12Z: **L1, L3, L4, L5 PROVEN; certified.** A probe routine with `crea
 2. **The dry-run toy's full check run is not clean** (`d6/plant-hook.sh` owned by no module; beta and stats coverage): a baseline left by earlier runs, none of it alpha's. D7-BOB #2 merged anyway, rightly (§7). A later run starts by cleaning it.
 3. **`node --test <directory>/` fails on Node 22**: the command in BOB #47's first message to the stand-in was wrong, not a mechanics flaw; name the test files (`<dir>/*.test.mjs`).
 4. **`archive_session` returns the same usage as `get_session` read just before it** for an idle session: a row can be drafted before archiving, but only the archive's is written.
+
+## D8–D10 · 2026-09-27 · the K164 revision, live runs R1–R3 (superseded by K168)
+
+R1 (D8, start and takeover) and R2 (D9, messages and faults) passed the K164 rules (evidence: branches `cert/R1`, `cert/R2`, `dryrun/cert/R1|R2/NOTES.md`); R2's one failure (a BOB hand-wrote extra session ids into the Status line) showed that sessions hand-writing protocol is the weak point. R3 (D10, refusals) was stopped when Bob asked for an architectural review; its one observation: a job refused `delete_trigger` of a routine another session created wrote `NEEDS BOB`, told BOB, and BOB relayed it to Bob with the link and the words to type (§16 works). Bob then approved the simplification K168. Platform facts measured: a session starts its first turn in ~20 s; a routine fires 7–60 s after its minute; a routine into an archived session is disabled (`auto_disabled_session_gone`), never delivered; a deleted routine leaves no trace; `update_trigger` re-arms a fired one-time routine; a waiting session reads COMPLETED or BLOCKED, never reliably; the harness may not archive a session its own child started (refused, as D7 f1).
+
+## D11 · 2026-09-27 · the K168 revision: mailbox and doorbell
+
+The revision: mechanics §2, §5, §6, §13, §16 and the roles rewritten around `tools/mail.mjs` (bio K168). Tranche `tranche/D11` from `dryrun-main/D9`; stand-ins D11-ROOT #1 (`…fdjiL`→`session_01NXws5gVpwuD1pvBCYafWjY`), D11-BOB #1 (`session_01H3XDB9goUxVa4G4Ma1HJep`, started by ROOT), jobs ALPHA #1 and BETA #1.
+
+Result, 23:24Z: **certified.** Started 23:16 (START BOB to ROOT), BOB's Status by `mail bob` 23:18:05, both STARTs posted and both jobs' addresses by `mail addjob` 23:18:42–23:19:01, both jobs confirmed by `mail start` within 20 s. Every message and cursor move is a `mail …` commit; no session hand-wrote a mailbox, cursor or address.
+- **A question revised in flight:** ALPHA posted J1 and J2 (replacing it) within 11 s and rang twice; BOB answered J2 only (`B2 ANSWER re J2`, with a wording ruling D11-K1) and read through J2; ALPHA applied it.
+- **A lost doorbell:** BETA posted COMPLETE and did not ring; BOB read it 59 s later, woken by ALPHA's doorbell, because a woken side reads every mailbox past its cursor.
+- **Duplicate doorbells:** the harness rang BOB and BETA again at 23:23 with nothing new: no commit, no reply from either.
+- **Close:** both jobs COMPLETE with nothing unread either way; merged, both stale bundles regenerated and verified, jobs archived with rows from their archives, close in two steps (`dryrun-main/D11` = ac15dc2), BOB's backstop and WATCH deleted.
+- **Not exercised live:** killing a job mid-work (the harness may not archive its grandchildren, refused); the restart path is unchanged from K164 (proven in D8) and a restarted job keeps its cursor (`tools/test/mail.test.mjs`).
+
+Cost: stand-ins 4.8M (BOB) + 0.6M (ROOT) + two jobs; the whole run 23 minutes.
