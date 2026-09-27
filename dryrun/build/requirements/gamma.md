@@ -14,6 +14,9 @@ Scaling of numbers.
 - **R1** Returns `alpha.add(x, x)` for a finite number `x`.
 - **R2** Throws a `TypeError` when `x` is not a finite number, as `alpha.add` does; nothing is coerced.
 
+**triple(x) → number** (added for dry run D9)
+- **R4** Returns `3 * x` for a number `x`, computed with `alpha.add`.
+
 ## Private
 
 ### Uses

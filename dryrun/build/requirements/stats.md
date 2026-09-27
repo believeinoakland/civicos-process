@@ -28,6 +28,9 @@ Statistics over lists of numbers.
 **distinct(list) → boolean**
 - **R9** `true` when no two elements of `list` are the same value (as a `Set` compares them), else `false`; an empty list is distinct.
 
+**median(list) → number** (added for dry run D9)
+- **R10** Returns the middle element of the sorted non-empty `list`, or the mean of the two middle elements when its length is even; refuses an empty list with a `RangeError` and a non-finite element with a `TypeError`.
+
 ## Private
 
 ### Uses

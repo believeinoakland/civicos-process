@@ -23,6 +23,10 @@ Arithmetic on numbers.
 - **R6** Returns `-a` for a finite number `a`.
 - **R7** Throws a `TypeError` when `a` is not a finite number; nothing is coerced.
 
+**sub(a, b) → number** (added for dry run D9)
+- **R8** Returns `a - b` for two finite numbers.
+- **R9** Throws a `TypeError` when either argument is not a finite number; nothing is coerced.
+
 ## Private
 
 ### Uses
