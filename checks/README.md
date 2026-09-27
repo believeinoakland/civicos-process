@@ -27,3 +27,7 @@ Each check was broken on purpose, the named test failed, and the file was restor
 - ownership: additions to a legacy file allowed → "ownership: an extracting module may remove from its legacy module, never add".
 - ownership (BOB #42): a block of added legacy lines that uses nothing of the module's own allowed → that test and "ownership: an extraction fails on an added import of another module, an unrelated addition, or a net addition".
 - format: the use-of-a-later-module test disabled → "format: a use of a later module, a doubly claimed path, …".
+
+## The protocol model (bio K164, `dryrun/cert/SUITE.md` §4.3)
+
+`node checks/cert/model.mjs [--rules current|revised] [--set <bound set>] [--<bound> n ...]` explores the process protocol exhaustively (BFS) and prints, per invariant, PASS or the shortest counterexample; exit 1 on any violation. The engine is `model.mjs`; the rules are `rules-current.mjs` (the mechanics as written, each action citing its §) and `rules-revised.mjs` (a stub re-exporting them until the revision is designed). Each rule set lists its bound sets; the default run explores all of them in under a minute. Not one of the four checks: it certifies the mechanics, not a product.
