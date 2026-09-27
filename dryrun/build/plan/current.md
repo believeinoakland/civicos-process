@@ -1,6 +1,6 @@
 # Plan: dry run D11 (certifying K168: mailbox and doorbell)
 
-**Status** · OPEN · no BOB yet
+**Status** · OPEN · D11-BOB #1 · session_01H3XDB9goUxVa4G4Ma1HJep · depth 1
 
 ## The run (read whole; it adapts the roles to the toy)
 
