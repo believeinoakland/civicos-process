@@ -1,8 +1,8 @@
 # Plan: dry run D9 (K164 certification, live run R2: messages and faults)
 
-**Status** · OPEN · D9-BOB #1 · session_01R87rPNu4xWFuL82GdcPi1Q · depth 1 (took over 2026-09-27T17:40Z; parent D9-ROOT #1 `session_01M7dTMxF29Uu5J88vbHveCE`; no earlier stand-in BOB)
+**Status** · OPEN · D9-BOB #1 · session_01R87rPNu4xWFuL82GdcPi1Q · depth 1 (took over 2026-09-27T17:36Z; parent D9-ROOT #1 `session_01M7dTMxF29Uu5J88vbHveCE`; no earlier stand-in BOB)
 
-**Jobs** · none yet
+**Jobs** · layer 1, created 2026-09-27T17:37:21–24Z: ALPHA #1 `session_018rLM8Fi2LAHzANB3ne58dT` · handled J0 · sent B1; BETA #1 `session_01GyWyX3WXeusEGHPUXeSYnu` · handled J0 · sent B1; GAMMA #1 `session_01Vjx9RW3FuDxN3aCuCAgQqC` · handled J0 · sent B1
 
 ## The run (read whole; it adapts the roles to the toy)
 
