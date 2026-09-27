@@ -11,3 +11,4 @@
 
 ## Handoff
 
+- D6-BOB #1 handed off: nothing open; the successor archives this session (mechanics §2).
