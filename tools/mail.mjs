@@ -80,6 +80,8 @@ function onBranch(R, branch) {
 // Commit one file and push it; on a rejected push, rebase on the remote once and push again.
 function commitPush(R, branch, path, message) {
   R.g(['add', R.inRepo(path)]);
+  // A write that changes nothing (a state or address already as asked) is a success with nothing to push.
+  try { R.g(['diff', '--cached', '--quiet', '--', R.inRepo(path)], { quiet: true }); return R.g(['rev-parse', '--short', 'HEAD']).trim(); } catch { /* staged change: commit it */ }
   R.g(['commit', '-q', '-m', message]);
   try { R.g(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { quiet: true }); }
   catch { R.g(['pull', '-q', '--rebase', 'origin', branch]); R.g(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`]); }

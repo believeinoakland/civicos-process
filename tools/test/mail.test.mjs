@@ -114,6 +114,10 @@ test('state: WORKING, RUNNING until a stated time, a wait; the cursor and sessio
   st = parseStatus(readFileSync(join(w.job, `build/jobs/${T}/alpha.md`), 'utf8'));
   assert.deepEqual([st.session, st.depth, st.state, st.handled], [J1, 2, 'WAITING ON BOB (J1)', 0]);
   assert.throws(() => state({ ...J(w.job), set: 'A · B' }), /no "·"/);
+  // a state already as asked (and an address already written) is a success with nothing to commit (SKILLS #1, T7)
+  assert.doesNotThrow(() => state({ ...J(w.job), set: 'WAITING ON BOB (J1)' }));
+  addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
+  assert.doesNotThrow(() => addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 }));
 });
 
 test('check: what each job needs, from git alone', () => {
