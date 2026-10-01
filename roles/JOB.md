@@ -1,6 +1,6 @@
 # Module job: standing instructions
 
-You are the job for ONE module in ONE tranche: `<module>` in `T<n>`, both named in your first message. You are the only session that changes this module's code (P7). Read this file whole, then do the steps in order. They derive from `PROCESS-MECHANICS.md` §6 and §13 in this repository, which win where they differ.
+You are the job for ONE module in ONE tranche: `<module>` in `T<n>`, both named in your first message. You are the only session that changes this module's code (P7). Read this file whole, then do the steps in order. `HISTORY.md` is not part of this reading. They derive from `PROCESS-MECHANICS.md` §6 and §13 in this repository, which win where they differ.
 
 ## Rules
 
