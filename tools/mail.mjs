@@ -9,6 +9,7 @@
 //   BOB → job   `build/jobs/<T>/<module>.bob.md` on `tranche/<T>`: entries `## B<n> · <KIND>`; BOB's cursor over the
 //               job's entries in its `**Read** · handled J<n>` line.
 //   addresses   the plan's Status line (BOB's session) and `**Jobs**` line (each job's session), `build/plan/current.md`.
+//   accounts    each participant's outbox on its own mail branch, listed in `build/channels.md` (§13.1; the x-commands).
 //
 // Usage: node tools/mail.mjs <command> [--product <dir>] --tranche <T> [--module <m>] [options]
 //   BOB:  bob --name "BOB #n" --session <id> --depth <d> [--state OPEN]   write the plan's Status line
@@ -21,8 +22,18 @@
 //         state --module <m> (--set <STATE> | --running <minutes> --what <command>)
 //   any:  addr (--bob | --module <m>)      print a session id to ring
 //         ring-text --to <name>            print the doorbell's text
+//
+// Across accounts (§13.1; bio K954): no tranche and no doorbell; the registry `build/channels.md` names each participant.
+// Run from any branch: these commands read and write only the mail branches on origin, never the working tree.
+//   xwriter --as <NAME> --session <id> [--account <a>]   the Writer line, first in my outbox, at takeover
+//   xpost   --as <NAME> --kind <KIND> [--re <L><n>] (--body <text> | --body-file <f>)   append to my outbox, push
+//           KIND: NOTICE, QUESTION, ANSWER, DEFER, HANDOFF, MERGE, ACK (ANSWER and ACK name their entry with --re)
+//   xinbox  --as <NAME> --from <NAME>                    their entries past my cursor
+//   xdone   --as <NAME> --from <NAME> --through <L><n>   move my cursor over theirs (never back)
+//   xcheck  --as <NAME>                                  for each correspondent: what I have not read, and they of mine
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 
 export const KINDS = { job: ['QUESTION', 'REPORT', 'COMPLETE', 'BLOCKED'], bob: ['START', 'ANSWER', 'CHANGE', 'RESUME'] };
@@ -232,6 +243,212 @@ export function check(o) {
   });
 }
 
+// ---- across accounts (§13.1; bio K954) ----
+// Each participant's outbox is one file on its own mail branch (`mail/<NAME>`), which holds nothing else and is never
+// merged. The registry `build/channels.md` (read from the product's origin/main, else the working tree) gives each row's
+// name, account, branch and outbox, and optionally its letter (else the name's first). An outbox reads:
+//   **Writer** · <name> · <session id> · <account> · since <date>       the first line; a successor rewrites it
+//   **Read** · handled <NAME> <L><n>                                    one cursor per correspondent
+//   ## <L><n> · <KIND>[ · re <L><n>] · <date> · <session id> · <account>   numbered, append-only entries
+// Writes never touch the working tree: the new outbox is committed with plumbing onto the remote tip and pushed.
+
+export const XKINDS = ['NOTICE', 'QUESTION', 'ANSWER', 'DEFER', 'HANDOFF', 'MERGE', 'ACK'];
+const XNEEDS_RE = ['ANSWER', 'ACK'];
+export const REGISTRY = 'build/channels.md';
+const XHEAD = /^## ([A-Z])(\d+) · ([^\n]*)$/gm;
+const WRITER = /^\*\*Writer\*\* · (\S+) · (\S+) · (\S+) · since (\S+)[ \t]*$/;
+const XREAD = /^\*\*Read\*\* · handled (\S+) ([A-Z])(\d+)[ \t]*$/gm;
+const SESSION = /^session_[0-9A-Za-z]+$/;
+const today = () => new Date().toISOString().slice(0, 10);
+
+export function parseRegistry(text) {
+  const rows = (text || '').split('\n').filter((l) => /^\s*\|/.test(l))
+    .map((l) => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim().replace(/`/g, '')));
+  if (!rows.length) return [];
+  const head = rows[0].map((h) => h.toLowerCase().replace(/^mail /, ''));
+  const col = (n) => head.indexOf(n);
+  for (const n of ['name', 'account', 'branch', 'outbox']) if (col(n) < 0) throw new Error(`${REGISTRY}: no "${n}" column`);
+  const out = rows.slice(1).filter((r) => !r.every((c) => /^:?-+:?$/.test(c))).map((r) => {
+    const name = r[col('name')];
+    const letter = ((col('letter') >= 0 && r[col('letter')]) || name[0] || '').toUpperCase();
+    return { name, account: r[col('account')], branch: r[col('branch')], outbox: r[col('outbox')], letter };
+  });
+  const seen = new Set();
+  for (const p of out) {
+    if (!/^[A-Z][A-Z0-9-]*$/.test(p.name)) throw new Error(`${REGISTRY}: name "${p.name}" is not in capitals`);
+    if (!/^[A-Z]$/.test(p.letter)) throw new Error(`${REGISTRY}: ${p.name}'s letter "${p.letter}" is not one capital`);
+    for (const k of [`n:${p.name}`, `l:${p.letter}`, `b:${p.branch}`]) { if (seen.has(k)) throw new Error(`${REGISTRY}: ${k.slice(2)} given twice`); seen.add(k); }
+  }
+  return out;
+}
+
+export function parseOutbox(text) {
+  const t = text || '';
+  const heads = [...t.matchAll(XHEAD)];
+  const head = heads.length ? t.slice(0, heads[0].index) : t;
+  const w = t.split('\n')[0].match(WRITER);
+  const cursors = {};
+  for (const m of head.matchAll(XREAD)) cursors[m[1]] = { letter: m[2], n: Number(m[3]) };
+  const entries = heads.map((h, i) => {
+    const end = i + 1 < heads.length ? heads[i + 1].index : t.length;
+    const parts = h[3].split(' · ');
+    const kind = parts.shift();
+    const re = /^re ([A-Z]\d+)$/.exec(parts[0] || '')?.[1] || null;
+    if (re) parts.shift();
+    return { letter: h[1], n: Number(h[2]), id: `${h[1]}${h[2]}`, kind, re, date: parts[0] || null, session: parts[1] || null, account: parts[2] || null, text: t.slice(h.index, end).trimEnd() };
+  });
+  return { writer: w ? { name: w[1], session: w[2], account: w[3], since: w[4] } : null, cursors, entries, head };
+}
+
+function participant(reg, name, flag) {
+  const p = reg.find((r) => r.name === name);
+  if (!p) throw new Error(`${flag} ${name}: not in ${REGISTRY} (${reg.map((r) => r.name).join(', ') || 'empty'})`);
+  return p;
+}
+function registry(R) {
+  fetchBranch(R, 'main');
+  const text = showRemote(R, 'main', REGISTRY) ?? readLocal(R, REGISTRY);
+  if (text === null) throw new Error(`no ${REGISTRY} on origin/main or in the working tree`);
+  return parseRegistry(text);
+}
+function remoteHas(R, branch) {
+  try { R.g(['ls-remote', '--exit-code', 'origin', `refs/heads/${branch}`], { quiet: true }); return true; }
+  catch (e) { if (e.status === 2) return false; throw new Error(`cannot reach origin to read ${branch}`); }
+}
+// A participant's outbox as pushed: its text (null before the branch exists) and the branch's tip.
+function readMail(R, p) {
+  if (!remoteHas(R, p.branch)) return { text: null, tip: null };
+  if (!fetchBranch(R, p.branch)) throw new Error(`cannot fetch ${p.branch}`);
+  return { text: showRemote(R, p.branch, p.outbox), tip: R.g(['rev-parse', `origin/${p.branch}`]).trim() };
+}
+// Commit the edited outbox onto the remote tip of its own mail branch (an orphan holding only the outbox when the
+// branch is absent) and push; never a force, never another participant's branch. A push that loses a race re-reads once.
+function writeMail(R, p, edit, message) {
+  const git = (args, opts = {}) => execFileSync('git', ['-C', R.root, ...args], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], ...opts }).trim();
+  for (let attempt = 1; ; attempt++) {
+    const { text, tip } = readMail(R, p);
+    const next = edit(text);
+    if (next === text) return { commit: tip ? tip.slice(0, 7) : null, changed: false };
+    const blob = git(['hash-object', '-w', '--stdin'], { input: next });
+    const tmp = mkdtempSync(join(tmpdir(), 'mail-index-'));
+    let tree;
+    try {
+      const env = { ...process.env, GIT_INDEX_FILE: join(tmp, 'index') };
+      git(['update-index', '--add', '--cacheinfo', `100644,${blob},${R.inRepo(p.outbox)}`], { env });
+      tree = git(['write-tree'], { env });
+    } finally { rmSync(tmp, { recursive: true, force: true }); }
+    const commit = git(['commit-tree', tree, ...(tip ? ['-p', tip] : []), '-m', message()]);
+    try { git(['push', '-q', 'origin', `${commit}:refs/heads/${p.branch}`]); }
+    catch (e) { if (attempt >= 2) throw new Error(`push to ${p.branch} refused: ${(e.stderr || e.message).toString().trim()}`); continue; }
+    fetchBranch(R, p.branch);
+    return { commit: commit.slice(0, 7), changed: true };
+  }
+}
+const writerLine = (p, session, account, since) => `**Writer** · ${p.name} · ${session} · ${account} · since ${since}`;
+function setWriter(text, line) {
+  const t = text || '';
+  return WRITER.test(t.split('\n')[0]) ? t.replace(/^[^\n]*/, line) : `${line}\n${t ? `\n${t.replace(/^\n+/, '')}` : ''}`;
+}
+function setCursor(text, name, id) {
+  const { head } = parseOutbox(text), rest = text.slice(head.length);
+  const line = `**Read** · handled ${name} ${id}`;
+  const own = new RegExp(`^\\*\\*Read\\*\\* · handled ${name} [A-Z]\\d+[ \\t]*$`, 'm');
+  let h;
+  if (own.test(head)) h = head.replace(own, line);
+  else {
+    const lines = head.replace(/\n+$/, '').split('\n');
+    let at = 0; lines.forEach((l, i) => { if (i === 0 || /^\*\*Read\*\* · /.test(l)) at = i; });
+    lines.splice(at + 1, 0, line);
+    h = `${lines.join('\n')}\n`;
+  }
+  return rest ? `${h.replace(/\n+$/, '')}\n\n${rest}` : h;
+}
+function idOf(p, id, flag) {
+  const m = /^([A-Z])(\d+)$/.exec(id || '');
+  if (!m || m[1] !== p.letter) throw new Error(`${flag} ${id}: not one of ${p.name}'s entries (${p.letter}<n>)`);
+  return Number(m[2]);
+}
+
+export function xwriter(o) {
+  const R = repo(o.product), reg = registry(R), me = participant(reg, o.as, '--as');
+  if (!SESSION.test(o.session || '')) throw new Error('--session <session id>');
+  const account = o.account || me.account;
+  if (me.account && account !== me.account) throw new Error(`--account ${account}: ${me.name} is on the ${me.account} account in ${REGISTRY}`);
+  const r = writeMail(R, me, (text) => {
+    const w = parseOutbox(text).writer;
+    if (w && w.session === o.session && w.account === account) return text;   // already the writer: nothing to do
+    return setWriter(text, writerLine(me, o.session, account, o.date || today()));
+  }, () => `mail ${me.name}: writer ${o.session}`);
+  return r;
+}
+
+export function xpost(o) {
+  const R = repo(o.product), reg = registry(R), me = participant(reg, o.as, '--as');
+  const kind = o.kind;
+  if (!XKINDS.includes(kind)) throw new Error(`--kind is one of ${XKINDS.join(', ')}, not ${kind}`);
+  if (o.re) {
+    const other = reg.find((p) => p.letter === o.re[0] && p.name !== me.name);
+    if (!other) throw new Error(`--re ${o.re}: names no correspondent's entry`);
+    idOf(other, o.re, '--re');
+  } else if (XNEEDS_RE.includes(kind)) throw new Error(`${kind} names the entry it answers (--re <L><n>)`);
+  const body = (o.bodyFile ? readFileSync(o.bodyFile, 'utf8') : o.body || '').trim();
+  if (!body) throw new Error('an entry has a body (--body or --body-file)');
+  if (/^## [A-Z]\d+ · /m.test(body) || /^\*\*(Writer|Read)\*\* · /m.test(body)) throw new Error('the body may not contain an entry heading, a Writer line or a cursor line');
+  const date = o.date || today();
+  let id;
+  const r = writeMail(R, me, (text) => {
+    let t = text || '';
+    let p = parseOutbox(t);
+    if (!p.writer) {
+      if (!SESSION.test(o.session || '')) throw new Error(`${me.outbox} has no Writer line: run xwriter first (or give --session and --account)`);
+      t = setWriter(t, writerLine(me, o.session, o.account || me.account, date));
+      p = parseOutbox(t);
+    }
+    id = `${me.letter}${Math.max(0, ...p.entries.map((e) => e.n)) + 1}`;
+    return `${t.trimEnd()}\n\n## ${id} · ${kind}${o.re ? ` · re ${o.re}` : ''} · ${date} · ${p.writer.session} · ${p.writer.account}\n${body}\n`;
+  }, () => `mail ${me.name}: ${id} ${kind}${o.re ? ` re ${o.re}` : ''}`);
+  return { id, ...r };
+}
+
+export function xinbox(o) {
+  const R = repo(o.product), reg = registry(R), me = participant(reg, o.as, '--as'), them = participant(reg, o.from, '--from');
+  const mine = parseOutbox(readMail(R, me).text), theirs = parseOutbox(readMail(R, them).text);
+  const cursor = mine.cursors[them.name]?.n ?? 0;
+  return { cursor: `${them.letter}${cursor}`, writer: theirs.writer, entries: theirs.entries.filter((e) => e.n > cursor) };
+}
+
+export function xdone(o) {
+  const R = repo(o.product), reg = registry(R), me = participant(reg, o.as, '--as'), them = participant(reg, o.from, '--from');
+  const n = idOf(them, o.through, '--through');
+  const last = Math.max(0, ...parseOutbox(readMail(R, them).text).entries.map((e) => e.n));
+  if (n > last) throw new Error(`--through ${o.through}: ${them.name} has posted only through ${them.letter}${last}`);
+  let cur = 0;
+  const r = writeMail(R, me, (text) => {
+    const p = parseOutbox(text);
+    if (!p.writer) throw new Error(`${me.outbox} has no Writer line: run xwriter first`);
+    cur = p.cursors[them.name]?.n ?? 0;
+    return n <= cur ? text : setCursor(text, them.name, `${them.letter}${n}`);   // a cursor never moves back
+  }, () => `mail ${me.name}: read ${them.name} through ${them.letter}${n}`);
+  return { cursor: `${them.letter}${Math.max(n, cur)}`, moved: r.changed, commit: r.commit };
+}
+
+// For each correspondent: what I have not read of theirs, and what they have not read of mine.
+export function xcheck(o) {
+  const R = repo(o.product), reg = registry(R), me = participant(reg, o.as, '--as');
+  const mine = parseOutbox(readMail(R, me).text);
+  const myLast = Math.max(0, ...mine.entries.map((e) => e.n));
+  return reg.filter((p) => p.name !== me.name).map((p) => {
+    const theirs = parseOutbox(readMail(R, p).text);
+    const cur = mine.cursors[p.name]?.n ?? 0, theirRead = theirs.cursors[me.name]?.n ?? 0;
+    return {
+      name: p.name, account: p.account, writer: theirs.writer,
+      unread: theirs.entries.filter((e) => e.n > cur).map((e) => `${e.id} ${e.kind}`),
+      read: `${p.letter}${cur}`, theyRead: `${me.letter}${theirRead}`, myLast: `${me.letter}${myLast}`,
+      theyOwe: myLast > theirRead ? `${me.letter}${theirRead + 1}..${me.letter}${myLast}` : null,
+    };
+  });
+}
+
 // ---- command line ----
 
 function args(argv) {
@@ -248,7 +465,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const o = args(process.argv.slice(2));
   const cmd = o._[0];
   try {
-    if (!o.tranche && cmd !== 'help') throw new Error('--tranche <T>');
+    if (!o.tranche && cmd !== 'help' && !/^x/.test(cmd || '')) throw new Error('--tranche <T>');
     switch (cmd) {
       case 'post': { const r = post(o); console.log(`posted ${r.id} (${r.commit}); now ring: ${ringText(o.tranche, o.as === 'job' ? 'BOB' : o.module)}`); break; }
       case 'inbox': { const r = inbox(o); if (!r.entries.length) console.log(`empty (read through ${o.as === 'job' ? 'B' : 'J'}${r.cursor})`); else for (const e of r.entries) console.log(`${e.text}\n`); break; }
@@ -260,6 +477,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       case 'addr': console.log(addr(o)); break;
       case 'ring-text': console.log(ringText(o.tranche, o.to || 'BOB')); break;
       case 'check': for (const r of check(o)) console.log(`${r.module} ${r.name} ${r.session} · ${r.state} · J${r.lastJ} read J${r.read} · B${r.lastB} handled B${r.handled} · pushed ${r.pushedAgoMin} min ago → ${r.needs.join(', ') || 'nothing'}`); break;
+      case 'xwriter': { const r = xwriter(o); console.log(r.changed ? `writer line written (${r.commit})` : `already the writer: nothing to do`); break; }
+      case 'xpost': { const r = xpost(o); console.log(`posted ${r.id} (${r.commit}) on its mail branch`); break; }
+      case 'xinbox': { const r = xinbox(o); if (!r.entries.length) console.log(`empty (read through ${r.cursor})`); else for (const e of r.entries) console.log(`${e.text}\n`); break; }
+      case 'xdone': { const r = xdone(o); console.log(r.moved ? `read through ${r.cursor} (${r.commit})` : `already read through ${r.cursor}: nothing to do`); break; }
+      case 'xcheck': for (const r of xcheck(o)) console.log(`${r.name} (${r.account}) · ${r.writer ? `writer ${r.writer.session} since ${r.writer.since}` : 'no outbox yet'} · read ${r.read} · unread: ${r.unread.join(', ') || 'none'} · they read ${r.theyRead} of ${r.myLast}${r.theyOwe ? ` (unread by them: ${r.theyOwe})` : ''}`); break;
       default: throw new Error(`unknown command "${cmd}"; see the header of tools/mail.mjs`);
     }
   } catch (e) { console.error(`mail: ${e.message}`); process.exitCode = 1; }

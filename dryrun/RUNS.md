@@ -140,3 +140,14 @@ Result, 23:24Z: **certified.** Started 23:16 (START BOB to ROOT), BOB's Status b
 - **Not exercised live:** killing a job mid-work (the harness may not archive its grandchildren, refused); the restart path is unchanged from K164 (proven in D8) and a restarted job keeps its cursor (`tools/test/mail.test.mjs`).
 
 Cost: stand-ins 4.8M (BOB) + 0.6M (ROOT) + two jobs; the whole run 23 minutes.
+
+## D12 · 2026-10-01 · the K954 revision: the cross-account channel (PENDING)
+
+The revision: mechanics §13.1 (across accounts) and §8.5 (the channels check), `tools/mail.mjs` (`xwriter`, `xpost`, `xinbox`, `xdone`, `xcheck`) and `checks/channels.mjs` (bio K954), on `prep/channel`. Under §15, the cross-account step can be proven only between Bob's two real accounts (secondary: BOB; primary: UX-DESIGN), so the proof is in two parts.
+
+| path | evidence | result |
+| --- | --- | --- |
+| Tool and check on fixtures | `checks/test/channels.test.mjs`: a bare origin with the registry on `main`, a BOB clone (on a tranche branch) and a UX-DESIGN clone; `xwriter` creates each mail branch as an orphan holding only its outbox, Writer line first, working tree untouched; `xpost` appends `B1`, `B2`, `U1 · ACK · re B1`; `xinbox` reads only past the cursor; `xdone` moves it, never back, never past what was posted; `xcheck` lists unread entries both ways; a successor's `xwriter` replaces only the Writer line. The check passes the clean history and fails a rewritten entry, a removed entry, a skipped number, another's letter, a backward or removed cursor, and a forced rewrite. Negative controls in `checks/README.md`. | PROVEN: 11 of 11; whole suite `node --test checks/test/` 103 of 103 |
+| Live exchange across accounts | BOB seeds `build/channels.md` on `main`, runs `xwriter` and posts B1 `NOTICE` (the UX-relevant rulings since K859) on `mail/BOB`; UX-DESIGN, from its own clone on the primary account, runs `xwriter`, `xinbox --from BOB`, posts `U1 · ACK · re B1` on `mail/UX-DESIGN` and `xdone`; BOB's `xcheck` shows `U1` unread, it reads and moves its cursor; `node checks/channels.mjs` on the product passes. | PENDING: `<commits, times>` |
+
+Result: **not yet certified**; certified when the live row is proven, and the mechanics' Status line then names this run in place of `<D-run>`.
