@@ -141,6 +141,19 @@ test('ownership: an extraction may rewire the legacy caller of the moved code to
   assert.match(c.summary, /legacy: \d+ line\(s\) added, \d+ removed/);
 });
 
+test('ownership: a legacy line that spreads an own import (...fooOps(x)) is a use; obj.fooOps is not (N175)', () => {
+  const FOO = 'export function fooOps(x) {\n  const y = x * 2;\n  const z = y + 1;\n  const w = z * 3;\n  return { w };\n}\n';
+  const r = repo(base({ 'src/legacy.mjs': FOO + 'export const api = {\n  keep: 1,\n};\n' }));
+  r.commit({ 'src/b/foo.mjs': FOO, 'src/legacy.mjs': "import { fooOps } from './b/foo.mjs';\nexport const api = {\n  keep: 1,\n  ...fooOps(x),\n};\n" });
+  const c = checkOwnership(r.root, 'b', 'HEAD~1');
+  assert.deepEqual(c.failures, []);
+  assert.ok(c.added.some((a) => /\.\.\.fooOps\(x\),/.test(a)), c.added.join('\n'));
+  const pad = 'export const p1 = 1;\nexport const p2 = 2;\nexport const p3 = 3;\nexport const p4 = 4;\nexport const p5 = 5;\nexport const p6 = 6;\nexport const p7 = 7;\n';
+  const r2 = repo(base({ 'src/legacy.mjs': "import { fooOps } from './b/foo.mjs';\nexport const api = {\n  keep: 1,\n};\n" + pad + FOO }));
+  r2.commit({ 'src/b/foo.mjs': FOO, 'src/legacy.mjs': "import { fooOps } from './b/foo.mjs';\nexport const api = {\n  keep: 1,\n  ...obj.fooOps(x),\n};\n" + pad });
+  assert.match(checkOwnership(r2.root, 'b', 'HEAD~1').failures.join('\n'), /src\/legacy\.mjs:4-4: added lines that neither import from nor use the module's own paths/);
+});
+
 test('ownership: an extraction fails on an added import of another module, an unrelated addition, or a net addition', () => {
   const r = repo(base({ 'src/legacy.mjs': CALLER }));
   r.commit({

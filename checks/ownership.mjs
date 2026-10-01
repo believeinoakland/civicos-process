@@ -99,7 +99,7 @@ export function judgeLegacyFile(root, ref, head, file, own) {
   const inStmt = (n) => stmts.find((x) => n >= x.first && n <= x.last);
   const ownNames = stmts.filter((s) => s.kind === 'import' && isOwn(s.spec)).flatMap((s) => s.names);
   const esc = (x) => x.replace(/\$/g, '\\$');
-  const usesOwn = ownNames.length ? new RegExp(`(^|[^\\w$.])(${ownNames.map(esc).join('|')})(?![\\w$])`) : null;
+  const usesOwn = ownNames.length ? new RegExp(`(^|[^\\w$.]|\\.\\.\\.)(${ownNames.map(esc).join('|')})(?![\\w$])`) : null;
   const dynamicOwn = (t) => [...t.matchAll(/\bimport\s*\(\s*(['"])([^'"]+)\1/g)].some((m) => isOwn(m[2]));
   const { hunks, removed } = hunksOf(root, ref, head, file);
   let count = 0;
