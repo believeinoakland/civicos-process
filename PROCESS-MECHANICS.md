@@ -1,6 +1,6 @@
 # The process mechanics
 
-**Status** · In force. Approved by Bob. History: `HISTORY.md`. Pending: §13.1 and §8.5 are certified by `<D-run>` (§13.1, item 7). This document describes HOW the approved principles (`PROCESS-DESIGN.md`, P1–P19) are carried out. Each mechanism cites the principle it serves (P16). Where it and the principles disagree, the principles win. Its home is this repository, beside the principles (P2). The product repository it is applied to is `believeinoakland/bio`.
+**Status** · In force. Approved by Bob. History: `HISTORY.md`. §13.1 and §8.5 are certified by D12 (`dryrun/RUNS.md`). This document describes HOW the approved principles (`PROCESS-DESIGN.md`, P1–P19) are carried out. Each mechanism cites the principle it serves (P16). Where it and the principles disagree, the principles win. Its home is this repository, beside the principles (P2). The product repository it is applied to is `believeinoakland/bio`.
 
 ## 1. Where things live (P2, P5)
 
