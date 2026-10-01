@@ -151,3 +151,14 @@ The revision: mechanics §13.1 (across accounts) and §8.5 (the channels check),
 | Live exchange across accounts | BOB seeds `build/channels.md` on `main`, runs `xwriter` and posts B1 `NOTICE` (the UX-relevant rulings since K859) on `mail/BOB`; UX-DESIGN, from its own clone on the primary account, runs `xwriter`, `xinbox --from BOB`, posts `U1 · ACK · re B1` on `mail/UX-DESIGN` and `xdone`; BOB's `xcheck` shows `U1` unread, it reads and moves its cursor; `node checks/channels.mjs` on the product passes. | PENDING: `<commits, times>` |
 
 Result: **not yet certified**; certified when the live row is proven, and the mechanics' Status line then names this run in place of `<D-run>`.
+
+## D13 · 2026-10-01 · the K1007 revision: the cleanup, the legacy census and the missing-file check
+
+The revision: history moved to `HISTORY.md`; mechanics §5 as procedures §5.1–§5.9; the audit's contradictions settled (bio K1008); the legacy census (§5.2) and owed acts as plan entries (§9); the format check fails a module path naming no file (§8). Under §15:
+
+| path | evidence | result |
+| --- | --- | --- |
+| Missing-file check on fixtures | `checks/test/checks.test.mjs`: a passing tree and a module naming a deleted path; negative control (rule disabled) fails the test | PROVEN: `node --test checks/test/` 108 of 108 |
+| Missing-file check on the product | `node checks/format.mjs` on bio `tranche/T21`: exactly legacy-tests' 11 deleted paths, nothing else | PROVEN |
+| The legacy census and owed-act entries | only a plan can show them: T22's opening plan carries the census (legacy-tests retired, N478; legacy-ui's hard reason) | PENDING: T22's opening |
+| Meaning otherwise unchanged | BOB #89's line-by-line review of the diff against c00b0cf; removed text verbatim in `HISTORY.md` | PROVEN |
