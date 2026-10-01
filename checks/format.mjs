@@ -6,11 +6,25 @@ import { requirementIds, requirementFiles, report } from './lib.mjs';
 
 const SECTIONS = ['## Public', '### Purpose', '### Provides', '## Private', '### Uses', '### Invariants', '### Satisfies'];
 
+// N440 (P3): an unresolved merge leaves conflict markers; a build-state file holding one is refused.
+function conflictMarkers(root) {
+  const files = ['build/modules.json', 'build/layers.md', 'build/plan/current.md', 'build/plan/next.md', 'build/rulings.md',
+    ...requirementFiles(root).map((id) => `build/requirements/${id}.md`)];
+  const out = [];
+  for (const f of files) {
+    if (!existsSync(join(root, f))) continue;
+    readFileSync(join(root, f), 'utf8').split('\n').forEach((l, i) => {
+      if (l.startsWith('<<<<<<< ') || l.replace(/\r$/, '') === '=======' || l.startsWith('>>>>>>> ')) out.push(`${f}:${i + 1}: merge-conflict marker`);
+    });
+  }
+  return out;
+}
+
 export function checkFormat(root) {
-  const failures = [];
+  const failures = conflictMarkers(root);
   let state;
   try { state = JSON.parse(readFileSync(join(root, 'build/modules.json'), 'utf8')); }
-  catch (e) { return { failures: [`build/modules.json: does not parse (${e.message})`], summary: 'stopped' }; }
+  catch (e) { return { failures: [...failures, `build/modules.json: does not parse (${e.message})`], summary: 'stopped' }; }
   const mods = Array.isArray(state.modules) ? state.modules : [];
   if (!mods.length) failures.push('build/modules.json: no modules');
   const seen = new Map();

@@ -212,6 +212,15 @@ test('format: an entry may be listed under two modules, never twice under one', 
   assert.deepEqual(checkFormat(root).failures, ['build/plan/current.md: entry ids given twice under one module: D-5']);
 });
 
+test('format: merge-conflict markers in the build state fail, naming file and line (N440)', () => {
+  const marked = '<<<<<<< HEAD\n' + LAYERS + '=======\n' + LAYERS + '>>>>>>> other\n';
+  const f = checkFormat(repo(base({ 'build/layers.md': marked })).root).failures;
+  assert.ok(f.includes('build/layers.md:1: merge-conflict marker'), f.join('\n'));
+  assert.ok(f.includes('build/layers.md:6: merge-conflict marker'), f.join('\n'));
+  assert.ok(f.includes('build/layers.md:11: merge-conflict marker'), f.join('\n'));
+  assert.deepEqual(checkFormat(repo(base()).root).failures, []);
+});
+
 test('format: modules out of layer order fail', () => {
   const m = JSON.parse(MODULES());
   m.modules.push({ id: 'c', layer: 1, paths: ['src/c/'], tests: [], uses: [] });
