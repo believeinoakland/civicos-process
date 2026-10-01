@@ -1,8 +1,9 @@
-// Check 4, format (PROCESS-MECHANICS §8.4; P4, P5, P15): the build state's files parse, and every id
-// they reference exists. Usage: node checks/format.mjs <product-root>
+// Check 4, format (PROCESS-MECHANICS §8.4; P4, P5, P15): the build state's files parse, every id they
+// reference exists, and every module's `paths` and `tests` entry names a file or directory in the product tree.
+// Usage: node checks/format.mjs <product-root>
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { requirementIds, requirementFiles, report } from './lib.mjs';
+import { requirementIds, requirementFiles, report, trackedFiles } from './lib.mjs';
 
 const SECTIONS = ['## Public', '### Purpose', '### Provides', '## Private', '### Uses', '### Invariants', '### Satisfies'];
 
@@ -20,8 +21,21 @@ function conflictMarkers(root) {
   return out;
 }
 
+// K1007 (P4, P15): an owned path names something that exists: a tracked file, a directory holding tracked files,
+// or a file or directory present in the checkout (a `tests` directory a job has yet to fill counts if it exists).
+function pathExists(root, tracked) {
+  return (p) => {
+    if (existsSync(join(root, p))) return true;
+    const dir = p.endsWith('/') ? p : `${p}/`;
+    return tracked.some((f) => f === p || f.startsWith(dir));
+  };
+}
+
 export function checkFormat(root) {
   const failures = conflictMarkers(root);
+  let tracked = [];
+  try { tracked = trackedFiles(root); } catch { /* not a git repository: the checkout alone is read */ }
+  const exists = pathExists(root, tracked);
   let state;
   try { state = JSON.parse(readFileSync(join(root, 'build/modules.json'), 'utf8')); }
   catch (e) { return { failures: [...failures, `build/modules.json: does not parse (${e.message})`], summary: 'stopped' }; }
@@ -41,6 +55,9 @@ export function checkFormat(root) {
     for (const p of [...(m.paths || []), ...(m.tests || [])]) {
       if (claimed.has(p) && claimed.get(p) !== m.id) failures.push(`${at}: path ${p} is also claimed by ${claimed.get(p)}`);
       claimed.set(p, m.id);
+    }
+    for (const k of ['paths', 'tests']) for (const p of Array.isArray(m[k]) ? m[k] : []) {
+      if (!exists(p)) failures.push(`${at}: ${k} entry ${p} names no file or directory in the product`);
     }
     for (const u of m.uses || []) {
       if (u === '*earlier') { if (!m.legacy) failures.push(`${at}: only a legacy module may use "*earlier"`); continue; }

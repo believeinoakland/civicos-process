@@ -63,6 +63,14 @@ Each item below was moved, verbatim, out of the operative documents on 2026-10-0
 - 2. … BOB reads that list at the layer close before merging (certified by D4, 2026-09-26: `dryrun/CERTIFICATION.md` J8).
 - 5. **Batch30 is NOT landed** (Bob, 2026-09-25: no tokens for it).
 
+The one-time transition steps of §12, moved verbatim on 2026-10-01 (K1007) when §12 was cut to the rules still live (§12.2 legacy modules, §12.5 the snapshot):
+
+- 1. **Canon and build state.** BOB, with Bob, assembles `requirements/` from the design corpus, then drafts `manifest.md`, `layers.md`, `modules.json` and the target modules' requirements.
+- 3. **Tests.** Each extracted module's job writes its requirement-named tests at its interface. Source-anchored tests are retired with the legacy code they anchor on.
+- 4. **The old plan.** BOB rewrites each of the 225 open rows that affects the product as an entry against a target module, and drops the rest.
+- 5. **Batch30 is NOT landed.** It stays reachable in `snapshot/pre-refactor-2026-09-25`, with all the old process's unmerged work. **Its value is judged by the requirements, not in advance:** a target module's extraction job reads the legacy and snapshot code for its module, keeps what meets its requirements, and discards the rest. The old process's own tooling is not carried forward.
+- The section's heading as it stood: `## 12. Starting BIO on this process`; §1 said of the canon: "lives at `requirements/` in the product repository … For BIO, it is assembled from today's `docs/architecture/`."
+
 ### §13 Communication
 
 - Heading: (P9, P10, P13; bio K168) — "bio K168" moved.

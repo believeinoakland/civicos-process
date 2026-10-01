@@ -1,4 +1,4 @@
-// Tests of the four checks against small product repositories built in a temporary directory.
+// Tests of the architecture, coverage, ownership and format checks against small product repositories built in a temporary directory.
 // Each test builds exactly the state it needs, and asserts the named failure appears or does not.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -219,6 +219,20 @@ test('format: merge-conflict markers in the build state fail, naming file and li
   assert.ok(f.includes('build/layers.md:6: merge-conflict marker'), f.join('\n'));
   assert.ok(f.includes('build/layers.md:11: merge-conflict marker'), f.join('\n'));
   assert.deepEqual(checkFormat(repo(base()).root).failures, []);
+});
+
+test('format: every paths and tests entry names an existing file or directory (K1007)', () => {
+  const m = JSON.parse(MODULES());
+  m.modules[1].tests.push('test/a-extra/');
+  const pass = repo(base({ 'build/modules.json': JSON.stringify(m) }));
+  mkdirSync(join(pass.root, 'test/a-extra'));
+  assert.deepEqual(checkFormat(pass.root).failures, [], 'an existing, still empty tests directory counts');
+  const r = repo(base({ 'src/gone.mjs': 'x\n', 'build/modules.json': JSON.stringify({ ...JSON.parse(MODULES()), modules: JSON.parse(MODULES()).modules.map((x) => x.id === 'legacy' ? { ...x, paths: ['src/legacy.mjs', 'src/gone.mjs'] } : x) }) }));
+  assert.deepEqual(checkFormat(r.root).failures, []);
+  r.g('rm', '-q', 'src/gone.mjs'); r.g('commit', '-q', '-m', 'delete');
+  assert.deepEqual(checkFormat(r.root).failures, ['build/modules.json: legacy: paths entry src/gone.mjs names no file or directory in the product']);
+  r.g('rm', '-rq', 'test/b/'); r.g('commit', '-q', '-m', 'delete tests');
+  assert.match(checkFormat(r.root).failures.join('\n'), /b: tests entry test\/b\/ names no file or directory/);
 });
 
 test('format: modules out of layer order fail', () => {

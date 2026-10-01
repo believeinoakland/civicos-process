@@ -6,9 +6,12 @@ Created by Bob on 2026-09-26.
 
 | file | what |
 | --- | --- |
-| `PROCESS-DESIGN.md` | the principles, P1–P16, approved by Bob |
+| `PROCESS-DESIGN.md` | the principles, P1–P19, approved by Bob |
 | `PROCESS-MECHANICS.md` | how the principles are carried out, approved by Bob |
-| `roles/BOB.md`, `roles/JOB.md` | the standing instructions each role reads first (mechanics §2, §6) |
+| `roles/BOB.md`, `roles/JOB.md`, `roles/ROOT.md` | the standing instructions each role reads first (mechanics §2, §5, §6) |
 | `checks/` | the five checks (mechanics §8), with their tests; see `checks/README.md` |
+| `tools/mail.mjs` | the mailboxes between sessions (mechanics §13), with its tests |
+| `dryrun/` | the toy product that certifies a revision (mechanics §15) |
+| `HISTORY.md` | revision history and provenance, not read in normal work |
 
-The transition to this process is planned and logged in `docs/development/TRANSITION.md` on the branch `land/bob/process-design` of `believeinoakland/bio`.
+The transition to this process is planned and logged in `docs/development/TRANSITION.md` of `believeinoakland/bio`.
