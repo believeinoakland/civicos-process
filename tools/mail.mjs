@@ -315,11 +315,28 @@ function remoteHas(R, branch) {
   try { R.g(['ls-remote', '--exit-code', 'origin', `refs/heads/${branch}`], { quiet: true }); return true; }
   catch (e) { if (e.status === 2) return false; throw new Error(`cannot reach origin to read ${branch}`); }
 }
+// The tip of a mail branch last read in this clone: a private ref that only a read moves (a plain or forced fetch of
+// origin/<branch> does not), else, before the first read, the remote-tracking ref. A tip that does not descend from it
+// is a forced rewrite (§13.1 cl.1): every reader refuses it, and the ref stays put, so each later read refuses too.
+export const seenRef = (branch) => `refs/mail-seen/${branch}`;
+const revq = (root, ref) => { try { return execFileSync('git', ['-C', root, 'rev-parse', '-q', '--verify', `${ref}^{commit}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null; } catch { return null; } };
+export const lastSeen = (root, branch) => revq(root, seenRef(branch)) || revq(root, `refs/remotes/origin/${branch}`);
+export function rewriteFault(root, branch, before, tip) {
+  if (!before || !tip || before === tip) return null;
+  try { execFileSync('git', ['-C', root, 'merge-base', '--is-ancestor', before, tip], { stdio: 'ignore' }); return null; }
+  catch { return `${branch}: history rewritten: ${before.slice(0, 7)}, read before, is not in ${tip.slice(0, 7)}`; }
+}
+export const markSeen = (root, branch, tip) => execFileSync('git', ['-C', root, 'update-ref', seenRef(branch), tip], { stdio: 'ignore' });
 // A participant's outbox as pushed: its text (null before the branch exists) and the branch's tip.
 function readMail(R, p) {
   if (!remoteHas(R, p.branch)) return { text: null, tip: null };
+  const before = lastSeen(R.root, p.branch);
   if (!fetchBranch(R, p.branch)) throw new Error(`cannot fetch ${p.branch}`);
-  return { text: showRemote(R, p.branch, p.outbox), tip: R.g(['rev-parse', `origin/${p.branch}`]).trim() };
+  const tip = R.g(['rev-parse', `origin/${p.branch}`]).trim();
+  const fault = rewriteFault(R.root, p.branch, before, tip);
+  if (fault) throw new Error(`${fault} (a forced push): refusing to read ${p.name}'s outbox; settle it with its writer`);
+  markSeen(R.root, p.branch, tip);
+  return { text: showRemote(R, p.branch, p.outbox), tip };
 }
 // Commit the edited outbox onto the remote tip of its own mail branch (an orphan holding only the outbox when the
 // branch is absent) and push; never a force, never another participant's branch. A push that loses a race re-reads once.

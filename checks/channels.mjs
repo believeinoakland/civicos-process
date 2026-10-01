@@ -2,13 +2,13 @@
 // pushed is never rewritten or removed, entry numbers rise by one, and a cursor never moves backwards.
 // It reads the registry `build/channels.md` in the product's working tree; with none, there is nothing to check.
 // For each row it fetches the mail branch from origin (when there is one), and fails if the branch's new tip does not
-// descend from the tip read before (a forced rewrite), then walks every commit that touched the outbox, oldest first,
-// comparing the outbox with its text in the commit before.
+// descend from the tip last read in this clone (tools/mail.mjs's seenRef, which the x-commands share: a forced
+// rewrite), then walks every commit that touched the outbox, oldest first, comparing it with its text in the commit before.
 // Usage: node checks/channels.mjs <product-root>
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseRegistry, parseOutbox, REGISTRY } from '../tools/mail.mjs';
+import { parseRegistry, parseOutbox, REGISTRY, lastSeen, rewriteFault, markSeen } from '../tools/mail.mjs';
 import { report } from './lib.mjs';
 
 function gitq(root, args) {
@@ -58,13 +58,12 @@ export function checkChannels(root, { fetch = true } = {}) {
   let commits = 0;
   for (const p of rows) {
     const remote = `refs/remotes/origin/${p.branch}`;
-    const before = rev(root, remote);
+    const before = lastSeen(root, p.branch);
     if (fetch && hasOrigin) gitq(root, ['fetch', '-q', 'origin', `+refs/heads/${p.branch}:${remote}`]);
     const tip = rev(root, remote) || rev(root, `refs/heads/${p.branch}`);
     if (!tip) { absent.push(p.name); continue; }
-    if (before && before !== tip && gitq(root, ['merge-base', '--is-ancestor', before, tip]) === null) {
-      failures.push(`${p.name} ${p.branch}: history rewritten: ${before.slice(0, 7)}, read before, is not in ${tip.slice(0, 7)}`);
-    }
+    const fault = rewriteFault(root, p.branch, before, tip);
+    if (fault) failures.push(`${p.name} ${fault}`); else markSeen(root, p.branch, tip);
     const list = (gitq(root, ['rev-list', '--reverse', '--parents', tip, '--', p.outbox]) || '').trim().split('\n').filter(Boolean);
     for (const line of list) {
       const [c, ...parents] = line.split(' ');

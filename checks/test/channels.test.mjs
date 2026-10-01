@@ -219,3 +219,47 @@ test('channels check: a forced rewrite of a mail branch, invisible in the new hi
   const f = checkChannels(w.ux).failures;
   assert.ok(f.some((x) => /^BOB mail\/BOB: history rewritten: [0-9a-f]{7}, read before, is not in [0-9a-f]{7}$/.test(x)), f.join('\n'));
 });
+
+// The same rewrite, met first by an x-command: the reader refuses it, names the branch and both tips, and keeps refusing
+// (the forced fetch moves origin/<branch>, not the tip last read), and so does the check run after it.
+const rewriteB2 = (w) => handEdit(w, 'mail/BOB', 'mail/BOB.md', (t) => `${t.trimEnd()}\n\n## B2 · NOTICE · 2026-10-01 · ${SB} · secondary\na different B2\n`, { force: true });
+const REWRITTEN = /mail\/BOB: history rewritten: [0-9a-f]{7}, read before, is not in [0-9a-f]{7}/;
+
+test('channels: xinbox first after a forced rewrite refuses, and so do later reads and the check', () => {
+  const w = exchanged();
+  xinbox({ product: w.ux, as: 'UX-DESIGN', from: 'BOB' });       // the reader has seen the tip
+  const seen = g(w.ux, 'rev-parse', 'origin/mail/BOB').trim();
+  rewriteB2(w);
+  const fresh = execFileSync('git', ['--git-dir', w.origin, 'rev-parse', 'mail/BOB'], { encoding: 'utf8' }).trim();
+  assert.throws(() => xinbox({ product: w.ux, as: 'UX-DESIGN', from: 'BOB' }), (e) => REWRITTEN.test(e.message) && e.message.includes(seen.slice(0, 7)) && e.message.includes(fresh.slice(0, 7)));
+  assert.throws(() => xinbox({ product: w.ux, as: 'UX-DESIGN', from: 'BOB' }), REWRITTEN);
+  assert.throws(() => xcheck({ product: w.ux, as: 'UX-DESIGN' }), REWRITTEN);
+  assert.ok(checkChannels(w.ux).failures.some((x) => REWRITTEN.test(x)));
+});
+
+test('channels: xcheck first after a forced rewrite refuses, and the check still fails', () => {
+  const w = exchanged();
+  xcheck({ product: w.ux, as: 'UX-DESIGN' });
+  rewriteB2(w);
+  assert.throws(() => xcheck({ product: w.ux, as: 'UX-DESIGN' }), REWRITTEN);
+  assert.ok(checkChannels(w.ux).failures.some((x) => REWRITTEN.test(x)));
+  assert.ok(checkChannels(w.ux).failures.some((x) => REWRITTEN.test(x)));   // and on its second run
+});
+
+test('channels: a plain fetch after a forced rewrite does not hide it from the reader', () => {
+  const w = exchanged();
+  xinbox({ product: w.ux, as: 'UX-DESIGN', from: 'BOB' });
+  rewriteB2(w);
+  g(w.ux, 'fetch', '-q', 'origin');                               // moves origin/mail/BOB by force
+  assert.throws(() => xinbox({ product: w.ux, as: 'UX-DESIGN', from: 'BOB' }), REWRITTEN);
+});
+
+test('channels: an ordinary append after a read passes the readers and the check', () => {
+  const w = exchanged();
+  xinbox({ product: w.ux, as: 'UX-DESIGN', from: 'BOB' });
+  assert.deepEqual(checkChannels(w.ux).failures, []);
+  xpost({ product: w.bob, as: 'BOB', kind: 'NOTICE', body: 'K905 (Bob): a later ruling.' });
+  assert.deepEqual(xinbox({ product: w.ux, as: 'UX-DESIGN', from: 'BOB' }).entries.map((e) => e.id), ['B2', 'B3']);
+  assert.deepEqual(xcheck({ product: w.ux, as: 'UX-DESIGN' })[0].unread, ['B2 DEFER', 'B3 NOTICE']);
+  assert.deepEqual(checkChannels(w.ux).failures, []);
+});
