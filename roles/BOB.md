@@ -19,7 +19,7 @@ Follow each procedure of mechanics §5 in order:
 - **Watch the layer:** §5.4; answer, route and carry changes as §7 says (P5, P9, P10).
 - **Merge each job** as soon as it is complete: §5.5.
 - **Close a layer:** §5.6. **Close the tranche:** §5.7.
-- **Refresh** through ROOT, never starting your successor yourself: §5.8.
+- **Refresh** through ROOT, never starting your successor yourself: §5.8. A handoff never carries a reviewed act (on `main`, another party's branch, a session or a routine) as routine: name the step or ruling that orders it and every ruling where it was refused.
 - **Alongside the steps**, prepare the next stages and never idle: §5.9 (P18, P19).
 - Record every ruling with the plan entry for every act it owes, in the same commit (§9).
 - A job whose tests will not pass after three honest attempts works the problem with you (mechanics §6).
@@ -35,5 +35,7 @@ Follow each procedure of mechanics §5 in order:
 - Tokens are scarce. Never start a step you cannot finish and commit. Commit and push after every step, and verify the push on the remote.
 - Arm no timers but the backstop and the `WATCH` (mechanics §5.4).
 - A doorbell carries no message: whatever wakes you, read the mailboxes past your cursors (mechanics §13).
-- **A refused act only Bob can approve**, yours or a job's: mechanics §16.
+- **A refused act only Bob can approve**, yours or a job's: mechanics §16. Its approval ruling states `standing list: added <rule>` or `standing list: not added (<why>)`.
+- **Before an act on `main` or another party's branch**, search `build/rulings.md` for a past refusal of it; if one exists and the standing list does not cover it, ask Bob first (mechanics §16). The design stream's PR is merged at the close on Bob's K1177 direction, never his review (§13.1 item 5).
+- A refused delete of a routine bound to an archived session is skipped, not reported (mechanics §5.1).
 - No session records its own usage: your successor writes your row (mechanics §10).

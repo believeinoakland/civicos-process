@@ -242,6 +242,33 @@ test('format: modules out of layer order fail', () => {
   assert.match(checkFormat(root).failures.join('\n'), /c: layer 1 after layer 2/);
 });
 
+test('format: an approval ruling after the cut-over states its standing-list decision (§16, bio K1177)', () => {
+  const head = '# Rulings\n\n';
+  const line = (n, text) => `- K${n} · 2026-10-02 · process · ${text} · §16, P17\n`;
+  const bare = 'Bob approved, in BOB #9\'s session, archiving BOB #8 (refused by the permission check)';
+  // At or before the cut-over (K1181) the history is exempt; after it, the bare approval fails.
+  assert.deepEqual(checkFormat(repo(base({ 'build/rulings.md': head + line(1181, bare) })).root).failures, []);
+  const f = checkFormat(repo(base({ 'build/rulings.md': head + line(1181, bare) + line(1182, bare) })).root).failures;
+  assert.deepEqual(f, [`build/rulings.md:4: K1182 records Bob's approval of a refused act but states no standing-list decision ("standing list: added \`<rule>\`" or "standing list: not added (<why>)", §16)`]);
+  // Either decision, stated, passes.
+  for (const d of ['standing list: added `mcp__claude-code-remote__archive_session`', 'standing list: not added (a one-off act at a boundary)']) {
+    assert.deepEqual(checkFormat(repo(base({ 'build/rulings.md': head + line(1182, `${bare}; ${d}`) })).root).failures, [], d);
+  }
+  // A decision with no rule or no reason is no decision.
+  for (const d of ['standing list: added', 'standing list: added archive_session', 'standing list: not added', 'standing list: not added ()']) {
+    assert.equal(checkFormat(repo(base({ 'build/rulings.md': head + line(1182, `${bare}; ${d}`) })).root).failures.length, 1, d);
+  }
+  // Recognised by naming the permission check without citing §16; not recognised when nothing was approved (a refusal
+  // still waiting on Bob) or when no refusal is cited (Bob approving a requirement).
+  const noCite = '- K1183 · 2026-10-02 · UX stream · PR #8 merged; the auto-mode check flagged it and Bob approved · P17\n';
+  assert.equal(checkFormat(repo(base({ 'build/rulings.md': head + noCite })).root).failures.length, 1);
+  const waiting = line(1184, 'Archiving BOB #8 was refused by the permission check; NEEDS BOB, the approval to type named');
+  const req = '- K1185 · 2026-10-02 · capture · Bob approved R31 as drafted · P5\n';
+  assert.deepEqual(checkFormat(repo(base({ 'build/rulings.md': head + waiting + req })).root).failures, []);
+  // The cut-over is configurable.
+  assert.deepEqual(checkFormat(repo(base({ 'build/rulings.md': head + line(1182, bare) })).root, { approvalsLastExempt: 1182 }).failures, []);
+});
+
 test('ownership: a module extracted from two legacy modules removes from each and is judged per module (D5)', () => {
   const mods = JSON.stringify({ not_product: ['build/'], modules: [
     { id: 'cat', layer: 1, legacy: true, paths: ['src/cat.mjs'], tests: [], uses: [] },

@@ -1,5 +1,7 @@
 // Check 4, format (PROCESS-MECHANICS §8.4; P4, P5, P15): the build state's files parse, every id they
 // reference exists, and every module's `paths` and `tests` entry names a file or directory in the product tree.
+// Also (§16, §9; P15, P17): every ruling numbered after APPROVALS_LAST_EXEMPT that records Bob's approval of a
+// refused act states its standing-list decision.
 // Usage: node checks/format.mjs <product-root>
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -31,8 +33,30 @@ function pathExists(root, tracked) {
   };
 }
 
-export function checkFormat(root) {
-  const failures = conflictMarkers(root);
+// The approvals revision (bio K1177, `next.md` P1; P15, P17, mechanics §16): a ruling records Bob's approval of a refused act
+// when it says `approved` and cites §16 or names the permission check (`permission`, `auto-mode` or `safety check`).
+// It must state `standing list: added <rule>` (the settings.json rule in backticks) or `standing list: not added (<why>)`. The rulings up to and including
+// K1181 predate the rule and are exempt.
+export const APPROVALS_LAST_EXEMPT = 1181;
+const RULING = /^- K(\d+) · /;
+const STANDING = /standing list: (?:added\s+`[^`]+`|not added\s*\(\s*[^\s)])/i;
+export function isApprovalRuling(line) {
+  return /\bapproved\b/i.test(line) && (/§16(?!\d)/.test(line) || /\b(?:permission|auto-mode|safety) check\b/i.test(line));
+}
+function approvalRulings(root, lastExempt) {
+  const p = join(root, 'build/rulings.md');
+  if (!existsSync(p)) return [];
+  const out = [];
+  readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
+    const m = line.match(RULING);
+    if (!m || Number(m[1]) <= lastExempt || !isApprovalRuling(line) || STANDING.test(line)) return;
+    out.push(`build/rulings.md:${i + 1}: K${m[1]} records Bob's approval of a refused act but states no standing-list decision ("standing list: added \`<rule>\`" or "standing list: not added (<why>)", §16)`);
+  });
+  return out;
+}
+
+export function checkFormat(root, { approvalsLastExempt = APPROVALS_LAST_EXEMPT } = {}) {
+  const failures = [...conflictMarkers(root), ...approvalRulings(root, approvalsLastExempt)];
   let tracked = [];
   try { tracked = trackedFiles(root); } catch { /* not a git repository: the checkout alone is read */ }
   const exists = pathExists(root, tracked);
