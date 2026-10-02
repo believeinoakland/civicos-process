@@ -22,6 +22,7 @@ Each item below was moved, verbatim, out of the operative documents on 2026-10-0
 
 - (APPROVED by Bob 2026-09-30: "Yes, urgency! Add it, and live it."; his words: "development productivity is one of the highest priorities"; "don't stop", "pipeline", "go, go, go!"; "The layer level waits are proper. Complete code coverage is proper. All the safeguards in the process are proper.")
 - (APPROVED by Bob 2026-10-01) — on "A plan is written from the work that remains, not from the work that is queued".
+- (APPROVED by Bob 2026-10-02: "Yes, yes, yes! Of course you decide Q1-Q3."; bio K1255) — P4: the modules that carry a capability Bob has already ruled are BOB's to define.
 
 ## PROCESS-MECHANICS.md
 
