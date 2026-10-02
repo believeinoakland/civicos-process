@@ -1,61 +1,16 @@
 {
   "permissions": {
-    "defaultMode": "bypassPermissions",
     "allow": [
-      "Read",
-      "Grep",
-      "Glob",
-      "Bash",
       "Bash(rm .git/hooks/*)",
       "Bash(rm -f .git/hooks/*)",
       "Edit(//home/user/civicos-process/**)",
       "Write(//home/user/civicos-process/**)",
       "mcp__Claude_Code_Remote__archive_session",
-      "Bash(git rm -q -- bio-plane/test/:*)",
-      "Bash(git rm -q -- civicos-ui/test/:*)",
-      "Bash(git rm -q -- agent-worker/test/:*)",
-      "Bash(git rm -q -- ocr-worker/test/:*)",
       "mcp__github__merge_pull_request",
       "mcp__claude-code-remote__archive_session",
       "mcp__claude-code-remote__delete_trigger",
       "Bash(node tools/mail.mjs xcheck:*)",
       "Bash(node /home/user/civicos-process/tools/mail.mjs xcheck:*)"
-    ],
-    "deny": [
-      "Bash(git push --force:*)",
-      "Bash(git push -f:*)",
-      "Bash(git push --force-with-lease:*)",
-      "Bash(git push --force*)",
-      "Bash(git push * --force*)",
-      "Bash(git push * -f)",
-      "Bash(git push * -f *)",
-      "Bash(git push *+*)",
-      "Bash(git push *--mirror*)",
-      "Bash(git -C * push *--force*)",
-      "Bash(git -C * push * -f*)",
-      "Bash(git -C * push *+*)",
-      "Bash(git reset --hard:*)",
-      "Bash(git clean -fdx:*)",
-      "Bash(rm -rf:*)",
-      "Bash(sudo:*)",
-      "Bash(chmod 777:*)"
-    ],
-    "ask": [
-      "Write(.env)",
-      "Edit(.env)"
-    ]
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh",
-            "timeout": 600
-          }
-        ]
-      }
     ]
   }
 }
