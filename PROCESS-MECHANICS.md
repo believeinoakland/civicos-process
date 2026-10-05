@@ -76,7 +76,7 @@ A job for a module being written, or gaining capabilities, reads the **Purpose**
 - **A provided service changed within a layer.** BOB first writes the change into the provider's requirements on the tranche branch (§7) and tells both jobs (§13). The providing job merges the tranche branch into its own and implements the change; when it records completion, BOB merges its branch into the tranche branch at once, and tells the using job, which merges the tranche branch into its own. Each job's ownership check, taken against the tranche branch, still sees only its own changes.
 - **Whenever BOB changes a file on the tranche branch that a running job reads** (its requirements, its entries, a used module's public part), BOB tells that job (§13), and the job merges the tranche branch into its own before continuing.
 - **A tool fix made on the process repository's `main` during a tranche** reaches running jobs as a `CHANGE` naming the fix; a fix to product state is committed on the tranche branch and announced the same way.
-- When the last layer completes, the tranche closes (§5.7): `main`, if it moved, is merged into the tranche branch (never a rebase), the plan is archived on the tranche branch, and then the tranche branch is merged into `main` by a pull request merged with the GitHub merge tool (§5.7 step 3).
+- When the last layer completes, the tranche closes (§5.7): `main`, if it moved, is merged into the tranche branch (never a rebase), the plan is archived on the tranche branch, and then `main` is fast-forwarded to it.
 
 A failed tranche is abandoned without touching `main`.
 
@@ -153,7 +153,7 @@ The layer closes when every job is merged and none is open (P10).
 Each step is pushed, so an interrupted close is a named state that any BOB resumes (P12).
 1. If the design stream has asked for its PR to be merged (`MERGE`, §13.1 item 5), merge it into `main`. If `main` has moved, merge `main` into the tranche branch first (never a rebase), keeping that stream's text in any conflict, and run `node checks/run.mjs` again (P12).
 2. Move `current.md` to `archive/T<n>.md` on the tranche branch, with each entry's outcome and the tranche's measured usage, its Status line `CLOSING` (P12, P14).
-3. Bring `main` to that commit through a pull request from `tranche/T<n>` to `main`, merged with the GitHub merge tool (`mcp__github__merge_pull_request`, method `merge`), never a direct push to `main`; the tranche is closed exactly when `main` contains that commit. Its authority is Bob's standing direction (bio `CLAUDE.md`, 2026-10-02: development pull requests are merged into `main` by BOB sessions with the GitHub merge tool at a tranche boundary, without his review) and the standing list (bio K1261); a direct push of `main` reads to the permission layer as a merge without review and is refused at random (bio K1454, K1496). A refused step is §16's, its `NEEDS BOB` line in BOB's handoff (P12, P17).
+3. Fast-forward `main` to that commit; the tranche is closed exactly when `main` is at it. A refused step is §16's, its `NEEDS BOB` line in BOB's handoff (P12, P17).
 4. Delete the backstop and the `WATCH` (P13).
 5. Ask Bob for his weekly meter reading again, and report the tranche to him in plain words: its elapsed time, the work it finished (legacy lines removed, entries applied), what was deferred and why, the work left, and what it cost (P14, P19).
 6. Open the next tranche at once (§5.2) (P18).
