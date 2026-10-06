@@ -128,3 +128,11 @@ From the approvals study (bio `build/plan/approvals-study/`): no session reaches
 | V5 | a refused delete of a routine bound to an archived session is skipped, not reported (§5.1 step 5) | the next takeover whose predecessor's routine delete is refused: no `NEEDS BOB` and no line to Bob for it; the takeover ruling notes it skipped | T1: the refusal is the platform's and not reproducible on demand; the check is the takeover ruling |
 
 **Certification.** V1 is PROVEN by its fixture test. V2–V5 change only what BOB does when the permission layer is involved, which a dry run's toy cannot reproduce (A3's reason, §15): each names the product tranche event that will show it and the check there. The revision is certified for use when BOB records it so in a bio ruling.
+
+## The terms-citation revision (proposed, 2026-10-06; bio K1763 (5), N656)
+
+Every statement of a limit on Anthropic's accounts, plans or terms cites the register (bio `build/terms/anthropic.md`, K1763) or a ruling of Bob's (P15, P17). §8.4; `checks/format.mjs` (`termsClaims`).
+
+| # | path | evidence | status |
+| --- | --- | --- | --- |
+| TC1 | the format check fails a sentence in scope stating a limit on Anthropic's accounts, plans or terms that cites no register id and no ruling of Bob's, and any `AT-n`/`U-n` the register lacks; skips a product with no register (§8.4) | `checks/test/checks.test.mjs`, the five "(N656)" tests over `checks/test/fixtures/terms/`: a cited claim passes; an uncited one fails naming file and line; `AT-99` fails; "Bob's choice" with a K id passes and a K id alone fails; code spans, fenced blocks and ordinary product text (`only that member's own asks`) pass; rulings read from K1764 only; the register read from the manifest; no register, skipped. Negative control: the arm's failures dropped, the five tests fail (`checks/README.md`). On bio: the run on `tranche/T34` lists its failures, each read by BOB as a genuine uncited claim or a pattern to tune, and the sweep of K1763 (4) brings the product to 0 before the arm binds from T35 | PLANNED: fixture tests pass (124 of 124 with the whole suite); bio `tranche/T34` fails 6 sentences on 5 lines, not yet read by BOB |

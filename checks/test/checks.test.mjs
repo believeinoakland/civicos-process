@@ -356,3 +356,48 @@ test('ownership: onlyRemoves reads tokens, and a string literal is one token (K1
   const hunk = { gone: ['const x = f(a, b);'], lines: [{ n: 1, text: 'const x = f(a);' }, { n: 2, text: 'const y = 2;' }] };
   assert.deepEqual([...removalEdits(hunk)].map((l) => l.n), [1]);
 });
+
+// N656 (bio K1763; P15, P17): a statement of a limit on Anthropic's accounts, plans or terms cites the register or Bob.
+const TERMS = (f) => readFileSync(new URL(`./fixtures/terms/${f}`, import.meta.url), 'utf8');
+const withRegister = (over = {}) => base({ 'build/terms/anthropic.md': TERMS('register.md'), ...over });
+
+process.env.CIVICOS_TERMS_CHECK = '1'; // N656 is opt-in until certified (P3)
+test('format: a limit on Anthropic\'s terms citing a register id passes; an uncited one fails, naming file and line (N656, K1763)', () => {
+  assert.deepEqual(checkFormat(repo(withRegister({ 'docs/architecture/cited.md': TERMS('cited.md') })).root).failures, []);
+  assert.deepEqual(checkFormat(repo(withRegister({ 'docs/architecture/uncited.md': TERMS('uncited.md') })).root).failures,
+    ['docs/architecture/uncited.md:4: uncited limit on Anthropic\'s terms ("A Team plan seat may not serve the other members of the group.")']);
+});
+
+test('format: an AT or U id the register does not define fails (N656, K1763)', () => {
+  const f = checkFormat(repo(withRegister({ 'docs/architecture/missing.md': TERMS('missing-id.md') })).root).failures;
+  assert.equal(f.length, 1, f.join('\n'));
+  assert.match(f[0], /^docs\/architecture\/missing\.md:3: uncited limit on Anthropic's terms \("Anthropic's terms forbid sharing a Pro subscription \(AT-99\)\."\): AT-99 not in build\/terms\/anthropic\.md$/);
+});
+
+test('format: a limit labelled Bob\'s choice with his ruling passes; the ruling alone does not (N656, K1763 (2))', () => {
+  const f = checkFormat(repo(withRegister({ 'build/plan/next.md': TERMS('bobs-choice.md') })).root).failures;
+  assert.deepEqual(f, ['build/plan/next.md:4: uncited limit on Anthropic\'s terms ("The subscription token serves only its own member (K1755).")']);
+});
+
+test('format: code spans, fenced blocks and ordinary product text are not claims about the terms (N656)', () => {
+  assert.deepEqual(checkFormat(repo(withRegister({ 'docs/architecture/product.md': TERMS('product-text.md') })).root).failures, []);
+});
+
+test('format: rulings are read from K1764 on; the register itself and files out of scope are not read (N656)', () => {
+  const claim = 'A Team plan seat may not serve the other members of the group.';
+  const rulings = `# Rulings\n\n- K1763 · 2026-10-06 · process · ${claim} · P15\n- K1764 · 2026-10-06 · process · ${claim} · P15\n`;
+  const f = checkFormat(repo(withRegister({ 'build/rulings.md': rulings, 'build/jobs/T1/a.md': claim, 'docs/development/x.md': claim })).root).failures;
+  assert.deepEqual(f, [`build/rulings.md:4: uncited limit on Anthropic's terms ("${claim}")`]);
+});
+
+test('format: the register named in the manifest is used; a product with no register skips the arm (N656)', () => {
+  const uncited = { 'docs/architecture/uncited.md': TERMS('uncited.md') };
+  assert.deepEqual(checkFormat(repo(base(uncited)).root).failures, [], 'no register: skipped');
+  assert.doesNotMatch(checkFormat(repo(base(uncited)).root).summary, /terms register/);
+  const manifest = '# Build manifest\n\n| what | where |\n| --- | --- |\n| what Anthropic\'s plans and terms permit or forbid | `build/legal/terms.md` |\n';
+  const moved = repo(base({ ...uncited, 'build/manifest.md': manifest, 'build/legal/terms.md': TERMS('register.md') })).root;
+  assert.equal(checkFormat(moved).failures.length, 1);
+  assert.match(checkFormat(moved).summary, /terms register build\/legal\/terms\.md/);
+  const named = repo(base({ ...uncited, 'build/manifest.md': manifest, 'build/terms/anthropic.md': TERMS('register.md') })).root;
+  assert.deepEqual(checkFormat(named).failures, [], 'the manifest names a register that does not exist: skipped');
+});
