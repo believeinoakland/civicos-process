@@ -100,3 +100,8 @@ The one-time transition steps of §12, moved verbatim on 2026-10-01 (K1007) when
 ## roles/JOB.md
 
 Nothing moved.
+
+
+## 2026-10-06 · BOB's refresh threshold (bio K1720)
+
+P13 and mechanics §2, §5.8 said BOB refreshes when its context passes "about 2–3 times its working set"; BOBs refreshed near 330–340k of a 1M window. Bob, 2026-10-06: "I think that the point where BOB's start thinking about refreshing should be at 50% rather than ~30%". Replaced by: half of the context window, at the next point where no step is half done. A parameter of P13 set by Bob, its reason (cost) unchanged; no path of the mechanics changes, so no dry run (P3, §15).
