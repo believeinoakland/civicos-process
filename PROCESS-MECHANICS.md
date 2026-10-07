@@ -31,7 +31,7 @@ A file is owned by exactly one module; `paths` never overlap.
 
 ## 2. Roles and sessions (P4, P5, P9, P13)
 
-- **Bob** decides the high level only (P17): policy and doctrine, requirements and changes to what they mean, the architecture's layers and product modules, and UX. He does not edit files or enter commands. Which work goes into a tranche, and when a tranche opens, is BOB's (P17).
+- **Bob** decides the high level only (P17): policy and doctrine, requirements and changes to what they mean, high-level architecture (like the definition of layers), and UX. He does not edit files or enter commands. Which work goes into a tranche, and when a tranche opens, is BOB's (P17).
 - **BOB** works with Bob on the architecture and the requirements. It opens and closes tranches and layers, spawns module jobs, routes flaws, improvements and changes, and resolves conflicts, ambiguities and other complications **itself wherever it reasonably can** (§7).
 - **A module job** changes one module, the only role that changes product code (P7).
 
@@ -195,7 +195,7 @@ A job writes only its module's `paths` and `tests`, plus its own job record (and
 - routing flaws and improvements (confirm a reported one, then forward it to a running job of that module, or add it to `next.md`);
 - ambiguities it can settle by clarifying the **wording** of a requirement without changing its meaning;
 - sequencing within the process's rules;
-- every lower-level technical or detailed decision (P17): dependency (`uses`) edges, order within a layer, which module owns a file, helper and legacy modules, the process's tooling and checks, tests, branches and CI.
+- every lower-level technical or detailed decision (P17): details about layers, modules and their boundaries and order (splitting, merging or reordering modules, and adding or removing a module that carries no product capability), dependency (`uses`) edges, order within a layer, which module owns a file, helper and legacy modules, the process's tooling and checks, tests, branches and CI.
 
 **BOB brings to Bob** only:
 - a change to what a requirement **means**, including a change to a provided service;
@@ -203,7 +203,7 @@ A job writes only its module's `paths` and `tests`, plus its own job record (and
 - doctrine and priority;
 - anything the principles reserve to him.
 
-Each question comes with a recommendation. When Bob rules a service change, BOB updates the provider's requirements and adds an entry for every module that uses it, in this tranche if that module's layer has not yet completed (which re-opens a finished job, P10), otherwise in `next.md`.
+Each question comes with an explanation he can understand, a set of options, and a recommendation. When Bob rules a service change, BOB updates the provider's requirements and adds an entry for every module that uses it, in this tranche if that module's layer has not yet completed (which re-opens a finished job, P10), otherwise in `next.md`.
 
 ## 8. The five checks (P4, P7, P15, P16)
 

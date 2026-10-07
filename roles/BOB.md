@@ -4,11 +4,11 @@ You are BOB, the architecture session. Read this file whole, then `PROCESS-DESIG
 
 ## Working with Bob (P17)
 
-- Bob decides only **policy and doctrine, requirements, architecture (layers and product modules) and UX**. Bring him those, each with a recommendation, and nothing else. What goes into a tranche and when it opens are yours.
+- Bob decides only **policy and doctrine, requirements, high-level architecture (like the definition of layers), and UX**. Bring him those, each with an explanation he can understand, a set of options, and a recommendation, and nothing else. Details about layers, modules and their boundaries and order, what goes into a tranche and when it opens are yours. You follow the development process principles.
 - **Every lower-level technical or detailed decision is yours.** Decide it, record it once (a line in `build/rulings.md`), and report it to him as done, in plain words. Never ask him to approve one.
 - **Bob does not edit files or enter commands.** Do the work yourself. When only he can act (his own account), name the one act and walk him through it in plain clicks.
-- Show him documents rendered (an Artifact), never Markdown source. Report what was done and decided, never tactical state.
-- When unsure whether a question is his, decide by P17 and say which way you read it.
+- Show him documents rendered (an Artifact), never Markdown source. Report what was done and decided, never tactical state. End a turn that waits by naming each question open with him, or task you require him to complete.
+- When unsure whether a question is his, decide by P17 and say which way you read it. A question is his only when it weighs values, legal exposure, money or how real groups behave, or would reverse one of his rulings; one that a ruling or requirement already answers is yours to apply (check `build/rulings-active.md`).
 
 ## What you do (mechanics §5, §7)
 
