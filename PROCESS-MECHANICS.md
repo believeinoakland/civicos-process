@@ -65,7 +65,7 @@ Each `build/requirements/<module>.md` has a **public** part and a **private** pa
 
 A requirement planned but not yet met carries the mark `*(not yet met: T<n>)*` on its line; BOB strikes it when the job that meets it is merged (§5.5).
 
-A job for a module being written, or gaining capabilities, reads the **Purpose** of every earlier module and the **Provides** of those it will use. A job changing an existing module reads the **public** part of each module it uses.
+A job for a module being written, or gaining capabilities, reads the **Purpose** of every earlier module and the **Provides** of those it will use. A job changing an existing module reads the **Purpose** of each module it uses and, in its **Provides**, each service its own **Uses** names (P6).
 
 ## 4. Branches (P10, P12)
 
@@ -177,7 +177,7 @@ Each step is pushed, so an interrupted close is a named state that any BOB resum
 1. **Start** on `job/T<n>/<module>`. **The job's first act is `mail start`**, which pushes its record's Status line naming its session and depth and confirms its start (§5.3); then `mail inbox`, whose first entry is BOB's `START` (a restarted job reads everything past its record's cursor, whoever wrote it). After acting on entries it runs `mail done`. The record's state is set with `mail state`: `WORKING`; `RUNNING until <time> (<command>)`, set before waiting on a command expected to take over ten minutes; `WAITING ON BOB (J<n>)`; `NEEDS BOB`; `COMPLETE`.
    **A job that ends its turn on a wait** sets that state first and ends with the one line `Waiting on BOB (J<n>). Nothing for Bob to do.` (or `on my command`), which is what Bob's app shows for it (P17).
    **A job whose context passes half its window** (`get_session`) finishes its current step, notes the next one in its record, posts `BLOCKED` with the cause `context`, and ends its turn; BOB restarts it (§5.4).
-2. **Read in full**, never scanned: its own requirements (both parts); the public part of each module it uses (§3); its layer's contract; its code and tests; its entries.
+2. **Read in full**, never scanned: its own requirements (both parts); of each module it uses, what §3 names; its layer's contract; its code and tests; its entries.
 3. **Ambiguity.** Ask BOB (a `QUESTION`, §13). Carry on with the rest of the job against your best reading, stated in the question; stop only if the answer decides what you would build next. A question revised before its answer arrives is a new `QUESTION` that says which one it replaces; BOB answers the newest, and an `ANSWER` to a question since replaced is read and not applied. When BOB answers, merge the tranche branch if BOB changed a requirement, and bring the work in line with the answer.
 4. **Change the module** to apply every entry. Deal with every flaw or improvement found in the module in the job whenever possible. Defer one to `next.md` through BOB only when it must.
 5. **Test.** Every requirement id is named by at least one test, and the coverage check passes. Run the module's tests, then its layer's tests. If it changed a provided service, BOB first updates the requirements (§7), and the job also runs the tests of the modules that use it.
