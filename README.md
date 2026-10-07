@@ -6,7 +6,7 @@ Created by Bob on 2026-09-26.
 
 | file | what |
 | --- | --- |
-| `PROCESS-DESIGN.md` | the principles, P1–P19, approved by Bob |
+| `PROCESS-DESIGN.md` | the principles, P1–P20, approved by Bob |
 | `PROCESS-MECHANICS.md` | how the principles are carried out, approved by Bob |
 | `roles/BOB.md`, `roles/JOB.md`, `roles/ROOT.md` | the standing instructions each role reads first (mechanics §2, §5, §6) |
 | `checks/` | the five checks (mechanics §8), with their tests; see `checks/README.md` |

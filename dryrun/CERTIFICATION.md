@@ -136,3 +136,9 @@ Every statement of a limit on Anthropic's accounts, plans or terms cites the reg
 | # | path | evidence | status |
 | --- | --- | --- | --- |
 | TC1 | the format check fails a sentence in scope stating a limit on Anthropic's accounts, plans or terms that cites no register id and no ruling of Bob's, and any `AT-n`/`U-n` the register lacks; skips a product with no register (§8.4) | `checks/test/checks.test.mjs`, the five "(N656)" tests over `checks/test/fixtures/terms/`: a cited claim passes; an uncited one fails naming file and line; `AT-99` fails; "Bob's choice" with a K id passes and a K id alone fails; code spans, fenced blocks and ordinary product text (`only that member's own asks`) pass; rulings read from K1764 only; the register read from the manifest; no register, skipped. Negative control: the arm's failures dropped, the five tests fail (`checks/README.md`). On bio: the run on `tranche/T34` lists its failures, each read by BOB as a genuine uncited claim or a pattern to tune, and the sweep of K1763 (4) brings the product to 0 before the arm binds from T35 | PLANNED: fixture tests pass (124 of 124 with the whole suite); bio `tranche/T34` fails 6 sentences on 5 lines, not yet read by BOB |
+
+## Reading sets (mechanics §17; P20)
+
+| # | path | evidence | status |
+| --- | --- | --- | --- |
+| RS1 | a job's set is measured at its START and, over the limit, fixed in §17's order before the session starts; a task summary's helpers are given the job's entries, the requirements it changes and the stages after it | the START names the measured size and any summary with its cited sections; the job completes reading the set whole | PLANNED (a dry run at bio T36's opening, bio K2060) |

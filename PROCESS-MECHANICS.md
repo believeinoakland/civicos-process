@@ -1,6 +1,6 @@
 # The process mechanics
 
-**Status** · In force. Approved by Bob. History: `HISTORY.md`. §13.1 and §8.5 are certified by D12 (`dryrun/RUNS.md`). This document describes HOW the approved principles (`PROCESS-DESIGN.md`, P1–P19) are carried out. Each mechanism cites the principle it serves (P16). Where it and the principles disagree, the principles win. Its home is this repository, beside the principles (P2). The product repository it is applied to is `believeinoakland/bio`.
+**Status** · In force. Approved by Bob. History: `HISTORY.md`. §13.1 and §8.5 are certified by D12 (`dryrun/RUNS.md`). This document describes HOW the approved principles (`PROCESS-DESIGN.md`, P1–P20) are carried out. Each mechanism cites the principle it serves (P16). Where it and the principles disagree, the principles win. Its home is this repository, beside the principles (P2). The product repository it is applied to is `believeinoakland/bio`.
 
 ## 1. Where things live (P2, P5)
 
@@ -293,3 +293,16 @@ A session's permission check can refuse an act that only Bob can clear, by appro
 **Anything else.** A refused session never works around the refusal, by another tool, a script, a worker or a later turn. It records `NEEDS BOB: <the one act>, <why>` in its record (a job, with the state `NEEDS BOB` and a `BLOCKED` entry to BOB giving the same line, §13) or its handoff (BOB), pushes that if the push is not itself the act, and carries on with whatever does not depend on the act. BOB tells Bob at once, in one line: the session's name and link, and the approval to type there, naming the act. BOB never approves for Bob. **The ruling that records Bob's approval** says `approved`, cites §16, and states its standing-list decision, `standing list: added <rule>` (the settings rule, in backticks) or `standing list: not added (<why>)`; the format check fails one without it (§8.4) (P15; P17: the standing list is Bob's policy, so each approval decides it). At every backstop check (§5.4), `mail check` shows each job whose state is `NEEDS BOB`.
 
 **Before an act on `main` or on another party's branch**, BOB searches `build/rulings.md` for a refusal of that act. If one exists and no standing-list rule covers the act, BOB asks Bob first, naming the act and the ruling, and does not act until he approves (P15: a recorded refusal is read, not relearned; P17: an act only Bob can clear is brought to him before it is taken).
+
+## 17. Reading sets (P6, P13, P20)
+
+**What a session reads.** A session's reading set is everything its role says it reads in full: BOB's takeover set (§5.1 and its role file), and a job's set (§3, §6 step 2). Each set is defined in advance, by the role and by the module's own requirements (its **Uses** names the services it calls), so no session decides what to skip while reading.
+
+**Limits.** BOB sets a size limit for each kind of set, records it as a ruling, and measures every set against it: a job's at its `START` (§5.3), BOB's takeover set and the plan at each tranche's opening (§5.2).
+
+**When a set is over its limit**, BOB fixes it before the session starts, in this order:
+1. trim the documents: remove history and anything stated elsewhere, keeping every binding word;
+2. split the document or the module, so each part is read whole by those who need it (P6);
+3. for what is still too large, a summary for that task only. Its helpers are given the work the summary serves: the job's entries, the requirements it changes, and the stages after it that will rely on the job's result. They read the sources in full and write what that work and those later stages need, each statement citing its source section. The sources stay binding, the job may read any cited section in full, and the summary is never reused for other work.
+
+**To Bob.** Only a set still over its limit after all three, and only when BOB sees no other fix: BOB tells him what it tried, the options and a recommendation (P17).
