@@ -141,4 +141,4 @@ Every statement of a limit on Anthropic's accounts, plans or terms cites the reg
 
 | # | path | evidence | status |
 | --- | --- | --- | --- |
-| RS1 | a job's set is measured at its START and, over the limit, fixed in §17's order before the session starts; a task summary's helpers are given the job's entries, the requirements it changes and the stages after it | the START names the measured size and any summary with its cited sections; the job completes reading the set whole | PLANNED (a dry run at bio T36's opening, bio K2060) |
+| RS1 | a job's set is measured at its START and, over the limit, fixed in §17's order before the session starts; a task summary's helpers are given the job's entries, the requirements it changes and the stages after it | the START names the measured size and any summary with its cited sections; the job completes reading the set whole | PROVEN D14 (bio T36's L1 STARTs; doctypes over its limit, fixed by a task summary; bio K2072, K2082) |

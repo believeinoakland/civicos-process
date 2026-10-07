@@ -162,3 +162,17 @@ The revision: history moved to `HISTORY.md`; mechanics §5 as procedures §5.1�
 | Missing-file check on the product | `node checks/format.mjs` on bio `tranche/T21`: exactly legacy-tests' 11 deleted paths, nothing else | PROVEN |
 | The legacy census and owed-act entries | only a plan can show them: T22's opening plan carries the census (legacy-tests retired, N478; legacy-ui's hard reason) | PENDING: T22's opening |
 | Meaning otherwise unchanged | BOB #89's line-by-line review of the diff against c00b0cf; removed text verbatim in `HISTORY.md` | PROVEN |
+
+## D14 · 2026-10-07 · the K2060 revision: reading sets (mechanics §17, P20)
+
+The revision: P20 and mechanics §17 (bio K2060). Under N746 the run is bio T36's own layer-1 STARTs (bio K2072), proving RS1 on real jobs rather than a toy.
+
+| path | evidence | result |
+| --- | --- | --- |
+| Every START measures its job's set | bio `build/plan/starts-T36/*.txt`: each of the six L1 STARTs names its size from `build/plan/reading-sets.py` (connection-grammar 83 KB, signatures 139, bundler 205, office-readers 248, file-scanner 53: under 300 KB, read whole) | PROVEN |
+| A set over its limit is fixed in §17's order before the session starts | doctypes, 436 KB: the START records (1) nothing to trim, (2) no split (3,461 lines, under ~4,000), (3) a task summary: the job reads ~130 KB whole and its own workers, told the task (T36-4, R35's measure), the requirement it changes (R35, R25–R34 if re-scoped) and what follows (BOB's re-scope), read the rest in full | PROVEN |
+| The job completes reading its set whole, the summary citing its sections | DOCTYPES #3's record (bio `build/jobs/T36/doctypes.md`, "Reading set"): read whole ~140 KB; two worker summaries (~20 KB, ~18 KB), every statement citing file and line or requirement id; one point mattered (registry precedence) and was checked against the source; the job completed (bio K2079, K2082) | PROVEN |
+
+Finding: the workers described doctypes' large JSON test fixtures from their structure rather than reading them whole. They are data, not code, as K2053 already treats generated artifacts and vendored data (never read); no rule changes, but a later START names such fixtures as outside the set.
+
+Result: **RS1 certified.** Cost: the run was the tranche's own work; no extra sessions.
