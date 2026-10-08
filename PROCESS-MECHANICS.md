@@ -76,7 +76,7 @@ A job for a module being written, or gaining capabilities, reads the **Purpose**
 - **A provided service changed within a layer.** BOB first writes the change into the provider's requirements on the tranche branch (§7) and tells both jobs (§13). The providing job merges the tranche branch into its own and implements the change; when it records completion, BOB merges its branch into the tranche branch at once, and tells the using job, which merges the tranche branch into its own. Each job's ownership check, taken against the tranche branch, still sees only its own changes.
 - **Whenever BOB changes a file on the tranche branch that a running job reads** (its requirements, its entries, a used module's public part), BOB tells that job (§13), and the job merges the tranche branch into its own before continuing.
 - **A tool fix made on the process repository's `main` during a tranche** reaches running jobs as a `CHANGE` naming the fix; a fix to product state is committed on the tranche branch and announced the same way.
-- When the last layer completes, the tranche closes (§5.7): `main`, if it moved, is merged into the tranche branch (never a rebase), the plan is archived on the tranche branch, and then `main` is fast-forwarded to it.
+- When the last layer completes, the tranche closes (§5.7): `main`, if it moved, is merged into the tranche branch (never a rebase), the plan is archived on the tranche branch, and then the tranche branch is merged into `main` by a pull request merged with the GitHub merge tool (§5.7 step 3).
 
 A failed tranche is abandoned without touching `main`.
 
@@ -153,7 +153,7 @@ The layer closes when every job is merged and none is open (P10).
 Each step is pushed, so an interrupted close is a named state that any BOB resumes (P12).
 1. If the design stream has asked for its PR to be merged (`MERGE`, §13.1 item 5), merge it into `main`. If `main` has moved, merge `main` into the tranche branch first (never a rebase), keeping that stream's text in any conflict, and run `node checks/run.mjs` again (P12).
 2. Move `current.md` to `archive/T<n>.md` on the tranche branch, with each entry's outcome and the tranche's measured usage, its Status line `CLOSING` (P12, P14).
-3. Fast-forward `main` to that commit; the tranche is closed exactly when `main` is at it. A refused step is §16's, its `NEEDS BOB` line in BOB's handoff (P12, P17).
+3. Bring `main` to that commit through a pull request from `tranche/T<n>` to `main`, merged with the GitHub merge tool (method `merge`), never a direct push to `main`; the tranche is closed exactly when `main` contains that commit. Its authority is Bob's standing direction in the product's `CLAUDE.md` (development pull requests are merged into `main` by BOB sessions with the GitHub merge tool at a tranche boundary, without his review). A refused step is §16's, its `NEEDS BOB` line in BOB's handoff (P12, P17).
 4. Delete the backstop and the `WATCH` (P13).
 5. Ask Bob for his weekly meter reading again, and report the tranche to him in plain words: its elapsed time, the work it finished (legacy lines removed, entries applied), what was deferred and why, the work left, and what it cost (P14, P19).
 6. Open the next tranche at once (§5.2) (P18).
@@ -235,7 +235,7 @@ Bob's weekly meter is noted at each tranche's open and close when he gives it. *
 
 ## 11. Release (P11)
 
-A release runs the full regression, then follows the distribution process (a separate document). A full regression also runs whenever Bob asks.
+A release runs the full regression, then follows the distribution process (a separate document). A release is cut from the open tranche branch, and anything it changes in the product's files is committed to that branch; it reaches `main` only through the tranche's close (§5.7), never by a merge of its own, so `main` and the tranche never hold two versions of the same file (P12). A full regression also runs whenever Bob asks.
 
 ## 12. Legacy modules and the snapshot (P4, P6, P7)
 
@@ -288,7 +288,7 @@ A revision of these mechanics is certified by a dry run before product work uses
 
 A session's permission check can refuse an act that only Bob can clear, by approving it in the session that was refused; an approval typed in another session does not reach it. Bob's approval names the act itself; an approval of a page or a list does not clear a refusal.
 
-**The standing list.** Acts Bob has approved once, as policy, are permission rules in the `.claude/settings.json` of the product repository and of this repository, written by Bob, each recorded as a ruling in the product's `build/rulings.md`. An act joins the list only after a session has been refused it, and only by Bob. The list never holds an act that loosens a standing safety rule (force-push, rewriting `main`, deleting the restore point).
+**The standing list.** Acts Bob has approved once, as policy, are permission rules in the `.claude/settings.json` of the product repository and of this repository, written by Bob, each recorded as a ruling in the product's `build/rulings.md`. An act joins the list only after a session has been refused it, and only by Bob. The list never holds an act that loosens a standing safety rule (force-push, rewriting `main`, deleting the restore point). The list covers the permission prompt only. A refusal by auto mode's safety check is not a permission rule and the list cannot clear it: such an act is replaced by a route the check accepts (as §5.7 step 3), or approved by Bob in the refused session each time.
 
 **Anything else.** A refused session never works around the refusal, by another tool, a script, a worker or a later turn. It records `NEEDS BOB: <the one act>, <why>` in its record (a job, with the state `NEEDS BOB` and a `BLOCKED` entry to BOB giving the same line, §13) or its handoff (BOB), pushes that if the push is not itself the act, and carries on with whatever does not depend on the act. BOB tells Bob at once, in one line: the session's name and link, and the approval to type there, naming the act. BOB never approves for Bob. **The ruling that records Bob's approval** says `approved`, cites §16, and states its standing-list decision, `standing list: added <rule>` (the settings rule, in backticks) or `standing list: not added (<why>)`; the format check fails one without it (§8.4) (P15; P17: the standing list is Bob's policy, so each approval decides it). At every backstop check (§5.4), `mail check` shows each job whose state is `NEEDS BOB`.
 
