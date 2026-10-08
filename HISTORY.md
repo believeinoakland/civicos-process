@@ -106,6 +106,6 @@ Nothing moved.
 
 P13 and mechanics §2, §5.8 said BOB refreshes when its context passes "about 2–3 times its working set"; BOBs refreshed near 330–340k of a 1M window. Bob, 2026-10-06: "I think that the point where BOB's start thinking about refreshing should be at 50% rather than ~30%". Replaced by: half of the context window, at the next point where no step is half done. A parameter of P13 set by Bob, its reason (cost) unchanged; no path of the mechanics changes, so no dry run (P3, §15).
 
-## 2026-10-08 · BOB's refresh threshold raised (bio K2285)
+## 2026-10-08 · BOB's refresh threshold raised (bio K2287)
 
 P13 and mechanics §2, §5.8 said BOB refreshes when its context passes "half of its context window" (K1720). Bob, 2026-10-08: "Let's change the handover point to be at 55% rather than 50% to provide greater efficiency and continuity." Replaced by: 55% of the context window, at the next point where no step is half done. A job's own threshold (half its window, §6.1, roles/JOB.md) is unchanged. A parameter of P13 set by Bob; no path of the mechanics changes, so no dry run (P3, §15).
