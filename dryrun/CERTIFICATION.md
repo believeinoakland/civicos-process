@@ -145,3 +145,7 @@ Every statement of a limit on Anthropic's accounts, plans or terms cites the reg
 | # | path | evidence | status |
 | --- | --- | --- | --- |
 | RS1 | a job's set is measured at its START and, over the limit, fixed in §17's order before the session starts; a task summary's helpers are given the job's entries, the requirements it changes and the stages after it | the START names the measured size and any summary with its cited sections; the job completes reading the set whole | PROVEN D14 (bio T36's L1 STARTs; doctypes over its limit, fixed by a task summary; bio K2072, K2082) |
+
+## The effort revision (BOB #172, 2026-10-14; bio K3269, K3271)
+
+Bob approved in his own words: a job's reading set (mechanics §6 step 2, roles/JOB.md step 2) is its requirements, entries, layer contract, own code, the used services its entries touch and the tests naming a requirement its entries change, its other tests run, not read; BOB refreshes at 30% of its window (P13, §2, §5.8); a module whose only entries change no behavior may wait up to three tranches (P19). No new mechanism, path or message: each changes an amount (what is read, when BOB refreshes, which entries a plan carries), so only a product tranche can prove it (§15), by the measures that already exist: tokens per job session against L6 of T48 (`build/metrics/T48.csv`), the coverage and ownership checks at every merge (a job that missed what it should have read shows as a red or a failed check), and the plan's named waits.
