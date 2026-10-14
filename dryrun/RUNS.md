@@ -182,3 +182,7 @@ Result: **RS1 certified.** Cost: the run was the tranche's own work; no extra se
 T38's close was the first under §5.7 (3) as K2273 changed it. BOB #143 searched the rulings for a refusal of the act (none since K2273, bio K2338), opened PR #17 from `tranche/T38` to `main` and merged it with the GitHub merge tool (method `merge`, the expected head pinned) under the standing list's `mcp__github__merge_pull_request`. No permission prompt and no auto-mode refusal. `main` @ `147f356dfe` (a merge commit) contains the closing commit `318fafd71b`; `tranche/T39` was created from it (bio K2339).
 
 Result: **V6 proven.** Cost: one tool call; no extra sessions.
+
+## W1 · 2026-10-14 · the Writer-line revision, fixtures (bio K3361)
+
+BOB #179's worker added `bobWriter` to `mail bob` and `xcheckWarnings` to `xcheck`, with `tools/test/bob-writer.test.mjs` (5 tests). Suite before 124/0, after 129/0. Live `xcheck --as BOB --tranche T49` over bio: no warning. WL1, WL2 proven; WL3 waits on BOB #180's takeover.

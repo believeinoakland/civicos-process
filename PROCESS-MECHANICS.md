@@ -86,7 +86,7 @@ Each lifecycle step is one procedure below, done in order. BOB commits and pushe
 
 ### 5.1 Take over
 
-1. Read your depth (follow `parent_session_id` with `get_session` until a session has none) and write it, with your name and session id, as the plan's Status line with `mail bob`, before anything else; it names exactly one session, yours, because it is the address every job rings. At any depth other than 1, say so to Bob (P13, §2).
+1. Read your depth (follow `parent_session_id` with `get_session` until a session has none) and write it, with your name and session id, as the plan's Status line with `mail bob`, before anything else; it names exactly one session, yours, because it is the address every job rings. Where the product has a registry, `mail bob` also writes your Writer line in BOB's outbox (§13.1 (1)); if it prints a WARNING instead, run the `xwriter` command it names. At any depth other than 1, say so to Bob (P13, §2).
 2. Run `mail check`, and read and act on every job's entries past BOB's cursor, whether they were written to you or to your predecessor (P9, §13).
 3. Read the channel (§13.1, item 3) (P13).
 4. Arm your backstop if a layer runs, and your `WATCH` if a tranche is open (§5.4) (P13).

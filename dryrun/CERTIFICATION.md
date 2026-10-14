@@ -149,3 +149,13 @@ Every statement of a limit on Anthropic's accounts, plans or terms cites the reg
 ## The effort revision (BOB #172, 2026-10-14; bio K3269, K3271)
 
 Bob approved in his own words: a job's reading set (mechanics §6 step 2, roles/JOB.md step 2) is its requirements, entries, layer contract, own code, the used services its entries touch and the tests naming a requirement its entries change, its other tests run, not read; BOB refreshes at 30% of its window (P13, §2, §5.8); a module whose only entries change no behavior may wait up to three tranches (P19). No new mechanism, path or message: each changes an amount (what is read, when BOB refreshes, which entries a plan carries), so only a product tranche can prove it (§15), by the measures that already exist: tokens per job session against L6 of T48 (`build/metrics/T48.csv`), the coverage and ownership checks at every merge (a job that missed what it should have read shows as a red or a failed check), and the plan's named waits.
+
+## The Writer-line revision (BOB #179, 2026-10-14; bio K3358, K3361)
+
+A BOB's takeover writes its channel address with the plan's (§5.1 step 1, §13.1 (1)), and `xcheck` sees a stale one.
+
+| # | path | evidence | status |
+| --- | --- | --- | --- |
+| WL1 | `mail bob` writes the Status line and BOB's Writer line (account from the registry), idempotently; with no registry, the Status line only; a failed channel step keeps the Status line and warns with the `xwriter` command | `tools/test/bob-writer.test.mjs` tests 1–4 (scratch origin, two mail branches) | proven by fixtures (129/0) |
+| WL2 | `xcheck --as BOB` warns when BOB's Writer line names another session than the plan's Status line, and not when they match | `tools/test/bob-writer.test.mjs` test 5; live over bio at BOB #179 (no warning, Writer matching the plan) | proven by fixtures and live |
+| WL3 | a real takeover writes both in one command | only a product takeover can prove it (§15): BOB #180's `mail bob` prints "BOB's Writer line written", and its handoff-reading `xcheck` prints no WARNING; BOB #180 records it in `RUNS.md` | open until BOB #180 |

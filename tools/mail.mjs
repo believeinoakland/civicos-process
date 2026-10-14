@@ -12,7 +12,9 @@
 //   accounts    each participant's outbox on its own mail branch, listed in `build/channels.md` (§13.1; the x-commands).
 //
 // Usage: node tools/mail.mjs <command> [--product <dir>] --tranche <T> [--module <m>] [options]
-//   BOB:  bob --name "BOB #n" --session <id> --depth <d> [--state OPEN]   write the plan's Status line
+//   BOB:  bob --name "BOB #n" --session <id> --depth <d> [--state OPEN]   write the plan's Status line, and, when the
+//         product has a registry, BOB's Writer line in its outbox (as xwriter --as BOB, account from the registry;
+//         bio K3361); a failed channel step keeps the Status line and warns with the xwriter command to run by hand
 //         addjob --module <m> --name "<M> #k" --session <id>             add or replace a job's address
 //         post --as bob --module <m> --kind <KIND> [--re J<n>] (--body <text> | --body-file <f>)
 //         inbox --as bob --module <m>      done --as bob --module <m> --through J<n>
@@ -30,7 +32,8 @@
 //           KIND: NOTICE, QUESTION, ANSWER, DEFER, HANDOFF, MERGE, ACK (ANSWER and ACK name their entry with --re)
 //   xinbox  --as <NAME> --from <NAME>                    their entries past my cursor
 //   xdone   --as <NAME> --from <NAME> --through <L><n>   move my cursor over theirs (never back)
-//   xcheck  --as <NAME>                                  for each correspondent: what I have not read, and they of mine
+//   xcheck  --as <NAME>                                  for each correspondent: what I have not read, and they of mine;
+//           as BOB, with --tranche or a plan in the working tree, a WARNING when my Writer is not the plan's BOB
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -189,7 +192,18 @@ export function bob(o) {
   const line = `**Status** · ${o.state || old || 'OPEN'} · ${name} · ${session} · depth ${Number(depth)}`;
   text = /^\*\*Status\*\*.*$/m.test(text) ? text.replace(/^\*\*Status\*\*.*$/m, line) : text.replace(/^(# .*\n)/, `$1\n${line}\n`);
   writeLocal(R, PLAN, text);
-  return { commit: commitPush(R, branch, PLAN, `plan ${T}: ${name} ${session} · depth ${depth}`) };
+  const commit = commitPush(R, branch, PLAN, `plan ${T}: ${name} ${session} · depth ${depth}`);
+  return { commit, channel: bobWriter(R, o) };
+}
+// The channel half of `bob` (§13.1 (1); bio K3361): BOB's Writer line, exactly as `xwriter --as BOB` writes it. Never
+// throws: the Status line is already pushed, so a failure is returned for the caller to warn about.
+function bobWriter(R, o) {
+  fetchBranch(R, 'main');
+  if ((showRemote(R, 'main', REGISTRY) ?? readLocal(R, REGISTRY)) === null) return { status: 'skipped' };
+  try {
+    const r = xwriter({ product: o.product, as: 'BOB', session: o.session, date: o.date });
+    return { status: r.changed ? 'written' : 'current', commit: r.commit };
+  } catch (e) { return { status: 'failed', error: e.message }; }
 }
 export function addjob(o) {
   const { tranche: T, module: m, name, session } = o;
@@ -204,6 +218,7 @@ export function addjob(o) {
   writeLocal(R, PLAN, text);
   return { commit: commitPush(R, branch, PLAN, `plan ${T}: ${name} ${session} for ${m}`) };
 }
+const planBob = (plan) => plan?.match(/^\*\*Status\*\* · [A-Z]+ · \S+(?: \S+)? #\d+ · (session_[0-9A-Za-z]+) · depth \d+/m)?.[1] ?? null;
 export function parseJobs(text) {
   const line = (text || '').match(/^\*\*Jobs\*\* · (.*)$/m)?.[1] || '';
   return [...line.matchAll(/([a-z][a-z0-9-]*): ([A-Z][A-Z0-9-]* #\d+) (session_[0-9A-Za-z]+)/g)].map((x) => ({ module: x[1], name: x[2], session: x[3] }));
@@ -213,7 +228,7 @@ export function addr(o) {
   const R = repo(o.product), branch = branchOf('bob', o.tranche);
   fetchBranch(R, branch);
   const plan = showRemote(R, branch, PLAN) ?? readLocal(R, PLAN);
-  if (o.bob) { const s = plan?.match(/^\*\*Status\*\* · [A-Z]+ · \S+(?: \S+)? #\d+ · (session_[0-9A-Za-z]+) · depth \d+/m)?.[1]; if (!s) throw new Error('no BOB in the plan\'s Status line'); return s; }
+  if (o.bob) { const s = planBob(plan); if (!s) throw new Error('no BOB in the plan\'s Status line'); return s; }
   const j = parseJobs(plan).find((x) => x.module === o.module);
   if (!j) throw new Error(`no job for ${o.module} in the plan's Jobs line`);
   return j.session;
@@ -466,6 +481,23 @@ export function xcheck(o) {
   });
 }
 
+// As BOB: a WARNING when my outbox's Writer is not the session the plan's Status line names (bio K3361), so a successor
+// that wrote its Status line but not its Writer line is seen. The plan is the tranche branch's with --tranche, else the
+// working tree's; with neither, or as anyone else, nothing is checked.
+export function xcheckWarnings(o) {
+  if (o.as !== 'BOB') return [];
+  const R = repo(o.product);
+  let plan = null;
+  if (o.tranche && typeof o.tranche === 'string') { const tb = branchOf('bob', o.tranche); fetchBranch(R, tb); plan = showRemote(R, tb, PLAN); }
+  plan ??= readLocal(R, PLAN);
+  const want = planBob(plan);
+  if (!want) return [];
+  const me = participant(registry(R), 'BOB', '--as');
+  const w = parseOutbox(readMail(R, me).text).writer;
+  if (w?.session === want) return [];
+  return [`WARNING: BOB's Writer line names ${w ? w.session : 'no session'} but the plan's Status line names ${want}: run node tools/mail.mjs xwriter --as BOB --session ${want}`];
+}
+
 // ---- command line ----
 
 function args(argv) {
@@ -489,7 +521,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       case 'done': { const r = done(o); console.log(r.moved ? `read through ${o.through} (${r.commit})` : `already read through ${o.as === 'job' ? 'B' : 'J'}${r.cursor}: nothing to do`); break; }
       case 'start': console.log(`started (${start(o).commit})`); break;
       case 'state': { const r = state(o); console.log(`state ${r.state} (${r.commit})`); break; }
-      case 'bob': console.log(`plan Status written (${bob(o).commit})`); break;
+      case 'bob': {
+        const r = bob(o), c = r.channel;
+        console.log(`plan Status written (${r.commit})`);
+        if (c.status === 'written') console.log(`BOB's Writer line written (${c.commit})`);
+        else if (c.status === 'current') console.log(`BOB's Writer line already names ${o.session}: nothing to do`);
+        else if (c.status === 'failed') console.log(`WARNING: BOB's Writer line not written (${c.error}); run by hand: node tools/mail.mjs xwriter${o.product ? ` --product ${o.product}` : ''} --as BOB --session ${o.session}`);
+        break;
+      }
       case 'addjob': console.log(`job address written (${addjob(o).commit})`); break;
       case 'addr': console.log(addr(o)); break;
       case 'ring-text': console.log(ringText(o.tranche, o.to || 'BOB')); break;
@@ -498,7 +537,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       case 'xpost': { const r = xpost(o); console.log(`posted ${r.id} (${r.commit}) on its mail branch`); break; }
       case 'xinbox': { const r = xinbox(o); if (!r.entries.length) console.log(`empty (read through ${r.cursor})`); else for (const e of r.entries) console.log(`${e.text}\n`); break; }
       case 'xdone': { const r = xdone(o); console.log(r.moved ? `read through ${r.cursor} (${r.commit})` : `already read through ${r.cursor}: nothing to do`); break; }
-      case 'xcheck': for (const r of xcheck(o)) console.log(`${r.name} (${r.account}) · ${r.writer ? `writer ${r.writer.session} since ${r.writer.since}` : 'no outbox yet'} · read ${r.read} · unread: ${r.unread.join(', ') || 'none'} · they read ${r.theyRead} of ${r.myLast}${r.theyOwe ? ` (unread by them: ${r.theyOwe})` : ''}`); break;
+      case 'xcheck': for (const r of xcheck(o)) console.log(`${r.name} (${r.account}) · ${r.writer ? `writer ${r.writer.session} since ${r.writer.since}` : 'no outbox yet'} · read ${r.read} · unread: ${r.unread.join(', ') || 'none'} · they read ${r.theyRead} of ${r.myLast}${r.theyOwe ? ` (unread by them: ${r.theyOwe})` : ''}`); for (const x of xcheckWarnings(o)) console.log(x); break;
       default: throw new Error(`unknown command "${cmd}"; see the header of tools/mail.mjs`);
     }
   } catch (e) { console.error(`mail: ${e.message}`); process.exitCode = 1; }
