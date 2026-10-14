@@ -186,3 +186,5 @@ Result: **V6 proven.** Cost: one tool call; no extra sessions.
 ## W1 · 2026-10-14 · the Writer-line revision, fixtures (bio K3361)
 
 BOB #179's worker added `bobWriter` to `mail bob` and `xcheckWarnings` to `xcheck`, with `tools/test/bob-writer.test.mjs` (5 tests). Suite before 124/0, after 129/0. Live `xcheck --as BOB --tranche T49` over bio: no warning. WL1, WL2 proven; WL3 waits on BOB #180's takeover.
+
+WL3 (BOB #180's takeover, 2026-10-14 ~22:32Z, bio `tranche/T49`): `mail bob` printed "plan Status written (7b41802521)" and "BOB's Writer line written (325a687)" in one command; `xcheck --as BOB` printed no WARNING (UX-DESIGN read through U257, they read B218 of B218). WL3 proven; WL1–WL3 all proven.
