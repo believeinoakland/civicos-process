@@ -109,3 +109,7 @@ P13 and mechanics §2, §5.8 said BOB refreshes when its context passes "about 2
 ## 2026-10-08 · BOB's refresh threshold raised (bio K2287)
 
 P13 and mechanics §2, §5.8 said BOB refreshes when its context passes "half of its context window" (K1720). Bob, 2026-10-08: "Let's change the handover point to be at 55% rather than 50% to provide greater efficiency and continuity." Replaced by: 55% of the context window, at the next point where no step is half done. A job's own threshold (half its window, §6.1, roles/JOB.md) is unchanged. A parameter of P13 set by Bob; no path of the mechanics changes, so no dry run (P3, §15).
+
+## 2026-10-18 · Nothing found in a tranche waits for the next (bio K3915)
+
+P10 said "An entry that arises during a tranche goes to the **next** plan", and P19 allowed deferral for "the order" (a closed layer) and let no-behaviour work wait three tranches: together they outranked Bob's rulings (K642, K882, K1741, K3815, K3905, K3912), so work found after a layer closed slipped to the next tranche (K3913). Bob approved the exact text, rendered (2026-10-18: "approve change to principals"): P10's first bullet now adds work found to the running plan, done by the running job, an unstarted layer's START, or the tranche's completion round after the last layer; P19 defers only for Bob's pending decision, a deployment or measurement outside the tranche, or something outside the product not yet existing, each named in the tranche's report.
