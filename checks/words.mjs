@@ -149,7 +149,7 @@ export function withContext(toks) {
 // Approximation: the chain is cut at `, ; = ? : & | < > !`, at `+=`, at the keywords in CHAIN_CUT, and at any bracket;
 // a bracketed group, call or member access inside an operand makes that operand non-literal (one `{}`). An operand is a
 // literal only when it is exactly one string token (a template literal counts as its text, `{}` for each ${}).
-// Limits: operator precedence is not modelled (`a + b * 'x'` is one chain), `?:` branches and `||` alternatives each
+// A chain counts only when one literal piece has 3+ words of its own. Limits: operator precedence is not modelled (`a + b * 'x'` is one chain), `?:` branches and `||` alternatives each
 // start a new chain, and a `+` that is arithmetic on numbers beside a literal reads as concatenation.
 const CHAIN_CUT = new Set(['return', 'throw', 'case', 'yield', 'else', 'do', 'in', 'of', 'void', 'delete', 'await']);
 export function stitchedChains(toks) {
@@ -396,7 +396,7 @@ export async function checkWords(root, only = []) {
       const table = TABLE_FILE.test(f);
       const stitched = new Set();
       for (const ch of stitchedChains(toks)) {
-        if (!isSentence(ch.text)) continue;
+        if (!isSentence(ch.text) || !ch.lits.some((l) => l.v.trim().split(/\s+/).filter(Boolean).length >= 3)) continue; // scaffolding between placeholders is not a sentence
         if (ch.lits.some((l) => l.ctx.importPath || l.ctx.console || l.ctx.title)) continue;
         for (const l of ch.lits) stitched.add(l);
         if (ch.lits.some((l) => l.ctx.dev)) { dev++; continue; }

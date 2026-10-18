@@ -194,7 +194,8 @@ test('inline: a stitched + chain whose joined text is a sentence fails once, tag
       "  const c = `Hello ${who}, we could not save this.`;",                                           // 4: template, as before
       "  if (!x) throw new TypeError(`${who}: not a finite number: ${x}`);",                            // 5: dev
       "  if (!list.length) throw new RefusalError('The list is empty, so nothing was saved.');",        // 6: ?
-      "  return [a, b, c];",
+      "  const d = head + '## Session Log' + tail;",                                                    // 7: scaffolding: passes
+      "  return [a, b, c, d];",
       "}",
     ].join('\n') + '\n',
   });
@@ -204,7 +205,7 @@ test('inline: a stitched + chain whose joined text is a sentence fails once, tag
   assert.ok(has(r.failures, 'inline', 'clean', F, 2, 'stitched'), mine.join('\n'));
   assert.ok(mine.some((f) => f.endsWith('"The mean of {} numbers is {}."')), mine.join('\n'));
   assert.equal(mine.filter((f) => f.includes(`${F}:2 `)).length, 1);
-  assert.ok(!mine.some((f) => f.includes(`${F}:3 `)) && !mine.some((f) => f.includes(`${F}:5 `)));
+  assert.ok(!mine.some((f) => f.includes(`${F}:7 `)) && !mine.some((f) => f.includes(`${F}:3 `)) && !mine.some((f) => f.includes(`${F}:5 `)));
   assert.ok(has(r.failures, 'inline', 'clean', F, 4, ''));
   assert.ok(has(r.failures, 'inline', 'clean', F, 6, '?'));
   assert.equal(mine.length, 3, mine.join('\n'));
