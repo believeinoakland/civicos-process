@@ -505,13 +505,14 @@ export async function checkWords(root, only = [], { release = false } = {}) {
   }
 
   // testcopy against the marker calls of product source (bio K3962), judged once every product file has been read
+  // a substring copy holds a space: an identifier (a placeholder's or an export's name) is no sentence (bio K3967)
   if (codeEns.size) {
     const codeBlob = '\n' + [...codeEns].join('\n') + '\n';
     for (const { m, f, s } of codeTests) {
       const v = s.v;
       if (s.interp) {
-        for (const chunk of v.split('{}')) if (chunk.length >= 25 && !chunk.includes('\n') && codeBlob.includes(chunk)) { add('testcopy', m, f, s.line, 'code', excerpt(chunk)); break; }
-      } else if ((codeEns.has(v) && isCopyLen(v)) || (v.length >= 25 && !v.includes('\n') && codeBlob.includes(v))) add('testcopy', m, f, s.line, 'code', excerpt(v));
+        for (const chunk of v.split('{}')) if (chunk.length >= 25 && /\s/.test(chunk.trim()) && !chunk.includes('\n') && codeBlob.includes(chunk)) { add('testcopy', m, f, s.line, 'code', excerpt(chunk)); break; }
+      } else if ((codeEns.has(v) && isCopyLen(v)) || (v.length >= 25 && /\s/.test(v.trim()) && !v.includes('\n') && codeBlob.includes(v))) add('testcopy', m, f, s.line, 'code', excerpt(v));
     }
   }
 

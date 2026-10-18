@@ -228,7 +228,7 @@ test('localize: its id and en are never inline or testcopy findings; its id need
 
 test('testcopy [code]: a test copying the en of a product localize call is found (bio K3962); controls are not', async () => {
   const root = product({
-    'src/clean/index.mjs': "import { localize } from '../setup-words/index.mjs';\nexport const a = localize('m.a.b', 'the source could not be read today');\nexport const b = localize('m.a.c', 'Sent to {name} on time');\n",
+    'src/clean/index.mjs': "import { localize } from '../setup-words/index.mjs';\nexport const a = localize('m.a.b', 'the source could not be read today');\nexport const b = localize('m.a.c', 'Sent to {name} on time');\nexport const c = localize('m.a.d', 'Grade {UNREACHABLE_CAPTURE_GRADE} is not reachable');\n",
     'test/clean/code.test.mjs': [
       "import { localize } from '../../src/setup-words/index.mjs';",
       "import assert from 'node:assert/strict';",
@@ -237,13 +237,14 @@ test('testcopy [code]: a test copying the en of a product localize call is found
       "assert.equal(out.says, localize('m.a.b', 'the source could not be read today'));", // 5: compares with localize: not a finding
       "assert.equal(out.n, 'source');",                                                     // 6: one word
       "assert.equal(out.says, 'could not be read');",                                       // 7: shares under 25 characters
+      "assert.deepEqual(names, ['UNREACHABLE_CAPTURE_GRADE']);",                           // 8: an identifier inside a sentence: not a copy (bio K3967)
     ].join('\n') + '\n',
   });
   const r = await checkWords(root, ['clean']);
   const T = 'test/clean/code.test.mjs';
   assert.ok(r.failures.some((x) => x.startsWith(`testcopy clean ${T}:3 [code] `)), r.failures.join('\n'));
   assert.ok(r.failures.some((x) => x.startsWith(`testcopy clean ${T}:4 [code] `)), r.failures.join('\n'));
-  for (const line of [5, 6, 7]) assert.ok(!r.failures.some((x) => x.startsWith(`testcopy clean ${T}:${line} `)), `line ${line}`);
+  for (const line of [5, 6, 7, 8]) assert.ok(!r.failures.some((x) => x.startsWith(`testcopy clean ${T}:${line} `)), `line ${line}`);
   assert.equal(r.totals.testcopy, 2);
 });
 
