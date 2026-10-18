@@ -96,7 +96,7 @@ Each lifecycle step is one procedure below, done in order. BOB commits and pushe
 
 ### 5.2 Open a tranche
 
-1. Open none while an archived plan reads `CLOSING` and `main` is behind it (§5.7) (P12).
+1. Open none while an archived plan reads `CLOSING` and `main` is behind it (§5.7), nor while `checks/run.mjs`'s words check reports any finding (P12, P7).
 2. Write `next.md` as tranche `T<n>` from the work that remains: entries grouped by module, modules by layer, the merge order within a layer where it matters, and the hard reason for each entry left out (P10, P19). **Every plan opens with a legacy census**: each module marked legacy in `modules.json`, with the entry that retires it in this tranche or the named hard reason (P19) it stays.
 3. Tell Bob in one line that the tranche has opened and what it covers, and ask for his weekly meter reading, the one measure only he can take; the tranche does not wait for it (P14).
 4. Create `tranche/T<n>` from `main`; move `next.md` to `current.md` and start a new `next.md` (P10, P12).
@@ -151,6 +151,7 @@ The layer closes when every job is merged and none is open (P10).
 ### 5.7 Close the tranche
 
 Each step is pushed, so an interrupted close is a named state that any BOB resumes (P12).
+0. **The completion round** (P10). If the plan's completion round holds entries, run it as a layer (§5.3 to §5.6): one job per module, all at once, a provider merged before its users. Then the tranche's own checks, including the words check, must read zero before step 1.
 1. If the design stream has asked for its PR to be merged (`MERGE`, §13.1 item 5), merge it into `main`. If `main` has moved, merge `main` into the tranche branch first (never a rebase), keeping that stream's text in any conflict, and run `node checks/run.mjs` again (P12).
 2. Move `current.md` to `archive/T<n>.md` on the tranche branch, with each entry's outcome and the tranche's measured usage, its Status line `CLOSING` (P12, P14).
 3. Bring `main` to that commit through a pull request from `tranche/T<n>` to `main`, merged with the GitHub merge tool (method `merge`), never a direct push to `main`; the tranche is closed exactly when `main` contains that commit. Its authority is Bob's standing direction in the product's `CLAUDE.md` (development pull requests are merged into `main` by BOB sessions with the GitHub merge tool at a tranche boundary, without his review). A refused step is §16's, its `NEEDS BOB` line in BOB's handoff (P12, P17).
@@ -172,6 +173,10 @@ Each step is pushed, so an interrupted close is a named state that any BOB resum
 
 **BOB never idles while work remains.** Before ending any turn, or waiting on a job, a worker or a timer, it asks what it can legitimately do instead, and does it in that turn: answer or pre-empt a job's open question (reading each running job's record, not only its messages), draft the next plan, requirements, extraction maps or reviews, or start workers on them. A timer is only a backstop, never the plan. It never tells Bob it will do something without doing it in the same turn. It ends a turn only when every such item is done or running, and says what is running. **A turn that ends waiting** ends with one line naming what it waits on and, unless it is Bob's, `Nothing for Bob to do.` (P17).
 
+### 5.10 A mechanical pass (P7, P8)
+
+(1) BOB states the change as a rule a script or a worker applies the same way in every module, and the list of modules, read from the checks' findings, never from a hand-made list. (2) No job is running. (3) One worker (sonnet, medium) applies it on the tranche branch, listing any module where the rule needs a judgment; each of those gets its own job in the same tranche. (4) The whole module test suite (`module-tests.mjs`), `checks/run.mjs` and the generated artifacts run once; every red is fixed in the pass before it is committed; no red is accepted and no module is dropped to make the run green. (5) BOB reads the diff's summary and every line the worker marked uncertain, then commits. (6) A ruling names the rule, every module touched, every module handed to its own job (each an entry in the running plan, done in this tranche) and the test result.
+
 ## 6. The module job (P6, P7, P8, P11)
 
 1. **Start** on `job/T<n>/<module>`. **The job's first act is `mail start`**, which pushes its record's Status line naming its session and depth and confirms its start (§5.3); then `mail inbox`, whose first entry is BOB's `START` (a restarted job reads everything past its record's cursor, whoever wrote it). After acting on entries it runs `mail done`. The record's state is set with `mail state`: `WORKING`; `RUNNING until <time> (<command>)`, set before waiting on a command expected to take over ten minutes; `WAITING ON BOB (J<n>)`; `NEEDS BOB`; `COMPLETE`.
@@ -179,7 +184,7 @@ Each step is pushed, so an interrupted close is a named state that any BOB resum
    **A job whose context passes half its window** (`get_session`) finishes its current step, notes the next one in its record, posts `BLOCKED` with the cause `context`, and ends its turn; BOB restarts it (§5.4).
 2. **Read in full**, never scanned: its own requirements (both parts); its entries; its layer's contract; its own code; of each module it uses, the services its entries touch (§3); and the tests that name a requirement its entries change. Its other tests are run, not read.
 3. **Ambiguity.** Ask BOB (a `QUESTION`, §13). Carry on with the rest of the job against your best reading, stated in the question; stop only if the answer decides what you would build next. A question revised before its answer arrives is a new `QUESTION` that says which one it replaces; BOB answers the newest, and an `ANSWER` to a question since replaced is read and not applied. When BOB answers, merge the tranche branch if BOB changed a requirement, and bring the work in line with the answer.
-4. **Change the module** to apply every entry. Deal with every flaw or improvement found in the module in the job whenever possible. Defer one to `next.md` through BOB only when it must.
+4. **Change the module** to apply every entry. Deal with every flaw or improvement found in the module in the job whenever possible. One it cannot finish in this job goes to BOB, who places it in this tranche (P10); it reaches `next.md` only for one of P19's three reasons.
 5. **Test.** Every requirement id is named by at least one test, and the coverage check passes. Run the module's tests, then its layer's tests. If it changed a provided service, BOB first updates the requirements (§7), and the job also runs the tests of the modules that use it.
 6. **Check:** format, architecture, coverage and ownership (§8).
 7. **Record completion** in `build/jobs/T<n>/<module>.md`: the entries applied; anything deferred, and why; what it reported about other modules; the tests and checks run; and the line `Size (<session id>): test runs <n>, module lines <n>` (§10). Set the state `COMPLETE`, then post `COMPLETE` (§13). **Stay available** until BOB archives the session when the layer closes: a `CHANGE` re-opens the job, which processes it and records completion again.
@@ -192,7 +197,7 @@ A job writes only its module's `paths` and `tests`, plus its own job record (and
 
 **BOB resolves itself**, recording a ruling where it decides anything:
 - conflicts between jobs;
-- routing flaws and improvements (confirm a reported one, then forward it to a running job of that module, or add it to `next.md`);
+- routing flaws and improvements (confirm a reported one, then forward it to a running job of that module, else to the START of its module's job in a layer not yet started, else to the tranche's completion round; to `next.md` only for one of P19's three reasons, named);
 - ambiguities it can settle by clarifying the **wording** of a requirement without changing its meaning;
 - sequencing within the process's rules;
 - every lower-level technical or detailed decision (P17): details about layers, modules and their boundaries and order (splitting, merging or reordering modules, and adding or removing a module that carries no product capability), dependency (`uses`) edges, order within a layer, which module owns a file, helper and legacy modules, the process's tooling and checks, tests, branches and CI.
@@ -205,15 +210,16 @@ A job writes only its module's `paths` and `tests`, plus its own job record (and
 
 Each question comes with an explanation he can understand, a set of options, and a recommendation. When Bob rules a service change, BOB updates the provider's requirements and adds an entry for every module that uses it, in this tranche if that module's layer has not yet completed (which re-opens a finished job, P10), otherwise in `next.md`.
 
-## 8. The five checks (P4, P7, P15, P16)
+## 8. The six checks (P4, P7, P15, P16)
 
 Small tools in the process repository; with `tools/mail.mjs` (§13), the only process tooling:
 1. **Architecture:** every product file is in exactly one module's `paths`, and every import is to the module itself or to a module earlier in the order that is declared in `uses`.
 2. **Coverage:** every live requirement id is named by at least one of the module's tests.
 3. **Ownership:** a job's diff touches only its module's `paths` and `tests` and its job record; an extraction job's additions to its legacy module are only imports from its own paths and lines that use them, with a net removal, each listed for BOB (§12.2); a line changed only by removing text from it counts as removed, not added (P7).
-4. **Format:** the build state's files parse, and every id they reference exists; every module's `paths` and `tests` entry names an existing file or directory in the product tree, a `tests` directory counting if it exists (P4, P15); every ruling after K1181 that records Bob's approval of a refused act states its standing-list decision (§16) (P15, P17).
+4. **Format:** the build state's files parse, and every id they reference exists; every module's `paths` and `tests` entry names an existing file or directory in the product tree, a `tests` directory counting if it exists (P4, P15); every ruling after K1181 that records Bob's approval of a refused act states its standing-list decision (§16) (P15, P17). An entry added to `next.md` while a tranche runs names one of P19's three reasons (Bob's pending decision, a deployment or measurement outside the tranche, something outside the product not yet existing); any other reason fails (P19).
    *Proposed revision (N656, bio K1763; not binding until certified, §15, `dryrun/CERTIFICATION.md` TC1):* where the product has a register of Anthropic's terms (named in `build/manifest.md`, else `build/terms/anthropic.md`), every sentence in `build/` (requirements, the plan's current, next and drafts, the manifest; rulings from K1764) or `docs/architecture/` that states a limit on Anthropic's accounts, plans or terms cites a register id (`AT-n`, `U-n`) the register defines, or a ruling of Bob's (a K id with "Bob's"); an id the register lacks always fails (P15, P17).
 5. **Channels:** over each mail branch's history (§13.1), an entry once pushed is never rewritten or removed, entry numbers rise by one, a cursor never moves backwards, and a branch's tip always descends from the tip last read (P15). It runs only where the product has a registry, `build/channels.md`.
+6. **Words:** no module's own code holds a sentence people read (it reads each by key from the word table); no test copies such a sentence; every key a module reads exists in the word table; no test hand-lists another module's operations, error codes or words (P7; bio K3366, K3810, K3268). It runs in every job's checks before COMPLETE and at every layer close, so a regression fails at once (`checks/words.mjs`).
 
 BOB adds or changes a check; each cites the principle it serves.
 
