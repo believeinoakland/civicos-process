@@ -1,6 +1,7 @@
 // stats: statistics for the toy product; extracted from legacy (mean in D3, max and min in D4),
 // and from catalog (distinct in D5).
 import { sum } from '../../alpha/src/index.mjs';
+import { word } from '../../setup-words/index.mjs';
 
 // R1–R2: alpha.sum / length, 0 for an empty list; alpha.sum refuses a non-finite element.
 export function mean(list) {
@@ -15,7 +16,7 @@ function extreme(list, who, pick) {
   if (list.length === 0) throw new RangeError(`${who}: empty list`);
   let m;
   for (const x of list) {
-    if (typeof x !== 'number' || !Number.isFinite(x)) throw new TypeError(`${who}: not a finite number: ${String(x)}`);
+    if (typeof x !== 'number' || !Number.isFinite(x)) throw new TypeError(`NOT_FINITE ${who} ${String(x)}`);
     m = m === undefined ? x : pick(x, m);
   }
   return m;
@@ -42,8 +43,20 @@ export function distinct(list) {
   return true;
 }
 
-// R10: a sentence giving the mean of a list (D15 plants it stitched from pieces, with no row in the word table:
-// the mechanical pass cannot fix it; it needs a judgment and its own job).
+// R10: the word table's sentence for the count and the mean of a list (the row stats.mean.of).
 export function describeMean(list) {
-  return 'The mean of ' + list.length + ' numbers is ' + mean(list) + '.';
+  return word('stats.mean.of', { count: list.length, mean: mean(list) });
+}
+
+// R11: the middle value of the list sorted ascending, or for an even length the mean of the two middle values.
+// An empty list is a RangeError first; an element that is not a finite number is a TypeError, as R8.
+// The list is sorted as a copy, so the argument is not changed (R3).
+export function median(list) {
+  if (list.length === 0) throw new RangeError('median: empty list');
+  for (const x of list) {
+    if (typeof x !== 'number' || !Number.isFinite(x)) throw new TypeError(`NOT_FINITE median ${String(x)}`);
+  }
+  const sorted = list.slice().sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : mean([sorted[mid - 1], sorted[mid]]);
 }
