@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { checkWords, isSentence, scan } from '../words.mjs';
+import { checkWords, isSentence, isPlainSentence, scan } from '../words.mjs';
 
 const WORDS = {
   words: [
@@ -298,4 +298,44 @@ test('inline: a sentence on the design\'s unkeyed list (words-reads.json) is not
   assert.equal(inl.length, 1, inl.join('\n'));
   assert.ok(inl[0].includes(':2 '), inl[0]);
   assert.match(r.summary, /unkeyed 1/);
+});
+
+// The plain arm (bio K3957): lowercase, unpunctuated prose of 5+ words is an inline finding tagged plain.
+test('inline: a lowercase unpunctuated reason of 5+ words is tagged plain; controls are not findings (bio K3957)', async () => {
+  const reads = { modules: { clean: { reads: [], unkeyed: [{ file: 'clean/index.mjs', line: 1, text: 'the builder alone reads this note about rungs', why: 'builders' }] } } };
+  const root = product({
+    'docs/development/ux-substrate/screens/words-reads.json': JSON.stringify(reads),
+    'src/setup-words/index.mjs': 'export const x = "This module holds all the English there is.";\n',
+    'src/clean/index.mjs': [
+      'import { localize } from "../setup-words/index.mjs";',
+      'export const a = { why: "no active profile states how long minutes take" };',                     // 2: plain
+      'export const b = localize("clean.a.b", "no active profile states how long minutes take");',        // 3: marker reading
+      'export const c = { why: "no profile states minutes" };',                                           // 4: 4 words
+      'export const d = { why: "no profile states how LONG minutes take" };',                             // 5: ALL-CAPS
+      'export const e = { why: "no profile states how R12 minutes take" };',                              // 6: requirement ref
+      'export const f = { why: "no profile states how `long` minutes take" };',                           // 7: backtick
+      'export const g = { why: " no profile states how long minutes take" };',                            // 8: leading space
+      'export const h = { why: "no profile states how snake_case minutes take" };',                       // 9: identifier
+      'export const i = { why: "the builder alone reads this note about rungs" };',                       // 10: unkeyed
+      'export function j() { throw new Error("no profile states how long minutes take"); }',              // 11: dev text
+    ].join('\n') + '\n',
+    'test/clean/b.test.mjs': 'export const k = { why: "no profile states how long minutes take" };\n',   // a test file
+  });
+  const r = await checkWords(root, ['clean']);
+  const inl = r.failures.filter((f) => f.startsWith('inline '));
+  assert.equal(inl.length, 1, inl.join('\n'));
+  assert.ok(inl[0].includes('src/clean/index.mjs:2 [plain] '), inl[0]);
+  assert.match(r.summary, /inline 1, plain 1,/);
+  assert.equal(r.totals.plain, 1);
+});
+
+test('isPlainSentence: the rule in brief; isSentence is unchanged', () => {
+  assert.equal(isPlainSentence('no line of the document reads as a roster row'), true);
+  assert.equal(isPlainSentence('No line of the document reads as a roster row'), false); // isSentence already takes it
+  assert.equal(isPlainSentence('no line reads as a row.'), false);
+  assert.equal(isSentence('no line of the document reads as a roster row'), false);
+  assert.equal(isPlainSentence('no line of the document reads K3957 as a row'), false);
+  assert.equal(isPlainSentence('no line of the document reads N4 as a row'), false);
+  assert.equal(isPlainSentence('no line of the document reads DEC-83 as a row'), false);
+  assert.equal(isPlainSentence('a line of the document reads as a row '), false);
 });

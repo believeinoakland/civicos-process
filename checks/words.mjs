@@ -4,7 +4,8 @@
 //   inline       a member-facing English sentence in a module's own product source (tag `?`: a message given to a
 //                custom `*Error` class, uncertain; `copy`: equals a words.json `en`; `table`: in a hand-written word
 //                table; `stitched`: a `+` chain of literals and non-literals whose joined text is a sentence, see
-//                stitchedChains). A string given to a built-in error constructor (BUILTIN_ERRORS) is developer text,
+//                stitchedChains; `plain`: a lowercase, unpunctuated string of 5+ words that reads as a reason or a
+//                message, see isPlainSentence, bio K3957). A string given to a built-in error constructor (BUILTIN_ERRORS) is developer text,
 //                not a failure (BOB's ruling, P17; member-facing refusals are codes read by key, DEC-83); the summary
 //                counts those as `dev <n>`.
 //   testcopy     a test string equal to (2+ words), or a 25+ character substring of, a words.json `en` (K3810).
@@ -202,25 +203,47 @@ export function stitchedChains(toks) {
 const SQL = /^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|PRAGMA|WITH|BEGIN|COMMIT|ROLLBACK|REPLACE)\b/;
 const WORDISH = /^["'(\[]*(?:[A-Za-z][A-Za-z'’-]*|\{[A-Za-z0-9_]*\})[.,;:!?)"'\]]*$/;
 
-// Is this string a member-facing English sentence? (Context exclusions are applied by the caller.)
-export function isSentence(raw) {
+// The shared exclusions of isSentence and isPlainSentence: the normalised text and its tokens when the string has
+// `minWords`+ wordish tokens and is not a URL, SQL, CSS, code or mostly placeholders; else null.
+function readable(raw, minWords) {
   let s = raw;
   if (/<\/?[A-Za-z][^>]*>/.test(s)) s = s.replace(/<\/?[A-Za-z][^>]*>/g, ' ');
   s = s.replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim();
-  if (s.length < 12) return false;
-  if (/:\/\/|^\/|^\.\.?\//.test(s) || SQL.test(s)) return false;
-  if (/[;{][^}]*:[^}]*;|[a-z-]+:\s*[^;]+;\s*[a-z-]+:/.test(s) && !/[.?!]$/.test(s)) return false; // CSS
+  if (s.length < 12) return null;
+  if (/:\/\/|^\/|^\.\.?\//.test(s) || SQL.test(s)) return null;
+  if (/[;{][^}]*:[^}]*;|[a-z-]+:\s*[^;]+;\s*[a-z-]+:/.test(s) && !/[.?!]$/.test(s)) return null; // CSS
   const toks = s.split(' ');
   const wordish = toks.filter((t) => WORDISH.test(t));
-  if (wordish.length < 4 || wordish.length < toks.length * 0.7) return false;
-  if (toks.some((t) => /[=<>|\\]|\w\.\w+\(|=>/.test(t))) return false; // code-like token
-  if (toks.filter((t) => /^[A-Z]{2,}$/.test(t)).length >= 2 && /\b(JOIN|WHERE|FROM|SELECT|ORDER|GROUP|LIMIT|INTO|VALUES|AND|ON)\b/.test(s) && !/[.!]$/.test(s)) return false; // SQL
-  if (toks.filter((t) => /^\{\}$|^\?$/.test(t)).length * 2 >= toks.length) return false; // mostly placeholders
+  if (wordish.length < minWords || wordish.length < toks.length * 0.7) return null;
+  if (toks.some((t) => /[=<>|\\]|\w\.\w+\(|=>/.test(t))) return null; // code-like token
+  if (toks.filter((t) => /^[A-Z]{2,}$/.test(t)).length >= 2 && /\b(JOIN|WHERE|FROM|SELECT|ORDER|GROUP|LIMIT|INTO|VALUES|AND|ON)\b/.test(s) && !/[.!]$/.test(s)) return null; // SQL
+  if (toks.filter((t) => /^\{\}$|^\?$/.test(t)).length * 2 >= toks.length) return null; // mostly placeholders
+  return { s, toks, wordish };
+}
+
+// Is this string a member-facing English sentence? (Context exclusions are applied by the caller.)
+export function isSentence(raw) {
+  const r = readable(raw, 4);
+  if (!r) return false;
+  const { s, toks } = r;
   const first = toks[0].replace(/^["'(\[]+/, '');
   const capital = /^[A-Z]/.test(first) && !/^[A-Z0-9_]+$/.test(first.replace(/[^A-Za-z0-9_]/g, '')); // not a CONSTANT_CODE
   const endsPunct = /[.?!]["')\]]*$/.test(s);
   const placeholder = /\{[A-Za-z0-9_]*\}/.test(s);
   return capital || endsPunct || placeholder;
+}
+
+// A plain sentence (bio K3957): what isSentence rejects, yet 5+ wordish tokens of lowercase, unpunctuated prose such as a
+// `why:` reason a member can read. Not a fragment (no leading or trailing whitespace) and not an identifier or reference
+// (no backtick, R12 / DEC-83 / K3957 / N4, ALL-CAPS word of 3+ letters, or `_` inside a token). Used only by the inline arm.
+export function isPlainSentence(raw) {
+  if (isSentence(raw) || /^\s|\s$/.test(raw)) return false;
+  const r = readable(raw, 5);
+  if (!r) return false;
+  const { s, toks } = r;
+  if (!/^[a-z]/.test(toks[0].replace(/^["'(\[]+/, ''))) return false;
+  if (/`|\b(?:R\d+|DEC-\d+|K\d+|N\d+)\b|\b[A-Z]{3,}\b/.test(s)) return false;
+  return !toks.some((t) => t.includes('_'));
 }
 
 // An exact copy counts when it is a phrase: 3+ words, or 2 words and 18+ characters (not 'a person', not a name).
@@ -334,7 +357,7 @@ export async function checkWords(root, only = [], { release = false } = {}) {
   const files = listFiles(root);
   const failures = [];
   const counts = {}; // module -> arm -> n
-  const bump = (m, arm, tag) => { const c = (counts[m] ??= { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0 }); c[arm]++; if (tag === '?') c.q++; };
+  const bump = (m, arm, tag) => { const c = (counts[m] ??= { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0, plain: 0 }); c[arm]++; if (tag === '?') c.q++; if (tag === 'plain') c.plain++; };
   const items = []; // the failures with their full literal, for tools that analyse them
   const add = (arm, m, file, line, tag, text, raw) => { items.push({ arm, module: m, file, line, tag, raw: raw ?? text }); failures.push(`${arm} ${m} ${file}:${line} ${tag ? `[${tag}] ` : ''}${text}`); bump(m, arm, tag); };
   let literals = 0;
@@ -459,13 +482,14 @@ export async function checkWords(root, only = [], { release = false } = {}) {
         if (stitched.has(s) || tReads.has(s) || c.importPath || c.console || c.title) continue;
         const v = s.v;
         const isCopy = !s.interp && words.ens.has(v) && isCopyLen(v);
-        if (!isCopy && !isSentence(v)) continue;
-        if (c.dev) { dev++; continue; }
+        const plainOnly = !isCopy && !isSentence(v);
+        if (plainOnly && (s.interp || !isPlainSentence(v))) continue;
+        if (c.dev) { if (!plainOnly) dev++; continue; }
         const dec = v.trim().length >= 10 && (unkeyed.get(m.id) || '').includes(v.trim().replace(/\$?\{[^}]*\}/g, '{}'));
         // The design's unkeyed list (DEC-258, DEC-260: "`unkeyed` stays in source") is text no member reads: not counted,
         // unless it is an exact copy of a row (bio K3944).
-        if (dec && !isCopy) { designUnkeyed++; continue; }
-        const tag = isCopy ? 'copy' : table ? 'table' : c.error ? '?' : '';
+        if (dec && !isCopy) { if (!plainOnly) designUnkeyed++; continue; }
+        const tag = plainOnly ? 'plain' : isCopy ? 'copy' : table ? 'table' : c.error ? '?' : '';
         add('inline', m.id, f, s.line, tag, excerpt(v), v);
       }
     }
@@ -512,9 +536,9 @@ export async function checkWords(root, only = [], { release = false } = {}) {
     for (const r of u) if (!only.length || only.includes(r.module)) add('unreviewed', r.module, r.file, r.line, '', r.id);
   }
   failures.sort();
-  const tot = { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0 };
+  const tot = { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0, plain: 0 };
   for (const c of Object.values(counts)) for (const k of Object.keys(tot)) tot[k] += c[k];
-  const summary = `${modsSeen.size} modules, ${literals} string literals read, ${words.keys.size} words; inline ${tot.inline}, testcopy ${tot.testcopy}, missingkey ${tot.missingkey}, handlist ${tot.handlist} (${tot.q} tagged ?), marker ${tot.marker}${release ? `, unreviewed ${tot.unreviewed}` : ''}, dev ${dev}, unkeyed ${designUnkeyed}`;
+  const summary = `${modsSeen.size} modules, ${literals} string literals read, ${words.keys.size} words; inline ${tot.inline}, plain ${tot.plain}, testcopy ${tot.testcopy}, missingkey ${tot.missingkey}, handlist ${tot.handlist} (${tot.q} tagged ?), marker ${tot.marker}${release ? `, unreviewed ${tot.unreviewed}` : ''}, dev ${dev}, unkeyed ${designUnkeyed}`;
   return { failures, summary, counts, totals: { ...tot, dev, unkeyed: designUnkeyed }, items };
 }
 
