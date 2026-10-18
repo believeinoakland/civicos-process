@@ -213,3 +213,59 @@ test('inline: a stitched + chain whose joined text is a sentence fails once, tag
   assert.equal(only.totals.dev, 1);
   assert.match(only.summary, /dev 1$/);
 });
+
+// Words B (bio K3930; words-B-design §10): t(id, en, vars) is a reading; the marker arm; --release.
+const mk = (m, f, line, extra) => (x) => x.startsWith(`marker ${m} ${f}:${line} `) && (!extra || x.includes(extra));
+test('t: its id and en are never inline or testcopy findings; a t id needs no row', async () => {
+  const root = product({
+    'src/clean/index.mjs': "import { t } from '../setup-words/index.mjs';\nexport const a = t('clean.index.nothing', 'There is nothing to add up yet.');\nexport const b = t('clean.index.total', `The total is {total}.`, { total: 3 });\n",
+    'test/clean/t.test.mjs': "import { t } from '../../src/setup-words/index.mjs';\nconst x = t('clean.index.nothing', 'There is nothing to add up yet.');\n",
+  });
+  const r = await checkWords(root, ['clean']);
+  assert.deepEqual(r.failures, [], r.failures.join('\n'));
+  assert.match(r.summary, /marker 0,/);
+});
+
+test('marker: a non-literal id or en, a malformed id, one id with two en, and a t call in a drawn-screen module fail', async () => {
+  const root = product({
+    'build/modules.json': JSON.stringify({
+      not_product: ['docs/', 'build/'],
+      modules: [
+        { id: 'setup-words', layer: 1, paths: ['src/setup-words/'], tests: ['test/setup-words/'], uses: [] },
+        { id: 'clean', layer: 2, paths: ['src/clean/'], tests: ['test/clean/'], uses: [] },
+        { id: 'screens-x', layer: 2, paths: ['src/screens-x/'], tests: [], uses: [] },
+      ],
+    }),
+    'src/clean/index.mjs': [
+      "import { t } from '../setup-words/index.mjs';",
+      "export const a = t('clean.index.one', 'One thing is held here.');",   // 1
+      "export const b = t('clean.index.one', 'A different thing is here.');", // 2: two en
+      "export const c = t('clean.index.one', 'One thing is held here.');",   // 3: same en, fine
+      "export const d = t(id, 'Some sentence is given here.');",              // 4: id not literal
+      "export const e = t('clean.index.two', en);",                           // 5: en not literal
+      "export const f = t('Bad Id', 'Some other sentence here.');",          // 6: malformed id
+      "export const g = t('clean.index.three', 'Part ' + x);",               // 7: en not plain
+    ].join('\n') + '\n',
+    'src/screens-x/index.mjs': "import { t } from '../setup-words/index.mjs';\nexport const h = t('screens-x.index.title', 'A drawn screen title.');\n", // 1: drawn
+    'src/viol/index.mjs': 'export const ok = 1;\n', 'test/viol/a.test.mjs': 'export const ok = 1;\n',
+    'src/owner/index.mjs': 'export const ok = 1;\n', 'test/owner/a.test.mjs': 'export const ok = 1;\n',
+  });
+  const { failures } = await checkWords(root, ['clean', 'screens-x']);
+  const m = failures.filter((f) => f.startsWith('marker '));
+  const F = 'src/clean/index.mjs';
+  assert.equal(m.filter(mk('clean', F, 3)).length, 1, m.join('\n'));
+  assert.ok(!m.some(mk('clean', F, 2)) && !m.some(mk('clean', F, 4)));
+  for (const line of [5, 6, 7, 8]) assert.ok(m.some(mk('clean', F, line)), `line ${line}: ${m.join('\n')}`);
+  assert.ok(m.some(mk('screens-x', 'src/screens-x/index.mjs', 2, 'drawn-screen')), m.join('\n'));
+  assert.equal(m.length, 6, m.join('\n'));
+});
+
+test('--release: each row of words-unreviewed.json fails; without the flag none does', async () => {
+  const U = { unreviewed: [{ id: 'clean.index.a', en: 'x', module: 'clean', file: 'src/clean/index.mjs', line: 4 }, { id: 'viol.index.b', en: 'y', module: 'viol', file: 'src/viol/index.mjs', line: 9 }] };
+  const root = product({ 'bio-plane/src/setup-words/words-unreviewed.json': JSON.stringify(U) });
+  const plain = await checkWords(root, ['clean']);
+  assert.ok(!plain.failures.some((f) => f.startsWith('unreviewed ')));
+  const all = await checkWords(root, [], { release: true });
+  assert.deepEqual(all.failures.filter((f) => f.startsWith('unreviewed ')), ['unreviewed clean src/clean/index.mjs:4 clean.index.a', 'unreviewed viol src/viol/index.mjs:9 viol.index.b']);
+  assert.match(all.summary, /unreviewed 2,/);
+});

@@ -16,7 +16,15 @@
 // `build/ops.json` (a JSON array of names). Files read: tracked files of the module's `paths` / `tests` with a
 // JS/TS extension; never generated files (a header saying GENERATED or "do not edit by hand", the manifest's
 // "Generated artifacts" table), vendored code, node_modules, dist, fixtures, setup-words itself.
-// Usage: node checks/words.mjs <product-root> [module ...]
+// Words B (bio K3930; words-B-design §10): `t(id, en, vars)` is a reading like word(): the literals given as its first and
+// second arguments are never `inline` or `testcopy` findings. A callee whose last name is `t` is a `t` call. Fifth arm:
+//   marker       a `t` call whose id or en is not a plain string literal (a template with no placeholder is plain), whose id
+//                is not KEY_RE, whose id is used with two different en across the tree (each place after the first), or
+//                that sits in a drawn-screen module (DRAWN_MODULES). `missingkey` still judges word/hasWord/wordsOf only.
+//   unreviewed   only with `--release` (`checkWords(root, only, { release: true })`; run.mjs does not pass it): one failure per
+//                row of `bio-plane/src/setup-words/words-unreviewed.json` ({unreviewed: [{id,en,module,file,line}]}),
+//                the design stream's review list, which must be empty at a release cut.
+// Usage: node checks/words.mjs <product-root> [module ...] [--release]
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -27,6 +35,10 @@ export const READS_JSON = 'docs/development/ux-substrate/screens/words-reads.jso
 const CODE_EXT = /\.(mjs|js|cjs|ts|tsx|jsx)$/;
 const SKIP_DIR = /(^|\/)(node_modules|dist|vendor|vendored|fixtures?|testdata|generated|coverage|profiles|datasets?|scripts|\.git)\//;
 const TABLE_FILE = /(^|\/)[^/]*(words|texts|messages|copy|strings|labels|glossary|vocabulary)[^/]*\.m?js$/i;
+// Drawn screens are written first by the design and read their words only through word(); a `t` call there fails the
+// check (bio K3930 (3); words-B-design §4).
+export const DRAWN_MODULES = (id) => /^screens-/.test(id) || ['interface-shell', 'wizard-scripts', 'site', 'installer', 'installer-steps'].includes(id);
+export const UNREVIEWED_JSON = 'bio-plane/src/setup-words/words-unreviewed.json'; // bio K3932
 const OWN_WORDS_MODULES = new Set(['setup-words']); // the word list's own module: holds the English by definition
 const OWN_DECL_MODULES = new Set(['op-declarations', 'op-capabilities']); // modules whose tests may list ops
 const KEY_RE = /^[a-z][a-z0-9_-]*(\.[A-Za-z0-9_-]+)+$/;
@@ -308,7 +320,7 @@ function listFiles(root) {
 }
 
 // ---- the check --------------------------------------------------------------------------------------------------------
-export async function checkWords(root, only = []) {
+export async function checkWords(root, only = [], { release = false } = {}) {
   const state = readModules(root);
   const words = loadWords(root);
   const ops = await loadOpNames(root);
@@ -319,10 +331,12 @@ export async function checkWords(root, only = []) {
   const files = listFiles(root);
   const failures = [];
   const counts = {}; // module -> arm -> n
-  const bump = (m, arm, tag) => { const c = (counts[m] ??= { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, q: 0 }); c[arm]++; if (tag === '?') c.q++; };
+  const bump = (m, arm, tag) => { const c = (counts[m] ??= { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0 }); c[arm]++; if (tag === '?') c.q++; };
   const items = []; // the failures with their full literal, for tools that analyse them
   const add = (arm, m, file, line, tag, text, raw) => { items.push({ arm, module: m, file, line, tag, raw: raw ?? text }); failures.push(`${arm} ${m} ${file}:${line} ${tag ? `[${tag}] ` : ''}${text}`); bump(m, arm, tag); };
   let literals = 0;
+  const tIds = new Map(); // t id -> { en, where } of its first use
+  const tReads = new Set(); // the string tokens given as a t call's id and en
   let dev = 0; // sentences given to built-in error constructors: developer text, not failures
   const ownLits = new Map(); // module -> Set of string values in its own product source (a code is its own when its source names it)
   const lists = []; // handlist candidates, judged once every module's own source has been read
@@ -360,11 +374,40 @@ export async function checkWords(root, only = []) {
       }
     }
 
+    // marker: t(id, en, vars) calls
+    const plain = (x) => x && x.t === 'str' && !x.interp;
+    const endsArg = (x) => x && x.t === 'p' && (x.v === ',' || x.v === ')');
+    // A bare `t(` is the reading only where the file brings `t` in under that name (an import, or a destructuring of `require(` or `await import(`, naming it; not `x as t`): bio's tests
+    // use a local `t` for other things. A member call `.t(` is not judged (a method of some other object).
+    let hasT = false;
+    for (let k = 0; k < toks.length && !hasT; k++) {
+      if (toks[k].t === 'id' && toks[k].v === 'import') { for (let j = k + 1; j < toks.length && toks[j].v !== 'from' && toks[j].v !== ';' && j < k + 60; j++) if (toks[j].t === 'id' && toks[j].v === 't' && !['as', ':'].includes(toks[j - 1].v)) hasT = true; }
+      else if (toks[k].t === 'p' && toks[k].v === '{' && toks[k - 1] && ['const', 'let', 'var'].includes(toks[k - 1].v)) { let j = k + 1; let named = false; while (j < toks.length && toks[j].v !== '}' && j < k + 60) { if (toks[j].t === 'id' && toks[j].v === 't' && !['as', ':'].includes(toks[j - 1].v)) named = true; j++; } if (named && toks[j + 1] && toks[j + 1].v === '=' && toks[j + 2] && (toks[j + 2].v === 'require' || (toks[j + 2].v === 'await' && toks[j + 3] && toks[j + 3].v === 'import'))) hasT = true; }
+    }
+    for (let k = 0; hasT && k < toks.length - 1; k++) {
+      const t = toks[k];
+      if (toks[k - 1] && toks[k - 1].t === 'p' && toks[k - 1].v === '.') continue;
+      if (!(t.t === 'id' && t.v === 't' && toks[k + 1].t === 'p' && toks[k + 1].v === '(')) continue;
+      if (toks[k - 1] && toks[k - 1].t === 'id' && ['function', 'async'].includes(toks[k - 1].v)) continue; // a definition
+      const a = toks[k + 2], b = toks[k + 4];
+      const idOk = plain(a) && endsArg(toks[k + 3]), enOk = idOk && toks[k + 3].v === ',' && plain(b) && endsArg(toks[k + 5]);
+      if (idOk) tReads.add(a);
+      if (enOk) tReads.add(b);
+      if (DRAWN_MODULES(m.id)) add('marker', m.id, f, t.line, '', 't call in a drawn-screen module (read by word())');
+      if (!idOk) { add('marker', m.id, f, t.line, '', 't id is not a plain string literal'); continue; }
+      if (!KEY_RE.test(a.v)) add('marker', m.id, f, a.line, '', `t id ${excerpt(a.v)} is not <module>.<area>.<name>`);
+      if (!enOk) { add('marker', m.id, f, t.line, '', `t(${excerpt(a.v)}, en): en is not a plain string literal`); continue; }
+      const prev = tIds.get(a.v);
+      if (!prev) tIds.set(a.v, { en: b.v, where: `${f}:${a.line}` });
+      else if (prev.en !== b.v) add('marker', m.id, f, a.line, '', `t id ${excerpt(a.v)} has a different en than at ${prev.where}`);
+    }
+
     if (isTest) {
       // testcopy
       for (const s of strs) {
         if (s.ctx.importPath || s.ctx.title || s.ctx.console) continue;
-        if (/^(word|hasWord|wordsOf)$/.test((s.ctx.callee || '').split('.').pop())) continue;
+        const last = (s.ctx.callee || '').split('.').pop();
+        if (tReads.has(s) || /^(word|hasWord|wordsOf)$/.test(last) || (hasT && last === 't')) continue;
         const v = s.v;
         if (s.interp) { // static chunks between placeholders
           for (const chunk of v.split('{}')) if (chunk.length >= 25 && !chunk.includes('\n') && words.blob.includes(chunk)) { add('testcopy', m.id, f, s.line, '', excerpt(chunk)); break; }
@@ -404,7 +447,7 @@ export async function checkWords(root, only = []) {
       }
       for (const s of strs) {
         const c = s.ctx;
-        if (stitched.has(s) || c.importPath || c.console || c.title) continue;
+        if (stitched.has(s) || tReads.has(s) || c.importPath || c.console || c.title) continue;
         const v = s.v;
         const isCopy = !s.interp && words.ens.has(v) && isCopyLen(v);
         if (!isCopy && !isSentence(v)) continue;
@@ -452,14 +495,19 @@ export async function checkWords(root, only = []) {
     if (o) checkReads(f, readFileSync(join(root, f), 'utf8'), o.id);
   }
 
+  if (release && existsSync(join(root, UNREVIEWED_JSON))) {
+    let u = []; try { u = JSON.parse(readFileSync(join(root, UNREVIEWED_JSON), 'utf8')).unreviewed || []; } catch { /* unreadable: no rows */ }
+    for (const r of u) if (!only.length || only.includes(r.module)) add('unreviewed', r.module, r.file, r.line, '', r.id);
+  }
   failures.sort();
-  const tot = { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, q: 0 };
+  const tot = { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0 };
   for (const c of Object.values(counts)) for (const k of Object.keys(tot)) tot[k] += c[k];
-  const summary = `${modsSeen.size} modules, ${literals} string literals read, ${words.keys.size} words; inline ${tot.inline}, testcopy ${tot.testcopy}, missingkey ${tot.missingkey}, handlist ${tot.handlist} (${tot.q} tagged ?), dev ${dev}`;
+  const summary = `${modsSeen.size} modules, ${literals} string literals read, ${words.keys.size} words; inline ${tot.inline}, testcopy ${tot.testcopy}, missingkey ${tot.missingkey}, handlist ${tot.handlist} (${tot.q} tagged ?), marker ${tot.marker}${release ? `, unreviewed ${tot.unreviewed}` : ''}, dev ${dev}`;
   return { failures, summary, counts, totals: { ...tot, dev }, items };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
-  const { failures, summary } = await checkWords(process.argv[2] || '.', process.argv.slice(3));
+  const args = process.argv.slice(2);
+  const { failures, summary } = await checkWords(args.find((a) => !a.startsWith('--')) || '.', args.filter((a) => !a.startsWith('--')).slice(1), { release: args.includes('--release') });
   process.exitCode = report('words', failures, summary);
 }
