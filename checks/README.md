@@ -16,6 +16,11 @@ PROCESS-MECHANICS §8: the only process tooling. Each takes the product reposito
 
 `node checks/run.mjs <product>` runs format, architecture and coverage, channels when the product has `build/channels.md`, and words (`checks/words.mjs`, §8.6, bio K3923) when the product has the word table `docs/development/ux-substrate/screens/words.json`; a product without them is unaffected. Each check ends with one summary line; it exits 1 on any failure. The checks' own tests: `node --test checks/test/*.test.mjs`.
 
+## The words check, two readings (D15, 2026-10-18)
+
+- **Stitched sentences.** In a module's own product source, a `+` chain with a string literal and a non-literal operand, whose literals joined in order with `{}` for each non-literal operand pass `isSentence`, is one `inline` failure tagged `stitched`, at the chain's first line; its literals are not reported again. The chain is found on tokens (`stitchedChains`): cut at `, ; = ? : & | < > !`, `+=`, `return`/`throw` and the like, and at any bracket; a bracketed group, call or member access is one non-literal operand. Limits: no operator precedence (`a + b * 'x'` is one chain); `?:` branches and `||` alternatives are separate chains; a numeric `+` beside a literal reads as concatenation.
+- **Developer messages (BOB's ruling, P17).** A string given to a built-in error constructor (`Error`, `TypeError`, `RangeError`, `SyntaxError`, `ReferenceError`, `EvalError`, `URIError`, `AggregateError`) is developer text, not a failure; member-facing refusals are codes read by key (DEC-83). The summary counts them as `dev <n>`. A custom `*Error` class stays tagged `?`.
+
 ## How the checks read the build state (BOB #38, 2026-09-26)
 
 - **Owner.** A path ending in `/` owns everything under it; any other path owns that one file. When paths nest, the most specific owns the file (a legacy module's `bio-plane/test/` holds the extracted modules' `bio-plane/test/m/<module>/`). Two modules claiming the same path is a format failure. This is how "exactly one owner" (P4, mechanics §1) is read.
@@ -38,6 +43,7 @@ Each check was broken on purpose, the named test failed, and the file was restor
 - format (approvals revision, bio K1177): the approval-ruling rule disabled → "format: an approval ruling after the cut-over states its standing-list decision (§16, bio K1177)" failed; the file restored and verified by hash.
 - format (proposed, N656, bio K1763, 2026-10-06): the terms arm's failures dropped from `checkFormat` → the five "(N656)" tests failed; the file restored and verified by hash.
 - format (P19, §8.4, bio K3923, 2026-10-18): the next.md hard-reason arm's failures dropped from `checkFormat` → "format: a next.md entry names a P19 hard reason; any other reason or none fails, naming line and id" failed (the only failure of the file's 39 tests); the file restored and verified by hash. The run.mjs words wiring is tested by "run.mjs: the words check runs where the product has words.json …".
+- words (D15, 2026-10-18): the stitched-chain arm's failures dropped from the inline arm (`stitchedChains` kept, nothing added) → "inline: a stitched + chain whose joined text is a sentence fails once, tagged stitched; built-in errors are dev, custom ones stay ?" failed (the only failure of the file's 11 tests); the file restored and verified by sha256.
 - channels (BOB #87, bio K954, 2026-10-01): the entry-text comparison, the cursor comparison and the numbering rule each disabled in turn → "channels check: an entry rewritten after it was pushed fails", "… a cursor moved backwards, or removed, fails" and "… a skipped number, or another's letter, fails" each failed; the file restored and verified by hash.
 
 ## The protocol model (bio K164, `dryrun/cert/SUITE.md` §4.3)

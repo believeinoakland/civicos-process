@@ -43,7 +43,7 @@ function product(files) {
       'export const a = "Your project could not be found here.";',            // line 3: inline sentence
       'export const b = `Hello ${name}, we could not save this.`;',            // line 4: template sentence
       'export const c = "You cannot see that project here.";',                  // line 5: copy
-      'export function f() { throw new Error("The store is not open yet."); }', // line 6: ? error
+      'export function f() { throw new Error("The store is not open yet."); }', // line 6: a built-in Error: developer text, counted as dev
       'export const ok1 = word("screen.home.title");',
       'export const ok2 = "SELECT id FROM things WHERE name = ? AND kind = ?";',
       'export const ok3 = "a.b.c.d";',
@@ -112,8 +112,7 @@ test('inline: sentences, templates, copies and error messages are found; code-li
   assert.ok(has(failures, 'inline', 'viol', F, 3, ''), failures.join('\n'));
   assert.ok(has(failures, 'inline', 'viol', F, 4, ''));
   assert.ok(has(failures, 'inline', 'viol', F, 5, 'copy'));
-  assert.ok(has(failures, 'inline', 'viol', F, 6, '?'));
-  for (const line of [2, 7, 8, 9, 10, 11, 12, 13, 14]) assert.ok(!failures.some((f) => f.startsWith(`inline viol ${F}:${line} `)), `line ${line}: ${failures.join('\n')}`);
+  for (const line of [2, 6, 7, 8, 9, 10, 11, 12, 13, 14]) assert.ok(!failures.some((f) => f.startsWith(`inline viol ${F}:${line} `)), `line ${line}: ${failures.join('\n')}`);
 });
 
 test('inline: the clean module, setup-words, generated files and fixtures are never reported', async () => {
@@ -183,4 +182,33 @@ test('isSentence: the rule in brief', () => {
   assert.equal(isSentence('SELECT a FROM b WHERE c = ?'), false);
   assert.equal(isSentence('screen.home.greeting.title.x'), false);
   assert.equal(isSentence('MAX_RETRIES_FOR_THE_STORE_NOW'), false);
+});
+
+// Stitched sentences and developer messages (D15; BOB's ruling, P17).
+test('inline: a stitched + chain whose joined text is a sentence fails once, tagged stitched; built-in errors are dev, custom ones stay ?', async () => {
+  const root = product({
+    'src/clean/index.mjs': [
+      "export function f(list, n, who, x) {",                                                           // 1
+      "  const a = 'The mean of ' + list.length + ' numbers is ' + mean(list) + '.';",                  // 2: stitched
+      "  const b = 'Total: ' + n;",                                                                     // 3: not a sentence
+      "  const c = `Hello ${who}, we could not save this.`;",                                           // 4: template, as before
+      "  if (!x) throw new TypeError(`${who}: not a finite number: ${x}`);",                            // 5: dev
+      "  if (!list.length) throw new RefusalError('The list is empty, so nothing was saved.');",        // 6: ?
+      "  return [a, b, c];",
+      "}",
+    ].join('\n') + '\n',
+  });
+  const r = await checkWords(root);
+  const F = 'src/clean/index.mjs';
+  const mine = r.failures.filter((f) => f.startsWith('inline clean '));
+  assert.ok(has(r.failures, 'inline', 'clean', F, 2, 'stitched'), mine.join('\n'));
+  assert.ok(mine.some((f) => f.endsWith('"The mean of {} numbers is {}."')), mine.join('\n'));
+  assert.equal(mine.filter((f) => f.includes(`${F}:2 `)).length, 1);
+  assert.ok(!mine.some((f) => f.includes(`${F}:3 `)) && !mine.some((f) => f.includes(`${F}:5 `)));
+  assert.ok(has(r.failures, 'inline', 'clean', F, 4, ''));
+  assert.ok(has(r.failures, 'inline', 'clean', F, 6, '?'));
+  assert.equal(mine.length, 3, mine.join('\n'));
+  const only = await checkWords(root, ['clean']);
+  assert.equal(only.totals.dev, 1);
+  assert.match(only.summary, /dev 1$/);
 });

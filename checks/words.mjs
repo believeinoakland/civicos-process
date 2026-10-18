@@ -1,8 +1,12 @@
 // Check 5, words (bio rulings-active §5: K3366 "Words by key", K3810, K3268): measures that no module holds
 // member-facing English and no test copies a sentence or hand-lists another module's ops, rows or words.
 // Four arms, each failure reported as `<arm> <module> <file>:<line> [tag] <short excerpt>`:
-//   inline       a member-facing English sentence in a module's own product source (tag `?`: a developer Error
-//                message, uncertain; `copy`: equals a words.json `en`; `table`: in a hand-written word table).
+//   inline       a member-facing English sentence in a module's own product source (tag `?`: a message given to a
+//                custom `*Error` class, uncertain; `copy`: equals a words.json `en`; `table`: in a hand-written word
+//                table; `stitched`: a `+` chain of literals and non-literals whose joined text is a sentence, see
+//                stitchedChains). A string given to a built-in error constructor (BUILTIN_ERRORS) is developer text,
+//                not a failure (BOB's ruling, P17; member-facing refusals are codes read by key, DEC-83); the summary
+//                counts those as `dev <n>`.
 //   testcopy     a test string equal to (2+ words), or a 25+ character substring of, a words.json `en` (K3810).
 //   missingkey   a literal key given to word(/hasWord(/wordsOf( or listed in words-reads.json that words.json lacks.
 //   handlist     a test array of 5+ strings that are op names, refusal codes or word keys (K3268). Tag `?` on
@@ -28,6 +32,7 @@ const OWN_DECL_MODULES = new Set(['op-declarations', 'op-capabilities']); // mod
 const KEY_RE = /^[a-z][a-z0-9_-]*(\.[A-Za-z0-9_-]+)+$/;
 const ERROR_CALLEE = /(^|\.)\w*Error$/;
 const TITLE_CALLEE = /^(test|it|describe|suite|before|after)(\.\w+)?$/;
+const BUILTIN_ERRORS = new Set(['Error', 'TypeError', 'RangeError', 'SyntaxError', 'ReferenceError', 'EvalError', 'URIError', 'AggregateError']);
 const REGEX_PREV_KW = new Set(['return', 'typeof', 'case', 'in', 'of', 'delete', 'void', 'throw', 'new', 'else', 'do', 'yield', 'await']);
 
 // ---- scanner: JS tokens with line numbers; comments dropped; strings and templates decoded ----------------------
@@ -127,6 +132,7 @@ export function withContext(toks) {
         if (f.open === '(' && f.callee) {
           ctx.callee = f.callee;
           if (ERROR_CALLEE.test(f.callee)) ctx.error = true;
+          if (BUILTIN_ERRORS.has(f.callee.split('.').pop())) ctx.dev = true;
           if (/^console\./.test(f.callee)) ctx.console = true;
           if (f.callee === 'require' || f.callee === 'import') ctx.importPath = true;
           if (TITLE_CALLEE.test(f.callee) && toks[k - 1] && toks[k - 1].v === '(') ctx.title = true;
@@ -137,6 +143,45 @@ export function withContext(toks) {
     }
   }
   return toks;
+}
+
+// Stitched sentences: a `+` chain is the maximal run of operands joined by `+` at one bracket depth within one expression.
+// Approximation: the chain is cut at `, ; = ? : & | < > !`, at `+=`, at the keywords in CHAIN_CUT, and at any bracket;
+// a bracketed group, call or member access inside an operand makes that operand non-literal (one `{}`). An operand is a
+// literal only when it is exactly one string token (a template literal counts as its text, `{}` for each ${}).
+// Limits: operator precedence is not modelled (`a + b * 'x'` is one chain), `?:` branches and `||` alternatives each
+// start a new chain, and a `+` that is arithmetic on numbers beside a literal reads as concatenation.
+const CHAIN_CUT = new Set(['return', 'throw', 'case', 'yield', 'else', 'do', 'in', 'of', 'void', 'delete', 'await']);
+export function stitchedChains(toks) {
+  const out = [];
+  const frames = [{ ops: [], cur: [] }];
+  const flush = (f) => {
+    const operands = [...f.ops, f.cur];
+    if (f.ops.length && operands.every((o) => o.length)) {
+      const lit = (o) => o.length === 1 && o[0].t === 'str';
+      if (operands.some(lit) && operands.some((o) => !lit(o))) {
+        let text = '';
+        for (const o of operands) { if (lit(o)) text += o[0].v; else if (!text.endsWith('{}')) text += '{}'; }
+        out.push({ line: operands[0][0].line, text, lits: operands.filter(lit).map((o) => o[0]) });
+      }
+    }
+    f.ops = []; f.cur = [];
+  };
+  for (let k = 0; k < toks.length; k++) {
+    const t = toks[k], f = frames[frames.length - 1];
+    if (t.t === 'p' && '([{'.includes(t.v)) { f.cur.push({ t: 'grp', line: t.line }); frames.push({ ops: [], cur: [] }); continue; }
+    if (t.t === 'p' && ')]}'.includes(t.v)) { if (frames.length > 1) { flush(frames.pop()); } continue; }
+    if (t.t === 'p' && t.v === '+') {
+      const nx = toks[k + 1];
+      if (nx && nx.t === 'p' && (nx.v === '=' || nx.v === '+')) { flush(f); k++; continue; } // += and ++
+      if (!f.cur.length) continue; // unary
+      f.ops.push(f.cur); f.cur = []; continue;
+    }
+    if ((t.t === 'p' && ',;=?:&|<>!'.includes(t.v)) || (t.t === 'id' && CHAIN_CUT.has(t.v))) { flush(f); continue; }
+    f.cur.push(t);
+  }
+  while (frames.length) flush(frames.pop());
+  return out;
 }
 
 // ---- the heuristics -------------------------------------------------------------------------------------------------
@@ -278,6 +323,7 @@ export async function checkWords(root, only = []) {
   const items = []; // the failures with their full literal, for tools that analyse them
   const add = (arm, m, file, line, tag, text, raw) => { items.push({ arm, module: m, file, line, tag, raw: raw ?? text }); failures.push(`${arm} ${m} ${file}:${line} ${tag ? `[${tag}] ` : ''}${text}`); bump(m, arm, tag); };
   let literals = 0;
+  let dev = 0; // sentences given to built-in error constructors: developer text, not failures
   const ownLits = new Map(); // module -> Set of string values in its own product source (a code is its own when its source names it)
   const lists = []; // handlist candidates, judged once every module's own source has been read
   const modsSeen = new Set();
@@ -348,12 +394,21 @@ export async function checkWords(root, only = []) {
     } else {
       // inline
       const table = TABLE_FILE.test(f);
+      const stitched = new Set();
+      for (const ch of stitchedChains(toks)) {
+        if (!isSentence(ch.text)) continue;
+        if (ch.lits.some((l) => l.ctx.importPath || l.ctx.console || l.ctx.title)) continue;
+        for (const l of ch.lits) stitched.add(l);
+        if (ch.lits.some((l) => l.ctx.dev)) { dev++; continue; }
+        add('inline', m.id, f, ch.line, 'stitched', excerpt(ch.text), ch.text);
+      }
       for (const s of strs) {
         const c = s.ctx;
-        if (c.importPath || c.console || c.title) continue;
+        if (stitched.has(s) || c.importPath || c.console || c.title) continue;
         const v = s.v;
         const isCopy = !s.interp && words.ens.has(v) && isCopyLen(v);
         if (!isCopy && !isSentence(v)) continue;
+        if (c.dev) { dev++; continue; }
         const dec = v.trim().length >= 10 && (unkeyed.get(m.id) || '').includes(v.trim().replace(/\$?\{[^}]*\}/g, '{}'));
         const tag = isCopy ? 'copy' : table ? 'table' : dec ? 'unkeyed' : c.error ? '?' : '';
         add('inline', m.id, f, s.line, tag, excerpt(v), v);
@@ -400,8 +455,8 @@ export async function checkWords(root, only = []) {
   failures.sort();
   const tot = { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, q: 0 };
   for (const c of Object.values(counts)) for (const k of Object.keys(tot)) tot[k] += c[k];
-  const summary = `${modsSeen.size} modules, ${literals} string literals read, ${words.keys.size} words; inline ${tot.inline}, testcopy ${tot.testcopy}, missingkey ${tot.missingkey}, handlist ${tot.handlist} (${tot.q} tagged ?)`;
-  return { failures, summary, counts, totals: tot, items };
+  const summary = `${modsSeen.size} modules, ${literals} string literals read, ${words.keys.size} words; inline ${tot.inline}, testcopy ${tot.testcopy}, missingkey ${tot.missingkey}, handlist ${tot.handlist} (${tot.q} tagged ?), dev ${dev}`;
+  return { failures, summary, counts, totals: { ...tot, dev }, items };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
