@@ -17,6 +17,9 @@ Totals of lists of numbers, and a generated bundle of its and alpha's source.
 **`node beta/scripts/bundle.mjs [--verify]`**
 - **R2** Writes `beta/dist/bundle.txt` from alpha's and beta's source; with `--verify`, exits 1 and prints `bundle: STALE` unless the committed file is exactly what it would write.
 
+**describeTotal(list) → string** (D15)
+- **R5** For an empty list, the sentence a person reads saying there is no total to show; else the total as a string.
+
 ## Private
 
 ### Uses

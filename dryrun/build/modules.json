@@ -10,6 +10,18 @@
   ],
   "modules": [
     {
+      "id": "setup-words",
+      "layer": 1,
+      "paths": [
+        "setup-words/index.mjs",
+        "docs/"
+      ],
+      "tests": [
+        "setup-words/test/"
+      ],
+      "uses": []
+    },
+    {
       "id": "catalog",
       "layer": 1,
       "legacy": true,

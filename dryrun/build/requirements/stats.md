@@ -28,6 +28,9 @@ Statistics over lists of numbers.
 **distinct(list) → boolean**
 - **R9** `true` when no two elements of `list` are the same value (as a `Set` compares them), else `false`; an empty list is distinct.
 
+**describeMean(list) → string** (D15)
+- **R10** The sentence a person reads naming how many numbers `list` holds and their mean.
+
 ## Private
 
 ### Uses

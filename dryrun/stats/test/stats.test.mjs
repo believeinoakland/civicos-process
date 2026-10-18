@@ -196,3 +196,9 @@ test('R9 distinct is true when no two elements are the same value as a Set compa
   long.push(999999);
   assert.equal(distinct(long), false);
 });
+
+test('R10 describeMean names the count and the mean', async () => {
+  const { describeMean } = await import('../src/index.mjs');
+  const s = describeMean([1, 2, 3]);
+  assert.ok(s.includes('3') && s.includes('2'));
+});

@@ -41,3 +41,9 @@ export function distinct(list) {
   }
   return true;
 }
+
+// R10: a sentence giving the mean of a list (D15 plants it stitched from pieces, with no row in the word table:
+// the mechanical pass cannot fix it; it needs a judgment and its own job).
+export function describeMean(list) {
+  return 'The mean of ' + list.length + ' numbers is ' + mean(list) + '.';
+}

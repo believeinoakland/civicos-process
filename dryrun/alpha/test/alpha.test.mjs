@@ -95,3 +95,9 @@ test('R4 sum throws a TypeError for an element that is not a finite number, coer
     }
   }
 });
+
+test('R6 describeSum tells a person the sum, or that there is nothing yet', async () => {
+  const { describeSum } = await import('../src/index.mjs');
+  assert.equal(describeSum([]), 'There is nothing to add up yet.');
+  assert.ok(describeSum([2, 3]).includes('5'));
+});

@@ -18,3 +18,9 @@ export function sum(list) {
   for (const x of list) t += finite(x, 'sum');
   return t;
 }
+
+// R6: a sentence telling a person the sum of their numbers (D15 plants it inline: the words check must find it).
+export function describeSum(list) {
+  if (list.length === 0) return 'There is nothing to add up yet.';
+  return `The total of your numbers is ${sum(list)}.`;
+}
