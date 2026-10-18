@@ -2,7 +2,7 @@
 
 **Status** · OPEN · BOB #214 · session_01GSmA9F4nLx4fViJzQfU6f7 · depth 1
 
-**Jobs** ·
+**Jobs** · stats: STATS #1 session_01H4fMDeELs9MJCQ6WaeJKbB
 
 ## The mechanical pass (done, D15-K1)
 
