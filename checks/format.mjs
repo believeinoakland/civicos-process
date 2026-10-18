@@ -4,6 +4,7 @@
 // refused act states its standing-list decision.
 // Also (N656, bio K1763; P15, P17; a proposed revision until certified, §15): where the product keeps a register of
 // Anthropic's terms, every statement of a limit on Anthropic's accounts, plans or terms cites a register id or a ruling of Bob's.
+// Also (P19, mechanics §8.4; bio K3923): every entry of `build/plan/next.md` names one of P19's hard reasons.
 // Usage: node checks/format.mjs <product-root>
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -64,6 +65,27 @@ function approvalRulings(root, lastExempt) {
 // `current.md`, `next.md` and `draft-*.md`, `build/manifest.md`, rulings from TERMS_FIRST_RULING on, and
 // `docs/architecture/*.md`. A sentence is read with its code spans removed; fenced code blocks are skipped.
 export const TERMS_FIRST_RULING = 1764;
+
+// P19, mechanics §8.4 (bio K3923): "An entry added to `next.md` while a tranche runs names one of P19's three reasons
+// (Bob's pending decision, a deployment or measurement outside the tranche, something outside the product not yet
+// existing); any other reason fails." Each entry line of `build/plan/next.md` (one line each) carries `hard reason: `
+// and the text after it begins with one of NEXT_REASONS. No other plan file is judged.
+export const NEXT_REASONS = /^(?:Bob's|a deployment|a measurement|outside the product)/i;
+const ENTRY = /^- ((?:N|T\d+-)\d+|[A-Z]+-\d+) · /;
+function nextReasons(root) {
+  const p = join(root, 'build/plan/next.md');
+  if (!existsSync(p)) return [];
+  const out = [];
+  readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
+    const m = line.match(ENTRY);
+    if (!m) return;
+    const at = line.indexOf('hard reason: ');
+    const reason = at < 0 ? null : line.slice(at + 'hard reason: '.length).replace(/^[*_\s]+/, '');
+    if (reason !== null && NEXT_REASONS.test(reason)) return;
+    out.push(`build/plan/next.md:${i + 1}: ${m[1]} names no P19 hard reason (Bob's, a deployment, a measurement, outside the product)${reason ? ` : "${reason.slice(0, 60)}"` : ''}`);
+  });
+  return out;
+}
 // A limit: a word or phrase that restricts; an Anthropic subject must also stand near it (statesLimit).
 export const TERMS_LIMIT = new RegExp([
   String.raw`\b(?:may not|must not|cannot|can't|can ?not|forbids?|forbidden|forbidding|bars?|barred|not permitted|not allowed|prohibit(?:s|ed)?|member-only|no group-wide)\b`,
@@ -172,7 +194,7 @@ export function termsClaims(root) {
 // N656 (K1763) is opt-in until certified by its dry run (P3; dryrun/CERTIFICATION.md TC1): CIVICOS_TERMS_CHECK=1.
 export function checkFormat(root, { approvalsLastExempt = APPROVALS_LAST_EXEMPT, terms: withTerms = process.env.CIVICOS_TERMS_CHECK === '1' } = {}) {
   const terms = withTerms ? termsClaims(root) : { failures: [], skipped: true };
-  const failures = [...conflictMarkers(root), ...approvalRulings(root, approvalsLastExempt), ...terms.failures];
+  const failures = [...conflictMarkers(root), ...approvalRulings(root, approvalsLastExempt), ...nextReasons(root), ...terms.failures];
   let tracked = [];
   try { tracked = trackedFiles(root); } catch { /* not a git repository: the checkout alone is read */ }
   const exists = pathExists(root, tracked);

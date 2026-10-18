@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { checkArchitecture, importsOf } from '../architecture.mjs';
 import { checkCoverage } from '../coverage.mjs';
 import { checkOwnership } from '../ownership.mjs';
@@ -400,4 +401,40 @@ test('format: the register named in the manifest is used; a product with no regi
   assert.match(checkFormat(moved).summary, /terms register build\/legal\/terms\.md/);
   const named = repo(base({ ...uncited, 'build/manifest.md': manifest, 'build/terms/anthropic.md': TERMS('register.md') })).root;
   assert.deepEqual(checkFormat(named).failures, [], 'the manifest names a register that does not exist: skipped');
+});
+
+// P19, mechanics §8.4 (bio K3923): an entry of next.md names one of P19's hard reasons; current.md is not judged.
+const NEXT = (...lines) => `# Next\n\n**a**\n\n${lines.join('\n')}\n`;
+test('format: a next.md entry names a P19 hard reason; any other reason or none fails, naming line and id (§8.4, P19, K3923)', () => {
+  const ok = NEXT(
+    "- N1 · wait · hard reason: Bob's pending decision on the name",
+    '- N2 · ship · hard reason: a deployment outside the tranche',
+    '- N3 · size · hard reason: A measurement outside the tranche',
+    '- N4 · dns · hard reason: outside the product, the domain does not exist yet');
+  assert.deepEqual(checkFormat(repo(base({ 'build/plan/next.md': ok })).root).failures, []);
+  const bad = NEXT("- N1 · fine · hard reason: Bob's call", '- N2 · order · hard reason: P10 (the order)', '- N3 · nothing said');
+  assert.deepEqual(checkFormat(repo(base({ 'build/plan/next.md': bad })).root).failures, [
+    'build/plan/next.md:6: N2 names no P19 hard reason (Bob\'s, a deployment, a measurement, outside the product) : "P10 (the order)"',
+    'build/plan/next.md:7: N3 names no P19 hard reason (Bob\'s, a deployment, a measurement, outside the product)',
+  ]);
+  const cur = '# Current\n\n**a**\n\n- N9 · no reason here at all\n';
+  assert.deepEqual(checkFormat(repo(base({ 'build/plan/current.md': cur })).root).failures, [], 'current.md is not judged');
+});
+
+// §8.6 (bio K3923): run.mjs runs the words check where the product has a word table.
+test('run.mjs: the words check runs where the product has words.json; a planted inline sentence fails it, exit 1', () => {
+  const words = { 'docs/development/ux-substrate/screens/words.json': JSON.stringify({ words: [{ key: 'screen.home.title', en: 'Home' }] }) };
+  const run = (files) => {
+    const { root } = repo(base({ ...words, ...files }));
+    const r = spawnSync('node', [fileURLToPath(new URL('../run.mjs', import.meta.url)), root], { encoding: 'utf8' });
+    return { out: r.stdout, code: r.status };
+  };
+  const bad = run({ 'src/a/index.mjs': 'export const a = "Your project could not be found here.";\n' });
+  assert.match(bad.out, /^words: .*; [1-9]\d* failures?$/m, bad.out);
+  assert.equal(bad.code, 1);
+  const good = run({});
+  assert.match(good.out, /^words: .*; 0 failures$/m, good.out);
+  assert.equal(good.code, 0, good.out);
+  const none = spawnSync('node', [fileURLToPath(new URL('../run.mjs', import.meta.url)), repo(base()).root], { encoding: 'utf8' });
+  assert.doesNotMatch(none.stdout, /^words:/m, 'no word table: the check is skipped');
 });
