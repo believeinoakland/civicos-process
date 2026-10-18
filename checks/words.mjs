@@ -377,12 +377,17 @@ export async function checkWords(root, only = [], { release = false } = {}) {
     // marker: t(id, en, vars) calls
     const plain = (x) => x && x.t === 'str' && !x.interp;
     const endsArg = (x) => x && x.t === 'p' && (x.v === ',' || x.v === ')');
-    // A bare `t(` is the reading only where the file brings `t` in under that name (an import, or a destructuring of `require(` or `await import(`, naming it; not `x as t`): bio's tests
-    // use a local `t` for other things. A member call `.t(` is not judged (a method of some other object).
+    // A bare `t(` is the reading only where the file imports the specifier `t` FROM setup-words (a source path ending in
+    // `setup-words` or `setup-words/index.mjs`): bio's tests bind `t` to node:test's `test` and other helpers. Any other
+    // binding of `t` (default import, `x as t`, another module, a local declaration) is neither a marker nor an exempt
+    // reading. A member call `.t(` is not judged.
     let hasT = false;
     for (let k = 0; k < toks.length && !hasT; k++) {
-      if (toks[k].t === 'id' && toks[k].v === 'import') { for (let j = k + 1; j < toks.length && toks[j].v !== 'from' && toks[j].v !== ';' && j < k + 60; j++) if (toks[j].t === 'id' && toks[j].v === 't' && !['as', ':'].includes(toks[j - 1].v)) hasT = true; }
-      else if (toks[k].t === 'p' && toks[k].v === '{' && toks[k - 1] && ['const', 'let', 'var'].includes(toks[k - 1].v)) { let j = k + 1; let named = false; while (j < toks.length && toks[j].v !== '}' && j < k + 60) { if (toks[j].t === 'id' && toks[j].v === 't' && !['as', ':'].includes(toks[j - 1].v)) named = true; j++; } if (named && toks[j + 1] && toks[j + 1].v === '=' && toks[j + 2] && (toks[j + 2].v === 'require' || (toks[j + 2].v === 'await' && toks[j + 3] && toks[j + 3].v === 'import'))) hasT = true; }
+      if (!(toks[k].t === 'id' && toks[k].v === 'import' && toks[k + 1] && toks[k + 1].v === '{')) continue;
+      let j = k + 2, named = false;
+      for (; j < toks.length && toks[j].v !== '}'; j++) if (toks[j].t === 'id' && toks[j].v === 't' && !['as'].includes(toks[j - 1].v) && !(toks[j + 1] && toks[j + 1].v === 'as')) named = true;
+      const from = toks[j + 1], src = toks[j + 2];
+      if (named && from && from.v === 'from' && src && src.t === 'str' && /(^|\/)setup-words(\/index\.mjs)?$/.test(src.v)) hasT = true;
     }
     for (let k = 0; hasT && k < toks.length - 1; k++) {
       const t = toks[k];

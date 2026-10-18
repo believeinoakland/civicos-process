@@ -226,6 +226,16 @@ test('t: its id and en are never inline or testcopy findings; a t id needs no ro
   assert.match(r.summary, /marker 0,/);
 });
 
+test('t: a t bound to node:test (or any module but setup-words) is not the marker', async () => {
+  const root = product({
+    'test/clean/t.test.mjs': "import { test as t } from 'node:test';\nt('R1: The list is empty, so there is no total to show.', () => {});\nt(label, fn);\n",
+    'test/clean/u.test.mjs': "import t from 'node:test';\nt(label, fn);\n",
+    'test/clean/v.test.mjs': "const t = (a, b, c) => a;\nt(label, 1, 2);\n",
+  });
+  const r = await checkWords(root, ['clean']);
+  assert.deepEqual(r.failures, [], r.failures.join('\n'));
+});
+
 test('marker: a non-literal id or en, a malformed id, one id with two en, and a t call in a drawn-screen module fail', async () => {
   const root = product({
     'build/modules.json': JSON.stringify({
