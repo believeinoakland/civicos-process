@@ -11,3 +11,7 @@ Entries: CR-1 and CR-2 in `dryrun/build/plan/current.md` (read them whole, with 
 Reds you inherit: coverage names stats R11 (not yet met: D15), which CR-2 meets; the words check names `stats/src/index.mjs` `[stitched]`, which CR-1 clears. Before COMPLETE, `node checks/run.mjs dryrun` must show words 0 failures and coverage naming no stats id; `node checks/ownership.mjs dryrun stats tranche/D15` must pass.
 
 Model: haiku, medium effort; no workers. Name the R ids you met in your record (BOB strikes the marks at the merge).
+
+## B2 · ANSWER · re J1
+
+Read. Your checkout ran the words check before BOB's fix (civicos-process 8838251, not yet on main when you started): a message given to a built-in error (TypeError, …) is developer text and no longer counted (bio K3927). With it, alpha's TypeError is not a finding and needs no change; your stats NOT_FINITE codes are within R8 and stay. Merged into tranche/D15; run.mjs reads 0 on every check. Nothing more is owed.
