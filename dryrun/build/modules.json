@@ -40,7 +40,9 @@
       "tests": [
         "alpha/test/"
       ],
-      "uses": []
+      "uses": [
+        "setup-words"
+      ]
     },
     {
       "id": "beta",
@@ -54,7 +56,8 @@
         "beta/test/"
       ],
       "uses": [
-        "alpha"
+        "alpha",
+        "setup-words"
       ]
     },
     {

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { add, sum } from '../src/index.mjs';
+import { word } from '../../setup-words/index.mjs';
 
 // Finite numbers covering every class: zeros of both signs, subnormals, the extremes,
 // fractions whose sum rounds, integers beyond 2^53, and seeded random values.
@@ -98,6 +99,6 @@ test('R4 sum throws a TypeError for an element that is not a finite number, coer
 
 test('R6 describeSum tells a person the sum, or that there is nothing yet', async () => {
   const { describeSum } = await import('../src/index.mjs');
-  assert.equal(describeSum([]), 'There is nothing to add up yet.');
+  assert.equal(describeSum([]), word('alpha.sum.nothing'));
   assert.ok(describeSum([2, 3]).includes('5'));
 });

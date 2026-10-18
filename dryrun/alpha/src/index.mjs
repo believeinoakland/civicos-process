@@ -1,4 +1,5 @@
 // alpha: arithmetic for the dry run's toy product.
+import { word } from '../../setup-words/index.mjs';
 
 function finite(x, who) {
   if (typeof x !== 'number' || !Number.isFinite(x)) throw new TypeError(`${who}: not a finite number: ${String(x)}`);
@@ -21,6 +22,6 @@ export function sum(list) {
 
 // R6: a sentence telling a person the sum of their numbers (D15 plants it inline: the words check must find it).
 export function describeSum(list) {
-  if (list.length === 0) return 'There is nothing to add up yet.';
-  return `The total of your numbers is ${sum(list)}.`;
+  if (list.length === 0) return word('alpha.sum.nothing');
+  return word('alpha.sum.total', { total: sum(list) });
 }

@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { total } from '../src/index.mjs';
+import { word } from '../../setup-words/index.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -132,6 +133,6 @@ test('R3 the bundle script writes only its own file, and --verify writes nothing
 
 test('R5 describeTotal gives the total, or why there is none', async () => {
   const { describeTotal } = await import('../src/index.mjs');
-  assert.equal(describeTotal([]), 'The list is empty, so there is no total to show.');
+  assert.equal(describeTotal([]), word('beta.total.empty'));
   assert.equal(describeTotal([1, 2]), '3');
 });
