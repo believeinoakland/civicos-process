@@ -8,7 +8,10 @@
 //                message, see isPlainSentence, bio K3957). A string given to a built-in error constructor (BUILTIN_ERRORS) is developer text,
 //                not a failure (BOB's ruling, P17; member-facing refusals are codes read by key, DEC-83); the summary
 //                counts those as `dev <n>`.
-//   testcopy     a test string equal to (2+ words), or a 25+ character substring of, a words.json `en` (K3810).
+//   testcopy     a test string equal to (2+ words), or a 25+ character substring of, a words.json `en` (K3810). Also
+//                (bio K3962, tag `code`) the same comparison with the `en` of every `localize(id, en, ...)` call in the
+//                product source the check reads (the literal second argument, `{name}` placeholders as they stand, as
+//                for words.json), so a test cannot copy a sentence the product holds in code either.
 //   missingkey   a literal key given to word(/hasWord(/wordsOf( or listed in words-reads.json that words.json lacks.
 //   handlist     a test array of 5+ strings that are op names, refusal codes or word keys (K3268). Tag `?` on
 //                op names and refusal codes (whose owner module is not known to the check); word keys are certain.
@@ -363,6 +366,8 @@ export async function checkWords(root, only = [], { release = false } = {}) {
   let literals = 0;
   const tIds = new Map(); // t id -> { en, where } of its first use
   const tReads = new Set(); // the string tokens given as a t call's id and en
+  const codeEns = new Set(); // the en of every marker call in product source (bio K3962)
+  const codeTests = []; // test strings not yet judged against codeEns: { m, f, s }
   let dev = 0; // sentences given to built-in error constructors: developer text, not failures
   const ownLits = new Map(); // module -> Set of string values in its own product source (a code is its own when its source names it)
   const lists = []; // handlist candidates, judged once every module's own source has been read
@@ -425,6 +430,7 @@ export async function checkWords(root, only = [], { release = false } = {}) {
       const idOk = plain(a) && endsArg(toks[k + 3]), enOk = idOk && toks[k + 3].v === ',' && plain(b) && endsArg(toks[k + 5]);
       if (idOk) tReads.add(a);
       if (enOk) tReads.add(b);
+      if (enOk && !isTest) codeEns.add(b.v);
       if (DRAWN_MODULES(m.id)) add('marker', m.id, f, t.line, '', `${MARKER} call in a drawn-screen module (read by word())`);
       if (!idOk) { add('marker', m.id, f, t.line, '', `${MARKER} id is not a plain string literal`); continue; }
       if (!KEY_RE.test(a.v)) add('marker', m.id, f, a.line, '', `${MARKER} id ${excerpt(a.v)} is not <module>.<area>.<name>`);
@@ -442,11 +448,14 @@ export async function checkWords(root, only = [], { release = false } = {}) {
         if (tReads.has(s) || /^(word|hasWord|wordsOf)$/.test(last) || (hasT && last === MARKER)) continue;
         const v = s.v;
         if (s.interp) { // static chunks between placeholders
-          for (const chunk of v.split('{}')) if (chunk.length >= 25 && !chunk.includes('\n') && words.blob.includes(chunk)) { add('testcopy', m.id, f, s.line, '', excerpt(chunk)); break; }
+          let hit = false;
+          for (const chunk of v.split('{}')) if (chunk.length >= 25 && !chunk.includes('\n') && words.blob.includes(chunk)) { add('testcopy', m.id, f, s.line, '', excerpt(chunk)); hit = true; break; }
+          if (!hit) codeTests.push({ m: m.id, f, s });
           continue;
         }
         if (words.ens.has(v) && isCopyLen(v)) add('testcopy', m.id, f, s.line, '', excerpt(v));
         else if (v.length >= 25 && !v.includes('\n') && words.blob.includes(v)) add('testcopy', m.id, f, s.line, 'part', excerpt(v));
+        else codeTests.push({ m: m.id, f, s });
       }
       // handlist: array literals of 5+ strings
       if (!OWN_DECL_MODULES.has(m.id) && !OWN_WORDS_MODULES.has(m.id)) {
@@ -492,6 +501,17 @@ export async function checkWords(root, only = [], { release = false } = {}) {
         const tag = plainOnly ? 'plain' : isCopy ? 'copy' : table ? 'table' : c.error ? '?' : '';
         add('inline', m.id, f, s.line, tag, excerpt(v), v);
       }
+    }
+  }
+
+  // testcopy against the marker calls of product source (bio K3962), judged once every product file has been read
+  if (codeEns.size) {
+    const codeBlob = '\n' + [...codeEns].join('\n') + '\n';
+    for (const { m, f, s } of codeTests) {
+      const v = s.v;
+      if (s.interp) {
+        for (const chunk of v.split('{}')) if (chunk.length >= 25 && !chunk.includes('\n') && codeBlob.includes(chunk)) { add('testcopy', m, f, s.line, 'code', excerpt(chunk)); break; }
+      } else if ((codeEns.has(v) && isCopyLen(v)) || (v.length >= 25 && !v.includes('\n') && codeBlob.includes(v))) add('testcopy', m, f, s.line, 'code', excerpt(v));
     }
   }
 

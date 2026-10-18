@@ -226,6 +226,27 @@ test('localize: its id and en are never inline or testcopy findings; its id need
   assert.match(r.summary, /marker 0,/);
 });
 
+test('testcopy [code]: a test copying the en of a product localize call is found (bio K3962); controls are not', async () => {
+  const root = product({
+    'src/clean/index.mjs': "import { localize } from '../setup-words/index.mjs';\nexport const a = localize('m.a.b', 'the source could not be read today');\nexport const b = localize('m.a.c', 'Sent to {name} on time');\n",
+    'test/clean/code.test.mjs': [
+      "import { localize } from '../../src/setup-words/index.mjs';",
+      "import assert from 'node:assert/strict';",
+      "assert.ok(out.includes('source could not be read today'));",                       // 3: a 25+ character substring (a regex literal is not read): found
+      "assert.equal(out.says, 'Sent to {name} on time');",                                  // 4: exact copy, 2+ words, placeholder as it stands: found
+      "assert.equal(out.says, localize('m.a.b', 'the source could not be read today'));", // 5: compares with localize: not a finding
+      "assert.equal(out.n, 'source');",                                                     // 6: one word
+      "assert.equal(out.says, 'could not be read');",                                       // 7: shares under 25 characters
+    ].join('\n') + '\n',
+  });
+  const r = await checkWords(root, ['clean']);
+  const T = 'test/clean/code.test.mjs';
+  assert.ok(r.failures.some((x) => x.startsWith(`testcopy clean ${T}:3 [code] `)), r.failures.join('\n'));
+  assert.ok(r.failures.some((x) => x.startsWith(`testcopy clean ${T}:4 [code] `)), r.failures.join('\n'));
+  for (const line of [5, 6, 7]) assert.ok(!r.failures.some((x) => x.startsWith(`testcopy clean ${T}:${line} `)), `line ${line}`);
+  assert.equal(r.totals.testcopy, 2);
+});
+
 test('localize: a localize bound to node:test (or any module but setup-words) is not the marker', async () => {
   const root = product({
     'test/clean/t.test.mjs': "import { test as localize } from 'node:test';\nlocalize('R1: The list is empty, so there is no total to show.', () => {});\nlocalize(label, fn);\n",
