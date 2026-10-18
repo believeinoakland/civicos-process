@@ -389,7 +389,8 @@ export async function checkWords(root, only = [], { release = false } = {}) {
       const from = toks[j + 1], src = toks[j + 2];
       if (named && from && from.v === 'from' && src && src.t === 'str' && /(^|\/)setup-words(\/index\.mjs)?$/.test(src.v)) hasT = true;
     }
-    for (let k = 0; hasT && k < toks.length - 1; k++) {
+    // The word list's own module (OWN_WORDS_MODULES) tests the marker's refusals on purpose: its `t` calls are not judged.
+    for (let k = 0; hasT && !OWN_WORDS_MODULES.has(m.id) && k < toks.length - 1; k++) {
       const t = toks[k];
       if (toks[k - 1] && toks[k - 1].t === 'p' && toks[k - 1].v === '.') continue;
       if (!(t.t === 'id' && t.v === 't' && toks[k + 1].t === 'p' && toks[k + 1].v === '(')) continue;

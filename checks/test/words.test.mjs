@@ -279,3 +279,9 @@ test('--release: each row of words-unreviewed.json fails; without the flag none 
   assert.deepEqual(all.failures.filter((f) => f.startsWith('unreviewed ')), ['unreviewed clean src/clean/index.mjs:4 clean.index.a', 'unreviewed viol src/viol/index.mjs:9 viol.index.b']);
   assert.match(all.summary, /unreviewed 2,/);
 });
+
+test('marker: the word list\'s own module (setup-words) may hold malformed t calls in its tests', async () => {
+  const root = product({ 'test/setup-words/x.test.mjs': "import { t } from '../../src/setup-words/index.mjs';\nt(id, en);\nt('Bad', 'x');\n" });
+  const r = await checkWords(root, ['setup-words']);
+  assert.deepEqual(r.failures.filter((f) => f.startsWith('marker ')), []);
+});
