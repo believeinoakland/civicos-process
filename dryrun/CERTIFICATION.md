@@ -159,3 +159,12 @@ A BOB's takeover writes its channel address with the plan's (§5.1 step 1, §13.
 | WL1 | `mail bob` writes the Status line and BOB's Writer line (account from the registry), idempotently; with no registry, the Status line only; a failed channel step keeps the Status line and warns with the `xwriter` command | `tools/test/bob-writer.test.mjs` tests 1–4 (scratch origin, two mail branches) | proven by fixtures (129/0) |
 | WL2 | `xcheck --as BOB` warns when BOB's Writer line names another session than the plan's Status line, and not when they match | `tools/test/bob-writer.test.mjs` test 5; live over bio at BOB #179 (no warning, Writer matching the plan) | proven by fixtures and live |
 | WL3 | a real takeover writes both in one command | only a product takeover can prove it (§15): BOB #180's `mail bob` prints "BOB's Writer line written", and its handoff-reading `xcheck` prints no WARNING; BOB #180 records it in `RUNS.md` | proven (RUNS W2, BOB #180) |
+
+## The mechanical-pass revision (BOB #214, 2026-10-18; bio K3923, K3927)
+
+| # | path | evidence | status |
+| --- | --- | --- | --- |
+| MP1 | a mechanical change across modules is one pass (§5.10), its judgment cases each a job in the same tranche | RUNS D15 | PROVEN |
+| CR1 | the completion round runs closed layers' found work as a layer after the last (§5.7 step 0) | RUNS D15 | PROVEN |
+| NX1 | a `next.md` entry naming none of P19's three reasons fails the format check (§8.4) | RUNS D15; `checks.test.mjs` | PROVEN |
+| WD1 | the words check finds inline, stitched and copied sentences and hand-lists, runs in `run.mjs` (§8.6) | RUNS D15; `words.test.mjs` | PROVEN |

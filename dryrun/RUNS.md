@@ -188,3 +188,19 @@ Result: **V6 proven.** Cost: one tool call; no extra sessions.
 BOB #179's worker added `bobWriter` to `mail bob` and `xcheckWarnings` to `xcheck`, with `tools/test/bob-writer.test.mjs` (5 tests). Suite before 124/0, after 129/0. Live `xcheck --as BOB --tranche T49` over bio: no warning. WL1, WL2 proven; WL3 waits on BOB #180's takeover.
 
 WL3 (BOB #180's takeover, 2026-10-14 ~22:32Z, bio `tranche/T49`): `mail bob` printed "plan Status written (7b41802521)" and "BOB's Writer line written (325a687)" in one command; `xcheck --as BOB` printed no WARNING (UX-DESIGN read through U257, they read B218 of B218). WL3 proven; WL1–WL3 all proven.
+
+## D15 · 2026-10-18 · the K3923 revision: mechanical passes, the completion round, the words check and next.md's reasons (bio K3923, K3927)
+
+Tranche `tranche/D15` from `dryrun-main/D15` (now `cf36354`), run by BOB #214 (`session_01GSmA9F4nLx4fViJzQfU6f7`). The toy gained a word table (`docs/development/ux-substrate/screens/words.json`) and `setup-words`; planted: an inline sentence in alpha and in beta (each a table row), a test copying each, a sentence stitched from `+` pieces in stats with no row, and a `next.md` entry deferred for "the order".
+
+| path | evidence | result |
+| --- | --- | --- |
+| §8.4: `next.md` refuses a deferral for another reason | `checks/run.mjs` on the planted state: `next.md:7: N9 names no P19 hard reason … "the order (layer 2 has closed)"`; N10 ("Bob's") passed; fixture tests in `checks.test.mjs` | PROVEN |
+| §8.6: the words check finds inline sentences and test copies, and runs in `run.mjs` | the planted state: inline alpha ×2, beta ×1 (`copy`), testcopy alpha, beta; `run.mjs` printed the `words:` line and exited 1 | PROVEN |
+| §8.6: a stitched sentence | **missed on the first run** (finding F1): no piece was a sentence on its own. Fixed in the run (`8838251`, tightened `ee5ec8e`: a `+` chain whose joined text is a sentence, one piece of 3+ words); re-run: `stats/src/index.mjs:48 [stitched]` | PROVEN after the fix |
+| §5.10: one pass, no job running, modules from the check's findings, judgment cases handed to their own job, one full run | haiku worker in BOB's session: alpha and beta read `word(key)`, their tests compare `word(key)`, `uses` gained setup-words, bundles regenerated; stats listed (stitched, no row); all four modules' tests green, `run.mjs` left only stats and N9 (`c7fab68`) | PROVEN |
+| §5.7 step 0: the completion round, run as a layer | N9 re-placed into the round (CR-2) and stats' judgment case (CR-1) after the design batch added its row; `job/D15/stats` pushed, START B1 posted, STATS #1 (`session_01H4fMDeELs9MJCQ6WaeJKbB`, haiku, depth 2) confirmed, COMPLETE (J2) in 4 minutes; ownership 0 failures, merged; legacy bundle regenerated; `run.mjs` 0 on format, architecture, coverage, words | PROVEN |
+
+Findings: F1 above. F2: the job's checkout carried the process repository's `main` before the fix, so it saw a developer `TypeError` message as a finding and reported it (J1) as alpha's; a check changed during a tranche reaches jobs only through `main` (§4's tool-fix rule, already stated): BOB answered (B2). Built-in error messages are developer text, not counted (bio K3927).
+
+Result: **§5.10, §5.7 step 0, §8.4's `next.md` arm and §8.6 certified.** Cost: STATS #1 3.26 M tokens; two workers in BOB's session.
