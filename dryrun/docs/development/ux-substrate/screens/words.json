@@ -1,8 +1,21 @@
 {
   "status": "The dry run's word table (D15): the design stream's stand-in. Every sentence a person reads, by key.",
   "words": [
-    { "key": "alpha.sum.nothing", "en": "There is nothing to add up yet." },
-    { "key": "alpha.sum.total", "en": "The total of your numbers is {total}." },
-    { "key": "beta.total.empty", "en": "The list is empty, so there is no total to show." }
+    {
+      "key": "alpha.sum.nothing",
+      "en": "There is nothing to add up yet."
+    },
+    {
+      "key": "alpha.sum.total",
+      "en": "The total of your numbers is {total}."
+    },
+    {
+      "key": "beta.total.empty",
+      "en": "The list is empty, so there is no total to show."
+    },
+    {
+      "key": "stats.mean.of",
+      "en": "The mean of your {count} numbers is {mean}."
+    }
   ]
 }

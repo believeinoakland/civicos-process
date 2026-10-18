@@ -31,6 +31,9 @@ Statistics over lists of numbers.
 **describeMean(list) → string** (D15)
 - **R10** The sentence a person reads naming how many numbers `list` holds and their mean.
 
+**median(list) → number** (D15, CR-2)
+- **R11** The middle value of `list` sorted ascending; for an even length, the mean of the two middle values; an empty list is a `RangeError`; an element that is not a finite number is a `TypeError` (as R8). *(not yet met: D15)*
+
 ## Private
 
 ### Uses
