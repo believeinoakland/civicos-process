@@ -211,32 +211,33 @@ test('inline: a stitched + chain whose joined text is a sentence fails once, tag
   assert.equal(mine.length, 3, mine.join('\n'));
   const only = await checkWords(root, ['clean']);
   assert.equal(only.totals.dev, 1);
-  assert.match(only.summary, /dev 1$/);
+  assert.match(only.summary, /dev 1, unkeyed 0$/);
 });
 
-// Words B (bio K3930; words-B-design §10): t(id, en, vars) is a reading; the marker arm; --release.
+// Words B (bio K3930; words-B-design §10): localize(id, en, vars) is a reading; the marker arm; --release.
 const mk = (m, f, line, extra) => (x) => x.startsWith(`marker ${m} ${f}:${line} `) && (!extra || x.includes(extra));
-test('t: its id and en are never inline or testcopy findings; a t id needs no row', async () => {
+test('localize: its id and en are never inline or testcopy findings; its id needs no row', async () => {
   const root = product({
-    'src/clean/index.mjs': "import { t } from '../setup-words/index.mjs';\nexport const a = t('clean.index.nothing', 'There is nothing to add up yet.');\nexport const b = t('clean.index.total', `The total is {total}.`, { total: 3 });\n",
-    'test/clean/t.test.mjs': "import { t } from '../../src/setup-words/index.mjs';\nconst x = t('clean.index.nothing', 'There is nothing to add up yet.');\n",
+    'src/clean/index.mjs': "import { localize } from '../setup-words/index.mjs';\nexport const a = localize('clean.index.nothing', 'There is nothing to add up yet.');\nexport const b = localize('clean.index.total', `The total is {total}.`, { total: 3 });\n",
+    'test/clean/t.test.mjs': "import { localize } from '../../src/setup-words/index.mjs';\nconst x = localize('clean.index.nothing', 'There is nothing to add up yet.');\n",
   });
   const r = await checkWords(root, ['clean']);
   assert.deepEqual(r.failures, [], r.failures.join('\n'));
   assert.match(r.summary, /marker 0,/);
 });
 
-test('t: a t bound to node:test (or any module but setup-words) is not the marker', async () => {
+test('localize: a localize bound to node:test (or any module but setup-words) is not the marker', async () => {
   const root = product({
-    'test/clean/t.test.mjs': "import { test as t } from 'node:test';\nt('R1: The list is empty, so there is no total to show.', () => {});\nt(label, fn);\n",
-    'test/clean/u.test.mjs': "import t from 'node:test';\nt(label, fn);\n",
-    'test/clean/v.test.mjs': "const t = (a, b, c) => a;\nt(label, 1, 2);\n",
+    'test/clean/t.test.mjs': "import { test as localize } from 'node:test';\nlocalize('R1: The list is empty, so there is no total to show.', () => {});\nlocalize(label, fn);\n",
+    'test/clean/u.test.mjs': "import localize from 'node:test';\nlocalize(label, fn);\n",
+    'test/clean/v.test.mjs': "const localize = (a, b, c) => a;\nlocalize(label, 1, 2);\n",
+    'test/clean/w.test.mjs': "import test from 'node:test';\ntest('R2: a t bound to node:test is plain code', () => {});\n",
   });
   const r = await checkWords(root, ['clean']);
   assert.deepEqual(r.failures, [], r.failures.join('\n'));
 });
 
-test('marker: a non-literal id or en, a malformed id, one id with two en, and a t call in a drawn-screen module fail', async () => {
+test('marker: a non-literal id or en, a malformed id, one id with two en, and a marker call in a drawn-screen module fail', async () => {
   const root = product({
     'build/modules.json': JSON.stringify({
       not_product: ['docs/', 'build/'],
@@ -247,16 +248,16 @@ test('marker: a non-literal id or en, a malformed id, one id with two en, and a 
       ],
     }),
     'src/clean/index.mjs': [
-      "import { t } from '../setup-words/index.mjs';",
-      "export const a = t('clean.index.one', 'One thing is held here.');",   // 1
-      "export const b = t('clean.index.one', 'A different thing is here.');", // 2: two en
-      "export const c = t('clean.index.one', 'One thing is held here.');",   // 3: same en, fine
-      "export const d = t(id, 'Some sentence is given here.');",              // 4: id not literal
-      "export const e = t('clean.index.two', en);",                           // 5: en not literal
-      "export const f = t('Bad Id', 'Some other sentence here.');",          // 6: malformed id
-      "export const g = t('clean.index.three', 'Part ' + x);",               // 7: en not plain
+      "import { localize } from '../setup-words/index.mjs';",
+      "export const a = localize('clean.index.one', 'One thing is held here.');",   // 1
+      "export const b = localize('clean.index.one', 'A different thing is here.');", // 2: two en
+      "export const c = localize('clean.index.one', 'One thing is held here.');",   // 3: same en, fine
+      "export const d = localize(id, 'Some sentence is given here.');",              // 4: id not literal
+      "export const e = localize('clean.index.two', en);",                           // 5: en not literal
+      "export const f = localize('Bad Id', 'Some other sentence here.');",          // 6: malformed id
+      "export const g = localize('clean.index.three', 'Part ' + x);",               // 7: en not plain
     ].join('\n') + '\n',
-    'src/screens-x/index.mjs': "import { t } from '../setup-words/index.mjs';\nexport const h = t('screens-x.index.title', 'A drawn screen title.');\n", // 1: drawn
+    'src/screens-x/index.mjs': "import { localize } from '../setup-words/index.mjs';\nexport const h = localize('screens-x.index.title', 'A drawn screen title.');\n", // 1: drawn
     'src/viol/index.mjs': 'export const ok = 1;\n', 'test/viol/a.test.mjs': 'export const ok = 1;\n',
     'src/owner/index.mjs': 'export const ok = 1;\n', 'test/owner/a.test.mjs': 'export const ok = 1;\n',
   });
@@ -280,8 +281,21 @@ test('--release: each row of words-unreviewed.json fails; without the flag none 
   assert.match(all.summary, /unreviewed 2,/);
 });
 
-test('marker: the word list\'s own module (setup-words) may hold malformed t calls in its tests', async () => {
-  const root = product({ 'test/setup-words/x.test.mjs': "import { t } from '../../src/setup-words/index.mjs';\nt(id, en);\nt('Bad', 'x');\n" });
+test('marker: the word list\'s own module (setup-words) may hold malformed marker calls in its tests', async () => {
+  const root = product({ 'test/setup-words/x.test.mjs': "import { localize } from '../../src/setup-words/index.mjs';\nt(id, en);\nt('Bad', 'x');\n" });
   const r = await checkWords(root, ['setup-words']);
   assert.deepEqual(r.failures.filter((f) => f.startsWith('marker ')), []);
+});
+
+test('inline: a sentence on the design\'s unkeyed list (words-reads.json) is not counted, unless it copies a row (bio K3944)', async () => {
+  const reads = { modules: { clean: { reads: [], unkeyed: [{ file: 'clean/index.mjs', line: 1, text: 'A builder reads this rationale about the rung, never a member.', why: 'builders' }] } } };
+  const root = product({
+    'docs/development/ux-substrate/screens/words-reads.json': JSON.stringify(reads),
+    'src/clean/index.mjs': "export const a = 'A builder reads this rationale about the rung, never a member.';\nexport const b = 'A member reads this sentence on the screen today.';\n",
+  });
+  const r = await checkWords(root, ['clean']);
+  const inl = r.failures.filter((f) => f.startsWith('inline '));
+  assert.equal(inl.length, 1, inl.join('\n'));
+  assert.ok(inl[0].includes(':2 '), inl[0]);
+  assert.match(r.summary, /unkeyed 1/);
 });

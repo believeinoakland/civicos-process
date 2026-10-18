@@ -16,9 +16,10 @@
 // `build/ops.json` (a JSON array of names). Files read: tracked files of the module's `paths` / `tests` with a
 // JS/TS extension; never generated files (a header saying GENERATED or "do not edit by hand", the manifest's
 // "Generated artifacts" table), vendored code, node_modules, dist, fixtures, setup-words itself.
-// Words B (bio K3930; words-B-design §10): `t(id, en, vars)` is a reading like word(): the literals given as its first and
-// second arguments are never `inline` or `testcopy` findings. A callee whose last name is `t` is a `t` call. Fifth arm:
-//   marker       a `t` call whose id or en is not a plain string literal (a template with no placeholder is plain), whose id
+// Words B (bio K3930; words-B-design §10): the marker `localize(id, en, vars)` (MARKER; named `t` until bio K3943, renamed
+// because 1,450 of bio's files bind `t` already) is a reading like word(): the literals given as its first and second
+// arguments are never `inline` or `testcopy` findings. Fifth arm:
+//   marker       a marker call whose id or en is not a plain string literal (a template with no placeholder is plain), whose id
 //                is not KEY_RE, whose id is used with two different en across the tree (each place after the first), or
 //                that sits in a drawn-screen module (DRAWN_MODULES). `missingkey` still judges word/hasWord/wordsOf only.
 //   unreviewed   only with `--release` (`checkWords(root, only, { release: true })`; run.mjs does not pass it): one failure per
@@ -41,6 +42,7 @@ export const DRAWN_MODULES = (id) => /^screens-/.test(id) || ['interface-shell',
 export const UNREVIEWED_JSON = 'bio-plane/src/setup-words/words-unreviewed.json'; // bio K3932
 const OWN_WORDS_MODULES = new Set(['setup-words']); // the word list's own module: holds the English by definition
 const OWN_DECL_MODULES = new Set(['op-declarations', 'op-capabilities']); // modules whose tests may list ops
+export const MARKER = 'localize'; // setup-words R14 (bio K3943)
 const KEY_RE = /^[a-z][a-z0-9_-]*(\.[A-Za-z0-9_-]+)+$/;
 const ERROR_CALLEE = /(^|\.)\w*Error$/;
 const TITLE_CALLEE = /^(test|it|describe|suite|before|after)(\.\w+)?$/;
@@ -328,6 +330,7 @@ export async function checkWords(root, only = [], { release = false } = {}) {
   const outside = notProduct(state);
   const gen = generatedFromManifest(root);
   const unkeyed = loadUnkeyed(root);
+  let designUnkeyed = 0; // inline strings on the design's unkeyed list, not counted (bio K3944)
   const files = listFiles(root);
   const failures = [];
   const counts = {}; // module -> arm -> n
@@ -385,7 +388,7 @@ export async function checkWords(root, only = [], { release = false } = {}) {
     for (let k = 0; k < toks.length && !hasT; k++) {
       if (!(toks[k].t === 'id' && toks[k].v === 'import' && toks[k + 1] && toks[k + 1].v === '{')) continue;
       let j = k + 2, named = false;
-      for (; j < toks.length && toks[j].v !== '}'; j++) if (toks[j].t === 'id' && toks[j].v === 't' && !['as'].includes(toks[j - 1].v) && !(toks[j + 1] && toks[j + 1].v === 'as')) named = true;
+      for (; j < toks.length && toks[j].v !== '}'; j++) if (toks[j].t === 'id' && toks[j].v === MARKER && !['as'].includes(toks[j - 1].v) && !(toks[j + 1] && toks[j + 1].v === 'as')) named = true;
       const from = toks[j + 1], src = toks[j + 2];
       if (named && from && from.v === 'from' && src && src.t === 'str' && /(^|\/)setup-words(\/index\.mjs)?$/.test(src.v)) hasT = true;
     }
@@ -393,19 +396,19 @@ export async function checkWords(root, only = [], { release = false } = {}) {
     for (let k = 0; hasT && !OWN_WORDS_MODULES.has(m.id) && k < toks.length - 1; k++) {
       const t = toks[k];
       if (toks[k - 1] && toks[k - 1].t === 'p' && toks[k - 1].v === '.') continue;
-      if (!(t.t === 'id' && t.v === 't' && toks[k + 1].t === 'p' && toks[k + 1].v === '(')) continue;
+      if (!(t.t === 'id' && t.v === MARKER && toks[k + 1].t === 'p' && toks[k + 1].v === '(')) continue;
       if (toks[k - 1] && toks[k - 1].t === 'id' && ['function', 'async'].includes(toks[k - 1].v)) continue; // a definition
       const a = toks[k + 2], b = toks[k + 4];
       const idOk = plain(a) && endsArg(toks[k + 3]), enOk = idOk && toks[k + 3].v === ',' && plain(b) && endsArg(toks[k + 5]);
       if (idOk) tReads.add(a);
       if (enOk) tReads.add(b);
-      if (DRAWN_MODULES(m.id)) add('marker', m.id, f, t.line, '', 't call in a drawn-screen module (read by word())');
-      if (!idOk) { add('marker', m.id, f, t.line, '', 't id is not a plain string literal'); continue; }
-      if (!KEY_RE.test(a.v)) add('marker', m.id, f, a.line, '', `t id ${excerpt(a.v)} is not <module>.<area>.<name>`);
-      if (!enOk) { add('marker', m.id, f, t.line, '', `t(${excerpt(a.v)}, en): en is not a plain string literal`); continue; }
+      if (DRAWN_MODULES(m.id)) add('marker', m.id, f, t.line, '', `${MARKER} call in a drawn-screen module (read by word())`);
+      if (!idOk) { add('marker', m.id, f, t.line, '', `${MARKER} id is not a plain string literal`); continue; }
+      if (!KEY_RE.test(a.v)) add('marker', m.id, f, a.line, '', `${MARKER} id ${excerpt(a.v)} is not <module>.<area>.<name>`);
+      if (!enOk) { add('marker', m.id, f, t.line, '', `${MARKER}(${excerpt(a.v)}, en): en is not a plain string literal`); continue; }
       const prev = tIds.get(a.v);
       if (!prev) tIds.set(a.v, { en: b.v, where: `${f}:${a.line}` });
-      else if (prev.en !== b.v) add('marker', m.id, f, a.line, '', `t id ${excerpt(a.v)} has a different en than at ${prev.where}`);
+      else if (prev.en !== b.v) add('marker', m.id, f, a.line, '', `${MARKER} id ${excerpt(a.v)} has a different en than at ${prev.where}`);
     }
 
     if (isTest) {
@@ -413,7 +416,7 @@ export async function checkWords(root, only = [], { release = false } = {}) {
       for (const s of strs) {
         if (s.ctx.importPath || s.ctx.title || s.ctx.console) continue;
         const last = (s.ctx.callee || '').split('.').pop();
-        if (tReads.has(s) || /^(word|hasWord|wordsOf)$/.test(last) || (hasT && last === 't')) continue;
+        if (tReads.has(s) || /^(word|hasWord|wordsOf)$/.test(last) || (hasT && last === MARKER)) continue;
         const v = s.v;
         if (s.interp) { // static chunks between placeholders
           for (const chunk of v.split('{}')) if (chunk.length >= 25 && !chunk.includes('\n') && words.blob.includes(chunk)) { add('testcopy', m.id, f, s.line, '', excerpt(chunk)); break; }
@@ -459,7 +462,10 @@ export async function checkWords(root, only = [], { release = false } = {}) {
         if (!isCopy && !isSentence(v)) continue;
         if (c.dev) { dev++; continue; }
         const dec = v.trim().length >= 10 && (unkeyed.get(m.id) || '').includes(v.trim().replace(/\$?\{[^}]*\}/g, '{}'));
-        const tag = isCopy ? 'copy' : table ? 'table' : dec ? 'unkeyed' : c.error ? '?' : '';
+        // The design's unkeyed list (DEC-258, DEC-260: "`unkeyed` stays in source") is text no member reads: not counted,
+        // unless it is an exact copy of a row (bio K3944).
+        if (dec && !isCopy) { designUnkeyed++; continue; }
+        const tag = isCopy ? 'copy' : table ? 'table' : c.error ? '?' : '';
         add('inline', m.id, f, s.line, tag, excerpt(v), v);
       }
     }
@@ -508,8 +514,8 @@ export async function checkWords(root, only = [], { release = false } = {}) {
   failures.sort();
   const tot = { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0 };
   for (const c of Object.values(counts)) for (const k of Object.keys(tot)) tot[k] += c[k];
-  const summary = `${modsSeen.size} modules, ${literals} string literals read, ${words.keys.size} words; inline ${tot.inline}, testcopy ${tot.testcopy}, missingkey ${tot.missingkey}, handlist ${tot.handlist} (${tot.q} tagged ?), marker ${tot.marker}${release ? `, unreviewed ${tot.unreviewed}` : ''}, dev ${dev}`;
-  return { failures, summary, counts, totals: { ...tot, dev }, items };
+  const summary = `${modsSeen.size} modules, ${literals} string literals read, ${words.keys.size} words; inline ${tot.inline}, testcopy ${tot.testcopy}, missingkey ${tot.missingkey}, handlist ${tot.handlist} (${tot.q} tagged ?), marker ${tot.marker}${release ? `, unreviewed ${tot.unreviewed}` : ''}, dev ${dev}, unkeyed ${designUnkeyed}`;
+  return { failures, summary, counts, totals: { ...tot, dev, unkeyed: designUnkeyed }, items };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
