@@ -124,6 +124,34 @@ export function scan(src) {
   return toks;
 }
 
+// Literal chains: a maximal run of two or more pure string literals (no `${}`) joined only by `+` is one literal, at the
+// first one's line, so a sentence written as `"The record could not be read, " + "so nothing was shown."` is judged whole.
+// A chain with any other operand (`x + "a" + "b"`, `"a" + "b" + x`, `"a" + "b".trim()`, `"a" + "b" * 2`) is left as the scanner gave it.
+const NOT_LITERAL_PREV = '+-*/%.';
+const NOT_LITERAL_NEXT = '.([*/%-+';
+export function foldLiteralChains(toks) {
+  const pure = (x) => x && x.t === 'str' && !x.interp;
+  const plus = (x) => x && x.t === 'p' && x.v === '+';
+  const out = [];
+  for (let k = 0; k < toks.length; k++) {
+    const t = toks[k];
+    const prev = toks[k - 1];
+    if (pure(t) && plus(toks[k + 1]) && pure(toks[k + 2]) && !(prev && prev.t === 'p' && NOT_LITERAL_PREV.includes(prev.v))) {
+      let j = k;
+      while (plus(toks[j + 1]) && pure(toks[j + 2])) j += 2;
+      const nx = toks[j + 1];
+      if (!(nx && nx.t === 'p' && NOT_LITERAL_NEXT.includes(nx.v))) {
+        let v = '', tpl = false;
+        for (let i = k; i <= j; i += 2) { v += toks[i].v; tpl = tpl || !!toks[i].tpl; }
+        out.push({ t: 'str', v, line: t.line, ...(tpl ? { tpl: true, interp: false } : {}) });
+        k = j; continue;
+      }
+    }
+    out.push(t);
+  }
+  return out;
+}
+
 // Adds `ctx` to each string token: { importPath, error, console, title, callee } from its enclosing call.
 export function withContext(toks) {
   const stack = [];
@@ -386,7 +414,7 @@ export async function checkWords(root, only = [], { release = false } = {}) {
     if (!isTest && (gen.files.has(f) || isGeneratedText(src))) { const set = ownLits.get(m.id) ?? ownLits.set(m.id, new Set()).get(m.id); for (const t of scan(src)) if (t.t === 'str') set.add(t.v); continue; }
     if (isGeneratedText(src)) continue;
     modsSeen.add(m.id);
-    const toks = withContext(scan(src));
+    const toks = withContext(foldLiteralChains(scan(src)));
     const strs = toks.filter((t) => t.t === 'str');
     literals += strs.length;
     if (!isTest) { const set = ownLits.get(m.id) ?? ownLits.set(m.id, new Set()).get(m.id); for (const t of strs) set.add(t.v); }

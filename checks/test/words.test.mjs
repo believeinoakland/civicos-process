@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { checkWords, isSentence, isPlainSentence, scan } from '../words.mjs';
+import { checkWords, isSentence, isPlainSentence, scan, foldLiteralChains } from '../words.mjs';
 
 const WORDS = {
   words: [
@@ -360,4 +360,41 @@ test('isPlainSentence: the rule in brief; isSentence is unchanged', () => {
   assert.equal(isPlainSentence('no line of the document reads N4 as a row'), false);
   assert.equal(isPlainSentence('no line of the document reads DEC-83 as a row'), false);
   assert.equal(isPlainSentence('a line of the document reads as a row '), false);
+});
+
+// Literal chains: `"a" + "b"` of pure literals is judged as one literal at its first line.
+test('inline: a + chain of pure literals is one literal at its first line; chains with a non-literal operand are unchanged', async () => {
+  const root = product({
+    'src/clean/index.mjs': [
+      "import { localize } from '../setup-words/index.mjs';",
+      "export const a = 'The record could not be read, ' +",                      // 2: one finding, at line 2
+      "  // a comment between",
+      "  `so nothing was shown.`;",
+      "export const b = localize('clean.index.x', 'There is nothing ' + 'to add up yet.');", // 5: a reading, as for one literal
+      "export const c = 'The record could not be ' + why + ' so nothing was shown.';",       // 6: stitched, as today
+      "export const d = 'Save' + ' now';",                                        // 7: two short labels: not a sentence
+      "export const e = 'The record could not be read, ' + 'so nothing was shown.' + tail;", // 8: a non-literal operand: stitched as today
+      "export const f = 'The record could not be ' + 'read'.trim();",              // 9: left as today
+    ].join('\n') + '\n',
+  });
+  const r = await checkWords(root, ['clean']);
+  const F = 'src/clean/index.mjs';
+  const mine = r.failures.filter((x) => x.startsWith('inline clean '));
+  assert.ok(has(r.failures, 'inline', 'clean', F, 2, ''), mine.join('\n'));
+  assert.ok(mine.some((x) => x.endsWith('"The record could not be read, so nothing was shown."')), mine.join('\n'));
+  assert.ok(!r.failures.some((x) => x.startsWith('marker ')) && !mine.some((x) => x.includes(`${F}:5 `)), r.failures.join('\n'));
+  assert.ok(has(r.failures, 'inline', 'clean', F, 6, 'stitched'));
+  assert.ok(!mine.some((x) => x.includes(`${F}:7 `)));
+  assert.ok(has(r.failures, 'inline', 'clean', F, 8, 'stitched'));
+  assert.ok(mine.filter((x) => x.includes(`${F}:9 `)).every((x) => !x.includes('so nothing')), mine.join('\n')); // as today (git stash to compare)
+  assert.equal(mine.filter((x) => x.includes(`${F}:2 `)).length, 1);
+});
+
+test('foldLiteralChains: quotes and templates join; interpolated, mixed and member operands do not', () => {
+  const v = (src) => foldLiteralChains(scan(src)).filter((t) => t.t === 'str').map((t) => [t.v, t.line]);
+  assert.deepEqual(v('x("a" + \'b\' +\n `c`)'), [['abc', 1]]);
+  assert.deepEqual(v('x(y + "a" + "b")'), [['a', 1], ['b', 1]]);
+  assert.deepEqual(v('x("a" + `b${z}`)'), [['a', 1], ['b{}', 1]]);
+  assert.deepEqual(v('x("a" + "b".length)'), [['a', 1], ['b', 1]]);
+  assert.deepEqual(v('x("a" + "b" + y)'), [['a', 1], ['b', 1]]);
 });
