@@ -512,6 +512,9 @@ export async function checkWords(root, only = [], { release = false } = {}) {
         if (ch.lits.some((l) => l.ctx.importPath || l.ctx.console || l.ctx.title)) continue;
         for (const l of ch.lits) stitched.add(l);
         if (ch.lits.some((l) => l.ctx.dev)) { dev++; continue; }
+        // the design's unkeyed list holds joined text too: not counted, as in the arm below (bio K3944; UX-DESIGN U376)
+        const joined = ch.text.trim().replace(/\$?\{[^}]*\}/g, '{}');
+        if (joined.length >= 10 && (unkeyed.get(m.id) || '').includes(joined)) { designUnkeyed++; continue; }
         add('inline', m.id, f, ch.line, 'stitched', excerpt(ch.text), ch.text);
       }
       for (const s of strs) {

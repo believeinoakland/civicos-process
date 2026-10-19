@@ -322,6 +322,19 @@ test('inline: a sentence on the design\'s unkeyed list (words-reads.json) is not
   assert.match(r.summary, /unkeyed 1/);
 });
 
+test('inline: a stitched chain whose joined text is on the design\'s unkeyed list is not counted; another still fails (UX-DESIGN U376)', async () => {
+  const reads = { modules: { clean: { reads: [], unkeyed: [{ file: 'clean/index.mjs', line: 1, text: '{}\n## Session Log entry for the builders\n\n{}\n', why: 'log grammar' }] } } };
+  const root = product({
+    'docs/development/ux-substrate/screens/words-reads.json': JSON.stringify(reads),
+    'src/clean/index.mjs': "export const a = (t, e) => t + '\\n## Session Log entry for the builders\\n\\n' + e + '\\n';\nexport const b = (n) => 'The record could not be read, so ' + n + ' items were not shown.';\n",
+  });
+  const r = await checkWords(root, ['clean']);
+  const inl = r.failures.filter((f) => f.startsWith('inline '));
+  assert.equal(inl.length, 1, inl.join('\n'));
+  assert.ok(inl[0].includes(':2 ') && inl[0].includes('stitched'), inl[0]);
+  assert.match(r.summary, /unkeyed 1/);
+});
+
 // The plain arm (bio K3957): lowercase, unpunctuated prose of 5+ words is an inline finding tagged plain.
 test('inline: a lowercase unpunctuated reason of 5+ words is tagged plain; controls are not findings (bio K3957)', async () => {
   const reads = { modules: { clean: { reads: [], unkeyed: [{ file: 'clean/index.mjs', line: 1, text: 'the builder alone reads this note about rungs', why: 'builders' }] } } };
