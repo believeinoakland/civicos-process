@@ -335,6 +335,19 @@ test('inline: a stitched chain whose joined text is on the design\'s unkeyed lis
   assert.match(r.summary, /unkeyed 1/);
 });
 
+test('inline: a row copy the design\'s unkeyed list names is not counted; an unlisted copy still is (bio K4038; UX-DESIGN U380)', async () => {
+  const reads = { modules: { clean: { reads: [], unkeyed: [{ file: 'clean/index.mjs', line: 1, text: 'Nothing by that name is held here.', why: 'signed text (K1333)' }] } } };
+  const root = product({
+    'docs/development/ux-substrate/screens/words-reads.json': JSON.stringify(reads),
+    'src/clean/index.mjs': "export const a = 'Nothing by that name is held here.';\nexport const b = 'That date is not one we can read.';\n",
+  });
+  const r = await checkWords(root, ['clean']);
+  const inl = r.failures.filter((f) => f.startsWith('inline '));
+  assert.equal(inl.length, 1, inl.join('\n'));
+  assert.ok(inl[0].includes(':2 ') && inl[0].includes('copy'), inl[0]);
+  assert.match(r.summary, /unkeyed 1/);
+});
+
 // The plain arm (bio K3957): lowercase, unpunctuated prose of 5+ words is an inline finding tagged plain.
 test('inline: a lowercase unpunctuated reason of 5+ words is tagged plain; controls are not findings (bio K3957)', async () => {
   const reads = { modules: { clean: { reads: [], unkeyed: [{ file: 'clean/index.mjs', line: 1, text: 'the builder alone reads this note about rungs', why: 'builders' }] } } };

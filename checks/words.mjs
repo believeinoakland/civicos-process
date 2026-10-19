@@ -526,9 +526,10 @@ export async function checkWords(root, only = [], { release = false } = {}) {
         if (plainOnly && (s.interp || !isPlainSentence(v))) continue;
         if (c.dev) { if (!plainOnly) dev++; continue; }
         const dec = v.trim().length >= 10 && (unkeyed.get(m.id) || '').includes(v.trim().replace(/\$?\{[^}]*\}/g, '{}'));
-        // The design's unkeyed list (DEC-258, DEC-260: "`unkeyed` stays in source") is text no member reads: not counted,
-        // unless it is an exact copy of a row (bio K3944).
-        if (dec && !isCopy) { if (!plainOnly) designUnkeyed++; continue; }
+        // The design's unkeyed list (DEC-258, DEC-260: "`unkeyed` stays in source") is text the design keeps in code: not
+        // counted. A row copy it names is kept on purpose (signed text whose words a live row also holds, K1333): not
+        // counted either; an unlisted copy still is (bio K3944, K4038; UX-DESIGN U380).
+        if (dec) { if (!plainOnly) designUnkeyed++; continue; }
         const tag = plainOnly ? 'plain' : isCopy ? 'copy' : table ? 'table' : c.error ? '?' : '';
         add('inline', m.id, f, s.line, tag, excerpt(v), v);
       }
