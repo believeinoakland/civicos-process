@@ -226,6 +226,27 @@ test('localize: its id and en are never inline or testcopy findings; its id need
   assert.match(r.summary, /marker 0,/);
 });
 
+test('testcopy: an assertion\'s message argument is never a copy; the same text as the expected value still is (bio K4053)', async () => {
+  const root = product({
+    'src/clean/index.mjs': "import { localize } from '../setup-words/index.mjs';\nexport const a = localize('m.a.b', 'no member is named');\n",
+    'test/clean/msg.test.mjs': [
+      "import assert from 'node:assert/strict';",
+      "assert.doesNotMatch(JSON.stringify(all), /m1|m2/, 'no member is named');", // 2: match family, third argument: a message
+      "assert.ok(!seen, 'no member is named');",                                   // 3: ok, second argument: a message
+      "assert(!seen, 'no member is named');",                                      // 4: assert, second argument: a message
+      "assert.equal(out.detail, 'no member is named');",                           // 5: the expected value: a copy
+      "assert.equal(out.detail, 'no member is named', 'Nothing by that name is held here.');", // 6: expected found, message not
+    ].join('\n') + '\n',
+  });
+  const r = await checkWords(root, ['clean']);
+  const T = 'test/clean/msg.test.mjs';
+  const at = (line) => r.failures.filter((x) => x.startsWith(`testcopy clean ${T}:${line} `));
+  for (const line of [2, 3, 4]) assert.equal(at(line).length, 0, `line ${line}: ${at(line).join('; ')}`);
+  assert.equal(at(5).length, 1, r.failures.join('\n'));
+  assert.equal(at(6).length, 1, r.failures.join('\n'));
+  assert.equal(r.totals.testcopy, 2);
+});
+
 test('testcopy [code]: a test copying the en of a product localize call is found (bio K3962); controls are not', async () => {
   const root = product({
     'src/clean/index.mjs': "import { localize } from '../setup-words/index.mjs';\nexport const a = localize('m.a.b', 'the source could not be read today');\nexport const b = localize('m.a.c', 'Sent to {name} on time');\nexport const c = localize('m.a.d', 'Grade {UNREACHABLE_CAPTURE_GRADE} is not reachable');\n",

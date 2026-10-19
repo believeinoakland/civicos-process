@@ -50,6 +50,12 @@ export const MARKER = 'localize'; // setup-words R14 (bio K3943)
 const KEY_RE = /^[a-z][a-z0-9_-]*(\.[A-Za-z0-9_-]+)+$/;
 const ERROR_CALLEE = /(^|\.)\w*Error$/;
 const TITLE_CALLEE = /^(test|it|describe|suite|before|after)(\.\w+)?$/;
+// the argument index of an assertion's message (node:assert): compared with nothing, so never a sentence copy (bio K4053)
+const ASSERT_MESSAGE_AT = Object.fromEntries([
+  ...['assert', 'assert.ok'].map((c) => [c, 1]),
+  ...['equal', 'notEqual', 'strictEqual', 'notStrictEqual', 'deepEqual', 'notDeepEqual', 'deepStrictEqual', 'notDeepStrictEqual', 'match', 'doesNotMatch']
+    .map((c) => [`assert.${c}`, 2]),
+]);
 const BUILTIN_ERRORS = new Set(['Error', 'TypeError', 'RangeError', 'SyntaxError', 'ReferenceError', 'EvalError', 'URIError', 'AggregateError']);
 const REGEX_PREV_KW = new Set(['return', 'typeof', 'case', 'in', 'of', 'delete', 'void', 'throw', 'new', 'else', 'do', 'yield', 'await']);
 
@@ -166,8 +172,9 @@ export function withContext(toks) {
           while (toks[j - 1] && toks[j - 1].t === 'p' && toks[j - 1].v === '.' && toks[j - 2] && toks[j - 2].t === 'id') { callee = `${toks[j - 2].v}.${callee}`; j -= 2; }
         }
       }
-      stack.push({ open: tk.v, callee });
+      stack.push({ open: tk.v, callee, args: 0 });
     } else if (tk.t === 'p' && ')]}'.includes(tk.v)) stack.pop();
+    else if (tk.t === 'p' && tk.v === ',' && stack.length && stack[stack.length - 1].open === '(') stack[stack.length - 1].args++;
     else if (tk.t === 'str') {
       const ctx = {};
       const p = toks[k - 1];
@@ -182,6 +189,10 @@ export function withContext(toks) {
           if (/^console\./.test(f.callee)) ctx.console = true;
           if (f.callee === 'require' || f.callee === 'import') ctx.importPath = true;
           if (TITLE_CALLEE.test(f.callee) && toks[k - 1] && toks[k - 1].v === '(') ctx.title = true;
+          // an assertion's message argument, the whole argument, is compared with nothing: never a copy (bio K4053)
+          const at = ASSERT_MESSAGE_AT[f.callee];
+          const nx = toks[k + 1];
+          if (s === stack.length - 1 && at !== undefined && f.args === at && toks[k - 1] && toks[k - 1].v === ',' && nx && nx.t === 'p' && (nx.v === ')' || nx.v === ',')) ctx.assertMsg = true;
           break;
         }
       }
@@ -471,7 +482,7 @@ export async function checkWords(root, only = [], { release = false } = {}) {
     if (isTest) {
       // testcopy
       for (const s of strs) {
-        if (s.ctx.importPath || s.ctx.title || s.ctx.console) continue;
+        if (s.ctx.importPath || s.ctx.title || s.ctx.console || s.ctx.assertMsg) continue;
         const last = (s.ctx.callee || '').split('.').pop();
         if (tReads.has(s) || /^(word|hasWord|wordsOf)$/.test(last) || (hasT && last === MARKER)) continue;
         const v = s.v;
@@ -541,6 +552,7 @@ export async function checkWords(root, only = [], { release = false } = {}) {
   if (codeEns.size) {
     const codeBlob = '\n' + [...codeEns].join('\n') + '\n';
     for (const { m, f, s } of codeTests) {
+      if (s.ctx && s.ctx.assertMsg) continue;
       const v = s.v;
       if (s.interp) {
         for (const chunk of v.split('{}')) if (chunk.length >= 25 && /\s/.test(chunk.trim()) && !chunk.includes('\n') && codeBlob.includes(chunk)) { add('testcopy', m, f, s.line, 'code', excerpt(chunk)); break; }
