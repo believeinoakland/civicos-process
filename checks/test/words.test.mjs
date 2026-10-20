@@ -6,7 +6,8 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { checkWords, isSentence, isPlainSentence, scan, foldLiteralChains } from '../words.mjs';
+import { createHash } from 'node:crypto';
+import { checkWords, isSentence, isPlainSentence, scan, foldLiteralChains, literalRuns } from '../words.mjs';
 
 const WORDS = {
   words: [
@@ -444,4 +445,84 @@ test('foldLiteralChains: quotes and templates join; interpolated, mixed and memb
   assert.deepEqual(v('x("a" + `b${z}`)'), [['a', 1], ['b{}', 1]]);
   assert.deepEqual(v('x("a" + "b".length)'), [['a', 1], ['b', 1]]);
   assert.deepEqual(v('x("a" + "b" + y)'), [['a', 1], ['b', 1]]);
+});
+
+// bio K4208 (2a): a test matching a row's sentence by pattern, prefix or digest is a copy.
+test('testcopy [pattern|prefix|digest]: a regex, a startsWith and a pinned digest of a row\'s text are found; short, loose and unrelated ones are not (bio K4208)', async () => {
+  const sha = (h, s) => createHash(h).update(s).digest('hex');
+  const row = 'That date is not one we can read.';
+  const root = product({
+    'test/clean/pat.test.mjs': [
+      "import assert from 'node:assert/strict';",
+      "assert.match(out.says, /^Nothing by that name is held here\\.$/);",                    // 2: pattern, anchors and escapes stripped
+      "assert.match(out.says, new RegExp('You cannot see that project here'));",           // 3: pattern via new RegExp
+      "assert.ok(out.says.startsWith('That date is not one we can'));",                    // 4: prefix, 27 chars
+      "assert.ok(out.says.startsWith('A reason is needed for t'));",                 // 5: prefix, 30 chars
+      "assert.ok(out.says.endsWith('Your team has {count} open'));",                       // 6: substring of a row, 26 chars
+      `assert.equal(out.sha, '${sha('sha256', row)}');`,                                     // 7: digest, sha256
+      `assert.equal(out.sha, '${sha('sha1', row)}');`,                                       // 8: digest, sha1
+      "assert.match(out.says, /That date|is not one/);",                                    // 9: control: alternatives of short pieces
+      "assert.match(out.says, /^A reason is needed/);",                                    // 10: control: 18 chars
+      "assert.ok(out.says.startsWith('A reason is nee'));",                                // 11: control: short prefix
+      "assert.match(out.says, /Your (team|group) has \\d+ open/);",                          // 12: control: loose pieces
+      `assert.equal(out.sha, '${sha('sha256', 'Something else entirely')}');`,              // 13: control: digest of other text
+      "assert.ok(out.says.startsWith('Something entirely unrelated to any row'));",       // 14: control: not a row's text
+    ].join('\n') + '\n',
+  });
+  const r = await checkWords(root, ['clean']);
+  const T = 'test/clean/pat.test.mjs';
+  const at = (line, tag) => r.failures.filter((x) => x.startsWith(`testcopy clean ${T}:${line} `) && (!tag || x.includes(`[${tag}] `)));
+  assert.equal(at(2, 'pattern').length, 1, r.failures.join('\n'));
+  assert.equal(at(3, 'pattern').length, 1, r.failures.join('\n'));
+  for (const line of [4, 5, 6]) assert.equal(at(line).length, 1, `line ${line}: ${r.failures.join('\n')}`); // once each, never twice
+  assert.equal(at(4, 'part').length, 1); assert.equal(at(5, 'prefix').length, 1); // 27 chars: the old rule; 24 chars: the new
+  assert.equal(at(7, 'digest').length, 1, r.failures.join('\n'));
+  assert.equal(at(8, 'digest').length, 1);
+  for (const line of [9, 10, 11, 12, 13, 14]) assert.equal(at(line).length, 0, `line ${line}: ${at(line).join('; ')}`);
+});
+
+test('literalRuns: anchors, escapes and \\s are read; classes, alternation, groups and quantified characters end a run', () => {
+  assert.deepEqual(literalRuns('^Your\\s+project could not be found here\\.$'), ['your project could not be found here.']);
+  assert.deepEqual(literalRuns('(Your project could not) be found|here and there'), []);
+  assert.deepEqual(literalRuns('Your project could not be found [a-z]+ here'), ['your project could not be found']);
+});
+
+// bio K4208 (2b): "group" for a team in member-read text held in code (K3472)
+test('groupword: "group" for a team in a localize en or a hand description is found; senses, identifiers and GROUP_SENSE ids are not (bio K4208)', async () => {
+  const root = product({
+    'docs/development/ux-substrate/screens/build_words.mjs': [
+      'const TEAM_WORD = /(^|[^{\\w.-])[Gg]roups?\\b(?![}\\w-])/;',
+      'const GROUP_SENSE = /^(clean\\.index\\.kept_group)$/;',
+    ].join('\n') + '\n',
+    'src/clean/index.mjs': [
+      "import { localize } from '../setup-words/index.mjs';",
+      "export const a = localize('clean.index.one', 'Only the group can see this record.');",            // 2: found, localize
+      "export const b = { description: 'writes the group\\'s rows and moves nothing else' };",          // 3: found, description
+      "export const c = localize('clean.index.kept_group', 'Only the group can see this record too.');", // 4: GROUP_SENSE keeps the id
+      "export const d = localize('clean.index.two', 'Group these documents by their date.');",           // 5: verb: stays
+      "export const e = { description: 'reads a group of documents, grouped by date' };",                 // 6: collection and verb: stay
+      "export const f = { description: 'reads the {group} field and the group-identity row' };",          // 7: identifiers: stay
+      "export const g = { description: 'writes the team\\'s rows' };",                                    // 8: team: fine
+      "export const h = { label: 'the group is shown here' };",                                          // 9: not a description position
+      "export const i = localize('clean.index.three', 'Your team has three open items today.');",        // 10: fine
+    ].join('\n') + '\n',
+    'test/clean/g.test.mjs': "export const j = { description: 'the group sees this' };\n",             // a test: not judged
+  });
+  const r = await checkWords(root, ['clean']);
+  const F = 'src/clean/index.mjs';
+  const g = r.failures.filter((x) => x.startsWith('groupword '));
+  assert.ok(g.some((x) => x.startsWith(`groupword clean ${F}:2 [localize] `)), g.join('\n'));
+  assert.ok(g.some((x) => x.startsWith(`groupword clean ${F}:3 [description] `)), g.join('\n'));
+  assert.equal(g.length, 2, g.join('\n'));
+  assert.equal(r.totals.groupword, 2);
+  assert.match(r.summary, /groupword 2/);
+  assert.ok(!r.failures.some((x) => x.startsWith('marker ')));
+});
+
+test('groupword: without the design\'s build the whole word is the rule, with the same senses kept', async () => {
+  const root = product({
+    'src/clean/index.mjs': "import { localize } from '../setup-words/index.mjs';\nexport const a = localize('clean.index.one', 'Ask your Group about it.');\nexport const b = localize('clean.index.two', 'Group by month or by year.');\n",
+  });
+  const r = await checkWords(root, ['clean']);
+  assert.deepEqual(r.failures.filter((x) => x.startsWith('groupword ')).map((x) => x.split(' ')[2]), ['src/clean/index.mjs:2']);
 });
