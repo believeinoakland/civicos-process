@@ -204,3 +204,8 @@ Tranche `tranche/D15` from `dryrun-main/D15` (now `cf36354`), run by BOB #214 (`
 Findings: F1 above. F2: the job's checkout carried the process repository's `main` before the fix, so it saw a developer `TypeError` message as a finding and reported it (J1) as alpha's; a check changed during a tranche reaches jobs only through `main` (§4's tool-fix rule, already stated): BOB answered (B2). Built-in error messages are developer text, not counted (bio K3927).
 
 Result: **§5.10, §5.7 step 0, §8.4's `next.md` arm and §8.6 certified.** Cost: STATS #1 3.26 M tokens; two workers in BOB's session.
+
+## D16
+
+**2026-10-21 · BOB #237 · certifies J10, the cause job (P8, mechanics §6a; bio K4271, K4273).** Tranche `tranche/D16` from `dryrun-main/D16` (the prep branch `prep/cause-job-K4273`); one cause job, CAUSE-K4273 #1 (haiku, `session_01BBKYVgFYctzkDXCb1x6UG2`, depth 2), holding alpha and beta (`dryrun/D16-START.md`). It met alpha R6 and beta R5 with a named test each, ran alpha 6/6, beta 7/7 and their user stats 9/9, all checks 0, and REPORTed legacy's stale bundle (J1), COMPLETE J2 @ e908e78, in about three minutes. BOB: `ownership.mjs dryrun alpha,beta tranche/D16 <job>` 0 failures; with a throwaway line in `stats/src/index.mjs`, 1 failure naming it. J10 PROVEN.
+
