@@ -197,6 +197,13 @@ A job writes only its module's `paths` and `tests`, plus its own job record (and
 
 Its START names the cause and every module it holds; its branch is `job/T<n>/cause-<id>`, its record `build/jobs/T<n>/cause-<id>.md`, and its mailboxes work as §13's. It reads, for each held module, what §6 step 2 names. Before COMPLETE it runs each held module's tests and the tests of each module that uses a service it changed, on the tranche tip merged into its branch. BOB merges it as §5.5, the ownership check run over all the held modules (`ownership.mjs <product> <m1>,<m2>,… <base> <head>`).
 
+### 6b. A stale-test fix (P7)
+
+1. BOB confirms the test, not the code, is wrong: the code meets its requirement line as written.
+2. BOB, or one worker (haiku, low), edits only the module's `tests` paths, on the tranche branch.
+3. The module's suite and its impact set pass; ownership (only `tests` paths touched), coverage and words read clean.
+4. BOB reads the diff, commits, and records one ruling naming each module, file and commit.
+
 ## 7. What BOB resolves, and what goes to Bob (P4, P5, P9)
 
 **BOB resolves itself**, recording a ruling where it decides anything:
@@ -245,7 +252,7 @@ Bob's weekly meter is noted at each tranche's open and close when he gives it. *
 
 ## 11. Release (P11)
 
-A release runs the full regression, then follows the distribution process (a separate document). A release is cut from the open tranche branch, and anything it changes in the product's files is committed to that branch; it reaches `main` only through the tranche's close (§5.7), never by a merge of its own, so `main` and the tranche never hold two versions of the same file (P12). A full regression also runs whenever Bob asks.
+A release runs the full regression, then follows the distribution process (a separate document). A release is cut from the open tranche branch, and anything it changes in the product's files is committed to that branch; it reaches `main` only through the tranche's close (§5.7), never by a merge of its own, so `main` and the tranche never hold two versions of the same file (P12). A full regression also runs whenever Bob asks. A deploy to a test copy is not held by a red test unless that test shows a member's operation failing; the suite runs beside the deploy and the walk, never before them as a gate (P1, P11).
 
 ## 12. Legacy modules and the snapshot (P4, P6, P7)
 

@@ -117,3 +117,7 @@ P10 said "An entry that arises during a tranche goes to the **next** plan", and 
 ## 2026-10-18 · Mechanical passes; the completion round; the words check (bio K3923)
 
 Bob approved the exact text, rendered (bio `build/plan/proposed-edits.html`, artifact DoQTeMJv89Ey4sDuarFzg2, v2 after his comment "Left out of what? Every red is fixed"): "I approve the edits to the principals". P7 gains "A mechanical change is one pass" and P8 its exception (asked by Bob, K3812, K3813, never written until now); mechanics §5.10 the pass, §5.7 step 0 the completion round, §5.2 (1) no tranche opens while the words check finds anything, §6 (4) and §7 routing by P19's three reasons, §8.4's next.md clause and §8.6 the words check (`checks/words.mjs`, bio K3922). Certification (P3) on a dry run follows before product work relies on §5.10, §5.7 (0) and §8.6.
+
+## 2026-10-21 · Stale tests fixed without a job; red tests never gate a test-copy deploy (bio K4349)
+
+Bob approved the exact text, rendered (bio `build/plan/proposed-stale-test-rule.html`, artifact VTF21FrrPStmqXr4CSEoT8): "I approve the stale-test text". P7 gains "A stale test is fixed without a job"; the mechanics gain §6b (a stale-test fix) and one sentence at the end of §11. It writes down his ruling of 2026-10-21 (bio K4297).
