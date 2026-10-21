@@ -6,7 +6,10 @@
 // change, over all its legacy modules together, is a removal. Every added legacy line is listed, for BOB's review at the layer close.
 // A changed line that only removes tokens from the line it replaces (a dropped key, a lost import name) is a
 // removal, not an addition (bio K140): it is listed as EDITED, neither judged nor counted as added.
-// Usage: node checks/ownership.mjs <product-root> <module> <base-ref> [head-ref]
+// A cause job (P8, mechanics §6a) holds several modules: <module> may be a comma-separated list. A file is then owned if it
+// is in any held module's paths or tests; the job's records allowed are any build/jobs/*/cause-*.md and each held module's own;
+// the legacy-extraction rules apply per held module. A single module is checked exactly as before.
+// Usage: node checks/ownership.mjs <product-root> <module>[,<module>…] <base-ref> [head-ref]
 import { posix } from 'node:path';
 import { readModules, git, pathMatches, report } from './lib.mjs';
 
@@ -129,12 +132,21 @@ export function judgeLegacyFile(root, ref, head, file, own) {
 
 export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   const state = readModules(root);
-  const m = state.modules.find((x) => x.id === moduleId);
-  if (!m) return { failures: [`${moduleId}: no such module in build/modules.json`], added: [], edited: [], summary: 'nothing checked' };
+  const ids = moduleId.split(',').map((x) => x.trim());
+  const cause = ids.length > 1;
+  const held = [];
+  for (const id of ids) {
+    const m = state.modules.find((x) => x.id === id);
+    if (!m) return { failures: [`${id}: no such module in build/modules.json`], added: [], edited: [], summary: 'nothing checked' };
+    held.push(m);
+  }
   // `from` names one legacy module or several (a module's code may sit in more than one monolith).
-  const legacies = [].concat(m.from || []).map((id) => state.modules.find((x) => x.id === id)).filter(Boolean);
-  const own = [...(m.paths || []), ...(m.tests || [])];
-  const record = new RegExp(`^build/jobs/[A-Z]+\\d+/${moduleId.replace(/[-]/g, '\\-')}\\.md$`);
+  const legaciesOf = (m) => [].concat(m.from || []).map((id) => state.modules.find((x) => x.id === id)).filter(Boolean);
+  const legacies = [...new Map(held.flatMap(legaciesOf).map((l) => [l.id, l])).values()];
+  const own = held.flatMap((m) => [...(m.paths || []), ...(m.tests || [])]);
+  const records = held.map((m) => new RegExp(`^build/jobs/[A-Z]+\\d+/${m.id.replace(/[-]/g, '\\-')}\\.md$`));
+  if (cause) records.push(/^build\/jobs\/[A-Z]+\d+\/cause-[^/]+\.md$/);
+  const isRecord = (file) => records.some((r) => r.test(file));
   const failures = [], added = [], edited = [];
   const tally = new Map(legacies.map((l) => [l.id, { added: 0, removed: 0 }]));
   // A job's checkout often has only the remote-tracking branch (found in the D1 dry run): fall back to origin/<base>.
@@ -143,32 +155,37 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   const lines = git(root, ['diff', '--numstat', '--no-renames', '--relative', `${ref}...${head}`]).split('\n').filter(Boolean);
   for (const line of lines) {
     const [a, r, file] = line.split('\t');
-    if (own.some((p) => pathMatches(p, file)) || record.test(file)) continue;
+    if (own.some((p) => pathMatches(p, file)) || isRecord(file)) continue;
     const legacy = legacies.find((l) => (l.paths || []).some((p) => pathMatches(p, file)));
     if (legacy) {
       const t = tally.get(legacy.id);
       t.removed += Number(r) || 0;
       if (a === '0') continue;
-      const j = judgeLegacyFile(root, ref, head, file, m.paths || []);
+      // Judged against the paths of the held modules extracted from this legacy module (all held, for a single module as before).
+      const owners = held.filter((m) => legaciesOf(m).some((l) => l.id === legacy.id));
+      const j = judgeLegacyFile(root, ref, head, file, (owners.length ? owners : held).flatMap((m) => m.paths || []));
       failures.push(...j.failures);
       added.push(...j.added);
       edited.push(...j.edited);
       t.added += j.count;
       continue;
     }
-    failures.push(`${file}: outside ${moduleId}'s paths, tests and job record`);
+    failures.push(cause ? `${file}: outside the held modules' (${ids.join(', ')}) paths, tests and job records` : `${file}: outside ${moduleId}'s paths, tests and job record`);
   }
   // The net change is judged over all the legacy modules together: the moved code and its caller may sit
   // in different ones (D5: the catalogue loses the code, the store gains the rewired call).
-  const sum = [...tally.values()].reduce((s, t) => ({ added: s.added + t.added, removed: s.removed + t.removed }), { added: 0, removed: 0 });
-  if (sum.added && sum.added >= sum.removed) failures.push(`${[...tally.keys()].join(' + ')}: ${moduleId} adds ${sum.added} line(s) and removes ${sum.removed}; an extraction's net change to its legacy modules is a removal`);
+  for (const m of held) {
+    const mine = legaciesOf(m).map((l) => tally.get(l.id));
+    const sum = mine.reduce((s, t) => ({ added: s.added + t.added, removed: s.removed + t.removed }), { added: 0, removed: 0 });
+    if (sum.added && sum.added >= sum.removed) failures.push(`${legaciesOf(m).map((l) => l.id).join(' + ')}: ${m.id} adds ${sum.added} line(s) and removes ${sum.removed}; an extraction's net change to its legacy modules is a removal`);
+  }
   const tail = [...tally].map(([id, t]) => `; ${id}: ${t.added} line(s) added, ${t.removed} removed`).join('');
   return { failures, added, edited, summary: `${lines.length} files changed by ${moduleId} between ${base} and ${head}${tail}` };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const [root, mod, base, head] = process.argv.slice(2);
-  if (!root || !mod || !base) { console.error('usage: node checks/ownership.mjs <product-root> <module> <base-ref> [head-ref]'); process.exit(2); }
+  if (!root || !mod || !base) { console.error('usage: node checks/ownership.mjs <product-root> <module>[,<module>…] <base-ref> [head-ref]'); process.exit(2); }
   const { failures, added, edited, summary } = checkOwnership(root, mod, base, head);
   for (const a of added) console.log(`ADDED ${a}`);
   for (const e of edited) console.log(`EDITED ${e}  (only removes from the line it replaces: a removal)`);

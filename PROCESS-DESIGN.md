@@ -24,6 +24,8 @@ Requirements may suggest an implementation but never require one. The module is 
 
 **P8 · The unit of work is the module job, except a mechanical pass (P7).** A module has at most one job at a time. A job applies every plan entry for its module. Flaws and improvements are both reasons to change a module. When the job finds either in its own module (a requirement not met, an inefficiency, a gap or error in its tests, a better way to meet a requirement, or anything else), **it deals with it in the job whenever possible**. It adds an entry to the next tranche only when it must.
 
+**A cause job in a fix round.** In a fix round on a cut release, one cause whose fix spans several modules may be fixed by one **cause job** that holds every module the cause touches, when the reading set of those modules together fits one session (P6, P20); otherwise each module has its own job. A cause job is a module job for each module it holds: every change meets that module's requirements (P7), it runs each held module's tests and the tests of every module that uses what it changed, and its diff touches only the held modules' files. While it runs, no other job holds those modules.
+
 **P9 · A flaw or improvement in another module goes through BOB.** A job that believes it has found a flaw in another module, or an improvement to it, reports it to BOB, described in terms of that module's requirements or its efficiency. BOB confirms it, then:
 - if that module's job is running, BOB forwards it to that job, which deals with it in the job whenever possible and adds an entry to the next tranche only when it must, depending on its complexity and how far the job has gone;
 - if no job is running for that module, BOB adds an entry to the next tranche.

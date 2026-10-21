@@ -117,6 +117,18 @@ test('ownership: own paths, own tests and own job record pass; another module\'s
   assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, ["build/jobs/T1/a.md: outside b's paths, tests and job record", "src/a/index.mjs: outside b's paths, tests and job record"]);
 });
 
+test('ownership: a cause job holding two modules passes on both modules\' files and fails on a third module\'s (P8, §6a)', () => {
+  const c = { id: 'c', layer: 2, paths: ['src/c/'], tests: ['test/c/'], uses: ['a'] };
+  const r = repo(base({ 'build/modules.json': MODULES({ more: [c] }), 'src/c/index.mjs': 'export const c = 1;\n', 'test/c/c.test.mjs': '// R1\n' }));
+  r.commit({ 'src/a/index.mjs': 'export const a = 2;\n', 'src/b/index.mjs': 'export const b = 2;\n', 'test/a/a.test.mjs': '// R1 R2 R3\n', 'build/jobs/T1/cause-K4273.md': 'x', 'build/jobs/T1/b.md': 'x' });
+  assert.deepEqual(checkOwnership(r.root, 'a,b', 'HEAD~1').failures, []);
+  r.commit({ 'src/c/index.mjs': 'export const c = 2;\n', 'build/jobs/T1/c.md': 'x' });
+  assert.deepEqual(checkOwnership(r.root, 'a,b', 'HEAD~2').failures, ["build/jobs/T1/c.md: outside the held modules' (a, b) paths, tests and job records", "src/c/index.mjs: outside the held modules' (a, b) paths, tests and job records"]);
+  // The cause record is allowed only to a list; a single module's own record rule is unchanged.
+  assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~2').failures.filter((f) => f.startsWith('build/jobs/T1/cause')), ["build/jobs/T1/cause-K4273.md: outside b's paths, tests and job record"]);
+  assert.match(checkOwnership(r.root, 'a,nope', 'HEAD~1').failures.join('\n'), /nope: no such module/);
+});
+
 test('ownership: an extracting module may remove from its legacy module, never add', () => {
   const r = repo(base());
   r.commit({ 'src/legacy.mjs': 'export const old = 1;\n' });

@@ -29,6 +29,7 @@ Status words: PROVEN (by the run named, with its evidence in `RUNS.md`), PLANNED
 | J9 | extraction from two legacy modules, one earlier in the order than the target (BOB #42, PROMOTION #1's Q7 in bio T3): the job removes the moved code from the earlier one only, and rewires its caller in the later one | ownership passes, judging each legacy module and its net removal apart; an addition to the earlier one fails | PROVEN D5 (`tranche/D5` `ba63c5c`: catalog 0 added, 11 removed; legacy's rewire passes; a throwaway addition to catalog fails, exit 1; the net removal judged over both legacy modules, D5's finding, `383f070`) |
 | J6 | metrics row in the job's own record, collected by BOB | the row is in `build/metrics/<tranche>.csv` | PROVEN D1; D3 (rows read from `archive_session`'s usage; see RUNS D3 finding 2) |
 | J7 | a job runs out of context mid-job | it records its state and a new session continues from the record | T1 at the earliest (a toy cannot fill a context); the check: every job's context use is read at each backstop |
+| J10 | a cause job holds two modules (P8, §6a): it changes both, runs both modules' tests and their users', and BOB merges it with the ownership check over both | ownership over the list passes; an added line in a third module fails; both suites green in the record | PLANNED D13 |
 
 ## BOB and the layer (mechanics §4, §5, §7, §14; P5, P9, P10, P12)
 

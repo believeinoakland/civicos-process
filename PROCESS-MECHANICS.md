@@ -133,7 +133,7 @@ A job's doorbell (§13) wakes BOB when it writes. Whatever wakes BOB, it runs `m
 ### 5.5 Merge a job
 
 A job is **complete** when its state is `COMPLETE` and `mail check` shows it needs nothing: BOB has read all of its entries and it has read all of BOB's, so a `CHANGE` that crossed a `COMPLETE` leaves the job open (P10). A complete job is merged at once, in the layer's merge order when the plan names one (P12):
-1. Run `node checks/ownership.mjs <product> <module> tranche/T<n> job/T<n>/<module>`; it must pass. Read every `ADDED` line it lists for an extraction: each must only rewire legacy code to the moved code (§12.2) (P7).
+1. Run `node checks/ownership.mjs <product> <module> tranche/T<n> job/T<n>/<module>`; it must pass. For a cause job, it runs over all its held modules (§6a). Read every `ADDED` line it lists for an extraction: each must only rewire legacy code to the moved code (§12.2) (P7).
 2. Merge the job branch into the tranche branch (§4) (P12).
 3. Strike the job's met `*(not yet met: T<n>)*` marks in its module's requirements (§3) (P7, P15).
 4. Record the merge in a ruling (§9). A red test is accepted only by name in that ruling, which names the merge that will clear it; the `START` of a job not yet started carries each red it inherits (P7, P15).
@@ -192,6 +192,10 @@ Each step is pushed, so an interrupted close is a named state that any BOB resum
 **When tests will not pass** after three honest attempts, the job keeps its session and works the problem with BOB. BOB can clarify a requirement, route a cause found in another module, or re-scope the entry. Only if the two cannot resolve it is that entry deferred, and the job completes the rest.
 
 A job writes only its module's `paths` and `tests`, plus its own job record (and, extracting, its legacy module as §12.2 allows). It never writes a generated artifact of another module (§14); it reports one it has made stale.
+
+### 6a. The cause job (P8)
+
+Its START names the cause and every module it holds; its branch is `job/T<n>/cause-<id>`, its record `build/jobs/T<n>/cause-<id>.md`, and its mailboxes work as §13's. It reads, for each held module, what §6 step 2 names. Before COMPLETE it runs each held module's tests and the tests of each module that uses a service it changed, on the tranche tip merged into its branch. BOB merges it as §5.5, the ownership check run over all the held modules (`ownership.mjs <product> <m1>,<m2>,… <base> <head>`).
 
 ## 7. What BOB resolves, and what goes to Bob (P4, P5, P9)
 
