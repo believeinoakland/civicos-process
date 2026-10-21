@@ -33,3 +33,7 @@ Size (session_01BBKYVgFYctzkDXCb1x6UG2): test runs 5, module lines 30
 ## J1 · REPORT
 
 legacy/dist/legacy.bundle.txt is stale after N1 (alpha.sum and beta.total changed). node legacy/scripts/bundle.mjs --verify reports 'legacy bundle: STALE'. Not regenerated: legacy has no job (START). Please regenerate it, or route it to the legacy owner.
+
+## J2 · COMPLETE
+
+N1 applied: alpha R6 and beta R5 met, each with a named test. alpha 6/6, beta 7/7, stats 9/9 tests pass. format, architecture (alpha, beta), coverage (11 of 11), ownership (alpha,beta) and words all report 0 failures. Completion record: dryrun/build/jobs/D16/cause-K4273.md on job/D16/cause-K4273 (e908e78). Legacy bundle stale: see REPORT.
