@@ -29,3 +29,7 @@
 - `node checks/words.mjs dryrun`: words: 5 modules, 140 string literals read, 0 words; 0 failures
 
 Size (session_01BBKYVgFYctzkDXCb1x6UG2): test runs 5, module lines 30
+
+## J1 · REPORT
+
+legacy/dist/legacy.bundle.txt is stale after N1 (alpha.sum and beta.total changed). node legacy/scripts/bundle.mjs --verify reports 'legacy bundle: STALE'. Not regenerated: legacy has no job (START). Please regenerate it, or route it to the legacy owner.
