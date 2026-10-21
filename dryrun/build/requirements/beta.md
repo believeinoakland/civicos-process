@@ -13,6 +13,7 @@ Totals of lists of numbers, and a generated bundle of its and alpha's source.
 **total(list) → number**
 - **R1** Returns the sum of the numbers in `list`, added left to right (ordinary floating-point addition, as `alpha.sum` computes it), and `0` for an empty list. (Wording clarified by BOB during D3, answering beta's QUESTION 1.)
 - **R4** An element that is not a finite number is refused with a `TypeError`, as `alpha.sum` refuses it (added by BOB during D3: `total` inherits it when N3 moves it onto `alpha.sum`).
+- **R5** `total` throws a `TypeError` naming `total` when `list` is not an array; nothing is iterated. (Cause K4273, D16.)
 
 **`node beta/scripts/bundle.mjs [--verify]`**
 - **R2** Writes `beta/dist/bundle.txt` from alpha's and beta's source; with `--verify`, exits 1 and prints `bundle: STALE` unless the committed file is exactly what it would write.

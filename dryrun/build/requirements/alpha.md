@@ -18,6 +18,7 @@ Arithmetic on numbers.
 **sum(list) → number** (added by BOB during D3, answering alpha's QUESTION on N1)
 - **R3** Returns the elements of `list` added left to right with `add` (ordinary floating-point addition, not a correctly rounded or exact sum), and `0` for an empty list. The running total is carried as ordinary addition carries it, so a total that overflows is `Infinity` (R4 and R5 judge the elements, never the running total). (Clarified by BOB during D3, answering alpha's Q2.) (Wording clarified by BOB during D3 after beta's QUESTION 1: "exact" was ambiguous.)
 - **R4** Throws a `TypeError` when an element is not a finite number (a non-number, `NaN` or an infinity); nothing is coerced or skipped.
+- **R6** Throws a `TypeError` when `list` is not an array (an iterable that is not an array, `null`, `undefined`, a number, a string, an object); nothing is iterated. (Cause K4273, D16.)
 
 ## Private
 
