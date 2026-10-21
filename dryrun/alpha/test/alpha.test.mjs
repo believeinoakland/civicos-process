@@ -95,3 +95,15 @@ test('R4 sum throws a TypeError for an element that is not a finite number, coer
     }
   }
 });
+
+test('R6 sum throws a TypeError when list is not an array, iterating nothing', () => {
+  const iterated = [];
+  const iterable = { *[Symbol.iterator]() { iterated.push('step'); yield 1; } };
+  const notArrays = [iterable, new Set([1, 2]), new Map([[1, 2]]), 'abc', null, undefined, 0, 5, true, 1n,
+    Symbol('x'), () => 1, {}, { length: 2, 0: 1, 1: 2 }, new Number(1)];
+  for (const bad of notArrays) {
+    assert.throws(() => sum(bad), TypeError, `sum(${typeof bad}) did not throw a TypeError`);
+  }
+  assert.deepEqual(iterated, []);
+  assert.equal(sum([1, 2]), 3); // an array still works
+});

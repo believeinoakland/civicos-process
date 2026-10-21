@@ -66,6 +66,17 @@ test('R4 total refuses an element that is not a finite number with a TypeError, 
   }
 });
 
+test('R5 total throws a TypeError naming total when list is not an array, iterating nothing', () => {
+  const iterated = [];
+  const iterable = { *[Symbol.iterator]() { iterated.push('step'); yield 1; } };
+  const notArrays = [iterable, new Set([1, 2]), 'abc', null, undefined, 0, true, {}, { length: 1, 0: 1 }, () => 1];
+  for (const bad of notArrays) {
+    assert.throws(() => total(bad), (e) => e instanceof TypeError && /\btotal\b/.test(e.message),
+      `total(${typeof bad}) did not throw a TypeError naming total`);
+  }
+  assert.deepEqual(iterated, []);
+});
+
 // The bundle script in a copy of the product's source, so a test can change sources freely.
 function sandbox() {
   const dir = mkdtempSync(join(tmpdir(), 'beta-bundle-'));
