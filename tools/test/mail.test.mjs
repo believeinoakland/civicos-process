@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { post, inbox, done, start, state, bob, addjob, addr, check, parseEntries, parseStatus, ringText } from '../mail.mjs';
+import { post, inbox, done, start, state, bob, addjob, jobbranch, addr, check, parseEntries, parseStatus, ringText } from '../mail.mjs';
 
 const T = 'D1';
 const g = (dir, ...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -161,4 +161,26 @@ test('a push rejected because the branch moved is rebased once and pushed', () =
   writeFileSync(join(other, 'toy/note.md'), 'x\n'); g(other, 'add', '.'); g(other, 'commit', '-q', '-m', 'note'); g(other, 'push', '-q');
   assert.equal(post({ ...J(w.bob), as: 'bob', kind: 'START', body: 'go' }).id, 'B1');
   assert.match(g(w.bob, 'log', '--format=%s', `origin/tranche/${T}`, '-3'), /mail D1 alpha: B1 START\nnote/);
+});
+
+test('jobbranch (§5.3 (1); bio K4385): creates or fast-forwards a job branch by a plain push, and never forces one that diverged', () => {
+  const w = world();
+  const remote = (b) => g(w.bob, 'ls-remote', 'origin', `refs/heads/${b}`).split(/\s/)[0];
+  writeFileSync(join(w.bob, 'build/plan/note.md'), 'tranche moves\n');
+  g(w.bob, 'add', '.'); g(w.bob, 'commit', '-q', '-m', 'tranche work'); g(w.bob, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  const tip = remote(`tranche/${T}`);
+  const ff = jobbranch({ product: w.bob, tranche: T, module: 'alpha' });
+  assert.equal(ff.action, 'fast-forwarded'); assert.equal(remote(`job/${T}/alpha`), tip);
+  assert.equal(jobbranch({ product: w.bob, tranche: T, module: 'alpha' }).action, 'current');
+  const made = jobbranch({ product: w.bob, tranche: T, module: 'beta' });
+  assert.equal(made.action, 'created'); assert.equal(remote(`job/${T}/beta`), tip);
+  /* control: a job branch with its own commit is refused and left exactly as it was */
+  g(w.job, 'pull', '-q', 'origin', `job/${T}/alpha`);
+  writeFileSync(join(w.job, 'own.md'), 'job work\n'); g(w.job, 'add', '.'); g(w.job, 'commit', '-q', '-m', 'job work');
+  g(w.job, 'push', '-q', 'origin', `HEAD:refs/heads/job/${T}/alpha`);
+  writeFileSync(join(w.bob, 'build/plan/note.md'), 'tranche moves again\n');
+  g(w.bob, 'add', '.'); g(w.bob, 'commit', '-q', '-m', 'more'); g(w.bob, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  const before = remote(`job/${T}/alpha`);
+  assert.throws(() => jobbranch({ product: w.bob, tranche: T, module: 'alpha' }), /never forced/);
+  assert.equal(remote(`job/${T}/alpha`), before);
 });

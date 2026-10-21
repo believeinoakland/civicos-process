@@ -12,6 +12,18 @@
 //                (bio K3962, tag `code`) the same comparison with the `en` of every `localize(id, en, ...)` call in the
 //                product source the check reads (the literal second argument, `{name}` placeholders as they stand, as
 //                for words.json), so a test cannot copy a sentence the product holds in code either.
+//   testcopy tags (bio K4208 (2a)): a test that matches a row's sentence by pattern or prefix is a copy too. Tag `pattern`: a
+//                RegExp literal or `new RegExp("...")` whose literal text (metacharacters and anchors taken out, see
+//                literalRuns) holds a run of 24+ characters of a word row's English (or a `localize` en of the product's code,
+//                tag `pattern code`); `prefix`: `.startsWith/.endsWith/.includes("...")` given 24+ characters that are a prefix,
+//                suffix or substring of a row (a 25+ string `includes` is the `part` tag already); `digest`: a 40- or 64-digit
+//                hex string equal to the sha1 or sha256 of a row's English. Comparison ignores case and runs of whitespace.
+//   groupword    (bio K4208 (2b), K3472) member-read text held in a module's own code that says "group" for a team: the en of a
+//                `localize(id, en)` call (tag `localize`; skipped when the product's GROUP_SENSE keeps the id) and a hand
+//                `description:` string (tag `description`). TEAM_WORD and GROUP_SENSE are read from the design's
+//                `docs/development/ux-substrate/screens/build_words.mjs` as data; without it, TEAM_WORD is the word as a whole,
+//                case-insensitive, outside braces, dotted keys and hyphenated names. Whatever the id, a few verb and collection
+//                senses stay (SENSE_TEXT): "group by", "group the/these/them/...", "a group of documents/rows/reasons/...".
 //   missingkey   a literal key given to word(/hasWord(/wordsOf( or listed in words-reads.json that words.json lacks.
 //   handlist     a test array of 5+ strings that are op names, refusal codes or word keys (K3268). Tag `?` on
 //                op names and refusal codes (whose owner module is not known to the check); word keys are certain.
@@ -31,6 +43,7 @@
 //                the design stream's review list, which must be empty at a release cut.
 // Usage: node checks/words.mjs <product-root> [module ...] [--release]
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readModules, trackedFiles, ownerIndex, notProduct, report } from './lib.mjs';
@@ -112,10 +125,11 @@ export function scan(src) {
         const prev = toks[toks.length - 1];
         const regexOk = !prev || (prev.t === 'p' && !')]}'.includes(prev.v)) || (prev.t === 'id' && REGEX_PREV_KW.has(prev.v));
         if (regexOk) { // a regex literal
-          let inClass = false; i++;
+          let inClass = false; i++; const reStart = i;
           while (i < n && src[i] !== '\n') { const d = src[i]; if (d === '\\') { i += 2; continue; } if (d === '[') inClass = true; else if (d === ']') inClass = false; else if (d === '/' && !inClass) break; i++; }
+          const reSrc = src.slice(reStart, i);
           i++; while (/[a-z]/.test(src[i] || '')) i++;
-          toks.push({ t: 're', v: '/', line }); continue;
+          toks.push({ t: 're', v: '/', src: reSrc, line }); continue;
         }
       }
       if (/[A-Za-z_$]/.test(c)) { let j = i + 1; while (j < n && /[\w$]/.test(src[j])) j++; toks.push({ t: 'id', v: src.slice(i, j), line }); i = j; continue; }
@@ -296,6 +310,70 @@ function excerpt(v) {
   return JSON.stringify(s.length > 70 ? s.slice(0, 67) + '...' : s);
 }
 
+// ---- bio K4208 (2a): a test matching a row's sentence by pattern, prefix or digest ----------------------------------------
+// Thresholds. 24 characters is one under the 25 of `part` (K3810), so a prefix a test pins that the substring rule just missed
+// is caught; below it ordinary words ("could not be found") recur in unrelated tests. A regex counts only by the text it would
+// match literally: classes, groups, alternation, anchors and quantified characters end a run, so a pattern of short alternatives
+// or of loose pieces is not a finding. A digest must equal the sha1/sha256 of a whole row's English (or its tag-stripped
+// form), so it is never a false positive. Both sides are lowercased with whitespace collapsed.
+export const PATTERN_MIN = 24;
+const norm = (s) => String(s).toLowerCase().replace(/\s+/g, ' ').trim();
+const stripTags = (s) => String(s).replace(/<[^>]+>/g, ' ');
+export function literalRuns(source) {
+  const runs = []; let cur = '';
+  const end = () => { if (cur) runs.push(cur); cur = ''; };
+  for (let i = 0; i < source.length; i++) {
+    const c = source[i];
+    if (c === '\\') {
+      const d = source[++i];
+      if (d === undefined) break;
+      if (d === 's') { cur += ' '; while (/[+*?]/.test(source[i + 1] || '')) i++; continue; }
+      if (/[A-Za-z0-9]/.test(d)) { end(); continue; } // \d \w \b \n, a back reference: not a literal
+      cur += d; continue; // an escaped punctuation mark is itself
+    }
+    if (c === '[') { while (i < source.length && source[i] !== ']') { if (source[i] === '\\') i++; i++; } end(); continue; }
+    if (c === '{') { const q = /^\{\d+(,\d*)?\}/.exec(source.slice(i)); if (q) { cur = cur.slice(0, -1); end(); i += q[0].length - 1; continue; } cur += c; continue; }
+    if (c === '*' || c === '?') { cur = cur.slice(0, -1); end(); continue; } // the character before may be absent
+    if ('^$()|+.'.includes(c)) { end(); continue; }
+    cur += c;
+  }
+  end();
+  return runs.map(norm).filter((r) => r.length >= PATTERN_MIN);
+}
+const HEX_DIGEST = /(?<![0-9a-fA-F])(?:[0-9a-fA-F]{64}|[0-9a-fA-F]{40})(?![0-9a-fA-F])/g;
+export function digestsOf(texts) {
+  const out = new Map();
+  for (const t of texts) for (const v of new Set([t, stripTags(t).trim()])) for (const h of ['sha256', 'sha1']) out.set(createHash(h).update(v).digest('hex'), t);
+  return out;
+}
+
+// ---- bio K4208 (2b): "group" for a team in member-read text held in code (K3472) -----------------------------------------
+const DEFAULT_TEAM_WORD = /(^|[^{\w.-])[Gg]roups?\b(?![}\w-])/;
+// the senses that stay wherever the text is found: the verb and the collection ("group by", "a group of documents")
+const SENSE_TEXT = /\bgroups?\s+by\b|\bgroup\s+(?:the|these|those|them|it|each|all|together)\b|\bgroups?\s+of\s+(?:the\s+|these\s+|those\s+|its\s+|their\s+)?(?:\w+\s+)?(?:documents?|records?|rows?|items?|facts?|reasons?|legs?|cases?|passages?|claims?|sources?|results?|words?|lines?|entries|pages?|files?|questions?|ops?|fields?)\b/gi;
+export const DESIGN_WORDS_BUILD = 'docs/development/ux-substrate/screens/build_words.mjs';
+export function loadGroupRule(root) {
+  const p = join(root, DESIGN_WORDS_BUILD);
+  const lit = (src, name) => {
+    const m = new RegExp(`^const ${name} = /(.+)/([a-z]*);`, 'm').exec(src);
+    if (!m) return null;
+    try { return new RegExp(m[1], m[2]); } catch { return null; }
+  };
+  let src = ''; try { src = readFileSync(p, 'utf8'); } catch { /* the design's build is absent: the default rule */ }
+  const team = lit(src, 'TEAM_WORD') || DEFAULT_TEAM_WORD;
+  return { team: new RegExp(team.source, 'gi'), sense: lit(src, 'GROUP_SENSE') };
+}
+// the words around the first "group" for a team in `text`, or null (id: the localize id, which GROUP_SENSE may keep)
+export function groupHit(text, rule, id) {
+  if (id && rule.sense && rule.sense.test(id)) return null;
+  const t = String(text).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').replace(SENSE_TEXT, ' ');
+  rule.team.lastIndex = 0;
+  const m = rule.team.exec(t);
+  if (!m) return null;
+  const i = m.index + m[1].length;
+  return t.slice(Math.max(0, i - 30), i + 40).trim();
+}
+
 // ---- product knowledge ------------------------------------------------------------------------------------------------
 export function loadWords(root) {
   const p = join(root, WORDS_JSON);
@@ -399,7 +477,9 @@ export async function checkWords(root, only = [], { release = false } = {}) {
   const files = listFiles(root);
   const failures = [];
   const counts = {}; // module -> arm -> n
-  const bump = (m, arm, tag) => { const c = (counts[m] ??= { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0, plain: 0 }); c[arm]++; if (tag === '?') c.q++; if (tag === 'plain') c.plain++; };
+  const bump = (m, arm, tag) => { const c = (counts[m] ??= { groupword: 0, inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0, plain: 0 }); c[arm]++; if (tag === '?') c.q++; if (tag === 'plain') c.plain++; };
+  const groupRule = loadGroupRule(root);
+  const patTests = []; // arm (a) candidates, judged once the product's localize en are known: { m, f, line, kind, v }
   const items = []; // the failures with their full literal, for tools that analyse them
   const add = (arm, m, file, line, tag, text, raw) => { items.push({ arm, module: m, file, line, tag, raw: raw ?? text }); failures.push(`${arm} ${m} ${file}:${line} ${tag ? `[${tag}] ` : ''}${text}`); bump(m, arm, tag); };
   let literals = 0;
@@ -469,7 +549,11 @@ export async function checkWords(root, only = [], { release = false } = {}) {
       const idOk = plain(a) && endsArg(toks[k + 3]), enOk = idOk && toks[k + 3].v === ',' && plain(b) && endsArg(toks[k + 5]);
       if (idOk) tReads.add(a);
       if (enOk) tReads.add(b);
-      if (enOk && !isTest) codeEns.add(b.v);
+      if (enOk && !isTest) {
+        codeEns.add(b.v);
+        const gh = groupHit(b.v, groupRule, a.v);
+        if (gh) add('groupword', m.id, f, b.line, 'localize', excerpt(gh), b.v);
+      }
       if (DRAWN_MODULES(m.id)) add('marker', m.id, f, t.line, '', `${MARKER} call in a drawn-screen module (read by word())`);
       if (!idOk) { add('marker', m.id, f, t.line, '', `${MARKER} id is not a plain string literal`); continue; }
       if (!KEY_RE.test(a.v)) add('marker', m.id, f, a.line, '', `${MARKER} id ${excerpt(a.v)} is not <module>.<area>.<name>`);
@@ -480,6 +564,14 @@ export async function checkWords(root, only = [], { release = false } = {}) {
     }
 
     if (isTest) {
+      // arm (a), bio K4208: candidates for pattern, prefix and digest copies
+      for (let k = 0; k < toks.length; k++) {
+        const t = toks[k];
+        if (t.t === 're' && t.src) patTests.push({ m: m.id, f, line: t.line, kind: 'pattern', v: t.src });
+        else if (t.t === 'id' && t.v === 'RegExp' && toks[k - 1] && toks[k - 1].v === 'new' && toks[k + 1] && toks[k + 1].v === '(' && toks[k + 2] && toks[k + 2].t === 'str') patTests.push({ m: m.id, f, line: toks[k + 2].line, kind: 'pattern', v: toks[k + 2].v });
+        else if (t.t === 'id' && /^(startsWith|endsWith|includes)$/.test(t.v) && toks[k - 1] && toks[k - 1].v === '.' && toks[k + 1] && toks[k + 1].v === '(' && toks[k + 2] && toks[k + 2].t === 'str' && !toks[k + 2].ctx.assertMsg) patTests.push({ m: m.id, f, line: toks[k + 2].line, kind: 'prefix', v: toks[k + 2].v });
+        else if (t.t === 'str' && !t.ctx.importPath && !t.ctx.title) for (const h of t.v.matchAll(HEX_DIGEST)) patTests.push({ m: m.id, f, line: t.line, kind: 'digest', v: h[0].toLowerCase() });
+      }
       // testcopy
       for (const s of strs) {
         if (s.ctx.importPath || s.ctx.title || s.ctx.console || s.ctx.assertMsg) continue;
@@ -515,6 +607,15 @@ export async function checkWords(root, only = [], { release = false } = {}) {
         }
       }
     } else {
+      // groupword, bio K4208 (2b): a hand `description:` string (a localize en is judged where the marker is read)
+      for (let k = 0; k + 2 < toks.length; k++) {
+        const t = toks[k];
+        if (!((t.t === 'id' && t.v === 'description') || (t.t === 'str' && t.v === 'description' && !t.interp))) continue;
+        const c = toks[k + 1], s = toks[k + 2];
+        if (!(c.t === 'p' && c.v === ':' && s.t === 'str')) continue;
+        const gh = groupHit(s.v, groupRule, null);
+        if (gh) add('groupword', m.id, f, s.line, 'description', excerpt(gh), s.v);
+      }
       // inline
       const table = TABLE_FILE.test(f);
       const stitched = new Set();
@@ -560,6 +661,25 @@ export async function checkWords(root, only = [], { release = false } = {}) {
     }
   }
 
+  // arm (a), bio K4208: a test matching a row's (or a product localize en's) sentence by pattern, prefix or digest
+  if (patTests.length) {
+    const rowTexts = [...words.ens.keys()];
+    const fromRows = '\n' + rowTexts.flatMap((r) => [norm(r), norm(stripTags(r))]).join('\n') + '\n';
+    const fromCode = '\n' + [...codeEns].flatMap((r) => [norm(r), norm(stripTags(r))]).join('\n') + '\n';
+    const digests = digestsOf(rowTexts), codeDigests = digestsOf([...codeEns]);
+    const seen = new Set(items.filter((x) => x.arm === 'testcopy').map((x) => `${x.file}:${x.line}`));
+    for (const { m, f, line, kind, v } of patTests) {
+      let hit = null, tag = kind;
+      if (kind === 'pattern') {
+        for (const run of literalRuns(v)) { if (fromRows.includes(run)) { hit = run; break; } if (fromCode.includes(run)) { hit = run; tag = 'pattern code'; break; } }
+      } else if (kind === 'prefix') {
+        const n = norm(v);
+        if (n.length >= PATTERN_MIN && !seen.has(`${f}:${line}`)) { if (fromRows.includes(n)) hit = n; else if (fromCode.includes(n)) { hit = n; tag = 'prefix code'; } }
+      } else if (digests.has(v) || codeDigests.has(v)) { hit = `${v.length === 64 ? 'sha256' : 'sha1'} of ${excerpt(digests.get(v) ?? codeDigests.get(v))}`; }
+      if (hit) { add('testcopy', m, f, line, tag, kind === 'digest' ? hit : excerpt(hit)); seen.add(`${f}:${line}`); }
+    }
+  }
+
   // handlist: an array of 5+ strings, 80%+ of them one kind (ops, codes, keys), the kind's items named by no source of the test's own module
   for (const { m, f, line, items } of lists) {
     const own = ownLits.get(m) ?? new Set();
@@ -601,9 +721,9 @@ export async function checkWords(root, only = [], { release = false } = {}) {
     for (const r of u) if (!only.length || only.includes(r.module)) add('unreviewed', r.module, r.file, r.line, '', r.id);
   }
   failures.sort();
-  const tot = { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0, plain: 0 };
+  const tot = { groupword: 0, inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0, plain: 0 };
   for (const c of Object.values(counts)) for (const k of Object.keys(tot)) tot[k] += c[k];
-  const summary = `${modsSeen.size} modules, ${literals} string literals read, ${words.keys.size} words; inline ${tot.inline}, plain ${tot.plain}, testcopy ${tot.testcopy}, missingkey ${tot.missingkey}, handlist ${tot.handlist} (${tot.q} tagged ?), marker ${tot.marker}${release ? `, unreviewed ${tot.unreviewed}` : ''}, dev ${dev}, unkeyed ${designUnkeyed}`;
+  const summary = `${modsSeen.size} modules, ${literals} string literals read, ${words.keys.size} words; inline ${tot.inline}, plain ${tot.plain}, testcopy ${tot.testcopy}, missingkey ${tot.missingkey}, handlist ${tot.handlist} (${tot.q} tagged ?), marker ${tot.marker}, groupword ${tot.groupword}${release ? `, unreviewed ${tot.unreviewed}` : ''}, dev ${dev}, unkeyed ${designUnkeyed}`;
   return { failures, summary, counts, totals: { ...tot, dev, unkeyed: designUnkeyed }, items };
 }
 
