@@ -121,3 +121,7 @@ Bob approved the exact text, rendered (bio `build/plan/proposed-edits.html`, art
 ## 2026-10-21 · Stale tests fixed without a job; red tests never gate a test-copy deploy (bio K4349)
 
 Bob approved the exact text, rendered (bio `build/plan/proposed-stale-test-rule.html`, artifact VTF21FrrPStmqXr4CSEoT8): "I approve the stale-test text". P7 gains "A stale test is fixed without a job"; the mechanics gain §6b (a stale-test fix) and one sentence at the end of §11. It writes down his ruling of 2026-10-21 (bio K4297).
+
+## 2026-10-22 · A walk's defect is fixed only once understood (bio K4601)
+
+Bob saw the exact sentence rendered in BOB #254's session and approved it: "Approve the change to P7". P7 gains: "A defect found by a walk is fixed only once understood: its root cause with evidence, why the tests missed it, a test on the walker's case seen failing then passing, and a check at the live platform's real shape. No deployment carries a defect whose cause was not researched, and the process's checks refuse a plan that lacks these." Enforced by `checks/fixplan.mjs` (bio K4597). Reaches `main` with T51's close PR.
