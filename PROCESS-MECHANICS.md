@@ -121,7 +121,7 @@ A job's doorbell (§13) wakes BOB when it writes. Whatever wakes BOB, it runs `m
 1. Run `mail check`, which reads every job from git alone, and act on what it lists for each job (P10, P13):
    - **`READ`** (unread entries): read and act on them, as if their doorbell had rung;
    - **`RING`** (the job has not read BOB's newest entry): ring it again (a doorbell may be lost; a second one costs the job one empty look);
-   - **`QUIET`** (the job's state is `WORKING`, or its `RUNNING until` time has passed, and nothing has been pushed on its branch for 20 minutes): post `RESUME` and ring; one still quiet at the next check, or whose session has failed, is restarted;
+   - **`QUIET`** (the job's state is `WORKING`, or its `RUNNING until` time has passed, and nothing has been pushed on its branch for 20 minutes): post `RESUME` and ring; one still quiet at the next check, or whose session has failed, is restarted; and a job whose session is idle or disconnected while its record says `WORKING` or `RUNNING` is treated as QUIET at once;
    - **`UNCONFIRMED`** past 15 minutes: restart;
    - **`BOB: relay to Bob`** (the state `NEEDS BOB`, or `needs_action` on a session whose record shows no other wait): relay it (§16). A job waiting on BOB or on its own command is never relayed, whatever the platform shows for its session (a session that ends its turn waiting reads BLOCKED or COMPLETED).
 2. Read the channel (§13.1, item 3) (P13).
@@ -179,7 +179,7 @@ Each step is pushed, so an interrupted close is a named state that any BOB resum
 
 ## 6. The module job (P6, P7, P8, P11)
 
-1. **Start** on `job/T<n>/<module>`. **The job's first act is `mail start`**, which pushes its record's Status line naming its session and depth and confirms its start (§5.3); then `mail inbox`, whose first entry is BOB's `START` (a restarted job reads everything past its record's cursor, whoever wrote it). After acting on entries it runs `mail done`. The record's state is set with `mail state`: `WORKING`; `RUNNING until <time> (<command>)`, set before waiting on a command expected to take over ten minutes; `WAITING ON BOB (J<n>)`; `NEEDS BOB`; `COMPLETE`.
+1. **Start** on `job/T<n>/<module>`. **The job's first act is `mail start`**, which pushes its record's Status line naming its session and depth and confirms its start (§5.3); then `mail inbox`, whose first entry is BOB's `START` (a restarted job reads everything past its record's cursor, whoever wrote it). After acting on entries it runs `mail done`. The record's state is set with `mail state`: `WORKING`; `RUNNING until <time> (<command>)`, set before waiting on a command expected to take over ten minutes, never more than 30 minutes ahead: a longer run is split into pieces, each recorded and pushed as it ends (the mail tool refuses a longer window); `WAITING ON BOB (J<n>)`; `NEEDS BOB`; `COMPLETE`.
    **A job that ends its turn on a wait** sets that state first and ends with the one line `Waiting on BOB (J<n>). Nothing for Bob to do.` (or `on my command`), which is what Bob's app shows for it (P17).
    **A job whose context passes half its window** (`get_session`) finishes its current step, notes the next one in its record, posts `BLOCKED` with the cause `context`, and ends its turn; BOB restarts it (§5.4).
 2. **Read in full**, never scanned: its own requirements (both parts); its entries; its layer's contract; its own code; of each module it uses, the services its entries touch (§3); and the tests that name a requirement its entries change. Its other tests are run, not read.
