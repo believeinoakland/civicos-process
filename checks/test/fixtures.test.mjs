@@ -288,10 +288,10 @@ test('rule E: a literal nested in an input object to the function under test is 
   assert.deepEqual(f, [4]);
 });
 
-test('rule F: a double imported from the user\'s own source is skipped; one imported from its tests is not', () => {
-  const root = product({ 'src/user/index.mjs': OWN, 'test/user/helper.mjs': 'export const stubOf = {};\n', 'test/user/imp.test.mjs': [
+test('rule F: a double imported from the user\'s own source is skipped; one imported from another module\'s tests is not', () => {
+  const root = product({ 'src/user/index.mjs': OWN, 'test/lib/helper.mjs': 'export const stubOf = {};\n', 'test/user/imp.test.mjs': [
     'import { fakeAccount } from "../../src/user/index.mjs";',                             // line 1: its own
-    'import { stubOf } from "./helper.mjs";',                                              // line 2: a test double
+    'import { stubOf } from "../lib/helper.mjs";',                                         // line 2: a test double of another module (K5044: one from the user's own tests is its own)
     'use(fakeAccount, stubOf);',
   ].join('\n') + '\n' });
   const f = lines(checkFixtures(root).failures, 'test/user/imp.test.mjs').filter((x) => x.startsWith('stub '));
@@ -308,4 +308,230 @@ test('rule G: a why-keyed ok literal and a code pushed into the module\'s own li
   ].join('\n') + '\n' });
   const f = lines(checkFixtures(root).failures, 'test/user/own.test.mjs').map((x) => Number(x.split(':')[1].split(' ')[0]));
   assert.deepEqual(f, [3, 4]);
+});
+
+// ---- K5044: the check's rules settled after the T51 fixture audit ----
+// modules.json order: test-support (0), lib (1), user (2), late (3), other (4); the harness lives in test/harness/, its own tests in test/support/
+function product5(files = {}) {
+  return product({
+    'build/modules.json': JSON.stringify({
+      not_product: ['build/'],
+      modules: [
+        { id: 'test-support', layer: 0, paths: ['test/harness/'], tests: ['test/support/'], uses: [] },
+        { id: 'lib', layer: 1, paths: ['src/lib/'], tests: ['test/lib/'], uses: [] },
+        { id: 'user', layer: 2, paths: ['src/user/'], tests: ['test/user/'], uses: ['lib'] },
+        { id: 'late', layer: 3, paths: ['src/late/'], tests: ['test/late/'], uses: ['lib'] },
+        { id: 'other', layer: 4, paths: ['src/other/'], tests: ['test/other/'], uses: [] },
+      ],
+    }),
+    'src/lib/index.mjs': [
+      'export function registerJob(e) { return { ok: false, reason: "LIB_BUSY", detail: e }; }',
+      'export function deliver(x) { return x; }',
+      'export const other = () => ({ ok: false, reason: "LIB_OTHER" });',
+      'export const bad = (n) => ({ ok: false, reason: `BAD_${n}` });',
+      'export function libOps(a) { return { holdput: () => a.put(), holdget: () => a.get(), ownop: () => 1 }; }',
+      'export const DECLARED_OPS = Object.freeze({ declaredop: { classes: ["member"] } });',
+    ].join('\n') + '\n',
+    'src/user/index.mjs': 'export const own = () => ({ ok: false, reason: "USER_OWN" });\nexport const run = (x) => x;\nexport function userOps() { return { ownop: () => 1 }; }\n',
+    ...files,
+  });
+}
+const CONTROL = 'const control = { ok: false, reason: "LIB_BUSY", detail: 1 };'; // a plain hand-built answer: always found
+const all = (failures, file) => failures.filter((f) => f.includes(` ${file}:`));
+const lineOf = (f) => Number(f.split(':')[1].split(' ')[0]);
+// a file whose only finding is the control on its last line
+function onlyControl(lines, extra = {}, control = CONTROL) {
+  const file = 'test/user/k5044.test.mjs';
+  const root = product5({ [file]: [...lines, control].join('\n') + '\n', ...extra });
+  const f = all(checkFixtures(root).failures, file);
+  assert.deepEqual(f.map(lineOf), [lines.length + 1], f.join('\n'));
+  return checkFixtures(root);
+}
+
+test('K5044 (1) platform doubles: a store double with fetch, the Workers runtime, the Agent SDK, a bucket, a binding, IndexedDB and a fake network are skipped', () => {
+  onlyControl([
+    'function stubOf(id) { return { fetch: async (req) => ({ ok: true, result: { ok: false, reason: "LIB_BUSY", detail: id } }) }; }',   // a Durable Object double dispatching to modules
+    'const fakeCtx = { waitUntil() {}, answer: () => ({ ok: false, reason: "LIB_BUSY", detail: 1 }) };',
+    'function installRuntime() { return { ok: false, reason: "LIB_BUSY", detail: 2 }; }',
+    'const stubSdk = { query: () => ({ ok: false, reason: "LIB_BUSY", detail: 3 }) };',
+    'const caps = { evidenceStore: () => ({ head: async () => null, get: async () => ({ ok: false, reason: "LIB_BUSY", detail: 4 }), put: async () => 1 }) };',
+    'const wired = { calls: [], binding: { send: () => ({ ok: false, reason: "LIB_BUSY", detail: 5 }) } };',
+    'function idbOpen() { return { ok: false, reason: "LIB_BUSY", detail: 6 }; }',
+    'globalThis.fetch = async () => ({ ok: false, reason: "LIB_BUSY", detail: 7 });',                                                 // a fake external network reply
+  ]);
+});
+
+test('K5044 (1) fault injection: a stand-in that only throws, never settles, returns undefined or a nameless {ok:false} is skipped', () => {
+  onlyControl([
+    'const jobs = {};',
+    'jobs.registerJob = () => { throw new Error("down"); };',
+    'jobs.armJobs = () => new Promise(() => {});',
+    'jobs.readHeld = () => {};',
+    'const fakeGate = () => ({ ok: false, detail: "no code" });',
+    'function stubDown() { throw new Error("x"); }',
+  ]);
+});
+
+test('K5044 (1) a stand-in that answers is still found (the fault rule is no blanket)', () => {
+  const file = 'test/user/answers.test.mjs';
+  const { failures } = checkFixtures(product5({ [file]: 'const jobs = {};\njobs.registerJob = () => ({ ok: true, existed: false });\n' }));
+  assert.match(all(failures, file).join('\n'), /stand-in registerJob/);
+});
+
+test('K5044 (1) a delegating wrapper or spy that calls the same-named function of another object is skipped', () => {
+  onlyControl([
+    'const jobs = {}; let calls = 0;',
+    'jobs.registerJob = (e) => { calls++; return real.registerJob(e); };',
+    'const stub = { deliver: (x) => real.deliver(x) };',
+  ]);
+});
+
+test('K5044 (1) pass-through: an answer literal whose code the same test asserts unchanged, a raw platform error and a lower_snake provider reason are skipped', () => {
+  onlyControl([
+    'import assert from "node:assert/strict";',
+    'const given = { ok: false, reason: "LIB_BUSY", detail: 1 };',
+    'assert.equal(out.reason, "LIB_BUSY");',                                      // the same test asserts the code back
+    'const raw = { ok: false, error: e.stack };',
+    'const provider = { ok: false, reason: "overloaded_error", detail: 1 };',
+  ], {}, 'const control = { ok: false, reason: "LIB_OTHER", detail: 1 };');
+});
+
+test('K5044 (1) the user\'s own seam: .transact, a check/validate key, a local wrapper of the user\'s own export are skipped', () => {
+  onlyControl([
+    'import { run } from "../../src/user/index.mjs";',
+    'const call = (x) => run(x);',
+    'registerJob.transact(() => ({ ok: false, reason: "LIB_BUSY", detail: 1 }));',
+    'const cfg = { check: () => ({ ok: false, reason: "LIB_BUSY", detail: 2 }), validate(x) { return { ok: false, reason: "LIB_BUSY", detail: 3 }; } };',
+    'call({ ok: false, reason: "LIB_BUSY", detail: 4 });',
+  ]);
+});
+
+test('K5044 (1) harness-own: test-support\'s own tests and generators, a test shell, stubs imported from the user\'s own tests are skipped', () => {
+  const root = product5({
+    'test/support/self.test.mjs': 'const a = { ok: false, reason: "LIB_BUSY", detail: 1 };\nconst fakeThing = {};\n',
+    'test/harness/pdfgen.mjs': 'export const v = { ok: false, reason: "LIB_BUSY", detail: 1 };\nexport const OFF = { code: "OFF_FRAME" };\n',
+    'test/user/own-helper.mjs': 'export const stubOwn = { registerJob: 1 };\n',
+    'test/user/shell.test.mjs': [
+      'import { stubOwn } from "./own-helper.mjs";',
+      'use(stubOwn);',
+      'const shell = { name: "test-shell", r: { ok: false, reason: "LIB_BUSY", detail: 1 } };',
+      CONTROL,
+    ].join('\n') + '\n',
+  });
+  const { failures } = checkFixtures(root);
+  assert.deepEqual(all(failures, 'test/support/self.test.mjs'), []);
+  assert.deepEqual(all(failures, 'test/harness/pdfgen.mjs'), []);
+  assert.deepEqual(all(failures, 'test/user/shell.test.mjs').map(lineOf), [4]);
+});
+
+test('K5044 (1) name clash: a local helper named like a service never handed in, and a snake_case data key, are no stand-in or double', () => {
+  const clash = checkFixtures(product5({ 'test/user/clash.test.mjs': ['function deliver(x) { return x; }', 'deliver(1);', 'const row = { double_speak_or_reversal: 1 };'].join('\n') + '\n' }));
+  assert.deepEqual(all(clash.failures, 'test/user/clash.test.mjs'), [], clash.failures.join('\n'));
+  const handed = checkFixtures(product5({ 'test/user/handed.test.mjs': ['function deliver(x) { return x; }', 'wire({ deliver });'].join('\n') + '\n' }));
+  assert.match(all(handed.failures, 'test/user/handed.test.mjs').join('\n'), /stand-in deliver/);
+});
+
+test('K5044 (1) an expected value held in a variable used only in assertions is skipped; one also fed in is found', () => {
+  const r = onlyControl([
+    'import assert from "node:assert/strict";',
+    'const expected = { ok: false, reason: "LIB_OTHER", detail: 1 };',
+    'assert.deepEqual(out, expected);',
+    'const fed = { ok: false, reason: "LIB_OTHER", detail: 2 };',
+    'assert.deepEqual(out2, fed);',
+  ].slice(0, 3), {}, 'const fed = { ok: false, reason: "LIB_OTHER", detail: 2 };\nuse(fed);');
+  assert.ok(r.failures.length > 0);
+});
+
+test('K5044 (1) a code the product builds by template (`BAD_${n}`) matches any code of that prefix: not invented, no code failure', () => {
+  const file = 'test/user/tpl.test.mjs';
+  const { failures, totals } = checkFixtures(product5({ [file]: ['import assert from "node:assert/strict";', 'const r = { ok: false, reason: "BAD_THING", detail: 1 };', 'assert.equal(out.reason, "BAD_OTHER");', 'assert.equal(out.reason, "WORSE_THING");'].join('\n') + '\n' }));
+  const f = all(failures, file);
+  assert.equal(f.length, 2, f.join('\n'));
+  assert.match(f[0], /^answer user .*:2 \[refusal\] .* -> lib \(earlier\)$/);
+  assert.match(f[1], /^code user .*:4 /);
+  assert.equal(totals.invented, 0);
+});
+
+test('K5044 (2) fixtures-generic: accepts the code it names within eight lines; a code it does not name stays a finding; a marker covering nothing fails', () => {
+  const file = 'test/user/generic.test.mjs';
+  const { failures, items, totals } = checkFixtures(product5({ [file]: [
+    '// fixtures-generic: MADE_UP_CODE',
+    'const a = { ok: false, reason: "MADE_UP_CODE", detail: 1 };',              // line 2: accepted (an invented tag)
+    '',
+    'import assert from "node:assert/strict";',
+    '// fixtures-generic: SENTINEL_X',
+    'assert.equal(out.reason, "SENTINEL_X");',                                   // line 6: a code-class sentinel, accepted
+    '',
+    '// fixtures-generic: OTHER_NAMED',
+    'const b = { ok: false, reason: "NOT_NAMED", detail: 1 };',                  // line 9: the marker names another code: a finding
+    '',
+    '// fixtures-generic: NOTHING_HERE',                                         // line 11: covers nothing
+    'const c = 1;',
+  ].join('\n') + '\n' }));
+  const f = all(failures, file).sort((a, b) => lineOf(a) - lineOf(b));
+  assert.deepEqual(f.map(lineOf), [8, 9, 11], f.join('\n'));
+  assert.match(f[0], /idle-generic/);   // OTHER_NAMED covers a candidate but names no code of it: idle
+  assert.match(f[1], /refusal invented NOT_NAMED/);
+  assert.match(f[2], /idle-generic/);
+  assert.equal(items.filter((c) => c.file === file && c.status === 'accepted').length, 2);
+  assert.ok(totals.accepted >= 2);
+});
+
+test('K5044 (3a) a local builder is reported at each call site with its code, not at its literal', () => {
+  const file = 'test/user/builder.test.mjs';
+  const { failures } = checkFixtures(product5({ [file]: [
+    'const refusedWith = (code, extra = {}) => ({ status: 200, json: { ok: true, result: { ok: false, reason: code, ...extra } } });',   // line 1
+    'const a = refusedWith("LIB_BUSY");',                                          // line 2: lib's code
+    'const b = refusedWith("MADE_UP_X", { n: 1 });',                               // line 3: no source gives it
+    'const c = refusedWith("USER_OWN");',                                          // line 4: the user's own: skipped
+    'import assert from "node:assert/strict";',
+    'assert.deepEqual(out, refusedWith("LIB_BUSY"));',                             // line 6: an expected value: skipped
+  ].join('\n') + '\n' }));
+  const f = all(failures, file);
+  assert.deepEqual(f.map(lineOf), [2, 3], f.join('\n'));
+  assert.match(f[0], /^answer user .* \[builder refusedWith\] .* -> lib \(earlier\)$/);
+  assert.match(f[1], /\[builder refusedWith invented MADE_UP_X\]/);
+});
+
+test('K5044 (3b) a scripted op table: each entry keyed by a product op that builds an answer is a finding, its provider the module declaring the op', () => {
+  const file = 'test/user/optable.test.mjs';
+  const { failures } = checkFixtures(product5({ [file]: [
+    'const t = await open("x", { plane: {',
+    '  holdput: ok({ ok: true, result: { id: 1 } }),',                              // line 2: lib's ops map
+    '  holdget: (req) => ({ ok: false, status: 404 }),',                            // line 3: a function building an answer
+    '  declaredop: { ok: true, result: 1 },',                                       // line 4: lib's DECLARED_OPS
+    '  ownop: ok({ ok: true }),',                                                   // line 5: the user declares it too: its own
+    '  notanop: ok({ ok: true }),',                                                 // line 6: no module declares it
+    '  holdput2: 5,',
+    '} });',
+  ].join('\n') + '\n' }));
+  const f = all(failures, file);
+  assert.deepEqual(f.map(lineOf), [2, 3, 4], f.join('\n'));
+  assert.match(f[0], /^answer user .* \[op-table holdput\] .* -> lib \(earlier\)$/);
+  assert.match(f[1], /\[op-table holdget\]/);
+  assert.match(f[2], /\[op-table declaredop\]/);
+});
+
+test('K5044 (4) a contract marker in a harness file covers the stub and every import of it when the provider runs it; without the run the import is found', () => {
+  const stub = (id) => [
+    `// fixtures-contract: lib ${id}`,
+    '// the stub of lib\'s registrar',
+    '//', '//', '//', '//', '//', '//', '//', '//',                                  // more than MARK_SPAN lines of comment: the marker covers the whole value
+    'export function jobRegistrarStub() {',
+    '  function registerJob(e) { return { ok: false, reason: "LIB_BUSY", detail: e }; }',
+    '  return { registerJob };',
+    '}',
+  ].join('\n') + '\n';
+  const users = { 'test/user/imp5.test.mjs': 'import { jobRegistrarStub } from "../harness/job-stub.mjs";\nuse(jobRegistrarStub());\n' };
+  const ok = checkFixtures(product5({ ...users, 'test/harness/job-stub.mjs': stub('job-registrar'), 'test/lib/run.test.mjs': '// fixtures-run: test-support job-registrar\n' }));
+  assert.deepEqual(all(ok.failures, 'test/harness/job-stub.mjs'), [], ok.failures.join('\n'));
+  assert.deepEqual(all(ok.failures, 'test/user/imp5.test.mjs'), [], 'the import is covered');
+  const imp = ok.items.find((c) => c.file === 'test/user/imp5.test.mjs' && c.cls === 'stub');
+  assert.equal(imp.status, 'accepted');
+  assert.equal(imp.contract, 'job-registrar');
+  const bad = checkFixtures(product5({ ...users, 'test/harness/job-stub.mjs': stub('job-registrar') }));
+  assert.ok(all(bad.failures, 'test/harness/job-stub.mjs').some((x) => /contract-no-run/.test(x)), bad.failures.join('\n'));
+  assert.ok(all(bad.failures, 'test/user/imp5.test.mjs').length >= 1, 'not run: the import is found');
+  const idle = checkFixtures(product5({ 'test/harness/idle.mjs': '// fixtures-contract: lib idle-id\nexport const X = 1;\n', 'test/lib/run.test.mjs': '// fixtures-run: test-support idle-id\n' }));
+  assert.match(all(idle.failures, 'test/harness/idle.mjs').join('\n'), /\[idle\]/);
 });
