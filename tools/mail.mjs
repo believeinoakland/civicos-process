@@ -16,6 +16,8 @@
 //         product has a registry, BOB's Writer line in its outbox (as xwriter --as BOB, account from the registry;
 //         bio K3361); a failed channel step keeps the Status line and warns with the xwriter command to run by hand
 //         addjob --module <m> --name "<M> #k" --session <id>             add or replace a job's address
+//         jobbranch --module <m>           create job/<T>/<m> at the tranche tip, or fast-forward it there (§5.3 (1));
+//                                          a job branch holding commits the tranche lacks is refused, never forced
 //         post --as bob --module <m> --kind <KIND> [--re J<n>] (--body <text> | --body-file <f>)
 //         inbox --as bob --module <m>      done --as bob --module <m> --through J<n>
 //         check                            the backstop: every job's state and what each needs
@@ -25,13 +27,17 @@
 //   any:  addr (--bob | --module <m>)      print a session id to ring
 //         ring-text --to <name>            print the doorbell's text
 //
-// The size gate (§5.1, §17; P20, P13, bio K5015): the documents a session must read whole are measured first, and a command
-// that would take, post, read or ring is refused, naming each document, its size and its limit, until it is pruned:
-// `build/rulings-active.md` (80 lines, 25,600 bytes), `build/handoff.md` (25,600 bytes), every text file (.md .txt .tsv .csv .json .html) under
-// `build/plan/` but `build/plan/archive/**` (51,200 bytes); images and other binaries are never measured. Exempt from the gate, so a session can always move its cursor, set its state
-// and report the refusal: done, state, addr, ring-text, xdone, and `post --as job --kind BLOCKED`. `check` is not refused;
-// it lists each oversized document as `SIZE <path> <bytes> > <limit>`. `build/plan/size-exempt.txt` (one path per line,
-// its reason after ` · `) exempts a named document. There is no bypass flag.
+// The size gate (§5.1, §17; P20, P13, bio K5015, K5123): the documents a session must read whole are measured first, and a
+// command that would take, post, read or ring is refused, naming each document, its size and its limit, until it is
+// pruned. A gate protects a session's own reading set, never another's: a job is measured only against its reading set,
+// every text file (.md .txt .tsv .csv .json .html) under `build/plan/` but `build/plan/archive/**` (51,200 bytes); BOB
+// is measured against all three kinds, those and BOB's takeover set, `build/rulings-active.md` (80 lines, 25,600 bytes)
+// and `build/handoff.md` (25,600 bytes), so BOB prunes at once. Images and other binaries are never measured. Exempt from
+// the gate, so a session can always move its cursor, set its state and report the refusal: done, state, addr, ring-text,
+// xdone, and `post --as job --kind BLOCKED`. `check` is not refused; it lists each oversized document as
+// `SIZE <path> <bytes> > <limit>`, and each of BOB's two documents above 95 % of its limit as
+// `NEAR <path> <bytes> / <limit>`, so BOB prunes before a limit is crossed. `build/plan/size-exempt.txt` (one path per
+// line, its reason after ` · `) exempts a named document. There is no bypass flag.
 //
 // Across accounts (§13.1; bio K954): no tranche and no doorbell; the registry `build/channels.md` names each participant.
 // Run from any branch: these commands read and write only the mail branches on origin, never the working tree.
@@ -159,7 +165,8 @@ function treeAt(product, ref) {
   const text = (p) => { try { return R.g(['show', `${ref}:${pre}${p}`], { quiet: true }); } catch { return ''; } };
   return { size, text };
 }
-export function oversize(product, ref) {
+// `who` is 'job' (the plan files only: a job's reading set) or 'bob' (the default: those and BOB's two documents).
+export function oversize(product, ref, who = 'bob') {
   const dir = resolve(product || '.'), out = [];
   const t = ref ? treeAt(product, ref) : null;
   const has = (p) => (t ? t.size.has(p) : existsSync(join(dir, p)));
@@ -169,6 +176,7 @@ export function oversize(product, ref) {
   const files = t ? [...t.size.keys()].filter((p) => p.startsWith('build/plan/') && !p.startsWith('build/plan/archive/') && TEXT_EXT.test(p)).sort() : planFiles(dir);
   const add = (path, n, limit, unit) => { if (n > limit && !exempt.has(path)) out.push({ path, n, limit, unit }); };
   const rulings = 'build/rulings-active.md', handoff = 'build/handoff.md';
+  if (who === 'job') { for (const p of files) add(p, bytes(p), SIZE_LIMITS.planBytes, 'bytes'); return out; }   // BOB's takeover set is never a job's
   if (has(rulings)) {
     add(rulings, lineCount(read(rulings)), SIZE_LIMITS.rulingsLines, 'lines');
     add(rulings, bytes(rulings), SIZE_LIMITS.rulingsBytes, 'bytes');
@@ -177,14 +185,28 @@ export function oversize(product, ref) {
   for (const p of files) add(p, bytes(p), SIZE_LIMITS.planBytes, 'bytes');
   return out;
 }
+// BOB's two documents above NEAR_PCT of a limit but not over it: { path, n, limit, unit }.
+export const NEAR_PCT = 95;
+export function nearLimit(product) {
+  const dir = resolve(product || '.'), exempt = sizeExempt(dir), out = [];
+  const near = (path, n, limit, unit) => { if (n <= limit && n * 100 > limit * NEAR_PCT && !exempt.has(path)) out.push({ path, n, limit, unit }); };
+  const rulings = join(dir, 'build/rulings-active.md'), handoff = join(dir, 'build/handoff.md');
+  if (existsSync(rulings)) { near('build/rulings-active.md', lineCount(readFileSync(rulings, 'utf8')), SIZE_LIMITS.rulingsLines, 'lines'); near('build/rulings-active.md', readFileSync(rulings).length, SIZE_LIMITS.rulingsBytes, 'bytes'); }
+  if (existsSync(handoff)) near('build/handoff.md', readFileSync(handoff).length, SIZE_LIMITS.handoffBytes, 'bytes');
+  return out;
+}
 const sizeText = (v) => `${v.path} ${v.n} ${v.unit} > ${v.limit} ${v.unit}`;
 // The lines `check` prints: `SIZE <path> <bytes> > <limit>` (a line count reads `<n> lines > <limit> lines`).
-export const sizeLines = (product) => oversize(product).map((v) => (v.unit === 'bytes' ? `SIZE ${v.path} ${v.n} > ${v.limit}` : `SIZE ${sizeText(v)}`));
+// Then `NEAR <path> <bytes> / <limit>` for each of BOB's documents above 95 % of its limit (a line count reads `<n> lines / <limit> lines`).
+export const sizeLines = (product) => [
+  ...oversize(product).map((v) => (v.unit === 'bytes' ? `SIZE ${v.path} ${v.n} > ${v.limit}` : `SIZE ${sizeText(v)}`)),
+  ...nearLimit(product).map((v) => `NEAR ${v.path} ${v.n}${v.unit === 'bytes' ? '' : ' lines'} / ${v.limit}${v.unit === 'bytes' ? '' : ' lines'}`),
+];
 // The gate: throws, naming each document, its size and its limit, before a command reads or writes anything.
 export function sizeGate(product, who, T) {
   let ref;
   if (who === 'job' && T) { const R = repo(product); if (fetchBranch(R, `tranche/${T}`)) ref = `origin/tranche/${T}`; }
-  const over = oversize(product, ref);
+  const over = oversize(product, ref, who === 'job' ? 'job' : 'bob');
   if (!over.length) return;
   const tail = who === 'job' ? 'BOB prunes them; post BLOCKED with cause reading.' : 'prune them now (mechanics §17).';
   throw new Error(`refused, documents over their limits: ${over.map(sizeText).join('; ')}; ${tail}`);
@@ -311,6 +333,26 @@ export function addjob(o) {
   text = /^\*\*Jobs\*\*.*$/m.test(text) ? text.replace(/^\*\*Jobs\*\*.*$/m, line) : text.replace(/^(\*\*Status\*\*.*\n)/m, `$1\n${line}\n`);
   writeLocal(R, PLAN, text);
   return { commit: commitPush(R, branch, PLAN, `plan ${T}: ${name} ${session} for ${m}`) };
+}
+// §5.3 (1); bio K3969, K4385: a job's branch is created at the tranche's tip, or fast-forwarded to it, by a plain push
+// only. A branch that is not an ancestor of the tranche holds work the tranche lacks: it is refused, with the remedy
+// (the job merges the tranche into its branch), and never rewritten. The one way a session moves a job branch.
+export function jobbranch(o) {
+  const { tranche: T, module: m } = o;
+  if (!/^[a-z][a-z0-9-]*$/.test(m || '')) throw new Error('--module <m>');
+  const R = repo(o.product), tb = branchOf('bob', T), jb = branchOf('job', T, m);
+  if (!fetchBranch(R, tb)) throw new Error(`no ${tb} on origin`);
+  const tip = R.g(['rev-parse', `origin/${tb}`]).trim();
+  if (!fetchBranch(R, jb)) {
+    R.g(['push', '-q', 'origin', `${tip}:refs/heads/${jb}`]);
+    return { action: 'created', branch: jb, commit: tip.slice(0, 10) };
+  }
+  const head = R.g(['rev-parse', `origin/${jb}`]).trim();
+  if (head === tip) return { action: 'current', branch: jb, commit: tip.slice(0, 10) };
+  try { R.g(['merge-base', '--is-ancestor', head, tip], { quiet: true }); }
+  catch { throw new Error(`${jb} holds commits ${tb} lacks: not moved (never forced). Its job merges ${tb} into it; a finished job's branch is merged into ${tb} first`); }
+  R.g(['push', '-q', 'origin', `${tip}:refs/heads/${jb}`]);
+  return { action: 'fast-forwarded', branch: jb, from: head.slice(0, 10), commit: tip.slice(0, 10) };
 }
 const planBob = (plan) => plan?.match(/^\*\*Status\*\* · [A-Z]+ · \S+(?: \S+)? #\d+ · (session_[0-9A-Za-z]+) · depth \d+/m)?.[1] ?? null;
 export function parseJobs(text) {
@@ -626,6 +668,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         break;
       }
       case 'addjob': console.log(`job address written (${addjob(o).commit})`); break;
+      case 'jobbranch': { const r = jobbranch(o); console.log(`${r.branch} ${r.action}${r.from ? ` from ${r.from}` : ''} at ${r.commit}`); break; }
       case 'addr': console.log(addr(o)); break;
       case 'ring-text': console.log(ringText(o.tranche, o.to || 'BOB')); break;
       case 'check': for (const r of check(o)) console.log(`${r.module} ${r.name} ${r.session} · ${r.state} · J${r.lastJ} read J${r.read} · B${r.lastB} handled B${r.handled} · pushed ${r.pushedAgoMin} min ago → ${r.needs.join(', ') || 'nothing'}`); for (const l of sizeLines(o.product)) console.log(l); break;

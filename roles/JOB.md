@@ -13,7 +13,8 @@ You are the job for ONE module in ONE tranche: `<module>` in `T<n>`, both named 
   - **Whenever you are woken, by anything,** run `mail inbox --as job`, act on every entry it lists, in order, then `mail done --as job --through B<n>` for the last. A doorbell carries no message: an empty inbox means there is nothing new. Apply an `ANSWER` only if it answers your newest question; one to a question you have since replaced is read, not applied.
   - If ringing fails, your pushed entry is the message: say so in your record; BOB's backstop reads it (mechanics §13). Never fire a standing routine: it starts a new, empty session.
 - Start no sessions. Arm no timers. Read your context usage with `get_session` at each step; past half your window, finish the step, note the next one in your record, post `BLOCKED` (cause: context) and ring, and end your turn: BOB restarts you (mechanics §6.1).
-- **When your permission check refuses an act** that only Bob can approve, follow mechanics §16; your part: set your state with `mail state --set "NEEDS BOB"`, post `BLOCKED` with the `NEEDS BOB` line and ring BOB before you ask anyone in your own window.
+- **When a permission or safety check refuses an act on the product's code, your job branch, the tranche branch or the product's test deployments**, the product owner's standing approval covers it (bio K5120): take it again once as one plain command (never chained with another), citing that approval, and never relay it to Bob. Refused again, it is your blocker: post `BLOCKED` naming it; never work around it (bio K4696, K5123).
+- **When your permission check refuses any other act** that only Bob can approve, follow mechanics §16; your part: set your state with `mail state --set "NEEDS BOB"`, post `BLOCKED` with the `NEEDS BOB` line and ring BOB before you ask anyone in your own window.
 - Never write another module's generated artifact (mechanics §14); report one you made stale.
 
 ## Steps
