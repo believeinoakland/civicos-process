@@ -12,6 +12,7 @@ Arithmetic on numbers.
 
 **add(a, b) → number**
 - **R1** Returns `a + b` for two finite numbers.
+- **R6** `add(a, 0)` returns a number equal (`===`) to `a` for every finite `a`. (D18, size gate scoped to reading sets.)
 
 - **R5** `add` throws a `TypeError` when either argument is not a finite number, as `sum` does (R4); nothing is coerced. (Added by BOB during D3, confirming beta's REPORT 1: `add('1', 2)` returned `'12'`. In the real product this change of meaning goes to Bob, P17; in the dry run BOB records that it would have brought it to him, with the recommendation to add the refusal.)
 
