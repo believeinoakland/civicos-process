@@ -204,3 +204,19 @@ Tranche `tranche/D15` from `dryrun-main/D15` (now `cf36354`), run by BOB #214 (`
 Findings: F1 above. F2: the job's checkout carried the process repository's `main` before the fix, so it saw a developer `TypeError` message as a finding and reported it (J1) as alpha's; a check changed during a tranche reaches jobs only through `main` (§4's tool-fix rule, already stated): BOB answered (B2). Built-in error messages are developer text, not counted (bio K3927).
 
 Result: **§5.10, §5.7 step 0, §8.4's `next.md` arm and §8.6 certified.** Cost: STATS #1 3.26 M tokens; two workers in BOB's session.
+
+## D17 · 2026-10-25 · the size gate (bio K5015, K5028)
+
+Tranche `tranche/D17` from `dryrun-main/D17`, run by BOB #285 (`session_01ASV9NLY6Cwsx6qfQ2M3ExU`) with ALPHA #1 (`session_0133GYgcY1NidDS7iEUeVHvF`) and BETA #1 (`session_01XBWxmmmQjZfCZB68ug9Gtz`), haiku, depth 2, the gate tool from `prep/size-gate-K5015`. Planted: `build/plan/notes-big.md` of 60,000 bytes, and a deferral line in `current.md`.
+
+| path | evidence | result |
+| --- | --- | --- |
+| SG1 BOB's takeover refused, named, nothing written | `mail: refused, documents over their limits: build/plan/notes-big.md 60000 bytes > 51200 bytes; prune them now (mechanics §17).` exit 1; after the prune `plan Status written (09ce5bd)` | PROVEN |
+| SG2 a job refused, posts BLOCKED reading | both jobs: `inbox` refused; J1 BLOCKED cause `reading`; `start`, `state` allowed (after finding 1) | PROVEN |
+| SG3 `check` lists SIZE, not refused | `SIZE build/plan/notes-big.md 60000 > 51200` beside both jobs | PROVEN |
+| SG4 prune, resume, complete | §1 moved whole to the archive (60,000 to 28,794 bytes); B2 RESUME; both J2 COMPLETE; ownership 0; merged; 13/13 tests; checks 0 (after finding 2) | PROVEN |
+| SG5 the deferral check | `current.md:19` fails; passes as `next.md`'s N1 with its reason | PROVEN |
+
+Findings: F1, a refused `start` left the job no record, so it could not post BLOCKED: `start` is never refused (`c2819ae`). F2, after BOB pruned on the tranche the jobs stayed refused, measuring their own unmerged copy while the RESUME that told them to merge sat in the refused inbox: a job's documents are measured on the tranche branch's remote tip (`5ac283a`). Both fixed in the run; the doorbell carried the dry-run note to update the tool (a dry-run deviation; a product job runs the tool from `main`).
+
+Result: **SG1-SG5 certified** for the text rendered to Bob (bio K5028); it binds when Bob approves it (K1258). Cost: ALPHA #1 2.50 M, BETA #1 2.54 M tokens processed.
