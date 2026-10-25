@@ -66,6 +66,30 @@ test('R4 total refuses an element that is not a finite number with a TypeError, 
   }
 });
 
+// R5 is stated with ===, not Object.is: total([-0]) may return +0, since -0 === 0.
+test('R5 total([x]) returns a number equal (===) to x for every finite x', () => {
+  const edges = [0, -0, 1, -1, 0.1, -5.5, Number.EPSILON, Number.MIN_VALUE, -Number.MIN_VALUE,
+    2 ** -1022, Number.MAX_VALUE, -Number.MAX_VALUE, 2 ** 53, 2 ** 53 + 2, 1e-310, 1e308];
+  for (const x of edges) assert.ok(total([x]) === x, `total([${x}]) = ${total([x])}, expected ${x}`);
+  // Every exponent field (0 to 2046, so subnormals to the largest finite magnitudes), with mantissas that are all
+  // zeros, all ones and pseudo-random, for both signs: each finite double is one bit pattern of this shape or another.
+  const view = new DataView(new ArrayBuffer(8));
+  let s = 2024;
+  const rnd32 = () => ((s = (s * 1103515245 + 12345) % 2147483648) / 2147483648) * 2 ** 32 >>> 0;
+  for (let sign = 0; sign <= 1; sign++) {
+    for (let exp = 0; exp <= 2046; exp++) {
+      for (let k = 0; k < 40; k++) {
+        const hi = (sign << 31) | (exp << 20) | (k === 0 ? 0 : k === 1 ? 0xfffff : rnd32() & 0xfffff);
+        view.setUint32(0, hi >>> 0);
+        view.setUint32(4, k < 2 ? (k === 1 ? 0xffffffff : 0) : rnd32());
+        const x = view.getFloat64(0);
+        assert.ok(Number.isFinite(x));
+        assert.ok(total([x]) === x, `total([${x}]) = ${total([x])}, expected ${x}`);
+      }
+    }
+  }
+});
+
 // The bundle script in a copy of the product's source, so a test can change sources freely.
 function sandbox() {
   const dir = mkdtempSync(join(tmpdir(), 'beta-bundle-'));
