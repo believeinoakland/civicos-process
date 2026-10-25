@@ -22,7 +22,7 @@ Added to the `mail check` list of what BOB acts on:
 
 Step 1 gains, after "The job's first act is `mail start`":
 
-> `mail start` is never refused. If `post` or `inbox` refuses because a document is over its limit, the job does not prune it: it sets its state, posts `BLOCKED` with cause `reading` (naming the documents), and ends its turn. `BLOCKED`, `done` and `state` are never refused. BOB prunes the documents, then resumes the job (§5.4).
+> `mail start` is never refused. If `post` or `inbox` refuses because a document is over its limit, the job does not prune it: it sets its state, posts `BLOCKED` with cause `reading` (naming the documents), and ends its turn. `BLOCKED`, `done` and `state` are never refused. BOB prunes the documents on the tranche branch, then resumes the job (§5.4). A job's documents are measured as they stand on the tranche branch, so the job is not refused once BOB has pruned there, before it merges.
 
 ## 8.4 Format (P19)
 

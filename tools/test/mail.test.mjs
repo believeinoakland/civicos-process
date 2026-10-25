@@ -189,6 +189,7 @@ test('size gate: a document 1 over its limit refuses every gated command, names 
     start({ ...J(w.job), session: J1, depth: 2 });
     post({ ...J(w.bob), as: 'bob', kind: 'START', body: 'go' });
     put(w.bob, path, over); put(w.job, path, over);
+    g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'over'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);   // a job is measured on the tranche's tip
     const named = new RegExp(`${path.replace(/[./]/g, '\\$&')} \\d+ ${unit} > ${limit} ${unit}`);
     const before = [snap(w.bob, `tranche/${T}`), snap(w.job, `job/${T}/alpha`)];
     const bobSide = [
@@ -251,6 +252,7 @@ test('size gate: done, state and a job\'s BLOCKED pass while a document is over 
   post({ ...J(w.bob), as: 'bob', kind: 'START', body: 'go' });
   post({ ...J(w.job), as: 'job', kind: 'QUESTION', body: 'q' });
   for (const d of [w.bob, w.job]) put(d, 'build/handoff.md', bytes(25601));
+  g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'over'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
   assert.equal(done({ ...J(w.job), as: 'job', through: 'B1' }).moved, true);
   assert.equal(done({ ...J(w.bob), as: 'bob', through: 'J1' }).moved, true);
   state({ ...J(w.job), set: 'NEEDS BOB' });
@@ -300,7 +302,8 @@ test('size gate on the command line: a refused command exits non-zero and writes
   addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
   start({ ...J(w.job), session: J1, depth: 2 });
   post({ ...J(w.bob), as: 'bob', kind: 'START', body: 'go' });
-  put(w.job, 'build/plan/big.md', bytes(51201));
+  put(w.job, 'build/plan/big.md', bytes(51201)); put(w.bob, 'build/plan/big.md', bytes(51201));
+  g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'over'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
   const run = (...a) => spawnSync(process.execPath, [MAIL, ...a, '--product', w.job, '--tranche', T, '--module', 'alpha'], { encoding: 'utf8' });
   const before = snap(w.job, `job/${T}/alpha`);
   let r = run('post', '--as', 'job', '--kind', 'QUESTION', '--body', 'q');
@@ -311,6 +314,21 @@ test('size gate on the command line: a refused command exits non-zero and writes
   for (const ok of [['state', '--set', 'NEEDS BOB'], ['post', '--as', 'job', '--kind', 'BLOCKED', '--body', 'cause reading'], ['addr'], ['ring-text', '--to', 'BOB']]) {
     r = run(...ok); assert.equal(r.status, 0, `${ok.join(' ')}: ${r.stderr}`);
   }
-  put(w.job, 'build/plan/big.md', bytes(51200));
+  put(w.bob, 'build/plan/big.md', bytes(51200));                      // BOB prunes on the tranche
+  g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'pruned'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
   r = run('inbox', '--as', 'job'); assert.equal(r.status, 0, r.stderr);
+});
+
+test('size gate: a job is measured on the tranche tip, so a document BOB pruned there no longer refuses it (D17 finding 2)', () => {
+  const w = world();
+  addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
+  start({ ...J(w.job), session: J1, depth: 2 });
+  post({ ...J(w.bob), as: 'bob', kind: 'START', body: 'go' });
+  put(w.bob, 'build/plan/big.md', bytes(51201));
+  g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'over'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
+  put(w.job, 'build/plan/big.md', bytes(51201));                       // the job's own copy, never merged
+  assert.throws(() => inbox({ ...J(w.job), as: 'job' }), /big\.md 51201 bytes > 51200 bytes; BOB prunes them/);
+  put(w.bob, 'build/plan/big.md', bytes(100));                         // BOB prunes on the tranche
+  g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'pruned'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
+  assert.equal(inbox({ ...J(w.job), as: 'job' }).entries.length, 1);    // the job reads its START with its own copy unmerged
 });

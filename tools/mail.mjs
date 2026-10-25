@@ -136,25 +136,44 @@ function planFiles(dir, rel = 'build/plan') {
   }).sort();
 }
 // Every document over its limit: { path, n, limit, unit } (unit "bytes" or "lines"), in a fixed order.
-export function oversize(product) {
-  const dir = resolve(product || '.'), exempt = sizeExempt(dir), out = [];
+// For a job, the documents are measured as they stand on the tranche branch's remote tip, which BOB prunes: a job
+// whose own branch still holds the pruned document is not kept refused, and learns of the prune by its inbox
+// (bio K5028, dry run D17's finding 2). `ref` is that tip; without it the working tree is measured.
+function treeAt(product, ref) {
+  const R = repo(product), pre = R.inRepo('.') === '' ? '' : R.inRepo('.') + '/';
+  let ls = '';
+  try { ls = R.g(['ls-tree', '-r', '-l', ref, '--', `${pre}build`], { quiet: true }); } catch { return null; }
+  const size = new Map();
+  for (const line of ls.split('\n')) { const m = line.match(/^\S+ blob \S+\s+(\d+)\t(.*)$/); if (m && m[2].startsWith(pre)) size.set(m[2].slice(pre.length), Number(m[1])); }
+  const text = (p) => { try { return R.g(['show', `${ref}:${pre}${p}`], { quiet: true }); } catch { return ''; } };
+  return { size, text };
+}
+export function oversize(product, ref) {
+  const dir = resolve(product || '.'), out = [];
+  const t = ref ? treeAt(product, ref) : null;
+  const has = (p) => (t ? t.size.has(p) : existsSync(join(dir, p)));
+  const bytes = (p) => (t ? t.size.get(p) : readFileSync(join(dir, p)).length);
+  const read = (p) => (t ? t.text(p) : readFileSync(join(dir, p), 'utf8'));
+  const exempt = t ? new Set(read(SIZE_EXEMPT).split('\n').map((l) => l.split(' · ')).filter((q) => q.length >= 2 && q[0].trim() && q.slice(1).join(' · ').trim()).map((q) => q[0].trim())) : sizeExempt(dir);
+  const files = t ? [...t.size.keys()].filter((p) => p.startsWith('build/plan/') && !p.startsWith('build/plan/archive/') && TEXT_EXT.test(p)).sort() : planFiles(dir);
   const add = (path, n, limit, unit) => { if (n > limit && !exempt.has(path)) out.push({ path, n, limit, unit }); };
   const rulings = 'build/rulings-active.md', handoff = 'build/handoff.md';
-  if (existsSync(join(dir, rulings))) {
-    const b = readFileSync(join(dir, rulings));
-    add(rulings, lineCount(b.toString('utf8')), SIZE_LIMITS.rulingsLines, 'lines');
-    add(rulings, b.length, SIZE_LIMITS.rulingsBytes, 'bytes');
+  if (has(rulings)) {
+    add(rulings, lineCount(read(rulings)), SIZE_LIMITS.rulingsLines, 'lines');
+    add(rulings, bytes(rulings), SIZE_LIMITS.rulingsBytes, 'bytes');
   }
-  if (existsSync(join(dir, handoff))) add(handoff, readFileSync(join(dir, handoff)).length, SIZE_LIMITS.handoffBytes, 'bytes');
-  for (const p of planFiles(dir)) add(p, readFileSync(join(dir, p)).length, SIZE_LIMITS.planBytes, 'bytes');
+  if (has(handoff)) add(handoff, bytes(handoff), SIZE_LIMITS.handoffBytes, 'bytes');
+  for (const p of files) add(p, bytes(p), SIZE_LIMITS.planBytes, 'bytes');
   return out;
 }
 const sizeText = (v) => `${v.path} ${v.n} ${v.unit} > ${v.limit} ${v.unit}`;
 // The lines `check` prints: `SIZE <path> <bytes> > <limit>` (a line count reads `<n> lines > <limit> lines`).
 export const sizeLines = (product) => oversize(product).map((v) => (v.unit === 'bytes' ? `SIZE ${v.path} ${v.n} > ${v.limit}` : `SIZE ${sizeText(v)}`));
 // The gate: throws, naming each document, its size and its limit, before a command reads or writes anything.
-export function sizeGate(product, who) {
-  const over = oversize(product);
+export function sizeGate(product, who, T) {
+  let ref;
+  if (who === 'job' && T) { const R = repo(product); if (fetchBranch(R, `tranche/${T}`)) ref = `origin/tranche/${T}`; }
+  const over = oversize(product, ref);
   if (!over.length) return;
   const tail = who === 'job' ? 'BOB prunes them; post BLOCKED with cause reading.' : 'prune them now (mechanics §17).';
   throw new Error(`refused, documents over their limits: ${over.map(sizeText).join('; ')}; ${tail}`);
@@ -164,7 +183,7 @@ export function sizeGate(product, who) {
 
 export function post(o) {
   const { as, tranche: T, module: m, kind, re } = o;
-  if (!(as === 'job' && kind === 'BLOCKED')) sizeGate(o.product, as);   // a job can always report the refusal
+  if (!(as === 'job' && kind === 'BLOCKED')) sizeGate(o.product, as, T);   // a job can always report the refusal
   if (!KINDS[as]?.includes(kind)) throw new Error(`${as} sends one of ${KINDS[as]?.join(', ')}, not ${kind}`);
   if (re && !/^[JB]\d+$/.test(re)) throw new Error(`--re ${re}: not J<n> or B<n>`);
   const body = (o.bodyFile ? readFileSync(o.bodyFile, 'utf8') : o.body || '').trim();
@@ -184,7 +203,7 @@ export function post(o) {
 
 export function inbox(o) {
   const { as, tranche: T, module: m } = o;
-  sizeGate(o.product, as);
+  sizeGate(o.product, as, o.tranche);
   const R = repo(o.product), other = as === 'job' ? 'bob' : 'job', branch = branchOf(other, T, m);
   fetchBranch(R, branch);
   const theirs = showRemote(R, branch, other === 'job' ? recordPath(T, m) : outboxPath(T, m));
