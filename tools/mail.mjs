@@ -385,6 +385,9 @@ export function check(o) {
     const r = { ...j, state: st?.state ?? 'NOT STARTED', lastJ: lastId(rec), read: readCursor(out), lastB: lastId(out), handled: st?.handled ?? 0, pushedAgoMin: Math.round((now - lastPushMs(R, jb)) / 60e3), needs: [] };
     if (!st) r.needs.push('UNCONFIRMED');
     if (r.lastJ > r.read) r.needs.push(`READ J${r.read + 1}..J${r.lastJ}`);
+    // A COMPLETE job that has not read all of BOB's entries is open, never merely complete (§5.5; bio K5171): a START or
+    // a CHANGE it never read is waiting for it.
+    if (st && r.handled < r.lastB && /^COMPLETE/.test(r.state)) r.needs.push(`OPEN (unread B${r.handled + 1}..B${r.lastB})`);
     if (st && r.handled < r.lastB) r.needs.push('RING');
     if (/^NEEDS BOB/.test(r.state)) r.needs.push('BOB: relay to Bob');
     if (st && quietOf(r.state, now - lastPushMs(R, jb), now)) r.needs.push('QUIET');
