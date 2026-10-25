@@ -2,7 +2,7 @@
 
 **Status** · OPEN · BOB #285 · session_01ASV9NLY6Cwsx6qfQ2M3ExU · depth 1
 
-**Jobs** · alpha: ALPHA #1 session_0133GYgcY1NidDS7iEUeVHvF
+**Jobs** · alpha: ALPHA #1 session_0133GYgcY1NidDS7iEUeVHvF; beta: BETA #1 session_01XBWxmmmQjZfCZB68ug9Gtz
 
 ## Size gate (bio K5015; mechanics §5.1, §6, §13, §17)
 
