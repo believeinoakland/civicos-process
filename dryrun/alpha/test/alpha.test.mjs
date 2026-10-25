@@ -28,6 +28,15 @@ test('R1 add returns a + b for every pair of finite numbers in each class', () =
   assert.equal(add(Number.MAX_VALUE, Number.MAX_VALUE), Infinity); // a + b, overflow included
 });
 
+test('R6 add(a, b) and add(b, a) are the same number for every pair of finite numbers, signed zeros included', () => {
+  for (const a of FINITE) {
+    for (const b of FINITE) {
+      assert.ok(Object.is(add(a, b), add(b, a)), `add(${a}, ${b}) vs add(${b}, ${a})`);
+    }
+  }
+  assert.ok(Object.is(add(-0, 0), add(0, -0)));
+});
+
 // Every kind of value that is not a finite number.
 const NOT_FINITE = () => ['1', '', NaN, Infinity, -Infinity, null, undefined, {}, [1], [], true, false, 1n,
   Symbol('x'), () => 1, new Number(1)];
