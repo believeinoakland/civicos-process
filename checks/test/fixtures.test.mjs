@@ -139,6 +139,39 @@ test('contract (K4995): accepted only when the provider is later and its test ru
   assert.ok(failures.some((f) => f.startsWith('contract user test/late/contract.test.mjs:3 [orphan-run]')), failures.join('\n'));
 });
 
+// a seam's envelope `{ ok: true, rows }` carries no refusal or owed key: only an explicit marker makes it a candidate
+const envelope = (marked, ...more) => [...(marked ? ['// fixtures-contract: late E-env'] : []), 'export const seam = () => {', ...more, '  return { ok: true, rows: [{ why: "w", state: "s" }], next: null };', '};'].join('\n') + '\n';
+const E = 'test/user/env.test.mjs';
+
+test('contract marker on an ok-literal envelope (a): a marked { ok: true, rows } with the provider\'s paired run is accepted', () => {
+  const { failures, items } = checkFixtures(product({ [E]: envelope(true), 'test/late/env.test.mjs': '// fixtures-run: user E-env\n' }));
+  assert.deepEqual(failures.filter((f) => f.includes(E) || f.includes('test/late/env.test.mjs')), [], failures.join('\n'));
+  const acc = items.filter((c) => c.file === E);
+  assert.equal(acc.length, 1);
+  assert.equal(acc[0].status, 'accepted');
+  assert.equal(acc[0].contract, 'E-env');
+});
+
+test('contract marker on an ok-literal envelope (b): the same without the provider\'s run fails as contract-no-run', () => {
+  const { failures } = checkFixtures(product({ [E]: envelope(true) }));
+  const hit = failures.filter((f) => f.startsWith(`answer user ${E}:`));
+  assert.equal(hit.length, 1, failures.join('\n'));
+  assert.match(hit[0], /contract-no-run/);
+});
+
+test('contract marker on an ok-literal envelope (c): an unmarked { ok: true, rows } is not a candidate', () => {
+  const { failures, items } = checkFixtures(product({ [E]: envelope(false) }));
+  assert.deepEqual(items.filter((c) => c.file === E), []);
+  assert.deepEqual(failures.filter((f) => f.includes(E)), []);
+});
+
+test('contract marker on an ok-literal envelope (d): a marker with no ok-literal within its window stays idle', () => {
+  const gap = Array.from({ length: 9 }, (_, i) => `  const n${i} = ${i};`); // the literal starts 12 lines below the marker, past the eight
+  const { failures, items } = checkFixtures(product({ [E]: envelope(true, ...gap), 'test/late/env.test.mjs': '// fixtures-run: user E-env\n' }));
+  assert.match(failures.filter((f) => f.startsWith(`contract user ${E}:1 `))[0] || '', /\[idle\]/, failures.join('\n'));
+  assert.deepEqual(items.filter((c) => c.file === E && c.cls === 'answer'), []);
+});
+
 test('clean: an expected value in an assertion, an own shape and the real service called produce no failure', () => {
   const { failures } = checkFixtures(product());
   assert.deepEqual(failures.filter((f) => f.includes('test/user/clean.test.mjs')), []);

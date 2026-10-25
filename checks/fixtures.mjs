@@ -77,6 +77,8 @@
 // modules.json than its user and a test of that provider runs it. The user marks the hand-built value with a line comment on
 // the line of the candidate or up to MARK_SPAN lines above it (the nearest marker above a candidate is the one that covers it):
 //     // fixtures-contract: <provider-module> <contract-id>
+// (an object literal with `ok` written as true or false, starting on the marker's line or up to MARK_SPAN lines below it, is covered by the marker even
+// when no rule classes it as an answer: a seam's `{ ok: true, rows, next }`; an unmarked one is no candidate)
 // and a file under the provider's `tests` runs the contract against the provider's real code and says so with
 //     // fixtures-run: <user-module> <contract-id>
 // (<contract-id>: letters, digits, `.`, `-`, `_`; one id names one contract, which may cover many candidates). A marker whose
@@ -1024,6 +1026,21 @@ export function checkFixtures(root, only = []) {
       if (cands.some((c) => c.cls === 'answer' && c.file === f && c.line === t.line && c.invented)) continue; // carried by the answer's tag
       if (flagged.some(([a, b]) => k > a && k < b)) continue;
       add('code', t.line, '', [], { codes: [t.v] });
+    }
+    // answer: an object literal with `ok` written as true or false that an explicit `fixtures-contract` marker reaches (its line, MARK_SPAN below), classed or not; a marker that already covers a candidate needs none
+    for (const mk of contracts) {
+      if (mk.file !== f) continue;
+      const nearest = (c) => contracts.filter((x) => x.file === f && x.line <= c.line && c.line <= (x.end || x.line + MARK_SPAN)).sort((a, b) => b.line - a.line)[0];
+      if (cands.some((c) => c.file === f && c.cls !== 'code' && nearest(c) === mk)) continue;
+      for (let k = 0; k < toks.length; k++) {
+        if (toks[k].line < mk.line || toks[k].line > mk.line + MARK_SPAN) continue;
+        if (!isP(toks[k], '{') || match[k] < 0 || !isObjectStart(toks, k)) continue;
+        const ok = keysOf(k).get('ok');
+        if (!(ok > 0 && toks[ok].t === 'id' && /^(true|false)$/.test(toks[ok].v))) continue;
+        if (flagged.some(([a, b]) => (k >= a && k <= b) || (a >= k && b <= match[k]))) continue; // already an answer, or holds one
+        flagged.push([k, match[k]]);
+        add('answer', toks[k].line, 'marked', [], { codes: [], lits: [] });
+      }
     }
   }
 
