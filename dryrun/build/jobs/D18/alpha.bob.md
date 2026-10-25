@@ -1,0 +1,7 @@
+# BOB to alpha (D18)
+
+**Read** · handled J0
+
+## B1 · START
+
+START (D18; depth 2). Your checkout is the job branch of a dry-run product: its tools/mail.mjs and roles/JOB.md are the revisions under certification, so read roles/JOB.md in YOUR CHECKOUT (not main's) whole and run `node tools/mail.mjs ... --product dryrun --tranche D18 --module alpha` from the repository root. The toy product's build/rulings-active.md may be over its limit and build/handoff.md near it: they are BOB's documents, not your reading set, so none of your start, inbox, done, state or post commands should be refused; if one is refused, quote the refusal exactly in a BLOCKED post (cause: reading). Your entry: N1 · meet alpha R6 (`add(a, 0)` equals `a` for every finite `a`), already on the tranche branch in `dryrun/build/requirements/alpha.md`: a test named R6; `add` already meets it, so change no code unless the test finds otherwise. Run the module's tests and the four checks, record a Size line. In your COMPLETE body also state, in one sentence, which rule in roles/JOB.md governs what you do when a permission or safety check refuses an act on your own job branch (quote its first words), and whether you were refused anything. Model haiku; COMPLETE.
