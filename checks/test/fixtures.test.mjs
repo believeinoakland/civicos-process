@@ -164,3 +164,65 @@ test('answer: a spread is no key and an input object is no answer (ok must be wr
   const { failures } = checkFixtures(root);
   assert.deepEqual(failures.filter((f) => f.includes('inputs.test.mjs')).map((f) => f.split(' ')[2]), ['test/user/inputs.test.mjs:4']);
 });
+
+// ---- the tightening of the second pass (rules 1-5): each with a positive and a negative ----
+const LIB = 'export function registerJob(e) { return { ok: false, reason: "LIB_BUSY", detail: e }; }\nexport function listOwnedThings() { return []; }\nexport function attach(x) { return x; }\n';
+const lines = (failures, file) => failures.filter((f) => f.includes(` ${file}:`));
+
+test('rule 1: an extent is an answer only inside a stub or double, or given to one; extent data passed in is not', () => {
+  const root = product({ 'src/lib/index.mjs': LIB, 'test/user/extent.test.mjs': [
+    'const fakeReader = () => ({ extent: { kind: "pdf-page", page: 1 } });',   // line 1: inside a double
+    'const units = [{ extent: { kind: "pdf-page", page: 2 } }];',              // line 2: data
+    'w.content.mint({ extent: { kind: "pdf-page", page: 3 } });',              // line 3: an input to a module call
+    'stubReader({ extent: { kind: "pdf-page", page: 4 } });',                  // line 4: answered by a stub
+  ].join('\n') + '\n' });
+  const f = lines(checkFixtures(root).failures, 'test/user/extent.test.mjs');
+  const at = (n) => f.filter((x) => x.includes(`extent.test.mjs:${n} [extent]`)).length;
+  assert.equal(at(1), 1, f.join('\n'));
+  assert.equal(at(4), 1);
+  assert.equal(at(2) + at(3), 0);
+});
+
+test('rule 2: a refusal literal handed to a member call or an imported helper is an input; one a double or a Response builds is an answer', () => {
+  const root = product({ 'src/lib/index.mjs': LIB, 'test/user/input.test.mjs': [
+    'import { attach } from "../../src/lib/index.mjs";',
+    'w.lib.registerNote({ ok: false, reason: "LIB_BUSY" });',                 // line 2: a member call on the provider: an input
+    'attach({ ok: false, reason: "LIB_BUSY" });',                             // line 3: an imported helper: an input
+    'new Response.json({ ok: false, reason: "LIB_BUSY" });',                  // line 4: builds an answer
+    'const keep = { ok: false, reason: "LIB_BUSY" };',                        // line 5: held as a value
+  ].join('\n') + '\n' });
+  const f = lines(checkFixtures(root).failures, 'test/user/input.test.mjs').map((x) => Number(x.split(':')[1].split(' ')[0]));
+  assert.deepEqual(f, [4, 5]);
+});
+
+test('rule 3: platform doubles are never stubs; a double of a module is', () => {
+  const root = product({ 'test/user/platform.test.mjs': [
+    'class FakeDate {}', 'const fakeBinding = {};', 'const alarmDouble = {};', 'const fakeFetch = () => 1;', 'const fakeR2 = {};', 'const clockStub = {};',
+    'const fakePlane = {};',                                                   // line 7: a module's double
+  ].join('\n') + '\n' });
+  const f = lines(checkFixtures(root).failures, 'test/user/platform.test.mjs');
+  assert.equal(f.length, 1, f.join('\n'));
+  assert.match(f[0], /platform\.test\.mjs:7 \[decl\]/);
+});
+
+test('rule 4: a bare local stub counts only when it stands in for another module\'s exported name', () => {
+  const root = product({ 'src/lib/index.mjs': LIB, 'test/user/spy.test.mjs': [
+    'const stub = { listOwnedThings: () => [] };',                             // line 1: stands in for lib\'s export
+    'const fake = { localThing: () => 1 };',                                   // line 2: a local spy
+  ].join('\n') + '\n' });
+  const f = lines(checkFixtures(root).failures, 'test/user/spy.test.mjs');
+  assert.equal(f.length, 1, f.join('\n'));
+  assert.match(f[0], /spy\.test\.mjs:1 \[spy standing in listOwnedThings\].*-> lib \(earlier\)$/);
+});
+
+test('rule 5: a code fed in and asserted to come out is allowed; a code only asserted is not', () => {
+  const root = product({ 'test/user/pass.test.mjs': [
+    'import assert from "node:assert/strict";',
+    'const out = run({ reason: "ECHO_ME" });',                                 // fed in
+    'assert.equal(out.reason, "ECHO_ME");',                                    // line 3: asserted back: pass-through
+    'assert.equal(out2.reason, "ONLY_ASSERTED");',                             // line 4: no input anywhere
+  ].join('\n') + '\n' });
+  const f = lines(checkFixtures(root).failures, 'test/user/pass.test.mjs');
+  assert.equal(f.length, 1, f.join('\n'));
+  assert.match(f[0], /^code user test\/user\/pass\.test\.mjs:4 /);
+});

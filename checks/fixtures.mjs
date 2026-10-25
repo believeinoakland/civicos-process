@@ -18,6 +18,13 @@
 //   code      a string literal shaped like a refusal code (UPPER_SNAKE with an underscore) given as a `reason`, `code`, `error`,
 //             `failure_class`, `refusal` or `why` (key, or the other operand of a comparison or assertion) in a test, found
 //             in no source file at all. Not reported again where it sits inside a flagged `answer` literal (that carries tag `invented`).
+// Tightening (second pass): an `extent` literal is an answer only inside a stub or double's body or value, or given as the argument of a call
+// of one, never as data passed in; a refusal/owed literal that is a direct argument of a member call or of a helper imported from another
+// module (a real provider or the harness) is an input, not an answer (a Response.json, resolve/reject or stub call still builds one); names in
+// PLATFORM_DOUBLE (FakeDate, fakeBinding, alarmDouble, and fake/stub/double or *Stub/*Fake/*Double of Date, Clock, Timers, Fetch, R2, DO, KV, Bucket,
+// Binding, Alarm, Storage, Miniflare, Workerd, ...) are never stubs; a bare local `stub`/`fake`/`double` counts only where its value or its
+// `stub.name =` assignments name another module's exported name (6+ characters; tag `spy standing in <name>`); a code literal that the file both
+// feeds in (outside an assertion) and asserts (inside one) is pass-through data: not class `code`, and not an `invented` tag.
 // Provider: for a code, the modules whose source holds it; for a stub name, the modules whose files declare it (an import
 // resolves to the module owning the file; STAND_FOR maps jobRegistrarStub to registerJob); for a stand-in, the modules whose
 // source defines the service. Shown as `-> <modules> (earlier|later|mixed)` against the user's position in build/modules.json
@@ -50,6 +57,10 @@ export const INTERFACE_NAMES = ['registerJob', 'readHeld', 'armJobs', 'owedLater
   'deliverOwedRender', 'owedFetch', 'owedRun', 'homeOf', 'registerHolds', 'accountFor']; // the audit's seams (K4990, K4995)
 export const STAND_FOR = { jobRegistrarStub: 'registerJob' }; // a named stub whose interface its name does not say
 const STUB_WORD = /^(fake|stub|double)([A-Z0-9_]|$)|[a-z0-9_](Stub|Fake|Double)([A-Z0-9_]|$)|^(Stub|Fake|Double)([A-Z0-9_]|$)/;
+// Platform doubles (bio K4996 tightening): stand-ins for the platform, not another module's interface; never reported as stubs.
+export const PLATFORM_DOUBLE = /^(FakeDate|fakeBinding|alarmDouble|(fake|stub|double|mock)(Date|Clock|Timers?|Now|Fetch|R2|DO|Do|KV|Bucket|Binding|Bindings|Alarm|Storage|Miniflare|Workerd|Crypto|Random|Sleep)([A-Z0-9_]\w*)?|\w*([Dd]ate|[Cc]lock|[Ff]etch|R2|DO|KV|[Bb]ucket|[Bb]inding|[Aa]larm|[Mm]iniflare|[Ww]orkerd)(Stub|Fake|Double))$/;
+const BARE_SPY = /^(stubs?|fakes?|doubles?)$/; // a local spy: counts only where it stands in for another module's exported name
+const HAND_BUILDER = /(^|\.)(json|resolve|reject|resolves|rejects|mockResolvedValue|mockReturnValue)$|^Response$/;
 const CODE_RE = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/;
 const CODE_IN_TEXT = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
 const CODE_KEYS = new Set(['reason', 'code', 'error', 'failure_class', 'refusal', 'why']);
@@ -59,6 +70,28 @@ const EXPECT_CALLEE = /^(assert|expect)(\.|$)|\.(assert|deepEqual|deepStrictEqua
 const CONTRACT_RE = /\/\/\s*fixtures-contract:\s*([\w.-]+)\s+([\w.-]+)/;
 const RUN_RE = /\/\/\s*fixtures-run:\s*([\w.-]+)\s+([\w.-]+)/;
 const OPEN = '([{', CLOSE = ')]}';
+// the index of the last token of the value that starts at j (up to a top-level `,`, `;` or the closing bracket)
+function valueEnd(toks, match, j) {
+  while (j < toks.length) {
+    const t = toks[j];
+    if (t.t === 'p' && OPEN.includes(t.v)) { if (match[j] < 0) return j; j = match[j] + 1; continue; }
+    if (t.t === 'p' && (CLOSE.includes(t.v) || t.v === ',' || t.v === ';')) return j - 1;
+    j++;
+  }
+  return j - 1;
+}
+// the token range [a, b] of the function or value a name at k is bound to (`function n() {}`, `n = ..`, `n: ..`, `n() {}`), else null
+function regionFrom(toks, match, k) {
+  const p = toks[k - 1], nx = toks[k + 1];
+  if (p && p.t === 'id' && (p.v === 'function' || p.v === 'class' || (p.v === 'async' && toks[k - 2] && toks[k - 2].v === 'function'))) {
+    let j = k + 1; if (isP(toks[j], '(') && match[j] > 0) j = match[j] + 1;
+    return isP(toks[j], '{') && match[j] > 0 ? [k, match[j]] : null;
+  }
+  if (isP(nx, '=') && !isP(toks[k + 2], '=')) return [k + 2, valueEnd(toks, match, k + 2)];
+  if (isP(nx, ':')) return [k + 2, valueEnd(toks, match, k + 2)];
+  if (isP(nx, '(') && match[k + 1] > 0 && isP(toks[match[k + 1] + 1], '{') && match[match[k + 1] + 1] > 0) return [k, match[match[k + 1] + 1]];
+  return null;
+}
 
 // ---- token helpers -----------------------------------------------------------------------------------------------
 // match[k] = index of the bracket closing the one at k (or -1); parent[k] = index of the innermost bracket open at k.
@@ -142,6 +175,7 @@ export function checkFixtures(root, only = []) {
   // 1. product source: refusal codes and interface definitions by module
   const codeMods = new Map(); // code -> Set(module)
   const defMods = new Map(); // interface name -> Set(module)
+  const exportMods = new Map(); // exported name (6+ characters) -> Set(module) of product source
   const defRes = INTERFACE_NAMES.map((n) => [n, new RegExp(`(?:function\\*?\\s+${n}\\b|(?:const|let|var|class)\\s+${n}\\b|(?<![.\\w])${n}\\s*[:=](?!=)\\s*(?:async\\b|function\\b|\\()|^\\s*(?:async\\s+)?${n}\\s*\\([^)]*\\)\\s*\\{)`, 'm')]);
   for (const f of files) {
     if (!TEXT_EXT.test(f) || SKIP_DIR.test(f) || outside(f)) continue;
@@ -150,6 +184,11 @@ export function checkFixtures(root, only = []) {
     const text = read(f);
     if (text.length > MAX_BYTES) continue;
     for (const c of text.match(CODE_IN_TEXT) || []) { let s = codeMods.get(c); if (!s) codeMods.set(c, (s = new Set())); s.add(o.module); }
+    if (CODE_EXT.test(f)) {
+      const names = [...text.matchAll(/export\s+(?:async\s+)?(?:function\*?|const|let|class)\s+([A-Za-z_$][\w$]*)/g)].map((m) => m[1]);
+      for (const m of text.matchAll(/export\s*\{([^}]*)\}/g)) for (const part of m[1].split(',')) { const nm = part.split(/\s+as\s+/).pop().trim(); if (nm) names.push(nm); }
+      for (const nm of names) if (nm.length >= 6) { let st = exportMods.get(nm); if (!st) exportMods.set(nm, (st = new Set())); st.add(o.module); }
+    }
     if (CODE_EXT.test(f)) for (const [n, re] of defRes) if (text.includes(n) && re.test(text)) { let s = defMods.get(n); if (!s) defMods.set(n, (s = new Set())); s.add(o.module); }
   }
 
@@ -212,6 +251,31 @@ export function checkFixtures(root, only = []) {
     if (only.length && !only.includes(user)) continue;
     const imp = [...importMods].sort();
     const add = (cls, line, tag, providers, extra = {}) => cands.push({ cls, user, file: f, line, tag, text: excerpt(lines, line), providers, imports: imp, ...extra });
+    // regions of stubs and doubles (their bodies and values), and where each refusal-code literal sits (assertion or not)
+    const regions = [];
+    for (let k = 0; k < toks.length; k++) {
+      const t = toks[k];
+      if (t.t !== 'id') continue;
+      const named = STUB_WORD.test(t.v) && !PLATFORM_DOUBLE.test(t.v);
+      const iface = INTERFACE_NAMES.includes(t.v) && !(defMods.get(t.v) || new Set()).has(user);
+      if (!named && !iface) continue;
+      const r = regionFrom(toks, match, k);
+      if (r) regions.push(r);
+    }
+    const inRegion = (k) => regions.some(([a, b]) => k >= a && k <= b);
+    const calledStub = (k) => { // inside the arguments of a call of a stub, double or listed seam: answered by one
+      for (let q = parent[k]; q >= 0; q = parent[q]) if (isP(toks[q], '(')) { const c = calleeOf(toks, q); if (c && c.split('.').some((x) => (STUB_WORD.test(x) && !PLATFORM_DOUBLE.test(x)) || INTERFACE_NAMES.includes(x))) return true; }
+      return false;
+    };
+    const occ = new Map(); // code literal -> { inside, outside }
+    for (let k = 0; k < toks.length; k++) {
+      const t = toks[k];
+      if (t.t !== 'str' || !CODE_RE.test(t.v)) continue;
+      const o = occ.get(t.v) || { inside: 0, outside: 0 };
+      if (insideExpectation(toks, parent, k)) o.inside++; else o.outside++;
+      occ.set(t.v, o);
+    }
+    const passThrough = (code) => { const o = occ.get(code); return !!o && o.inside >= 1 && o.outside >= 1; }; // fed in, and its coming out asserted
     // answer
     const flagged = []; // [from, to] token ranges of flagged literals
     for (let k = 0; k < toks.length; k++) {
@@ -225,7 +289,12 @@ export function checkFixtures(root, only = []) {
       else if (okLit && OWED_KEYS.some((x) => keys.has(x))) shape = 'owed';
       else if (keys.has('extent')) { const v = keys.get('extent'); if (v > 0 && isP(toks[v], '{') && toks[v + 1] && (toks[v + 1].v === 'kind') && isP(toks[v + 2], ':')) shape = 'extent'; }
       if (!shape) continue;
-      if (shape === 'extent' && isP(toks[parent[k]], '(') && isP(toks[parent[k] - 2], '.') && toks[parent[k] - 1].t === 'id') continue; // an input given to a module's call (`w.content.mint({ extent: ...})`), not an answer
+      if (shape === 'extent' && !(inRegion(k) || calledStub(k))) continue; // extent data passed in, not an answer: only inside a stub or double, or given to one
+      if (shape !== 'extent' && parent[k] >= 0 && isP(toks[parent[k]], '(')) { // a direct argument of a call
+        const c = calleeOf(toks, parent[k]);
+        const stubby = c && (c.split('.').some((x) => (STUB_WORD.test(x) && !PLATFORM_DOUBLE.test(x)) || INTERFACE_NAMES.includes(x)) || HAND_BUILDER.test(c));
+        if (c && !stubby && (c.includes('.') || (imports.has(c) && imports.get(c) !== user))) continue; // an input handed to the real provider or a harness helper
+      }
       if (insideExpectation(toks, parent, k)) continue;
       // the code it names, and whom it belongs to
       let code = null;
@@ -235,21 +304,33 @@ export function checkFixtures(root, only = []) {
       if (code) {
         const owners = codeMods.get(code);
         if (owners && owners.has(user)) continue; // the user's own shape
-        if (!owners) tag = `${shape} invented ${code}`; else providers = mkProviders(owners, user);
+        if (!owners) { if (passThrough(code)) tag = shape; else tag = `${shape} invented ${code}`; } else providers = mkProviders(owners, user);
       }
       flagged.push([k, match[k]]);
-      add('answer', toks[k].line, tag, providers, { invented: !!code && !codeMods.get(code) });
+      add('answer', toks[k].line, tag, providers, { invented: !!code && !codeMods.get(code) && !passThrough(code) });
     }
     // stub: named doubles, once per file and name
     const seen = new Set();
     for (let k = 0; k < toks.length; k++) {
       const t = toks[k];
       if (t.t !== 'id') continue;
-      if (STUB_WORD.test(t.v) && !seen.has(t.v)) {
+      if (STUB_WORD.test(t.v) && !PLATFORM_DOUBLE.test(t.v) && !seen.has(t.v)) {
         if (isP(toks[k - 1], '.') ) continue; // a member of something else
-        seen.add(t.v);
         const p = toks[k - 1];
         const decl = (p && p.t === 'id' && /^(function|const|let|var|class)$/.test(p.v)) || (isP(toks[k + 1], ':') && p && p.t === 'p' && '{,'.includes(p.v));
+        if (BARE_SPY.test(t.v)) { // a local spy: only where it stands in for another module's exported name
+          if (!decl) continue;
+          const touched = new Set();
+          const r = regionFrom(toks, match, k);
+          if (r) for (let j = r[0]; j <= r[1]; j++) if (toks[j].t === 'id' && ((isP(toks[j + 1], ':') && toks[j - 1] && toks[j - 1].t === 'p' && '{,'.includes(toks[j - 1].v)) || (isP(toks[j - 1], '.') && isP(toks[j + 1], '=')))) touched.add(toks[j].v);
+          for (let j = 0; j < toks.length; j++) if (toks[j].t === 'id' && toks[j].v === t.v && isP(toks[j + 1], '.') && toks[j + 2] && toks[j + 2].t === 'id' && isP(toks[j + 3], '=')) touched.add(toks[j + 2].v);
+          const hit = [...touched].find((nm) => mkProviders(exportMods.get(nm), user).length);
+          if (!hit) continue;
+          seen.add(t.v);
+          add('stub', t.line, `spy standing in ${hit}`, mkProviders(exportMods.get(hit), user));
+          continue;
+        }
+        seen.add(t.v);
         let tag = decl ? 'decl' : imports.has(t.v) ? 'import' : 'use';
         let provSet;
         if (STAND_FOR[t.v]) provSet = defMods.get(STAND_FOR[t.v]);
@@ -284,6 +365,7 @@ export function checkFixtures(root, only = []) {
       for (let j = k - 1; j >= 0 && j >= k - 6; j--) { const u = toks[j]; if (u.t === 'p' && ';{}'.includes(u.v)) break; if (u.t === 'id' && CODE_KEYS.has(u.v)) { at = true; break; } }
       if (!at) for (let j = k + 1; j < toks.length && j <= k + 5; j++) { const u = toks[j]; if (u.t === 'p' && ';{}'.includes(u.v)) break; if (u.t === 'id' && CODE_KEYS.has(u.v) && isP(toks[j - 1], '.')) { at = true; break; } }
       if (!at) continue;
+      if (passThrough(t.v)) continue; // fed in and asserted to come out: the test's own pass-through data
       if (cands.some((c) => c.cls === 'answer' && c.file === f && c.line === t.line && c.invented)) continue; // carried by the answer's tag
       if (flagged.some(([a, b]) => k > a && k < b)) continue;
       add('code', t.line, '', []);
