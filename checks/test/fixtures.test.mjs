@@ -535,3 +535,239 @@ test('K5044 (4) a contract marker in a harness file covers the stub and every im
   const idle = checkFixtures(product5({ 'test/harness/idle.mjs': '// fixtures-contract: lib idle-id\nexport const X = 1;\n', 'test/lib/run.test.mjs': '// fixtures-run: test-support idle-id\n' }));
   assert.match(all(idle.failures, 'test/harness/idle.mjs').join('\n'), /\[idle\]/);
 });
+
+// ---- V3: what the first T51 audit found the check still listed (bio K5044 read against the live list) ----
+// Each test holds lines that must not be listed (K5044 (1) rules the check missed, or a rule the audit's FALSE lines call for), and a control that is.
+
+test('V3 (1) a stand-in written `async (..) =>` is read as a function: one that only throws, counts or answers nothing is a fault', () => {
+  onlyControl([
+    'const jobs = {};',
+    'jobs.registerJob = async (e) => { throw new Error("down"); };',
+    'jobs.armJobs = async () => { arms++; };',
+    'jobs.readHeld = async (a) => { await new Promise(() => {}); };',
+    'jobs.keepLater = async () => ({});',                                              // answers nothing
+  ]);
+});
+
+test('V3 (1) the absence of a service and a list of faults are faults: `x.owedLater = undefined`, `for (const keepLater of [undefined, async () => { throw }])`', () => {
+  onlyControl([
+    'const c = {};',
+    'c.owedLater = undefined;',
+    'for (const keepLater of [undefined, async () => ({ ok: false }), async () => { throw new Error("no"); }]) {',
+    '  if (keepLater) c.keepLater = keepLater; else delete c.keepLater;',
+    '}',
+  ]);
+  // a list with one stand-in that answers is still found
+  const f = all(checkFixtures(product5({ 'test/user/mixed.test.mjs': 'for (const keepLater of [undefined, async () => ({ ok: true, existed: false })]) { c.keepLater = keepLater; }\n' })).failures, 'test/user/mixed.test.mjs');
+  assert.ok(f.some((x) => /stand-in keepLater/.test(x)), f.join('\n'));
+});
+
+test('V3 (1) a call through a namespace import of the user\'s own source is the user\'s own export: its argument, and a callback handed to it, are inputs', () => {
+  onlyControl([
+    'import * as U from "../../src/user/index.mjs";',
+    'U.run({ ok: false, reason: "LIB_BUSY", detail: 1 });',
+    'const call = (x) => U.run(x);',
+    'call({ ok: false, reason: "LIB_BUSY", detail: 2 });',
+  ]);
+});
+
+test('V3 (1) names bound by `await import(..)` count like imports: a dynamic import of the user\'s own source, or of a real provider\'s function', () => {
+  onlyControl([
+    'const { run } = await import("../../src/user/index.mjs");',
+    'run({ ok: false, reason: "LIB_BUSY", detail: 1 });',
+  ]);
+});
+
+test('V3 (1) a test\'s own loader that binds the module under test (`export const M = await import(<its own source>)`) names the user\'s own source for the tests that import it', () => {
+  const files = { 'test/user/load.mjs': 'export const M = await import("../../src/user/index.mjs");\nexport const N = { ...(await import("../../src/user/index.mjs")), ...(await import("../../src/lib/index.mjs")) };\n' };
+  const f = (body) => all(checkFixtures(product5({ ...files, 'test/user/viaM.test.mjs': `import { M, N } from "./load.mjs";\n${body}\n` })).failures, 'test/user/viaM.test.mjs');
+  assert.deepEqual(f('const a = M.run(() => ({ ok: false, reason: "LIB_BUSY", detail: 1 }));'), []);
+  assert.deepEqual(f('const c = N.run(() => ({ ok: false, reason: "LIB_BUSY", detail: 3 }));').map(lineOf), [2]); // a namespace spread with another module\'s is not the module under test
+});
+
+test('V3 (1) a test\'s own assertion helper (`const t = (label, got, want)`): its expected value is an expectation, what it computes is not', () => {
+  onlyControl([
+    'const t = (label, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) throw new Error(label); };',
+    't("a", out, { ok: false, reason: "LIB_BUSY", detail: 1 });',                    // the expected side
+  ], {}, 't("b", { ok: false, reason: "LIB_OTHER", detail: 2 }, 1);');                // what it is given to compute from: found
+});
+
+test('V3 (1) a case table is a pass-through when its row\'s name is asserted back in the loop; a table that is not asserted, holds a later module\'s code, or copies a whole answer is not', () => {
+  const file = 'test/user/table.test.mjs';
+  const src = [
+    'import assert from "node:assert/strict";',
+    'for (const [body, status] of [[{ ok: false, reason: "LIB_BUSY", detail: 1 }, 409], [{ ok: false, reason: "LIB_OTHER", detail: 2 }, 400]]) {',   // 2: asserted back
+    '  const r = await relay(body, status);',
+    '  assert.deepEqual(r.json, body);',
+    '}',
+    'const CASES = [{ ok: false, reason: "LIB_BUSY", detail: 3 }];',                 // 6: a named table, asserted
+    'for (const c of CASES) { assert.deepEqual(await relay(c), c.reason); }',
+    'for (const [b] of [[{ ok: false, reason: "LIB_BUSY", detail: 4 }]]) { await relay(b); assert.ok(true, b.reason); }',   // 8: used only as a message
+    'for (const [b, s] of [[{ ok: false, reason: "LIB_BUSY", detail: 5 }, 1], [{ ok: false, reason: "LATE_REFUSED" }, 2]]) { assert.deepEqual(await relay(b), s); }',   // 9: s asserted, not b; a later code
+    'for (const [b] of [[{ ok: false, reason: "LIB_BUSY", check: "C-1", translation: "t" }]]) { assert.deepEqual(await relay(b), b); }',   // 10: a whole answer copied
+    'for (const [b] of [[{ ok: false, reason: "LIB_BUSY", detail: 6 }]]) { assert.ok(b.translation === "x" && (await relay(b))); }',      // 11: only compared
+  ].join('\n') + '\n';
+  const f = all(checkFixtures(product5({ [file]: src })).failures, file).map(lineOf);
+  assert.deepEqual([...new Set(f)].sort((a, b) => a - b), [8, 9, 10, 11], f.join(','));
+});
+
+test('V3 (1) the seams of K5044 (1) hold for a bare code too: a transaction\'s callback, a check key, a code handed to the user\'s own code; a fetch stand-in\'s invented code is still a code failure', () => {
+  const file = 'test/user/codeseam.test.mjs';
+  const src = [
+    'import { run } from "../../src/user/index.mjs";',
+    'record.transact(() => { return { ok: false, reason: "MADE_UP_ONE" }; });',     // 2
+    'const cfg = { check: (x) => ({ code: "MADE_UP_TWO" }) };',                     // 3
+    'run({ items: [{ refused: { code: "MADE_UP_THREE" } }] });',                    // 4
+    'const stub = { fetch: async () => Response.json({ ok: false, reason: "MADE_UP_FOUR" }) };',   // 5: a made-up code in a platform double: found
+    'import assert from "node:assert/strict";',
+    'assert.equal(out.reason, "MADE_UP_FIVE");',                                    // 7: named in an assertion: found
+  ].join('\n') + '\n';
+  const f = all(checkFixtures(product5({ [file]: src })).failures, file).filter((x) => x.startsWith('code ')).map(lineOf);
+  assert.deepEqual(f, [5, 7]);
+});
+
+test('V3 (1) a code fed in as an object key and asserted back is a pass-through; an expected value is scoped to its own block, a namesake elsewhere does not spoil it', () => {
+  const file = 'test/user/scope.test.mjs';
+  const src = [
+    'import assert from "node:assert/strict";',
+    'const CATALOGUE = { MADE_UP_ROW: { check: "C-1" } };',
+    'assert.deepEqual(rowsOf(CATALOGUE), [{ code: "MADE_UP_ROW", check: "C-1" }]);',   // 3: the code came in as a key
+    'test("a", () => { const want = { ok: false, reason: "LIB_BUSY", detail: 1 }; assert.deepEqual(a(), want); });',   // 4: expected only here
+    'test("b", () => { const want = { ok: false, reason: "LIB_OTHER", detail: 2 }; use(want); });',                      // 5: fed in elsewhere: found
+  ].join('\n') + '\n';
+  const f = all(checkFixtures(product5({ [file]: src })).failures, file).map(lineOf);
+  assert.deepEqual(f, [5], f.join(','));
+});
+
+test('V3 (1) a raw platform error written out: a stack in a string, or a name holding one', () => {
+  onlyControl([
+    'const STACK = "Error: the store threw\\n    at Store.fetch (store.mjs:12:7)";',
+    'const a = { ok: false, error: STACK };',
+    'const b = { ok: false, error: "Error: boom\\n    at Store.fetch (store.mjs:1:1)" };',
+    'const c = { ok: false, error: "TypeError: x is not a function" };',
+  ], {}, 'const d = { ok: false, error: "unknown op: nosuch" };');                  // a store-door reply, not a stack: found
+});
+
+test('V3 (1) a spy that forwards to the real thing, a restore of the original, and a name bound to a fault are no stand-in', () => {
+  onlyControl([
+    'import { deliverOwedRender } from "../../src/lib/index.mjs";',
+    'const o = { deliver: (d) => deliverOwedRender({ answer: d.answer }) };',       // forwards to a provider\'s code
+    'const ex = {}; const real = ex.readHeld.bind(ex); const seen = [];',
+    'ex.readHeld = async (...a) => { const r = await real(...a); seen.push(r); return r; };',   // a spy over the original
+    'const saved = ex.readHeld; const boom = () => { throw new Error("x"); };',
+    'ex.readHeld = boom;',                                                           // a fault
+    'ex.readHeld = saved;',                                                          // a restore
+  ]);
+});
+
+test('V3 (2) platform doubles by name and by what they hold: a SQL handle, a fake time quantity, a Durable Object stub got from a namespace, a stub made by a platform double\'s factory, the script of a double\'s factory', () => {
+  onlyControl([
+    'const sqlStub = { exec() { return []; } };',
+    'const later = (fakeMs, fn) => setTimeout(fn, fakeMs);',
+    'const doStub = ns.get(ns.idFromName("x"));',
+    'function stubFor(n) { return { fetch(input) { return Promise.resolve(new Response("{}")); } }; }',
+    'const w = { stub0: stubFor(0) };',
+    'const fakeStore = (reply) => ({ fetch: (path) => reply(path) });',
+    'const s = fakeStore(async () => Response.json({ ok: false, error: "unknown op: x" }, { status: 400 }));',   // a nameless reply scripted into a double
+  ]);
+});
+
+test('V3 (2) an answer whose code is what a provider\'s own function or data gives is built from the provider: a fixture call, a name read from its checks table', () => {
+  const file = 'test/user/provider.test.mjs';
+  const src = [
+    'import { lateRefusal } from "../late/fixtures.mjs";',
+    'import * as CHECKS from "../../src/lib/checks.mjs";',
+    'const a = { status: 409, body: { ok: false, reason: lateRefusal().reason } };',     // 3: from a provider\'s fixture
+    'for (const [code, row] of Object.entries(CHECKS.LIB_CHECKS)) { const b = { ok: false, reason: code, detail: 1 }; use(b); }',   // 4: from a provider\'s data
+    'for (const why of ["MADE_UP_ROW"]) { const c = { ok: false, reason: why, detail: 2 }; use(c); }',   // 5: typed: found
+  ].join('\n') + '\n';
+  const f = all(checkFixtures(product5({ [file]: src, 'test/late/fixtures.mjs': 'export const lateRefusal = () => ({ ok: false, reason: "LATE_REFUSED" });\n', 'src/lib/checks.mjs': 'export const LIB_CHECKS = { LIB_ROW: { check: "C-1" } };\n' })).failures, file);
+  assert.deepEqual(f.map(lineOf), [5], f.join('\n'));
+});
+
+test('V3 (2) plain data the test holds and hands to the user\'s own export is an input; a held service, or a value built by a call, is judged where it is built', () => {
+  const file = 'test/user/held.test.mjs';
+  const src = [
+    'import { run } from "../../src/user/index.mjs";',
+    'const hostile = { ok: true, reason: "LIB_BUSY", code: "LIB_OTHER", detail: "mine" };',   // 2: data given to run(): an input
+    'const resolved = [{ citation: "X", refused: { code: "LIB_BUSY" } }];',                  // 3
+    'run(hostile, { x: 1 }); run(resolved);',
+    'const svc = { f() { return { ok: false, reason: "LIB_BUSY", detail: 3 }; } };',          // 5: a service: found
+    'run(svc);',
+    'const built = make({ ok: false, reason: "LIB_OTHER", detail: 4 });',                    // 7: built by a call: found
+    'run(built);',
+  ].join('\n') + '\n';
+  const f = all(checkFixtures(product5({ [file]: src })).failures, file).map(lineOf);
+  assert.deepEqual(f, [5, 7], f.join(','));
+});
+
+test('V3 (2) a platform error code (`ERR_*`) assigned or named in a test is the platform\'s vocabulary, not a refusal code', () => {
+  onlyControl(['const e = new Error("too big"); e.code = "ERR_SQLITE_ERROR";'], {}, 'const f = new Error("x"); f.code = "NO_SUCH_THING";');
+});
+
+test('V3 (1) a call through a loop name that the table binds to the user\'s own exports is the user\'s own call', () => {
+  onlyControl([
+    'import { run } from "../../src/user/index.mjs";',
+    'for (const [fn, key] of [[run, "a"]]) {',
+    '  fn("X-1", { ok: false, reason: "LIB_BUSY", detail: 1 });',
+    '}',
+  ]);
+});
+
+test('V3 (1) fixtures-generic names any word, not only an UPPER_SNAKE code, and covers an answer whose code is built or held in a name or is empty', () => {
+  const file = 'test/user/gen3.test.mjs';
+  const gap = ['', '', '', '', '', '', '', '', ''];
+  const src = [
+    '// fixtures-generic: X',
+    'const a = { ok: false, reason: "X" };',                                          // 2: accepted
+    ...gap,
+    '// fixtures-generic: NOPE',
+    'const b = { ok: false, reason: "X", detail: 1 };',                               // 13: the marker at 12 names another word: found
+    ...gap,
+    '// fixtures-generic: SENTINEL',
+    'const c = { ok: false, reason: `${who}_ANSWERED`, detail: 1 }; const d = { ok: false, reason: why, code: why };',   // 24: built / held: any marker in reach
+    'const e = { ok: false, reason: "", detail: 1 };',                                // 25: empty: the same
+    ...gap,
+    'const g = { ok: false, reason: why2 };',                                         // 35: out of reach
+  ].join('\n') + '\n';
+  const { failures } = checkFixtures(product5({ [file]: src }));
+  const f = all(failures, file).sort((x, y) => lineOf(x) - lineOf(y));
+  assert.deepEqual(f.map(lineOf), [12, 13, 35], f.join('\n'));
+  assert.match(f[0], /idle-generic/);   // NOPE covers b (a candidate) but names none of its words
+});
+
+test('V3 (2) fixtures-own: a stub, an answer or a code the audit found to be no module\'s is accepted where it stands, with its kind and reason; a marker that covers nothing, or has no kind or reason, does not', () => {
+  const file = 'test/user/own.test.mjs';
+  const gap = ['', '', '', '', '', '', '', '', ''];
+  const src = [
+    '// fixtures-own: platform the Cloudflare API of the deploy script, not a module',
+    'const okStub = () => ({ subdomain: "sub" });',                                  // 2: accepted
+    ...gap,
+    '// fixtures-own: input the walker reads whatever it is given',
+    'const x = { ok: false, reason: "LIB_BUSY", detail: 1 };',                       // 13: accepted
+    ...gap,
+    '// fixtures-own: harness',
+    'const y = { ok: false, reason: "LIB_BUSY", detail: 2 };',                       // 24: no reason: the marker is not one: found
+    ...gap,
+    '// fixtures-own: platform nothing here',                                        // 34: covers nothing
+    ...gap,
+    '// fixtures-own: other a kind the list does not have',
+    'const w = { ok: false, reason: "LIB_BUSY", detail: 3 };',                       // 45: found
+  ].join('\n') + '\n';
+  const { failures, items } = checkFixtures(product5({ [file]: src }));
+  const f = all(failures, file).sort((a, b) => lineOf(a) - lineOf(b));
+  assert.deepEqual(f.map(lineOf), [24, 34, 45], f.join('\n'));
+  assert.match(f[1], /idle-own/);
+  assert.equal(items.filter((c) => c.file === file && c.status === 'accepted' && c.contract === 'own').length, 2);
+});
+
+test('V3 a hand-built stand-in whose code a fixtures-generic marker names is accepted with the answer inside it', () => {
+  const file = 'test/user/gen4.test.mjs';
+  const src = [
+    '// fixtures-generic: STORE_DOWN',
+    'const ex = {};',
+    'ex.readHeld = async () => ({ ok: false, reason: "STORE_DOWN" });',               // 3: the answer and the stand-in, both named by the marker
+  ].join('\n') + '\n';
+  const f = all(checkFixtures(product5({ [file]: src })).failures, file);
+  assert.deepEqual(f, [], f.join('\n'));
+});

@@ -44,6 +44,8 @@ PROCESS-MECHANICS §8: the only process tooling. Each takes the product reposito
 
 **Fourth pass.** A refusal/owed literal nested in an object or list that is itself the argument of an input call (member call, or helper imported from another module or from the user's own source) is an input; an `ok` literal keyed `why` (no `reason`) and a `code` in an object pushed into a list (`findings.push({ code })`) are the module's own data; a stub or double name imported from the user's own product source is skipped.
 
+**V3 (the T51 audit's FALSE lines, read against K5044).** The rules are listed in the header of `checks/fixtures.mjs` (search "V3"); each has a fixture test in `checks/test/fixtures.test.mjs` that fails on the previous check. Two markers: `// fixtures-generic: WORD` (K5044 (2)) now names any word, covers an answer whose code is built, held in a name or empty, and a stand-in by the codes in it; `// fixtures-own: <platform|input|harness|synthetic> <why>` accepts what it covers (same reach, MARK_SPAN) for a double that is no module's answer and that no rule can say so; one that covers nothing fails (`idle-own`).
+
 **Known limits (heuristics, for the reading workers).** a provider is `?` when no code or definition names one; a platform double with a name outside the allowlist is a candidate. Tests: `checks/test/fixtures.test.mjs`.
 
 ## How the checks read the build state (BOB #38, 2026-09-26)
