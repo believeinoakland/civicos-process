@@ -2,7 +2,7 @@
 
 **Status** · OPEN · BOB #294 · session_01XtZDGYwxYSYJSAoejQAGGw · depth 1
 
-**Jobs** · alpha: ALPHA #1 session_01D6urVCwYA9jso1Zm2NvAuS
+**Jobs** · alpha: ALPHA #1 session_01D6urVCwYA9jso1Zm2NvAuS; beta: BETA #1 session_01C6hRX8mZ1Jvc5GAsbKTSrt
 
 ## Size gate scoped to reading sets; the refused-act rule (bio K5123, K5120; mechanics §13, §17; roles/JOB.md)
 
