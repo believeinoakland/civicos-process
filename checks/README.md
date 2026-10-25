@@ -27,6 +27,19 @@ PROCESS-MECHANICS §8: the only process tooling. Each takes the product reposito
 - **`marker`** fails a `t` call whose id or en is not a plain string literal (a template with no placeholder is plain), whose id is not `KEY_RE`, whose id is used with a different en elsewhere in the tree (each place after the first), or that sits in a drawn-screen module (not in setup-words itself, which tests the refusals; `DRAWN_MODULES`: `screens-*`, `interface-shell`, `wizard-scripts`, `site`, `installer`, `installer-steps`). The summary counts `marker n`.
 - **`--release`** (`node checks/words.mjs <product> --release`, or `checkWords(root, only, { release: true })`): also one failure `unreviewed <module> <file>:<line> <id>` per row of `bio-plane/src/setup-words/words-unreviewed.json`. `run.mjs` never passes it; it is for the release cut.
 
+## The fixtures check, DRAFT (bio K4990, K4993 (2), K4995, K4996; not in `run.mjs` until Bob approves its text, K1258)
+
+`node checks/fixtures.mjs <product> [module ...]` (`--list`: every candidate with file:line, its provider and the modules the file imports, for reading workers; always exit 0). It reads every JS/TS file under a module's `tests` and under test-support's `paths`, and the `paths` of every other module as source. Three classes, each failure `<class> <user> <file>:<line> [tag] <excerpt> -> <provider> (earlier|later|mixed)`:
+- **answer**: an object literal of another module's shape: `ok: true|false` with `reason`/`detail`/`refusal`/`error`/`failure_class` (`refusal`), with `done`/`final`/`outstanding`/`waiting_on` (`owed`), or an `extent: { kind` (`extent`). Not an assert/expect argument (an expected value); not a literal whose `reason` code only the user's own source gives; tag `invented <CODE>` where no source holds the code.
+- **stub**: a name of the form `*Stub`, `*Fake`, `*Double`, `fake*`, `stub*`, `double*` (once per file and name: `decl`, `import` or `use`), or a function standing in (`x.name = `, `name: () =>`, `name() {`, `function name`) for `registerJob`, `readHeld`, `armJobs`, `owedLater`, `keepLater`, `deliver`, `partsOf` and the audit's other seams (`INTERFACE_NAMES`) that the user's own source does not define.
+- **code**: an UPPER_SNAKE literal at a `reason`/`code`/`error`/`failure_class`/`refusal`/`why` position that no source file holds (never accepted).
+
+**Provider.** A code: the modules whose source holds it. A stub name: where it is declared or imported from (`jobRegistrarStub` stands for `registerJob`); a stand-in: the modules that define the service. Order is the array order of `build/modules.json`.
+
+**The contract marker (K4995).** A hand-built answer or stub is accepted only when its provider is later than its user and a test of the provider runs it. The user writes `// fixtures-contract: <provider> <id>` on the candidate's line or up to 8 lines above it (the nearest marker above covers it); a file under the provider's `tests` writes `// fixtures-run: <user> <id>`. Failures by tag: `contract-not-later`, `contract-no-run`, `contract-unknown-provider`; class `contract`: `idle` (a marker covering nothing), `orphan-run` (a run no user marks).
+
+**Known limits (heuristics, for the reading workers).** `extent`-shaped literals and named doubles of the platform (`FakeDate`, `fakeBinding`) are candidates, not proofs; a provider is `?` when no code or definition names one; a code a test invents to prove its own pass-through is class `code`. Tests: `checks/test/fixtures.test.mjs`.
+
 ## How the checks read the build state (BOB #38, 2026-09-26)
 
 - **Owner.** A path ending in `/` owns everything under it; any other path owns that one file. When paths nest, the most specific owns the file (a legacy module's `bio-plane/test/` holds the extracted modules' `bio-plane/test/m/<module>/`). Two modules claiming the same path is a format failure. This is how "exactly one owner" (P4, mechanics §1) is read.
