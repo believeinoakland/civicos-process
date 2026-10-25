@@ -1,6 +1,6 @@
 # Plan: dry run D18
 
-**Status** · OPEN
+**Status** · OPEN · BOB #294 · session_01XtZDGYwxYSYJSAoejQAGGw · depth 1
 
 ## Size gate scoped to reading sets; the refused-act rule (bio K5123, K5120; mechanics §13, §17; roles/JOB.md)
 
