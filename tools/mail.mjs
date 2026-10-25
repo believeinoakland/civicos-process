@@ -16,6 +16,8 @@
 //         product has a registry, BOB's Writer line in its outbox (as xwriter --as BOB, account from the registry;
 //         bio K3361); a failed channel step keeps the Status line and warns with the xwriter command to run by hand
 //         addjob --module <m> --name "<M> #k" --session <id>             add or replace a job's address
+//         jobbranch --module <m>           create job/<T>/<m> at the tranche tip, or fast-forward it there (§5.3 (1));
+//                                          a job branch holding commits the tranche lacks is refused, never forced
 //         post --as bob --module <m> --kind <KIND> [--re J<n>] (--body <text> | --body-file <f>)
 //         inbox --as bob --module <m>      done --as bob --module <m> --through J<n>
 //         check                            the backstop: every job's state and what each needs
@@ -311,6 +313,26 @@ export function addjob(o) {
   text = /^\*\*Jobs\*\*.*$/m.test(text) ? text.replace(/^\*\*Jobs\*\*.*$/m, line) : text.replace(/^(\*\*Status\*\*.*\n)/m, `$1\n${line}\n`);
   writeLocal(R, PLAN, text);
   return { commit: commitPush(R, branch, PLAN, `plan ${T}: ${name} ${session} for ${m}`) };
+}
+// §5.3 (1); bio K3969, K4385: a job's branch is created at the tranche's tip, or fast-forwarded to it, by a plain push
+// only. A branch that is not an ancestor of the tranche holds work the tranche lacks: it is refused, with the remedy
+// (the job merges the tranche into its branch), and never rewritten. The one way a session moves a job branch.
+export function jobbranch(o) {
+  const { tranche: T, module: m } = o;
+  if (!/^[a-z][a-z0-9-]*$/.test(m || '')) throw new Error('--module <m>');
+  const R = repo(o.product), tb = branchOf('bob', T), jb = branchOf('job', T, m);
+  if (!fetchBranch(R, tb)) throw new Error(`no ${tb} on origin`);
+  const tip = R.g(['rev-parse', `origin/${tb}`]).trim();
+  if (!fetchBranch(R, jb)) {
+    R.g(['push', '-q', 'origin', `${tip}:refs/heads/${jb}`]);
+    return { action: 'created', branch: jb, commit: tip.slice(0, 10) };
+  }
+  const head = R.g(['rev-parse', `origin/${jb}`]).trim();
+  if (head === tip) return { action: 'current', branch: jb, commit: tip.slice(0, 10) };
+  try { R.g(['merge-base', '--is-ancestor', head, tip], { quiet: true }); }
+  catch { throw new Error(`${jb} holds commits ${tb} lacks: not moved (never forced). Its job merges ${tb} into it; a finished job's branch is merged into ${tb} first`); }
+  R.g(['push', '-q', 'origin', `${tip}:refs/heads/${jb}`]);
+  return { action: 'fast-forwarded', branch: jb, from: head.slice(0, 10), commit: tip.slice(0, 10) };
 }
 const planBob = (plan) => plan?.match(/^\*\*Status\*\* · [A-Z]+ · \S+(?: \S+)? #\d+ · (session_[0-9A-Za-z]+) · depth \d+/m)?.[1] ?? null;
 export function parseJobs(text) {
@@ -626,6 +648,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         break;
       }
       case 'addjob': console.log(`job address written (${addjob(o).commit})`); break;
+      case 'jobbranch': { const r = jobbranch(o); console.log(`${r.branch} ${r.action}${r.from ? ` from ${r.from}` : ''} at ${r.commit}`); break; }
       case 'addr': console.log(addr(o)); break;
       case 'ring-text': console.log(ringText(o.tranche, o.to || 'BOB')); break;
       case 'check': for (const r of check(o)) console.log(`${r.module} ${r.name} ${r.session} · ${r.state} · J${r.lastJ} read J${r.read} · B${r.lastB} handled B${r.handled} · pushed ${r.pushedAgoMin} min ago → ${r.needs.join(', ') || 'nothing'}`); for (const l of sizeLines(o.product)) console.log(l); break;
