@@ -202,7 +202,6 @@ test('size gate: a document 1 over its limit refuses every gated command, names 
       () => xcheck({ product: w.bob, as: 'BOB' }),
     ];
     const jobSide = [
-      () => start({ ...J(w.job), session: J1, depth: 2 }),
       () => post({ ...J(w.job), as: 'job', kind: 'QUESTION', body: 'q' }),
       () => post({ ...J(w.job), as: 'job', kind: 'COMPLETE', body: 'c' }),
       () => inbox({ ...J(w.job), as: 'job' }),

@@ -214,7 +214,7 @@ export function done(o) {
 
 export function start(o) {
   const { tranche: T, module: m, session, depth } = o;
-  sizeGate(o.product, 'job');
+  // not gated: the job's record must exist before it can post BLOCKED with cause reading (bio K5025, dry run D17)
   if (!/^session_[0-9A-Za-z]+$/.test(session || '')) throw new Error('--session <session id>');
   const R = repo(o.product), branch = branchOf('job', T, m);
   onBranch(R, branch);

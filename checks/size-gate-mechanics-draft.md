@@ -22,7 +22,7 @@ Added to the `mail check` list of what BOB acts on:
 
 Step 1 gains, after "The job's first act is `mail start`":
 
-> If `mail start`, `post` or `inbox` refuses because a document is over its limit, the job does not prune it: it sets its state, posts `BLOCKED` with cause `reading` (naming the documents), and ends its turn. `BLOCKED`, `done` and `state` are never refused. BOB prunes the documents, then resumes the job (§5.4).
+> `mail start` is never refused. If `post` or `inbox` refuses because a document is over its limit, the job does not prune it: it sets its state, posts `BLOCKED` with cause `reading` (naming the documents), and ends its turn. `BLOCKED`, `done` and `state` are never refused. BOB prunes the documents, then resumes the job (§5.4).
 
 ## 8.4 Format (P19)
 
@@ -34,7 +34,7 @@ Added after the sentence on `next.md` entries:
 
 In "The tool", after the command list:
 
-> Before any command except `done`, `state`, `addr`, `ring-text`, `xdone` and a job's `post --kind BLOCKED`, the tool measures the reading set's documents (§17) and refuses, exiting non-zero and writing nothing, naming each document over its limit. A job is told "BOB prunes them; post BLOCKED with cause reading"; BOB is told "prune them now (mechanics §17)". `check` is not refused: it lists each such document as a `SIZE` line.
+> Before any command except `start`, `done`, `state`, `addr`, `ring-text`, `xdone` and a job's `post --kind BLOCKED`, the tool measures the reading set's documents (§17) and refuses, exiting non-zero and writing nothing, naming each document over its limit. A job is told "BOB prunes them; post BLOCKED with cause reading"; BOB is told "prune them now (mechanics §17)". `check` is not refused: it lists each such document as a `SIZE` line.
 
 ## 17 Reading sets (P20, P13)
 
