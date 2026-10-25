@@ -12,6 +12,7 @@ Totals of lists of numbers, and a generated bundle of its and alpha's source.
 
 **total(list) → number**
 - **R1** Returns the sum of the numbers in `list`, added left to right (ordinary floating-point addition, as `alpha.sum` computes it), and `0` for an empty list. (Wording clarified by BOB during D3, answering beta's QUESTION 1.)
+- **R5** `total` leaves `list` as it found it: the same length, the same elements in the same order, also when `list` is frozen. (D17, size gate.)
 - **R4** An element that is not a finite number is refused with a `TypeError`, as `alpha.sum` refuses it (added by BOB during D3: `total` inherits it when N3 moves it onto `alpha.sum`).
 
 **`node beta/scripts/bundle.mjs [--verify]`**
