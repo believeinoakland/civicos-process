@@ -2,6 +2,8 @@
 
 **Status** · OPEN · BOB #285 · session_01ASV9NLY6Cwsx6qfQ2M3ExU · depth 1
 
+**Jobs** · alpha: ALPHA #1 session_0133GYgcY1NidDS7iEUeVHvF
+
 ## Size gate (bio K5015; mechanics §5.1, §6, §13, §17)
 
 Two jobs in one layer, one small change each. The dry run proves the size gate, not the arithmetic: do exactly what each entry says, and no more. BOB writes both requirement lines on the tranche branch before the START (a new requirement, §7); the job meets them.
