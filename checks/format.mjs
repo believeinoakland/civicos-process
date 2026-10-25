@@ -5,6 +5,10 @@
 // Also (N656, bio K1763; P15, P17; a proposed revision until certified, §15): where the product keeps a register of
 // Anthropic's terms, every statement of a limit on Anthropic's accounts, plans or terms cites a register id or a ruling of Bob's.
 // Also (P19, mechanics §8.4; bio K3923): every entry of `build/plan/next.md` names one of P19's hard reasons.
+// Also (P19, mechanics §8.4; bio K5015): in `build/plan/current.md`, the running fix round's plan file(s) it names
+// (`build/plan/fix-round-*.md` that exist, so not the archived ones) and `build/handoff.md`, a line that defers work
+// ("next fix round", "next round", "a later round", "later tranche", "deferred to") fails unless it cites `next.md`:
+// work that waits is an entry of `next.md` only, and plan text names dependencies, never "later".
 // Usage: node checks/format.mjs <product-root>
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -84,6 +88,29 @@ function nextReasons(root) {
     if (reason !== null && NEXT_REASONS.test(reason)) return;
     out.push(`build/plan/next.md:${i + 1}: ${m[1]} names no P19 hard reason (Bob's, a deployment, a measurement, outside the product)${reason ? ` : "${reason.slice(0, 60)}"` : ''}`);
   });
+  return out;
+}
+// P19, mechanics §8.4 (bio K5015): a line that defers work, outside `next.md`, cites `next.md`.
+export const DEFERRAL = /\b(?:next fix round|next round|a later round|later tranche|deferred to)\b/i;
+export function deferralFiles(root) {
+  const files = ['build/plan/current.md', 'build/handoff.md'];
+  const cur = join(root, 'build/plan/current.md');
+  if (existsSync(cur)) {
+    for (const m of readFileSync(cur, 'utf8').matchAll(/build\/plan\/(fix-round-[A-Za-z0-9._-]*?\.md)/g)) {
+      const f = `build/plan/${m[1]}`;
+      if (!files.includes(f) && existsSync(join(root, f))) files.push(f);
+    }
+  }
+  return files.filter((f) => existsSync(join(root, f)));
+}
+function deferrals(root) {
+  const out = [];
+  for (const f of deferralFiles(root)) {
+    readFileSync(join(root, f), 'utf8').split('\n').forEach((line, i) => {
+      const m = line.match(DEFERRAL);
+      if (m && !/next\.md/.test(line)) out.push(`${f}:${i + 1}: defers work ("${m[0]}") without citing next.md; work that waits is an entry of next.md only, with its P19 reason (P19)`);
+    });
+  }
   return out;
 }
 // A limit: a word or phrase that restricts; an Anthropic subject must also stand near it (statesLimit).
@@ -194,7 +221,7 @@ export function termsClaims(root) {
 // N656 (K1763) is opt-in until certified by its dry run (P3; dryrun/CERTIFICATION.md TC1): CIVICOS_TERMS_CHECK=1.
 export function checkFormat(root, { approvalsLastExempt = APPROVALS_LAST_EXEMPT, terms: withTerms = process.env.CIVICOS_TERMS_CHECK === '1' } = {}) {
   const terms = withTerms ? termsClaims(root) : { failures: [], skipped: true };
-  const failures = [...conflictMarkers(root), ...approvalRulings(root, approvalsLastExempt), ...nextReasons(root), ...terms.failures];
+  const failures = [...conflictMarkers(root), ...approvalRulings(root, approvalsLastExempt), ...nextReasons(root), ...deferrals(root), ...terms.failures];
   let tracked = [];
   try { tracked = trackedFiles(root); } catch { /* not a git repository: the checkout alone is read */ }
   const exists = pathExists(root, tracked);
