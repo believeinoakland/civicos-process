@@ -55,6 +55,18 @@ test('R3 total is pure: it leaves its input unchanged, keeps no state and gives 
   assert.deepEqual(log, []);
 });
 
+test('R5 total leaves its list as it found it: the same length, the same elements in the same order, also when the list is frozen', () => {
+  for (const l of lists()) {
+    const before = [...l];
+    total(l);
+    assert.deepEqual(l, before);
+    const frozen = Object.freeze([...l]);
+    assert.ok(Object.is(total(frozen), total(before)));
+    assert.deepEqual(frozen, before);
+    assert.ok(Object.isFrozen(frozen));
+  }
+});
+
 // Every kind of element that is not a finite number.
 const refused = [NaN, Infinity, -Infinity, '1', '', null, undefined, true, false, 1n, {}, [], [1], () => 1, Symbol('x'), new Number(1)];
 
