@@ -25,6 +25,14 @@
 //   any:  addr (--bob | --module <m>)      print a session id to ring
 //         ring-text --to <name>            print the doorbell's text
 //
+// The size gate (§5.1, §17; P20, P13, bio K5015): the documents a session must read whole are measured first, and a command
+// that would take, post, read or ring is refused, naming each document, its size and its limit, until it is pruned:
+// `build/rulings-active.md` (80 lines, 25,600 bytes), `build/handoff.md` (25,600 bytes), every text file (.md .txt .tsv .csv .json .html) under
+// `build/plan/` but `build/plan/archive/**` (51,200 bytes); images and other binaries are never measured. Exempt from the gate, so a session can always move its cursor, set its state
+// and report the refusal: done, state, addr, ring-text, xdone, and `post --as job --kind BLOCKED`. `check` is not refused;
+// it lists each oversized document as `SIZE <path> <bytes> > <limit>`. `build/plan/size-exempt.txt` (one path per line,
+// its reason after ` · `) exempts a named document. There is no bypass flag.
+//
 // Across accounts (§13.1; bio K954): no tranche and no doorbell; the registry `build/channels.md` names each participant.
 // Run from any branch: these commands read and write only the mail branches on origin, never the working tree.
 //   xwriter --as <NAME> --session <id> [--account <a>]   the Writer line, first in my outbox, at takeover
@@ -35,12 +43,23 @@
 //   xcheck  --as <NAME>                                  for each correspondent: what I have not read, and they of mine;
 //           as BOB, with --tranche or a plan in the working tree, a WARNING when my Writer is not the plan's BOB
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 
 export const KINDS = { job: ['QUESTION', 'REPORT', 'COMPLETE', 'BLOCKED'], bob: ['START', 'ANSWER', 'CHANGE', 'RESUME'] };
 const QUIET_MS = 20 * 60e3;
+// mechanics §6 (bio K4976): a RUNNING window is at most this far ahead; a longer run is split into pieces, each pushed as it ends.
+export const RUNNING_MAX_MIN = 30;
+// mechanics §5.4 (bio K4976): QUIET is a job WORKING with no push for QUIET_MS, or RUNNING past its window (capped at
+// RUNNING_MAX_MIN from its last push, so a window set longer by an older tool cannot hide a dropped container).
+export function quietOf(state, idleMs, now) {
+  if (idleMs < QUIET_MS) return false;
+  if (state === 'WORKING') return true;
+  const until = runningUntil(state);
+  if (Number.isNaN(until)) return false;
+  return until < now || idleMs >= RUNNING_MAX_MIN * 60e3;
+}
 const ENTRY = /^## ([JB])(\d+) · ([A-Z]+)(?: · re ([JB]\d+))?[^\n]*$/gm;
 const STATUS = /^\*\*Status\*\* · (session_[0-9A-Za-z]+) · depth (\d+) · (.+?) · handled B(\d+)$/m;
 const READ = /^\*\*Read\*\* · handled J(\d+)$/m;
@@ -104,10 +123,78 @@ function commitPush(R, branch, path, message) {
 const readLocal = (R, p) => { const f = join(R.dir, p); return existsSync(f) ? readFileSync(f, 'utf8') : null; };
 const writeLocal = (R, p, text) => { const f = join(R.dir, p); mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, text); };
 
+
+// ---- the size gate (§5.1, §17; P20, P13, P19; bio K5015) ----
+
+export const SIZE_LIMITS = { rulingsLines: 80, rulingsBytes: 25600, handoffBytes: 25600, planBytes: 51200 };
+export const SIZE_EXEMPT = 'build/plan/size-exempt.txt';
+const lineCount = (text) => (text === '' ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0));
+// The exempt list: one product-relative path per line, its reason after " · "; a line with no reason exempts nothing.
+function sizeExempt(dir) {
+  const f = join(dir, SIZE_EXEMPT);
+  if (!existsSync(f)) return new Set();
+  return new Set(readFileSync(f, 'utf8').split('\n').map((l) => l.split(' · ')).filter((p) => p.length >= 2 && p[0].trim() && p.slice(1).join(' · ').trim()).map((p) => p[0].trim()));
+}
+// Only text a session reads is measured; images and other binaries under build/plan/ never are.
+export const TEXT_EXT = /\.(?:md|txt|tsv|csv|json|html)$/i;
+function planFiles(dir, rel = 'build/plan') {
+  const d = join(dir, rel);
+  if (!existsSync(d)) return [];
+  return readdirSync(d, { withFileTypes: true }).flatMap((e) => {
+    const p = `${rel}/${e.name}`;
+    if (p === 'build/plan/archive') return [];
+    return e.isDirectory() ? planFiles(dir, p) : e.isFile() && TEXT_EXT.test(e.name) ? [p] : [];
+  }).sort();
+}
+// Every document over its limit: { path, n, limit, unit } (unit "bytes" or "lines"), in a fixed order.
+// For a job, the documents are measured as they stand on the tranche branch's remote tip, which BOB prunes: a job
+// whose own branch still holds the pruned document is not kept refused, and learns of the prune by its inbox
+// (bio K5028, dry run D17's finding 2). `ref` is that tip; without it the working tree is measured.
+function treeAt(product, ref) {
+  const R = repo(product), pre = R.inRepo('.') === '' ? '' : R.inRepo('.') + '/';
+  let ls = '';
+  try { ls = R.g(['ls-tree', '-r', '-l', ref, '--', `${pre}build`], { quiet: true }); } catch { return null; }
+  const size = new Map();
+  for (const line of ls.split('\n')) { const m = line.match(/^\S+ blob \S+\s+(\d+)\t(.*)$/); if (m && m[2].startsWith(pre)) size.set(m[2].slice(pre.length), Number(m[1])); }
+  const text = (p) => { try { return R.g(['show', `${ref}:${pre}${p}`], { quiet: true }); } catch { return ''; } };
+  return { size, text };
+}
+export function oversize(product, ref) {
+  const dir = resolve(product || '.'), out = [];
+  const t = ref ? treeAt(product, ref) : null;
+  const has = (p) => (t ? t.size.has(p) : existsSync(join(dir, p)));
+  const bytes = (p) => (t ? t.size.get(p) : readFileSync(join(dir, p)).length);
+  const read = (p) => (t ? t.text(p) : readFileSync(join(dir, p), 'utf8'));
+  const exempt = t ? new Set(read(SIZE_EXEMPT).split('\n').map((l) => l.split(' · ')).filter((q) => q.length >= 2 && q[0].trim() && q.slice(1).join(' · ').trim()).map((q) => q[0].trim())) : sizeExempt(dir);
+  const files = t ? [...t.size.keys()].filter((p) => p.startsWith('build/plan/') && !p.startsWith('build/plan/archive/') && TEXT_EXT.test(p)).sort() : planFiles(dir);
+  const add = (path, n, limit, unit) => { if (n > limit && !exempt.has(path)) out.push({ path, n, limit, unit }); };
+  const rulings = 'build/rulings-active.md', handoff = 'build/handoff.md';
+  if (has(rulings)) {
+    add(rulings, lineCount(read(rulings)), SIZE_LIMITS.rulingsLines, 'lines');
+    add(rulings, bytes(rulings), SIZE_LIMITS.rulingsBytes, 'bytes');
+  }
+  if (has(handoff)) add(handoff, bytes(handoff), SIZE_LIMITS.handoffBytes, 'bytes');
+  for (const p of files) add(p, bytes(p), SIZE_LIMITS.planBytes, 'bytes');
+  return out;
+}
+const sizeText = (v) => `${v.path} ${v.n} ${v.unit} > ${v.limit} ${v.unit}`;
+// The lines `check` prints: `SIZE <path> <bytes> > <limit>` (a line count reads `<n> lines > <limit> lines`).
+export const sizeLines = (product) => oversize(product).map((v) => (v.unit === 'bytes' ? `SIZE ${v.path} ${v.n} > ${v.limit}` : `SIZE ${sizeText(v)}`));
+// The gate: throws, naming each document, its size and its limit, before a command reads or writes anything.
+export function sizeGate(product, who, T) {
+  let ref;
+  if (who === 'job' && T) { const R = repo(product); if (fetchBranch(R, `tranche/${T}`)) ref = `origin/tranche/${T}`; }
+  const over = oversize(product, ref);
+  if (!over.length) return;
+  const tail = who === 'job' ? 'BOB prunes them; post BLOCKED with cause reading.' : 'prune them now (mechanics §17).';
+  throw new Error(`refused, documents over their limits: ${over.map(sizeText).join('; ')}; ${tail}`);
+}
+
 // ---- commands ----
 
 export function post(o) {
   const { as, tranche: T, module: m, kind, re } = o;
+  if (!(as === 'job' && kind === 'BLOCKED')) sizeGate(o.product, as, T);   // a job can always report the refusal
   if (!KINDS[as]?.includes(kind)) throw new Error(`${as} sends one of ${KINDS[as]?.join(', ')}, not ${kind}`);
   if (re && !/^[JB]\d+$/.test(re)) throw new Error(`--re ${re}: not J<n> or B<n>`);
   const body = (o.bodyFile ? readFileSync(o.bodyFile, 'utf8') : o.body || '').trim();
@@ -127,6 +214,7 @@ export function post(o) {
 
 export function inbox(o) {
   const { as, tranche: T, module: m } = o;
+  sizeGate(o.product, as, o.tranche);
   const R = repo(o.product), other = as === 'job' ? 'bob' : 'job', branch = branchOf(other, T, m);
   fetchBranch(R, branch);
   const theirs = showRemote(R, branch, other === 'job' ? recordPath(T, m) : outboxPath(T, m));
@@ -156,6 +244,7 @@ export function done(o) {
 
 export function start(o) {
   const { tranche: T, module: m, session, depth } = o;
+  // not gated: the job's record must exist before it can post BLOCKED with cause reading (bio K5025, dry run D17)
   if (!/^session_[0-9A-Za-z]+$/.test(session || '')) throw new Error('--session <session id>');
   const R = repo(o.product), branch = branchOf('job', T, m);
   onBranch(R, branch);
@@ -171,6 +260,9 @@ export function start(o) {
 export function state(o) {
   const { tranche: T, module: m } = o;
   let s = o.set;
+  if (o.running !== undefined && !(Number(o.running) > 0 && Number(o.running) <= RUNNING_MAX_MIN))
+    throw new Error(`--running takes 1 to ${RUNNING_MAX_MIN} minutes (mechanics §6): split a longer run into pieces and push each as it ends`);
+  if (o.set && /^RUNNING\b/.test(o.set)) throw new Error('RUNNING is set only by --running <minutes> --what <command> (mechanics §6)');
   if (o.running) s = `RUNNING until ${new Date(Date.now() + Number(o.running) * 60e3).toISOString().replace(/\.\d+Z$/, 'Z')} (${o.what || 'command'})`;
   if (!s || /·/.test(s)) throw new Error('--set <STATE> (no "·"), or --running <minutes> --what <command>');
   const R = repo(o.product), branch = branchOf('job', T, m);
@@ -184,6 +276,7 @@ export function state(o) {
 // The plan's Status line names exactly one session, BOB's (§13); the Jobs line names each job's.
 export function bob(o) {
   const { tranche: T, name, session, depth } = o;
+  sizeGate(o.product, 'bob');
   if (!/^(?:[A-Z0-9]+-)?BOB #\d+$/.test(name || '') || !/^session_[0-9A-Za-z]+$/.test(session || '')) throw new Error('--name "BOB #<n>" --session <id> --depth <d>');
   const R = repo(o.product), branch = branchOf('bob', T);
   onBranch(R, branch);
@@ -207,6 +300,7 @@ function bobWriter(R, o) {
 }
 export function addjob(o) {
   const { tranche: T, module: m, name, session } = o;
+  sizeGate(o.product, 'bob');
   if (!/^[A-Z][A-Z0-9-]* #\d+$/.test(name || '') || !/^session_[0-9A-Za-z]+$/.test(session || '')) throw new Error('--module <m> --name "<M> #k" --session <id>');
   const R = repo(o.product), branch = branchOf('bob', T);
   onBranch(R, branch);
@@ -251,9 +345,7 @@ export function check(o) {
     if (r.lastJ > r.read) r.needs.push(`READ J${r.read + 1}..J${r.lastJ}`);
     if (st && r.handled < r.lastB) r.needs.push('RING');
     if (/^NEEDS BOB/.test(r.state)) r.needs.push('BOB: relay to Bob');
-    const until = runningUntil(r.state);
-    const idle = now - lastPushMs(R, jb) >= QUIET_MS;
-    if (st && idle && (r.state === 'WORKING' || (!Number.isNaN(until) && until < now))) r.needs.push('QUIET');
+    if (st && quietOf(r.state, now - lastPushMs(R, jb), now)) r.needs.push('QUIET');
     return r;
   });
 }
@@ -402,6 +494,7 @@ function idOf(p, id, flag) {
 }
 
 export function xwriter(o) {
+  sizeGate(o.product, 'bob');
   const R = repo(o.product), reg = registry(R), me = participant(reg, o.as, '--as');
   if (!SESSION.test(o.session || '')) throw new Error('--session <session id>');
   const account = o.account || me.account;
@@ -415,6 +508,7 @@ export function xwriter(o) {
 }
 
 export function xpost(o) {
+  sizeGate(o.product, 'bob');
   const R = repo(o.product), reg = registry(R), me = participant(reg, o.as, '--as');
   const kind = o.kind;
   if (!XKINDS.includes(kind)) throw new Error(`--kind is one of ${XKINDS.join(', ')}, not ${kind}`);
@@ -443,6 +537,7 @@ export function xpost(o) {
 }
 
 export function xinbox(o) {
+  sizeGate(o.product, 'bob');
   const R = repo(o.product), reg = registry(R), me = participant(reg, o.as, '--as'), them = participant(reg, o.from, '--from');
   const mine = parseOutbox(readMail(R, me).text), theirs = parseOutbox(readMail(R, them).text);
   const cursor = mine.cursors[them.name]?.n ?? 0;
@@ -466,6 +561,7 @@ export function xdone(o) {
 
 // For each correspondent: what I have not read of theirs, and what they have not read of mine.
 export function xcheck(o) {
+  sizeGate(o.product, 'bob');
   const R = repo(o.product), reg = registry(R), me = participant(reg, o.as, '--as');
   const mine = parseOutbox(readMail(R, me).text);
   const myLast = Math.max(0, ...mine.entries.map((e) => e.n));
@@ -532,7 +628,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       case 'addjob': console.log(`job address written (${addjob(o).commit})`); break;
       case 'addr': console.log(addr(o)); break;
       case 'ring-text': console.log(ringText(o.tranche, o.to || 'BOB')); break;
-      case 'check': for (const r of check(o)) console.log(`${r.module} ${r.name} ${r.session} · ${r.state} · J${r.lastJ} read J${r.read} · B${r.lastB} handled B${r.handled} · pushed ${r.pushedAgoMin} min ago → ${r.needs.join(', ') || 'nothing'}`); break;
+      case 'check': for (const r of check(o)) console.log(`${r.module} ${r.name} ${r.session} · ${r.state} · J${r.lastJ} read J${r.read} · B${r.lastB} handled B${r.handled} · pushed ${r.pushedAgoMin} min ago → ${r.needs.join(', ') || 'nothing'}`); for (const l of sizeLines(o.product)) console.log(l); break;
       case 'xwriter': { const r = xwriter(o); console.log(r.changed ? `writer line written (${r.commit})` : `already the writer: nothing to do`); break; }
       case 'xpost': { const r = xpost(o); console.log(`posted ${r.id} (${r.commit}) on its mail branch`); break; }
       case 'xinbox': { const r = xinbox(o); if (!r.entries.length) console.log(`empty (read through ${r.cursor})`); else for (const e of r.entries) console.log(`${e.text}\n`); break; }

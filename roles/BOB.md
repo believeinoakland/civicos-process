@@ -26,7 +26,7 @@ Follow each procedure of mechanics §5 in order:
 
 ## Tools (this repository)
 
-- `node checks/run.mjs <product>`: format, architecture and coverage over the whole product, and channels when the product has `build/channels.md`.
+- `node checks/run.mjs <product>`: format, architecture, coverage and fixtures over the whole product, and channels when the product has `build/channels.md`, and words when it has a word table.
 - `node checks/ownership.mjs <product> <module> tranche/T<n> job/T<n>/<module>` before merging a job.
 - `node tools/mail.mjs <command> --product <product> --tranche T<n> …`: the mailboxes and addresses (mechanics §13; its header lists the commands).
 

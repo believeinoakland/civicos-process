@@ -3,11 +3,14 @@
 // cursor", so the tests check that reading is idempotent and complete, never how a message arrived.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { post, inbox, done, start, state, bob, addjob, addr, check, parseEntries, parseStatus, ringText } from '../mail.mjs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { post, inbox, done, start, state, bob, addjob, addr, check, parseEntries, parseStatus, ringText, oversize, sizeLines, xwriter, xpost, xinbox, xcheck, xdone } from '../mail.mjs';
+
+const MAIL = join(dirname(fileURLToPath(import.meta.url)), '..', 'mail.mjs');
 
 const T = 'D1';
 const g = (dir, ...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -136,7 +139,7 @@ test('check: what each job needs, from git alone', () => {
   assert.deepEqual(r.needs, []);
   [r] = check({ product: w.bob, tranche: T, now: Date.now() + 25 * 60e3 }); // WORKING, nothing pushed for 25 min
   assert.deepEqual(r.needs, ['QUIET']);
-  state({ ...J(w.job), running: 60, what: 'suite' });
+  state({ ...J(w.job), running: 30, what: 'suite' });
   [r] = check({ product: w.bob, tranche: T, now: Date.now() + 25 * 60e3 }); // a long command, not yet due: not quiet
   assert.deepEqual(r.needs, []);
   [r] = check({ product: w.bob, tranche: T, now: Date.now() + 90 * 60e3 }); // past its time
@@ -161,4 +164,171 @@ test('a push rejected because the branch moved is rebased once and pushed', () =
   writeFileSync(join(other, 'toy/note.md'), 'x\n'); g(other, 'add', '.'); g(other, 'commit', '-q', '-m', 'note'); g(other, 'push', '-q');
   assert.equal(post({ ...J(w.bob), as: 'bob', kind: 'START', body: 'go' }).id, 'B1');
   assert.match(g(w.bob, 'log', '--format=%s', `origin/tranche/${T}`, '-3'), /mail D1 alpha: B1 START\nnote/);
+});
+
+// ---- the size gate (K5015; P20, P13, P19) ----
+
+const put = (product, path, text) => { const f = join(product, path); mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, text); };
+const bytes = (n) => 'x'.repeat(n);
+const lines = (n) => 'r\n'.repeat(n);
+// One document at its limit and one byte (or line) over it, for each limit of the design.
+const LIMITS = [
+  ['build/rulings-active.md', 'lines', lines(80), lines(81), 80],
+  ['build/rulings-active.md', 'bytes', bytes(25600), bytes(25601), 25600],
+  ['build/handoff.md', 'bytes', bytes(25600), bytes(25601), 25600],
+  ['build/plan/big.md', 'bytes', bytes(51200), bytes(51201), 51200],
+  ['build/plan/deep/er/big.md', 'bytes', bytes(51200), bytes(51201), 51200],
+];
+// What a refused command must leave alone: the working tree, HEAD, and the remote branch.
+const snap = (w, branch) => `${g(w, 'rev-parse', 'HEAD')}${g(w, 'status', '--porcelain')}${g(w, 'ls-remote', 'origin', branch)}`;
+
+test('size gate: a document 1 over its limit refuses every gated command, names it, and writes nothing', () => {
+  for (const [path, unit, , over, limit] of LIMITS) {
+    const w = world();
+    addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
+    start({ ...J(w.job), session: J1, depth: 2 });
+    post({ ...J(w.bob), as: 'bob', kind: 'START', body: 'go' });
+    put(w.bob, path, over); put(w.job, path, over);
+    g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'over'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);   // a job is measured on the tranche's tip
+    const named = new RegExp(`${path.replace(/[./]/g, '\\$&')} \\d+ ${unit} > ${limit} ${unit}`);
+    const before = [snap(w.bob, `tranche/${T}`), snap(w.job, `job/${T}/alpha`)];
+    const bobSide = [
+      () => bob({ product: w.bob, tranche: T, name: 'BOB #51', session: B1, depth: 1 }),
+      () => addjob({ ...J(w.bob), name: 'ALPHA #2', session: J1 }),
+      () => post({ ...J(w.bob), as: 'bob', kind: 'CHANGE', body: 'x' }),
+      () => inbox({ ...J(w.bob), as: 'bob' }),
+      () => xwriter({ product: w.bob, as: 'BOB', session: B1 }),
+      () => xpost({ product: w.bob, as: 'BOB', kind: 'NOTICE', body: 'x' }),
+      () => xinbox({ product: w.bob, as: 'BOB', from: 'X' }),
+      () => xcheck({ product: w.bob, as: 'BOB' }),
+    ];
+    const jobSide = [
+      () => post({ ...J(w.job), as: 'job', kind: 'QUESTION', body: 'q' }),
+      () => post({ ...J(w.job), as: 'job', kind: 'COMPLETE', body: 'c' }),
+      () => inbox({ ...J(w.job), as: 'job' }),
+    ];
+    for (const f of bobSide) assert.throws(f, (e) => named.test(e.message) && /prune them now \(mechanics §17\)/.test(e.message), `${path} ${unit}`);
+    for (const f of jobSide) assert.throws(f, (e) => named.test(e.message) && /BOB prunes them; post BLOCKED with cause reading\./.test(e.message), `${path} ${unit}`);
+    assert.deepEqual([snap(w.bob, `tranche/${T}`), snap(w.job, `job/${T}/alpha`)], before, 'nothing written');
+  }
+});
+
+test('size gate: a document exactly at its limit passes', () => {
+  for (const [path, , atLimit] of LIMITS) {
+    const w = world();
+    put(w.bob, path, atLimit); put(w.job, path, atLimit);
+    assert.deepEqual(oversize(w.bob), []);
+    assert.doesNotThrow(() => bob({ product: w.bob, tranche: T, name: 'BOB #51', session: B1, depth: 1 }));
+    assert.doesNotThrow(() => addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 }));
+    assert.doesNotThrow(() => start({ ...J(w.job), session: J1, depth: 2 }));
+    assert.equal(post({ ...J(w.job), as: 'job', kind: 'QUESTION', body: 'q' }).id, 'J1');
+    assert.equal(inbox({ ...J(w.bob), as: 'bob' }).entries.length, 1);
+  }
+});
+
+test('size gate: archive is not measured; a missing document is not a fault; line and byte limits of one file both count', () => {
+  const w = world();
+  put(w.bob, 'build/plan/archive/old/huge.md', bytes(900000));
+  assert.deepEqual(oversize(w.bob), []);
+  for (const f of ['shot.png', 'deep/walk/shot.jpg', 'data.bin', 'x.pdf']) put(w.bob, `build/plan/${f}`, bytes(900000));
+  assert.deepEqual(oversize(w.bob), [], 'images and other binaries are never measured');
+  for (const f of ['a.md', 'b.txt', 'c.tsv', 'd.csv', 'e.json', 'f.html']) put(w.bob, `build/plan/${f}`, bytes(51201));
+  assert.deepEqual(oversize(w.bob).map((v) => v.path), ['a.md', 'b.txt', 'c.tsv', 'd.csv', 'e.json', 'f.html'].map((f) => `build/plan/${f}`), 'text files are');
+  for (const f of ['a.md', 'b.txt', 'c.tsv', 'd.csv', 'e.json', 'f.html']) writeFileSync(join(w.bob, 'build/plan', f), '');
+  put(w.bob, 'build/rulings-active.md', 'x'.repeat(30000));       // 1 line, 30000 bytes
+  assert.deepEqual(oversize(w.bob).map((v) => `${v.unit}:${v.n}`), ['bytes:30000']);
+  put(w.bob, 'build/rulings-active.md', 'x\n'.repeat(81));        // 81 lines, 162 bytes
+  assert.deepEqual(oversize(w.bob).map((v) => `${v.unit}:${v.n}`), ['lines:81']);
+  put(w.bob, 'build/rulings-active.md', 'x'.repeat(100) + '\n' + 'x\n'.repeat(80));   // 81 lines whose last has a newline, and a final line without one counts too
+  assert.equal(oversize(w.bob)[0].n, 81);
+  put(w.bob, 'build/rulings-active.md', 'x\n'.repeat(79) + 'x');  // 80 lines, the last unterminated
+  assert.deepEqual(oversize(w.bob), []);
+});
+
+test('size gate: done, state and a job\'s BLOCKED pass while a document is over its limit; the cursor moves, the state is set', () => {
+  const w = world();
+  addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
+  start({ ...J(w.job), session: J1, depth: 2 });
+  post({ ...J(w.bob), as: 'bob', kind: 'START', body: 'go' });
+  post({ ...J(w.job), as: 'job', kind: 'QUESTION', body: 'q' });
+  for (const d of [w.bob, w.job]) put(d, 'build/handoff.md', bytes(25601));
+  g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'over'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
+  assert.equal(done({ ...J(w.job), as: 'job', through: 'B1' }).moved, true);
+  assert.equal(done({ ...J(w.bob), as: 'bob', through: 'J1' }).moved, true);
+  state({ ...J(w.job), set: 'NEEDS BOB' });
+  assert.equal(parseStatus(readFileSync(join(w.job, `build/jobs/${T}/alpha.md`), 'utf8')).state, 'NEEDS BOB');
+  assert.equal(post({ ...J(w.job), as: 'job', kind: 'BLOCKED', body: 'reading: build/handoff.md is over its limit' }).id, 'J2');
+  assert.deepEqual(addr({ product: w.bob, tranche: T, module: 'alpha' }), J1);
+  assert.match(ringText(T, 'BOB'), /^MAIL/);
+  assert.throws(() => xdone({ product: w.bob, as: 'BOB', from: 'X', through: 'X1' }), (e) => !/over their limits/.test(e.message));   // not gated (it has no registry here)
+  // BOB's other kinds and every other job kind stay refused
+  assert.throws(() => post({ ...J(w.bob), as: 'bob', kind: 'ANSWER', re: 'J1', body: 'x' }), /over their limits/);
+  assert.throws(() => post({ ...J(w.job), as: 'job', kind: 'REPORT', body: 'x' }), /over their limits/);
+});
+
+test('size gate: the exempt list names a document and its reason; a line with no reason exempts nothing', () => {
+  const w = world();
+  put(w.bob, 'build/plan/big.md', bytes(60000));
+  put(w.bob, 'build/plan/other.md', bytes(60000));
+  put(w.bob, 'build/plan/size-exempt.txt', 'build/plan/big.md · one atomic table, read whole by its job\nbuild/plan/other.md\n');
+  assert.deepEqual(oversize(w.bob).map((v) => v.path), ['build/plan/other.md']);
+  put(w.bob, 'build/plan/size-exempt.txt', 'build/plan/big.md · reason\nbuild/plan/other.md · reason\n');
+  assert.deepEqual(oversize(w.bob), []);
+  assert.doesNotThrow(() => bob({ product: w.bob, tranche: T, name: 'BOB #51', session: B1, depth: 1 }));
+});
+
+test('size gate: check is never refused and lists each oversized document as a SIZE line', () => {
+  const w = world();
+  addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
+  put(w.bob, 'build/rulings-active.md', 'x\n'.repeat(81));
+  put(w.bob, 'build/handoff.md', bytes(25601));
+  put(w.bob, 'build/plan/p/big.md', bytes(51201));
+  put(w.bob, 'build/plan/archive/skip.md', bytes(99999));
+  assert.equal(check({ product: w.bob, tranche: T }).length, 1);
+  assert.deepEqual(sizeLines(w.bob), [
+    'SIZE build/rulings-active.md 81 lines > 80 lines',
+    'SIZE build/handoff.md 25601 > 25600',
+    'SIZE build/plan/p/big.md 51201 > 51200',
+  ]);
+  const r = spawnSync(process.execPath, [MAIL, 'check', '--product', w.bob, '--tranche', T], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^alpha ALPHA #1 /m);
+  assert.match(r.stdout, /^SIZE build\/handoff\.md 25601 > 25600$/m);
+  assert.match(r.stdout, /^SIZE build\/plan\/p\/big\.md 51201 > 51200$/m);
+});
+
+test('size gate on the command line: a refused command exits non-zero and writes nothing; done, state and a job\'s BLOCKED exit 0', () => {
+  const w = world();
+  addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
+  start({ ...J(w.job), session: J1, depth: 2 });
+  post({ ...J(w.bob), as: 'bob', kind: 'START', body: 'go' });
+  put(w.job, 'build/plan/big.md', bytes(51201)); put(w.bob, 'build/plan/big.md', bytes(51201));
+  g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'over'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
+  const run = (...a) => spawnSync(process.execPath, [MAIL, ...a, '--product', w.job, '--tranche', T, '--module', 'alpha'], { encoding: 'utf8' });
+  const before = snap(w.job, `job/${T}/alpha`);
+  let r = run('post', '--as', 'job', '--kind', 'QUESTION', '--body', 'q');
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /build\/plan\/big\.md 51201 bytes > 51200 bytes; BOB prunes them; post BLOCKED with cause reading\./);
+  r = run('inbox', '--as', 'job'); assert.notEqual(r.status, 0);
+  assert.equal(snap(w.job, `job/${T}/alpha`), before);
+  for (const ok of [['state', '--set', 'NEEDS BOB'], ['post', '--as', 'job', '--kind', 'BLOCKED', '--body', 'cause reading'], ['addr'], ['ring-text', '--to', 'BOB']]) {
+    r = run(...ok); assert.equal(r.status, 0, `${ok.join(' ')}: ${r.stderr}`);
+  }
+  put(w.bob, 'build/plan/big.md', bytes(51200));                      // BOB prunes on the tranche
+  g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'pruned'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
+  r = run('inbox', '--as', 'job'); assert.equal(r.status, 0, r.stderr);
+});
+
+test('size gate: a job is measured on the tranche tip, so a document BOB pruned there no longer refuses it (D17 finding 2)', () => {
+  const w = world();
+  addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
+  start({ ...J(w.job), session: J1, depth: 2 });
+  post({ ...J(w.bob), as: 'bob', kind: 'START', body: 'go' });
+  put(w.bob, 'build/plan/big.md', bytes(51201));
+  g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'over'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
+  put(w.job, 'build/plan/big.md', bytes(51201));                       // the job's own copy, never merged
+  assert.throws(() => inbox({ ...J(w.job), as: 'job' }), /big\.md 51201 bytes > 51200 bytes; BOB prunes them/);
+  put(w.bob, 'build/plan/big.md', bytes(100));                         // BOB prunes on the tranche
+  g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'pruned'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
+  assert.equal(inbox({ ...J(w.job), as: 'job' }).entries.length, 1);    // the job reads its START with its own copy unmerged
 });
