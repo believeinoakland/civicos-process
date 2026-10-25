@@ -95,3 +95,29 @@ test('R4 sum throws a TypeError for an element that is not a finite number, coer
     }
   }
 });
+
+// Every biased exponent (0 to 2046, all finite) with mantissas at the edges and a mid value, both signs:
+// each binary class of finite double, including subnormals, zeros and the largest finite values.
+function finiteOfBits(sign, exponent, mantissa) {
+  const view = new DataView(new ArrayBuffer(8));
+  view.setBigUint64(0, (BigInt(sign) << 63n) | (BigInt(exponent) << 52n) | mantissa);
+  return view.getFloat64(0);
+}
+const MANTISSAS = [0n, 1n, 1n << 51n, 0x123456789abcdn, (1n << 52n) - 1n];
+
+test('R6 add(a, 0) returns a number equal (===) to a for every finite a', () => {
+  for (const a of FINITE) {
+    const r = add(a, 0);
+    assert.equal(typeof r, 'number');
+    assert.ok(r === a, `add(${a}, 0) is ${r}`);
+  }
+  for (let sign = 0; sign < 2; sign++) {
+    for (let exponent = 0; exponent < 2047; exponent++) {
+      for (const mantissa of MANTISSAS) {
+        const a = finiteOfBits(sign, exponent, mantissa);
+        assert.ok(add(a, 0) === a, `add(${a}, 0) for exponent ${exponent}, mantissa ${mantissa}`);
+      }
+    }
+  }
+  assert.ok(add(-0, 0) === -0); // -0 + 0 is +0, which === -0
+});
