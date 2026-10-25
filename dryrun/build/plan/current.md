@@ -16,4 +16,4 @@ Two jobs in one layer, one small change each. The dry run proves the size gate, 
 
 ## Notes
 
-- The wording of the services' error messages: this waits for the next fix round.
+- The wording of the services' error messages: an entry of `next.md` (N1), deferred to Bob's decision.
