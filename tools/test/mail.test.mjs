@@ -136,7 +136,7 @@ test('check: what each job needs, from git alone', () => {
   assert.deepEqual(r.needs, []);
   [r] = check({ product: w.bob, tranche: T, now: Date.now() + 25 * 60e3 }); // WORKING, nothing pushed for 25 min
   assert.deepEqual(r.needs, ['QUIET']);
-  state({ ...J(w.job), running: 60, what: 'suite' });
+  state({ ...J(w.job), running: 30, what: 'suite' });
   [r] = check({ product: w.bob, tranche: T, now: Date.now() + 25 * 60e3 }); // a long command, not yet due: not quiet
   assert.deepEqual(r.needs, []);
   [r] = check({ product: w.bob, tranche: T, now: Date.now() + 90 * 60e3 }); // past its time
