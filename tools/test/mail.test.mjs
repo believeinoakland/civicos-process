@@ -230,6 +230,11 @@ test('size gate: archive is not measured; a missing document is not a fault; lin
   const w = world();
   put(w.bob, 'build/plan/archive/old/huge.md', bytes(900000));
   assert.deepEqual(oversize(w.bob), []);
+  for (const f of ['shot.png', 'deep/walk/shot.jpg', 'data.bin', 'x.pdf']) put(w.bob, `build/plan/${f}`, bytes(900000));
+  assert.deepEqual(oversize(w.bob), [], 'images and other binaries are never measured');
+  for (const f of ['a.md', 'b.txt', 'c.tsv', 'd.csv', 'e.json', 'f.html']) put(w.bob, `build/plan/${f}`, bytes(51201));
+  assert.deepEqual(oversize(w.bob).map((v) => v.path), ['a.md', 'b.txt', 'c.tsv', 'd.csv', 'e.json', 'f.html'].map((f) => `build/plan/${f}`), 'text files are');
+  for (const f of ['a.md', 'b.txt', 'c.tsv', 'd.csv', 'e.json', 'f.html']) writeFileSync(join(w.bob, 'build/plan', f), '');
   put(w.bob, 'build/rulings-active.md', 'x'.repeat(30000));       // 1 line, 30000 bytes
   assert.deepEqual(oversize(w.bob).map((v) => `${v.unit}:${v.n}`), ['bytes:30000']);
   put(w.bob, 'build/rulings-active.md', 'x\n'.repeat(81));        // 81 lines, 162 bytes

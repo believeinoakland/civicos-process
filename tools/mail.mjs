@@ -27,8 +27,8 @@
 //
 // The size gate (§5.1, §17; P20, P13, bio K5015): the documents a session must read whole are measured first, and a command
 // that would take, post, read or ring is refused, naming each document, its size and its limit, until it is pruned:
-// `build/rulings-active.md` (80 lines, 25,600 bytes), `build/handoff.md` (25,600 bytes), every file under `build/plan/`
-// but `build/plan/archive/**` (51,200 bytes). Exempt from the gate, so a session can always move its cursor, set its state
+// `build/rulings-active.md` (80 lines, 25,600 bytes), `build/handoff.md` (25,600 bytes), every text file (.md .txt .tsv .csv .json .html) under
+// `build/plan/` but `build/plan/archive/**` (51,200 bytes); images and other binaries are never measured. Exempt from the gate, so a session can always move its cursor, set its state
 // and report the refusal: done, state, addr, ring-text, xdone, and `post --as job --kind BLOCKED`. `check` is not refused;
 // it lists each oversized document as `SIZE <path> <bytes> > <limit>`. `build/plan/size-exempt.txt` (one path per line,
 // its reason after ` · `) exempts a named document. There is no bypass flag.
@@ -124,13 +124,15 @@ function sizeExempt(dir) {
   if (!existsSync(f)) return new Set();
   return new Set(readFileSync(f, 'utf8').split('\n').map((l) => l.split(' · ')).filter((p) => p.length >= 2 && p[0].trim() && p.slice(1).join(' · ').trim()).map((p) => p[0].trim()));
 }
+// Only text a session reads is measured; images and other binaries under build/plan/ never are.
+export const TEXT_EXT = /\.(?:md|txt|tsv|csv|json|html)$/i;
 function planFiles(dir, rel = 'build/plan') {
   const d = join(dir, rel);
   if (!existsSync(d)) return [];
   return readdirSync(d, { withFileTypes: true }).flatMap((e) => {
     const p = `${rel}/${e.name}`;
     if (p === 'build/plan/archive') return [];
-    return e.isDirectory() ? planFiles(dir, p) : e.isFile() ? [p] : [];
+    return e.isDirectory() ? planFiles(dir, p) : e.isFile() && TEXT_EXT.test(e.name) ? [p] : [];
   }).sort();
 }
 // Every document over its limit: { path, n, limit, unit } (unit "bytes" or "lines"), in a fixed order.
