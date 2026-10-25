@@ -168,3 +168,15 @@ A BOB's takeover writes its channel address with the plan's (§5.1 step 1, §13.
 | CR1 | the completion round runs closed layers' found work as a layer after the last (§5.7 step 0) | RUNS D15 | PROVEN |
 | NX1 | a `next.md` entry naming none of P19's three reasons fails the format check (§8.4) | RUNS D15; `checks.test.mjs` | PROVEN |
 | WD1 | the words check finds inline, stitched and copied sentences and hand-lists, runs in `run.mjs` (§8.6) | RUNS D15; `words.test.mjs` | PROVEN |
+
+## The size gate (bio K5015; mechanics §5.1, §6, §8.4, §13, §17; P20, P13, P19)
+
+Branch `prep/size-gate-K5015`: `tools/mail.mjs` measures the documents a session reads whole and refuses until they are pruned; the format check fails a line that defers work without citing `next.md`. Toy: `dryrun-main/D17` plants `build/plan/notes-big.md` (60,000 bytes; section 1 "Finished" about 30 KB, moved whole to `build/plan/archive/` by BOB) and one deferral line in `build/plan/current.md`; tranche `tranche/D17`, jobs `job/D17/alpha` and `job/D17/beta`, all STARTs posted before the document is pruned.
+
+| # | path | evidence | status |
+| --- | --- | --- | --- |
+| SG1 | BOB's takeover (`mail bob`) is refused while a document is over its limit, writes nothing, and names the document, its size and its limit | the exact refusal output in `RUNS.md` D17 (`build/plan/notes-big.md 60000 bytes > 51200 bytes; prune them now (mechanics §17).`), exit 1, no commit on `tranche/D17`; `tools/test/mail.test.mjs` | PLANNED D17 |
+| SG2 | a job's `start` and `inbox` are refused while a document is over its limit; the job posts `BLOCKED` with cause `reading` (allowed) and ends its turn; `done` and `state` are allowed | the job's record on its branch: a `BLOCKED` entry naming the document; the refusals as the job printed them; `mail state` and `done` succeed in the same state; no other `post` kind succeeds | PLANNED D17 |
+| SG3 | `mail check` is not refused while a document is over its limit and lists each as `SIZE <path> <bytes> > <limit>`, beside the jobs' lines | the output of `check` on `tranche/D17` before the prune, with the `SIZE build/plan/notes-big.md 60000 > 51200` line and the job's `BLOCKED` entry in its `READ` line | PLANNED D17 |
+| SG4 | BOB prunes (section 1 of `notes-big.md` moved whole to `build/plan/archive/`), the gate opens (BOB's `bob`, `addjob`, `post` and `inbox` succeed, `check` prints no `SIZE` line), the job is resumed, merges the tranche and completes | the pruned file under 51,200 bytes; the archive file holding section 1 whole (byte for byte); the job's `COMPLETE` and its Size line; the job's `start`/`inbox` succeeding after the merge; the ownership check passing for both jobs | PLANNED D17 |
+| SG5 | the format check fails the planted deferral line in `build/plan/current.md`, naming file and line, and passes once the line cites `next.md` (with its entry and its P19 reason in `next.md`) | `node checks/format.mjs dryrun` before: `FAIL  build/plan/current.md:<n>: defers work ("next fix round") without citing next.md …`, exit 1; after: 0 failures, exit 0; `checks/test/checks.test.mjs` | PLANNED D17 |
