@@ -1,6 +1,6 @@
 # Plan: dry run D17
 
-**Status** · OPEN
+**Status** · OPEN · BOB #285 · session_01ASV9NLY6Cwsx6qfQ2M3ExU · depth 1
 
 ## Size gate (bio K5015; mechanics §5.1, §6, §13, §17)
 
