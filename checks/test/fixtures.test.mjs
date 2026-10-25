@@ -166,7 +166,7 @@ test('answer: a spread is no key and an input object is no answer (ok must be wr
 });
 
 // ---- the tightening of the second pass (rules 1-5): each with a positive and a negative ----
-const LIB = 'export function registerJob(e) { return { ok: false, reason: "LIB_BUSY", detail: e }; }\nexport function listOwnedThings() { return []; }\nexport function attach(x) { return x; }\n';
+const LIB = "export function registerJob(e) { return { ok: false, reason: \"LIB_BUSY\", detail: e }; }\nexport function listOwnedThings() { return []; }\nexport function attach(x) { return x; }\nexport const settings = {};\n";
 const lines = (failures, file) => failures.filter((f) => f.includes(` ${file}:`));
 
 test('rule 1: an extent is an answer only inside a stub or double, or given to one; extent data passed in is not', () => {
@@ -225,4 +225,51 @@ test('rule 5: a code fed in and asserted to come out is allowed; a code only ass
   const f = lines(checkFixtures(root).failures, 'test/user/pass.test.mjs');
   assert.equal(f.length, 1, f.join('\n'));
   assert.match(f[0], /^code user test\/user\/pass\.test\.mjs:4 /);
+});
+
+// ---- the third pass (rules A-D): each with a positive and a negative ----
+test('rule A: a bare spy standing in for a one-word export (`settings`) is not reported; one for a compound export is', () => {
+  const root = product({ 'src/lib/index.mjs': LIB, 'test/user/spyword.test.mjs': [
+    'const stub = { settings: 1 };',                                          // line 1: a common property name
+    'const fake = { listOwnedThings: () => [] };',                            // line 2: a seam
+  ].join('\n') + '\n' });
+  const f = lines(checkFixtures(root).failures, 'test/user/spyword.test.mjs');
+  assert.equal(f.length, 1, f.join('\n'));
+  assert.match(f[0], /spyword\.test\.mjs:2 \[spy standing in listOwnedThings\]/);
+});
+
+test('rule B: an answer inside a plug-in registrar call is the user\'s own code; the same literal held as a value is not', () => {
+  const root = product({ 'test/user/plugin.test.mjs': [
+    'p.registerStep("zz", { check: () => ({ ok: false, reason: "LIB_BUSY" }) });', // line 1: own plug-in
+    'onAlarm(() => ({ ok: false, reason: "LIB_BUSY" }));',                         // line 2: own handler
+    'const held = { ok: false, reason: "LIB_BUSY" };',                             // line 3: an answer
+  ].join('\n') + '\n' });
+  const f = lines(checkFixtures(root).failures, 'test/user/plugin.test.mjs');
+  assert.equal(f.length, 1, f.join('\n'));
+  assert.match(f[0], /plugin\.test\.mjs:3 /);
+});
+
+test('rule C: a literal given to the user\'s own function under test is an input; one given to a helper from its own tests is an answer', () => {
+  const root = product({
+    'src/user/index.mjs': 'export const run = (x) => x;\nexport const own = () => ({ ok: false, reason: "USER_OWN" });\n',
+    'test/user/helper.mjs': 'export const wrap = (x) => x;\n',
+    'test/user/under.test.mjs': [
+      'import { run } from "../../src/user/index.mjs";',
+      'import { wrap } from "./helper.mjs";',
+      'run({ ok: false, reason: "LIB_BUSY" });',                                    // line 3: the function under test
+      'wrap({ ok: false, reason: "LIB_BUSY" });',                                   // line 4: a test helper
+    ].join('\n') + '\n' });
+  const f = lines(checkFixtures(root).failures, 'test/user/under.test.mjs');
+  assert.equal(f.length, 1, f.join('\n'));
+  assert.match(f[0], /under\.test\.mjs:4 /);
+});
+
+test('rule D: a code under a data key (`why: { code }`) is data; a bare code field is a refusal code', () => {
+  const root = product({ 'test/user/data.test.mjs': [
+    'const bad = { why: { code: "X_Y_Z", step: "nowhere" } };',                 // line 1: data
+    'const gone = { code: "Q_Z_GONE" };',                                       // line 2: a code no source gives
+  ].join('\n') + '\n' });
+  const f = lines(checkFixtures(root).failures, 'test/user/data.test.mjs');
+  assert.equal(f.length, 1, f.join('\n'));
+  assert.match(f[0], /^code user test\/user\/data\.test\.mjs:2 /);
 });

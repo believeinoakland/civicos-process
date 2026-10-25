@@ -25,6 +25,10 @@
 // Binding, Alarm, Storage, Miniflare, Workerd, ...) are never stubs; a bare local `stub`/`fake`/`double` counts only where its value or its
 // `stub.name =` assignments name another module's exported name (6+ characters; tag `spy standing in <name>`); a code literal that the file both
 // feeds in (outside an assertion) and asserts (inside one) is pass-through data: not class `code`, and not an `invented` tag.
+// Third pass: a bare spy's exported name must be compound (not one lower-case word such as `settings`); an answer literal inside the arguments of a
+// plug-in registrar call (`register*`, `on*`, but not a listed seam) is the user's own code; a literal that is a direct argument of a function the user
+// module imports from its OWN product source is an input; a code under a data key (`why`, `data`, `meta`, `payload`, `extra`, `fields`, `input`,
+// `args`, `params`) is data, and `why` is no longer a code key.
 // Provider: for a code, the modules whose source holds it; for a stub name, the modules whose files declare it (an import
 // resolves to the module owning the file; STAND_FOR maps jobRegistrarStub to registerJob); for a stand-in, the modules whose
 // source defines the service. Shown as `-> <modules> (earlier|later|mixed)` against the user's position in build/modules.json
@@ -63,7 +67,10 @@ const BARE_SPY = /^(stubs?|fakes?|doubles?)$/; // a local spy: counts only where
 const HAND_BUILDER = /(^|\.)(json|resolve|reject|resolves|rejects|mockResolvedValue|mockReturnValue)$|^Response$/;
 const CODE_RE = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/;
 const CODE_IN_TEXT = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
-const CODE_KEYS = new Set(['reason', 'code', 'error', 'failure_class', 'refusal', 'why']);
+const CODE_KEYS = new Set(['reason', 'code', 'error', 'failure_class', 'refusal']);
+const DATA_KEYS = new Set(['why', 'data', 'meta', 'payload', 'extra', 'fields', 'input', 'args', 'params']); // an object under one of these is data, its `code` a field
+const PLUGIN_CALLEE = /^(register[A-Z]\w*|on[A-Z]\w*)$/; // a plug-in registrar (`promotion.registerStep`, `onAlarm`): what is handed to it is the user's own code
+const GENERIC_EXPORT = /^[a-z]+$/; // an exported name of one lower-case word (`settings`, `config`) is a common property name, not a seam
 const REFUSAL_KEYS = ['reason', 'detail', 'refusal', 'error', 'failure_class'];
 const OWED_KEYS = ['done', 'final', 'outstanding', 'waiting_on'];
 const EXPECT_CALLEE = /^(assert|expect)(\.|$)|\.(assert|deepEqual|deepStrictEqual|strictEqual|notStrictEqual|notDeepEqual|notDeepStrictEqual|equal|notEqual|match|doesNotMatch|rejects|doesNotReject|throws|doesNotThrow|ok|partialDeepStrictEqual|toEqual|toBe|toMatchObject)$/;
@@ -219,14 +226,15 @@ export function checkFixtures(root, only = []) {
     try { toks = scan(src); } catch { continue; }
     const { match, parent } = brackets(toks);
     const lines = src.split('\n');
-    const imports = new Map(); const importMods = new Set();
-    const importMod = (spec) => { const r = resolveImport(f, spec); const m = r ? fileOwnerModule(r) : null; if (m && m !== module) importMods.add(m); return m; };
+    const imports = new Map(); const importMods = new Set(); const importOwn = new Set(); // importOwn: names imported from the user's own product source
+    let lastOwnSrc = false;
+    const importMod = (spec) => { const r = resolveImport(f, spec); const o = r ? owner(r) : null; const m = o ? o.module : null; lastOwnSrc = !!o && m === module && o.role === 'code'; if (m && m !== module) importMods.add(m); return m; };
     for (let k = 0; k < toks.length; k++) {
       const t = toks[k];
       if (t.t === 'id' && t.v === 'from' && toks[k + 1] && toks[k + 1].t === 'str') {
         const m = importMod(toks[k + 1].v);
         // the names between `import` and `from`
-        for (let j = k - 1; j >= 0 && !(toks[j].t === 'id' && toks[j].v === 'import'); j--) if (toks[j].t === 'id' && m) imports.set(toks[j].v, m);
+        for (let j = k - 1; j >= 0 && !(toks[j].t === 'id' && toks[j].v === 'import'); j--) if (toks[j].t === 'id' && m) { imports.set(toks[j].v, m); if (lastOwnSrc) importOwn.add(toks[j].v); }
       } else if (t.t === 'id' && (t.v === 'import' || t.v === 'require') && isP(toks[k + 1], '(') && toks[k + 2] && toks[k + 2].t === 'str') importMod(toks[k + 2].v);
       else if (t.t === 'id' && t.v === 'import' && toks[k + 1] && toks[k + 1].t === 'str') importMod(toks[k + 1].v);
       if (t.t === 'id' && STUB_WORD.test(t.v)) {
@@ -239,7 +247,7 @@ export function checkFixtures(root, only = []) {
       let m = CONTRACT_RE.exec(ln); if (m) contracts.push({ user: module, file: f, line: i + 1, provider: m[1], id: m[2] });
       m = RUN_RE.exec(ln); if (m) runs.push({ provider: module, file: f, line: i + 1, user: m[1], id: m[2] });
     });
-    parsed.push({ f, module, src, lines, toks, match, parent, imports, importMods });
+    parsed.push({ f, module, src, lines, toks, match, parent, imports, importMods, importOwn });
   }
 
   // 3. candidates
@@ -247,7 +255,7 @@ export function checkFixtures(root, only = []) {
   const excerpt = (lines, line) => { const s = (lines[line - 1] || '').trim().replace(/\s+/g, ' '); return s.length > 100 ? `${s.slice(0, 97)}...` : s; };
   const mkProviders = (set, user) => [...(set || [])].filter((m) => m !== user).sort((a, b) => (order.get(a) ?? 1e9) - (order.get(b) ?? 1e9));
   for (const pf of parsed) {
-    const { f, module: user, lines, toks, match, parent, imports, importMods } = pf;
+    const { f, module: user, lines, toks, match, parent, imports, importMods, importOwn } = pf;
     if (only.length && !only.includes(user)) continue;
     const imp = [...importMods].sort();
     const add = (cls, line, tag, providers, extra = {}) => cands.push({ cls, user, file: f, line, tag, text: excerpt(lines, line), providers, imports: imp, ...extra });
@@ -265,6 +273,10 @@ export function checkFixtures(root, only = []) {
     const inRegion = (k) => regions.some(([a, b]) => k >= a && k <= b);
     const calledStub = (k) => { // inside the arguments of a call of a stub, double or listed seam: answered by one
       for (let q = parent[k]; q >= 0; q = parent[q]) if (isP(toks[q], '(')) { const c = calleeOf(toks, q); if (c && c.split('.').some((x) => (STUB_WORD.test(x) && !PLATFORM_DOUBLE.test(x)) || INTERFACE_NAMES.includes(x))) return true; }
+      return false;
+    };
+    const pluginCall = (k) => { // inside the arguments of a call of a registrar such as registerStep or onAlarm
+      for (let q = parent[k]; q >= 0; q = parent[q]) if (isP(toks[q], '(')) { const c = calleeOf(toks, q); const last = c && c.split('.').pop(); if (last && PLUGIN_CALLEE.test(last) && !INTERFACE_NAMES.includes(last)) return true; }
       return false;
     };
     const occ = new Map(); // code literal -> { inside, outside }
@@ -293,9 +305,10 @@ export function checkFixtures(root, only = []) {
       if (shape !== 'extent' && parent[k] >= 0 && isP(toks[parent[k]], '(')) { // a direct argument of a call
         const c = calleeOf(toks, parent[k]);
         const stubby = c && (c.split('.').some((x) => (STUB_WORD.test(x) && !PLATFORM_DOUBLE.test(x)) || INTERFACE_NAMES.includes(x)) || HAND_BUILDER.test(c));
-        if (c && !stubby && (c.includes('.') || (imports.has(c) && imports.get(c) !== user))) continue; // an input handed to the real provider or a harness helper
+        if (c && !stubby && (c.includes('.') || (imports.has(c) && (imports.get(c) !== user || importOwn.has(c))))) continue; // an input handed to the real provider, a harness helper or the module's own function under test
       }
       if (insideExpectation(toks, parent, k)) continue;
+      if (pluginCall(k)) continue; // handed to a plug-in registrar: the user's own code
       // the code it names, and whom it belongs to
       let code = null;
       for (const name of ['reason', 'code', 'error']) { const v = keys.get(name); if (v > 0 && toks[v] && toks[v].t === 'str' && CODE_RE.test(toks[v].v)) { code = toks[v].v; break; } }
@@ -324,7 +337,7 @@ export function checkFixtures(root, only = []) {
           const r = regionFrom(toks, match, k);
           if (r) for (let j = r[0]; j <= r[1]; j++) if (toks[j].t === 'id' && ((isP(toks[j + 1], ':') && toks[j - 1] && toks[j - 1].t === 'p' && '{,'.includes(toks[j - 1].v)) || (isP(toks[j - 1], '.') && isP(toks[j + 1], '=')))) touched.add(toks[j].v);
           for (let j = 0; j < toks.length; j++) if (toks[j].t === 'id' && toks[j].v === t.v && isP(toks[j + 1], '.') && toks[j + 2] && toks[j + 2].t === 'id' && isP(toks[j + 3], '=')) touched.add(toks[j + 2].v);
-          const hit = [...touched].find((nm) => mkProviders(exportMods.get(nm), user).length);
+          const hit = [...touched].find((nm) => !GENERIC_EXPORT.test(nm) && mkProviders(exportMods.get(nm), user).length);
           if (!hit) continue;
           seen.add(t.v);
           add('stub', t.line, `spy standing in ${hit}`, mkProviders(exportMods.get(hit), user));
@@ -365,6 +378,7 @@ export function checkFixtures(root, only = []) {
       for (let j = k - 1; j >= 0 && j >= k - 6; j--) { const u = toks[j]; if (u.t === 'p' && ';{}'.includes(u.v)) break; if (u.t === 'id' && CODE_KEYS.has(u.v)) { at = true; break; } }
       if (!at) for (let j = k + 1; j < toks.length && j <= k + 5; j++) { const u = toks[j]; if (u.t === 'p' && ';{}'.includes(u.v)) break; if (u.t === 'id' && CODE_KEYS.has(u.v) && isP(toks[j - 1], '.')) { at = true; break; } }
       if (!at) continue;
+      { const q = parent[k]; if (q >= 0 && isP(toks[q], '{') && isP(toks[q - 1], ':') && toks[q - 2] && DATA_KEYS.has(toks[q - 2].v)) continue; } // a field of a data object (`why: { code }`)
       if (passThrough(t.v)) continue; // fed in and asserted to come out: the test's own pass-through data
       if (cands.some((c) => c.cls === 'answer' && c.file === f && c.line === t.line && c.invented)) continue; // carried by the answer's tag
       if (flagged.some(([a, b]) => k > a && k < b)) continue;
