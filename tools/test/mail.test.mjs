@@ -208,9 +208,52 @@ test('size gate: a document 1 over its limit refuses every gated command, names 
       () => inbox({ ...J(w.job), as: 'job' }),
     ];
     for (const f of bobSide) assert.throws(f, (e) => named.test(e.message) && /prune them now \(mechanics §17\)/.test(e.message), `${path} ${unit}`);
-    for (const f of jobSide) assert.throws(f, (e) => named.test(e.message) && /BOB prunes them; post BLOCKED with cause reading\./.test(e.message), `${path} ${unit}`);
+    // a job is refused only by its own reading set, the plan files; BOB's takeover set never refuses it (K5123)
+    if (path.startsWith('build/plan/')) for (const f of jobSide) assert.throws(f, (e) => named.test(e.message) && /BOB prunes them; post BLOCKED with cause reading\./.test(e.message), `${path} ${unit}`);
     assert.deepEqual([snap(w.bob, `tranche/${T}`), snap(w.job, `job/${T}/alpha`)], before, 'nothing written');
   }
+});
+
+test('size gate (K5123): a job\'s post and inbox succeed while BOB\'s takeover documents are over their limits; BOB\'s are refused', () => {
+  for (const [path, , , over] of LIMITS.filter((l) => !l[0].startsWith('build/plan/'))) {
+    const w = world();
+    addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
+    start({ ...J(w.job), session: J1, depth: 2 });
+    post({ ...J(w.bob), as: 'bob', kind: 'START', body: 'go' });
+    put(w.bob, path, over);
+    g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'over'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
+    assert.equal(inbox({ ...J(w.job), as: 'job' }).entries.length, 1, path);
+    assert.equal(post({ ...J(w.job), as: 'job', kind: 'QUESTION', body: 'q' }).id, 'J1', path);
+    assert.throws(() => post({ ...J(w.bob), as: 'bob', kind: 'ANSWER', body: 'a' }), new RegExp(`${path.replace(/[./]/g, '\\$&')} .*prune them now`), path);
+    assert.throws(() => inbox({ ...J(w.bob), as: 'bob' }), /prune them now/, path);
+    assert.deepEqual(oversize(w.bob, undefined, 'job'), [], 'a job measures the plan files only');
+  }
+});
+
+test('size gate (K5123): a job\'s post is still refused while a build/plan file is over its limit', () => {
+  const w = world();
+  addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
+  start({ ...J(w.job), session: J1, depth: 2 });
+  put(w.bob, 'build/plan/big.md', bytes(51201));
+  g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'over'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
+  assert.throws(() => post({ ...J(w.job), as: 'job', kind: 'QUESTION', body: 'q' }), /build\/plan\/big\.md 51201 bytes > 51200 bytes/);
+  assert.equal(post({ ...J(w.job), as: 'job', kind: 'BLOCKED', body: 'cause reading' }).id, 'J1');
+});
+
+test('size gate (K5123): check lists NEAR for BOB\'s documents above 95 % of a limit, and no NEAR at 95 % or over the limit', () => {
+  const w = world();
+  put(w.bob, 'build/rulings-active.md', lines(77));          // 77 > 76 (95 % of 80)
+  put(w.bob, 'build/handoff.md', bytes(24321));              // 95 % of 25,600 is 24,320
+  put(w.bob, 'build/plan/p/big.md', bytes(51000));           // plan files are not BOB's two documents: no NEAR
+  assert.deepEqual(sizeLines(w.bob), ['NEAR build/rulings-active.md 77 lines / 80 lines', 'NEAR build/handoff.md 24321 / 25600']);
+  const r = spawnSync(process.execPath, [MAIL, 'check', '--product', w.bob, '--tranche', T], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^NEAR build\/handoff\.md 24321 \/ 25600$/m);
+  assert.match(r.stdout, /^NEAR build\/rulings-active\.md 77 lines \/ 80 lines$/m);
+  put(w.bob, 'build/rulings-active.md', lines(76)); put(w.bob, 'build/handoff.md', bytes(24320));
+  assert.deepEqual(sizeLines(w.bob), [], 'exactly 95 % is not near');
+  put(w.bob, 'build/handoff.md', bytes(25601));
+  assert.deepEqual(sizeLines(w.bob), ['SIZE build/handoff.md 25601 > 25600'], 'over the limit is a SIZE line, not also NEAR');
 });
 
 test('size gate: a document exactly at its limit passes', () => {
@@ -251,13 +294,13 @@ test('size gate: done, state and a job\'s BLOCKED pass while a document is over 
   start({ ...J(w.job), session: J1, depth: 2 });
   post({ ...J(w.bob), as: 'bob', kind: 'START', body: 'go' });
   post({ ...J(w.job), as: 'job', kind: 'QUESTION', body: 'q' });
-  for (const d of [w.bob, w.job]) put(d, 'build/handoff.md', bytes(25601));
+  for (const d of [w.bob, w.job]) put(d, 'build/plan/big.md', bytes(51201));
   g(w.bob, 'add', '-A'); g(w.bob, 'commit', '-q', '-m', 'over'); g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
   assert.equal(done({ ...J(w.job), as: 'job', through: 'B1' }).moved, true);
   assert.equal(done({ ...J(w.bob), as: 'bob', through: 'J1' }).moved, true);
   state({ ...J(w.job), set: 'NEEDS BOB' });
   assert.equal(parseStatus(readFileSync(join(w.job, `build/jobs/${T}/alpha.md`), 'utf8')).state, 'NEEDS BOB');
-  assert.equal(post({ ...J(w.job), as: 'job', kind: 'BLOCKED', body: 'reading: build/handoff.md is over its limit' }).id, 'J2');
+  assert.equal(post({ ...J(w.job), as: 'job', kind: 'BLOCKED', body: 'reading: build/plan/big.md is over its limit' }).id, 'J2');
   assert.deepEqual(addr({ product: w.bob, tranche: T, module: 'alpha' }), J1);
   assert.match(ringText(T, 'BOB'), /^MAIL/);
   assert.throws(() => xdone({ product: w.bob, as: 'BOB', from: 'X', through: 'X1' }), (e) => !/over their limits/.test(e.message));   // not gated (it has no registry here)
