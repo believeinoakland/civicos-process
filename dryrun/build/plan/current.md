@@ -1,20 +1,17 @@
-# Plan: dry run D3
+# Plan: dry run D18
 
-**Status** · OPEN. The third dry run of the mechanics (§15; `CERTIFICATION.md`, D3). BOB's session: `session_01DskKyz9F8BW9BtAVJNqBFG`. Each entry is written to drive a path of the mechanics: do exactly what it says.
+**Status** · OPEN
 
-## Layer 1
+## Size gate scoped to reading sets; the refused-act rule (bio K5123, K5120; mechanics §13, §17; roles/JOB.md)
+
+Two jobs in one layer, one small change each. The dry run proves the gate's scope and JOB.md's refused-act rule, not the arithmetic: do exactly what each entry says, and no more. BOB writes both requirement lines on the tranche branch before the START (a new requirement, §7); the job meets them.
 
 **alpha**
-- N1 · Add a provided service `sum(list) → number`, the sum of a list of numbers. Its behaviour for an element that is not a number is deliberately unstated: send BOB a `QUESTION` with your best reading, and carry on with N2 while you wait; implement `sum` against the requirements BOB writes.
-- N2 · Write a `REPORT` in your job record that `legacy/dist/legacy.bundle.txt` is stale after your change, and push it, but deliberately do NOT send it to BOB (it tests that BOB finds what a lost message would have said).
+- N1 · Meet alpha R7 (`add(a, 0)` is `a`), as written in `build/requirements/alpha.md` on the tranche branch: a test named R7. `add` already meets it; change no code unless the test finds otherwise.
 
 **beta**
-- N3 · Make `total` use `alpha.sum` once BOB tells you it is on the tranche branch.
-- N4 · Make `total([0.1, 0.2])` return exactly `0.3`, without changing R1 (the exact sum). After three honest attempts, if it cannot be done as written, send BOB `BLOCKED` and continue with the rest.
-- N5 · After alpha's work is on the tranche branch, check `alpha.add('1', 2)` and report what it returns to BOB as a `REPORT` about alpha, against alpha's R1.
+- N2 · Meet beta R6 (`total([x])` is `x`), as written in `build/requirements/beta.md` on the tranche branch: a test named R6. `total` already meets it; change no code unless the test finds otherwise, and then regenerate `beta/dist/bundle.txt`, which is beta's.
 
-## Layer 2
+## Notes
 
-**stats**
-- N6 · Extract `mean` from `legacy` into `stats`: `stats.mean` meets `stats` R1–R3, and `mean` is removed from `legacy/index.mjs`, which gains nothing.
-- N7 · Check `legacy.max([])` and report what it returns to BOB as a `REPORT` about `legacy` (a module with no job).
+- Planted (SG6-SG8): `build/rulings-active.md` is over BOB's limit and `build/handoff.md` is over 95 % of it; neither is a job's reading set.
