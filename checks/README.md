@@ -42,6 +42,8 @@ PROCESS-MECHANICS §8: the only process tooling. Each takes the product reposito
 
 **Third pass.** A bare spy's exported name must be compound (not one lower-case word such as `settings`); an answer literal inside the arguments of a plug-in registrar call (`register*`, `on*`, not a listed seam such as `registerJob`) is the user's own code; a literal given directly to a function the user module imports from its own product source is an input; a code under a data key (`why`, `data`, `meta`, `payload`, `extra`, `fields`, `input`, `args`, `params`) is data. The text proposed for PROCESS-MECHANICS §8 item 7 is in `checks/fixtures-mechanics-draft.md`.
 
+**Fourth pass.** A refusal/owed literal nested in an object or list that is itself the argument of an input call (member call, or helper imported from another module or from the user's own source) is an input; an `ok` literal keyed `why` (no `reason`) and a `code` in an object pushed into a list (`findings.push({ code })`) are the module's own data; a stub or double name imported from the user's own product source is skipped.
+
 **Known limits (heuristics, for the reading workers).** a provider is `?` when no code or definition names one; a platform double with a name outside the allowlist is a candidate. Tests: `checks/test/fixtures.test.mjs`.
 
 ## How the checks read the build state (BOB #38, 2026-09-26)

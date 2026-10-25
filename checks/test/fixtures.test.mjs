@@ -273,3 +273,39 @@ test('rule D: a code under a data key (`why: { code }`) is data; a bare code fie
   assert.equal(f.length, 1, f.join('\n'));
   assert.match(f[0], /^code user test\/user\/data\.test\.mjs:2 /);
 });
+
+// ---- the fourth pass ----
+const OWN = 'export const run = (x) => x;\nexport const fakeAccount = {};\nexport const own = () => ({ ok: false, reason: "USER_OWN" });\n';
+
+test('rule E: a literal nested in an input object to the function under test is an input; nested in a Response.json it is an answer', () => {
+  const root = product({ 'src/user/index.mjs': OWN, 'test/user/nest.test.mjs': [
+    'import { run } from "../../src/user/index.mjs";',
+    'run({ ok: true, result: { ok: false, reason: "LIB_BUSY" } });',                       // line 2: an input one level down
+    'w.lib.put({ rows: [{ ok: false, reason: "LIB_BUSY" }] });',                           // line 3: in a list in a member call
+    'Response.json({ ok: true, result: { ok: false, reason: "LIB_BUSY" } });',             // line 4: an answer
+  ].join('\n') + '\n' });
+  const f = lines(checkFixtures(root).failures, 'test/user/nest.test.mjs').map((x) => Number(x.split(':')[1].split(' ')[0]));
+  assert.deepEqual(f, [4]);
+});
+
+test('rule F: a double imported from the user\'s own source is skipped; one imported from its tests is not', () => {
+  const root = product({ 'src/user/index.mjs': OWN, 'test/user/helper.mjs': 'export const stubOf = {};\n', 'test/user/imp.test.mjs': [
+    'import { fakeAccount } from "../../src/user/index.mjs";',                             // line 1: its own
+    'import { stubOf } from "./helper.mjs";',                                              // line 2: a test double
+    'use(fakeAccount, stubOf);',
+  ].join('\n') + '\n' });
+  const f = lines(checkFixtures(root).failures, 'test/user/imp.test.mjs').filter((x) => x.startsWith('stub '));
+  assert.equal(f.length, 1, f.join('\n'));
+  assert.match(f[0], /imp\.test\.mjs:2 \[import\]/);
+});
+
+test('rule G: a why-keyed ok literal and a code pushed into the module\'s own list are its data; a reason-keyed literal and a bare code field are not', () => {
+  const root = product({ 'test/user/own.test.mjs': [
+    'const a = { ok: false, why: "MEMBER_X_BAD", detail: 1 };',                           // line 1: why: its own data
+    'findings.push({ check: "C-1", code: "INFO_X_Y", severity: 1 });',                    // line 2: a finding it builds
+    'const b = { ok: false, reason: "LIB_BUSY", detail: 1 };',                            // line 3: an answer
+    'const c = { code: "Q_Z_GONE" };',                                                    // line 4: a code no source gives
+  ].join('\n') + '\n' });
+  const f = lines(checkFixtures(root).failures, 'test/user/own.test.mjs').map((x) => Number(x.split(':')[1].split(' ')[0]));
+  assert.deepEqual(f, [3, 4]);
+});

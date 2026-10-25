@@ -29,6 +29,9 @@
 // plug-in registrar call (`register*`, `on*`, but not a listed seam) is the user's own code; a literal that is a direct argument of a function the user
 // module imports from its OWN product source is an input; a code under a data key (`why`, `data`, `meta`, `payload`, `extra`, `fields`, `input`,
 // `args`, `params`) is data, and `why` is no longer a code key.
+// Fourth pass: a refusal/owed literal nested in an object or list that is itself the argument of such an input call is an input; a `why`-keyed
+// `ok` literal (no `reason`) and a `code` in an object pushed into a list (`findings.push({ code })`) are the module's own data; a stub or double name
+// imported from the user's own product source is its own double and skipped.
 // Provider: for a code, the modules whose source holds it; for a stub name, the modules whose files declare it (an import
 // resolves to the module owning the file; STAND_FOR maps jobRegistrarStub to registerJob); for a stand-in, the modules whose
 // source defines the service. Shown as `-> <modules> (earlier|later|mixed)` against the user's position in build/modules.json
@@ -302,8 +305,11 @@ export function checkFixtures(root, only = []) {
       else if (keys.has('extent')) { const v = keys.get('extent'); if (v > 0 && isP(toks[v], '{') && toks[v + 1] && (toks[v + 1].v === 'kind') && isP(toks[v + 2], ':')) shape = 'extent'; }
       if (!shape) continue;
       if (shape === 'extent' && !(inRegion(k) || calledStub(k))) continue; // extent data passed in, not an answer: only inside a stub or double, or given to one
-      if (shape !== 'extent' && parent[k] >= 0 && isP(toks[parent[k]], '(')) { // a direct argument of a call
-        const c = calleeOf(toks, parent[k]);
+      if (shape !== 'extent' && keys.has('why') && !keys.has('reason')) continue; // `why` is not the refusal key of any module's answer: the module's own data
+      let host = parent[k]; // the call this literal is an argument of, directly or nested in an object or list that is
+      while (host >= 0 && (isP(toks[host], '{') || isP(toks[host], '['))) host = parent[host];
+      if (shape !== 'extent' && host >= 0 && isP(toks[host], '(')) {
+        const c = calleeOf(toks, host);
         const stubby = c && (c.split('.').some((x) => (STUB_WORD.test(x) && !PLATFORM_DOUBLE.test(x)) || INTERFACE_NAMES.includes(x)) || HAND_BUILDER.test(c));
         if (c && !stubby && (c.includes('.') || (imports.has(c) && (imports.get(c) !== user || importOwn.has(c))))) continue; // an input handed to the real provider, a harness helper or the module's own function under test
       }
@@ -328,6 +334,7 @@ export function checkFixtures(root, only = []) {
       const t = toks[k];
       if (t.t !== 'id') continue;
       if (STUB_WORD.test(t.v) && !PLATFORM_DOUBLE.test(t.v) && !seen.has(t.v)) {
+        if (importOwn.has(t.v)) continue; // imported from the user's own product source: its own double
         if (isP(toks[k - 1], '.') ) continue; // a member of something else
         const p = toks[k - 1];
         const decl = (p && p.t === 'id' && /^(function|const|let|var|class)$/.test(p.v)) || (isP(toks[k + 1], ':') && p && p.t === 'p' && '{,'.includes(p.v));
@@ -378,6 +385,7 @@ export function checkFixtures(root, only = []) {
       for (let j = k - 1; j >= 0 && j >= k - 6; j--) { const u = toks[j]; if (u.t === 'p' && ';{}'.includes(u.v)) break; if (u.t === 'id' && CODE_KEYS.has(u.v)) { at = true; break; } }
       if (!at) for (let j = k + 1; j < toks.length && j <= k + 5; j++) { const u = toks[j]; if (u.t === 'p' && ';{}'.includes(u.v)) break; if (u.t === 'id' && CODE_KEYS.has(u.v) && isP(toks[j - 1], '.')) { at = true; break; } }
       if (!at) continue;
+      { const q = parent[k], h = q >= 0 ? parent[q] : -1; if (q >= 0 && isP(toks[q], '{') && h >= 0 && isP(toks[h], '(') && /^(push|unshift|add|concat)$/.test((calleeOf(toks, h) || '').split('.').pop())) continue; } // a finding the module builds into its own list
       { const q = parent[k]; if (q >= 0 && isP(toks[q], '{') && isP(toks[q - 1], ':') && toks[q - 2] && DATA_KEYS.has(toks[q - 2].v)) continue; } // a field of a data object (`why: { code }`)
       if (passThrough(t.v)) continue; // fed in and asserted to come out: the test's own pass-through data
       if (cands.some((c) => c.cls === 'answer' && c.file === f && c.line === t.line && c.invented)) continue; // carried by the answer's tag
