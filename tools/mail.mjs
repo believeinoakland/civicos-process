@@ -49,6 +49,17 @@ import { join, dirname, relative, resolve } from 'node:path';
 
 export const KINDS = { job: ['QUESTION', 'REPORT', 'COMPLETE', 'BLOCKED'], bob: ['START', 'ANSWER', 'CHANGE', 'RESUME'] };
 const QUIET_MS = 20 * 60e3;
+// mechanics §6 (bio K4976): a RUNNING window is at most this far ahead; a longer run is split into pieces, each pushed as it ends.
+export const RUNNING_MAX_MIN = 30;
+// mechanics §5.4 (bio K4976): QUIET is a job WORKING with no push for QUIET_MS, or RUNNING past its window (capped at
+// RUNNING_MAX_MIN from its last push, so a window set longer by an older tool cannot hide a dropped container).
+export function quietOf(state, idleMs, now) {
+  if (idleMs < QUIET_MS) return false;
+  if (state === 'WORKING') return true;
+  const until = runningUntil(state);
+  if (Number.isNaN(until)) return false;
+  return until < now || idleMs >= RUNNING_MAX_MIN * 60e3;
+}
 const ENTRY = /^## ([JB])(\d+) · ([A-Z]+)(?: · re ([JB]\d+))?[^\n]*$/gm;
 const STATUS = /^\*\*Status\*\* · (session_[0-9A-Za-z]+) · depth (\d+) · (.+?) · handled B(\d+)$/m;
 const READ = /^\*\*Read\*\* · handled J(\d+)$/m;
@@ -249,6 +260,9 @@ export function start(o) {
 export function state(o) {
   const { tranche: T, module: m } = o;
   let s = o.set;
+  if (o.running !== undefined && !(Number(o.running) > 0 && Number(o.running) <= RUNNING_MAX_MIN))
+    throw new Error(`--running takes 1 to ${RUNNING_MAX_MIN} minutes (mechanics §6): split a longer run into pieces and push each as it ends`);
+  if (o.set && /^RUNNING\b/.test(o.set)) throw new Error('RUNNING is set only by --running <minutes> --what <command> (mechanics §6)');
   if (o.running) s = `RUNNING until ${new Date(Date.now() + Number(o.running) * 60e3).toISOString().replace(/\.\d+Z$/, 'Z')} (${o.what || 'command'})`;
   if (!s || /·/.test(s)) throw new Error('--set <STATE> (no "·"), or --running <minutes> --what <command>');
   const R = repo(o.product), branch = branchOf('job', T, m);
@@ -331,9 +345,7 @@ export function check(o) {
     if (r.lastJ > r.read) r.needs.push(`READ J${r.read + 1}..J${r.lastJ}`);
     if (st && r.handled < r.lastB) r.needs.push('RING');
     if (/^NEEDS BOB/.test(r.state)) r.needs.push('BOB: relay to Bob');
-    const until = runningUntil(r.state);
-    const idle = now - lastPushMs(R, jb) >= QUIET_MS;
-    if (st && idle && (r.state === 'WORKING' || (!Number.isNaN(until) && until < now))) r.needs.push('QUIET');
+    if (st && quietOf(r.state, now - lastPushMs(R, jb), now)) r.needs.push('QUIET');
     return r;
   });
 }
