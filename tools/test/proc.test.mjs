@@ -206,3 +206,19 @@ test('a START names the product\'s standing rules for every job when the product
   assert.match(readFileSync(join(w.bob, P.startPath(T, 'alpha')), 'utf8'), /read `build\/situations\/job\.md` whole/);
   assert.equal(ls.specs.length, 1);
 });
+
+test('a ruling of Bob\'s with no home is owed at takeover and refuses the handoff until placed (bio K5311; DESIGN §2.6)', () => {
+  const w = world(), day = new Date().toISOString().slice(0, 10);
+  const add = (line) => writeFileSync(join(w.bob, 'build/rulings.md'), `${readFileSync(join(w.bob, 'build/rulings.md'), 'utf8').trimEnd()}\n${line}\n`);
+  if (!existsSync(join(w.bob, 'build/rulings.md'))) writeFileSync(join(w.bob, 'build/rulings.md'), '# Rulings\n');
+  add(`- K9001 · ${day} · Weekly usage is Bob's to watch, Bob's (P14) · "Don't worry about weekly usage."`);
+  add(`- K9002 · ${day} · alpha · Merged alpha · §5.5`);
+  g(w.bobRoot, 'add', '-A'); g(w.bobRoot, 'commit', '-qm', 'rulings'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  const tk = P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  assert.deepEqual(tk.acts.filter((a) => /K900/.test(a)).map((a) => a.match(/K900\d/)[0]), ['K9001']);
+  assert.throws(() => P.handoff(O(w.bob)), /no home a successor reads: K9001/);
+  mkdirSync(join(w.bob, 'build/rulings-product'), { recursive: true });
+  writeFileSync(join(w.bob, 'build/rulings-product/usage.md'), '- Weekly usage is Bob\'s (K9001).\n');
+  g(w.bobRoot, 'add', '-A'); g(w.bobRoot, 'commit', '-qm', 'placed'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  assert.match(P.handoff(O(w.bob)).text, /^START BOB #3/);
+});

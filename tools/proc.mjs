@@ -153,6 +153,7 @@ export function takeover(o) {
   }
   const st = status(o);
   for (const s of st.size.filter((x) => x.startsWith('SIZE '))) acts.push(`prune ${s.split(' ')[1]} under its limit (mechanics §17): ${s}`);
+  for (const u of unplacedBobRulings(R)) acts.push(`give Bob's ruling a home (rulings-active.md, build/rulings-product/, build/situations/, or bob-rulings-placed.txt): ${u}`);
   return { commit, previous: before.bob, owed: before.owed, jobs: st.jobs, size: st.size, acts };
 }
 // Every job's state, read from git; quiet jobs; owed acts; documents over or near their limits (mechanics §17: listed for
@@ -179,6 +180,24 @@ export function status(o) {
   });
   const gate = [...p.owed.map((x) => `owed: ${x}`), ...unpushed(R)];
   return { state: p.state, round: p.round, layers: p.layers, jobs, owed: p.owed, size: sizeLines(R.dir), gate };
+}
+// Every ruling of the last `days` that records Bob's own words has a home a session reads (bio K5311, K5323): it is cited
+// in rulings-active.md, a product rulings file, a product situation, or build/plan/bob-rulings-placed.txt (`K<n> · where`,
+// for a home elsewhere: requirements, mechanics, CLAUDE.md, or done). Returns each unplaced line. (bio's
+// build/plan/bob-rulings-check.mjs, moved into the tool: DESIGN §2.6.)
+export function unplacedBobRulings(R, days = 3, now = Date.now()) {
+  const since = new Date(now - days * 86400e3).toISOString().slice(0, 10);
+  const dir = (d) => { try { return readdirSync(join(R.dir, d)).filter((f) => f.endsWith('.md')).map((f) => `${d}/${f}`); } catch { return []; } };
+  const homes = ['build/rulings-active.md', ...dir('build/rulings-product'), ...dir('build/situations')].map((f) => R.read(f) || '').join('\n');
+  const cited = new Set(homes.match(/K\d+/g));
+  for (const l of (R.read('build/plan/bob-rulings-placed.txt') || '').split('\n')) if (/^K\d+/.test(l)) cited.add(l.match(/^K\d+/)[0]);
+  const out = [];
+  for (const line of (R.read('build/rulings.md') || '').split('\n')) {
+    const m = line.match(/^- (K\d+) · (\d{4}-\d{2}-\d{2}) · (.*)$/);
+    if (!m || m[2] < since || cited.has(m[1])) continue;
+    if (/^Bob[: ]|Bob's words|, Bob's \(|\(Bob's\)| Bob's direction|^Bob's/.test(m[3].split(' · ')[0])) out.push(`${m[1]} ${m[2]} · ${m[3].slice(0, 140)}`);
+  }
+  return out;
 }
 // A round's plan is fixed when it opens (DESIGN §2.1): the file is copied whole into current.md's body.
 export function roundOpen(o) {
@@ -384,6 +403,8 @@ export function handoff(o) {
   const st = status(o);
   if (st.gate.length) refuse(`not at a clean point: ${st.gate.join('; ')}`);
   const R = repo(o.product), p = parsePlan(R.read(PLAN));
+  const un = unplacedBobRulings(R);
+  if (un.length) refuse(`Bob's rulings with no home a successor reads: ${un.join('; ')}`);
   const n = Number(p.bob.name.split('#')[1]) + 1;
   return { text: `START BOB #${n}: ${trancheBranch(o.tranche)} @ ${R.g(['rev-parse', '--short', 'HEAD'])}` };
 }
