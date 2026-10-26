@@ -95,4 +95,4 @@ test('R4 sum throws a TypeError for an element that is not a finite number, coer
     }
   }
 });
-import { test as d24 } from 'node:test'; d24('D25 old red', () => { throw new Error('old debt, seeded by D25'); });
+import { test as d24 } from 'node:test'; d24('D26 old red', () => { throw new Error('old debt, seeded by D26'); });
