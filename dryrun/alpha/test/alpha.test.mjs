@@ -107,3 +107,14 @@ test('R6 mul returns a * b for every pair of finite numbers in each class', () =
   assert.equal(mul(Number.MAX_VALUE, 2), Infinity); // a * b, overflow included
   assert.ok(Object.is(mul(0, -1), -0)); // a * b, sign of zero included
 });
+
+test('R6 mul throws a TypeError when either argument is not a finite number, coercing nothing', () => {
+  for (const bad of NOT_FINITE()) {
+    for (const ok of [0, -1, 2.5, Number.MAX_VALUE]) {
+      assert.throws(() => mul(bad, ok), TypeError, `mul(${typeof bad}, ${ok})`);
+      assert.throws(() => mul(ok, bad), TypeError, `mul(${ok}, ${typeof bad})`);
+    }
+    for (const bad2 of NOT_FINITE()) assert.throws(() => mul(bad, bad2), TypeError);
+  }
+  assert.throws(() => mul('2', 3), TypeError); // coerced to 6 without the check
+});
