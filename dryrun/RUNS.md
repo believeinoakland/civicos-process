@@ -237,3 +237,64 @@ BOB's own expected refusals (SG6): to post the STARTs BOB pruned rulings-active.
 Findings: none that needs a tool fix. Observations: (1) the jobs' `node --test <dir>/` failed with MODULE_NOT_FOUND on Node 22.22 and passed by file path, a toy-environment matter (the toy's `dryrun/` has no package script); (2) `checks/ownership.mjs` needs `origin/`-prefixed refs in a checkout without local branches (D17 had local ones); (3) the whole dry run took about 5 minutes after the rings (14:56 to 14:59 UTC).
 
 Result: **SG6-SG8 certified**; rule (b) read and identified, its retry to be recorded from a product tranche. Cost (tokens processed, from the archived records): ALPHA #1 2.01 M (cost 0.04 USD), BETA #1 2.58 M (0.09 USD); context peaks 100 K and 107 K of 1 M.
+
+## D19 · 2026-10-26 · the process redesign: messages, the process tool, role-skill hooks, a successor BOB (lane-process-redesign/DESIGN.md §5)
+
+Tranche `tranche/D19` from `dryrun-main/D19` (`405b14a`, the lane's tools and role skills). The lane session (`session_014M1HxBsrXKac2pDaf9LPqF`) played ROOT. D19 BOB #1 (`session_01WPPHiKWTxangtKbuuHat16`, sonnet), D19 BOB #2 (`session_01NtgMUbqYG9WJVQgPPoXHpD`, sonnet), ALPHA #1 (`session_01ArFnUrLd3iuSMDRE9tnazR`, haiku), BETA #1 (`session_01XXaDQD4aj4wzqDYQquEsPz`, haiku). Every session invoked its role skill (`civicos-bob`, `civicos-job`) and used `tools/proc.mjs`; no mailbox, cursor or routine carried a message.
+
+| path | evidence | result |
+| --- | --- | --- |
+| RD1 takeover by tool | `d1c304c` (BOB #1), `106dae3` (BOB #2): Status line, role file, acts printed | PROVEN |
+| RD2 a round opened fixed; a layer started by the printed calls | `b035c90`, `a80b9c2`; both `create_session` calls as printed, each recorded by `job started` (`8058d34`, `42cefa1`), the owed starts cleared | PROVEN |
+| RD3 a question by state and message; the answer by message, the wording on the tranche | alpha's record `WAITING: R6 does not say …`; R6 clarified `f99bd10`; alpha merged the tranche and met it (its report) | PROVEN |
+| RD4 a job's push to the tranche refused by its hook | alpha's report: `PROCESS: a job pushes only its own branch, job/D19/alpha` | PROVEN |
+| RD5 a successor finds what its predecessor was sent | beta's COMPLETE reached BOB #1 after its handoff (BOB #1's final turn); BOB #2's `proc status` showed beta `MERGE`, and merged it | PROVEN |
+| RD6 a CHANGE to a running job, by message, same session | BOB #2's CHANGE to BETA #1; beta re-completed in the same session ("after CHANGE 1") | PROVEN |
+| RD7 merge by tool: gates, tests, checks, ruling line | alpha `a61a646` (K1, 7/7, struck R6); beta `7b753c7` (K2, 6/6) | PROVEN |
+| RD8 a red merge undone | beta's first merge refused: `beta: after the merge, tests 5/6; the merge was undone` (its bundle stale after alpha's merge); the tranche unchanged | PROVEN (and finding 1) |
+| RD9 layer close, archives with rows, round close | `d0b72b8`, `0d17302`, `d87c3b5`, `0cfec98`; `proc status` empty | PROVEN |
+| RD10 handoff by tool, through ROOT, by message | `717927e`; `START BOB #2: tranche/D19 @ 717927e` arrived at the lane by `send_message`; BOB #2 started on it | PROVEN |
+
+Findings, each fixed on the lane (`lane/process-redesign`): **F1** a merge made another module's generated artifact stale and the next merge was refused: every merge and layer close now regenerates and verifies the manifest's artifacts and commits them (`proc merge`, `layer close`). **F2** layer close did not regenerate artifacts (same fix). **F3** no command wrote a `BOB-final` row: `proc bob archived`. **F4** depth: a BOB counts its depth up to the session its prompt names as ROOT (takeover.md). **F5** routines are listed page by page. **F6** BOB #2 left its backstop armed at the run's end (disabled by its archive). Not exercised: a CHANGE to a job already merged (F1 sent it before the merge): D20.
+
+Cost (tokens processed, from the archives): BOB #1 2.36 M, BOB #2 3.22 M, ALPHA #1 2.68 M, BETA #1 2.23 M. Wall time: 20:47 to 20:53 UTC, six minutes.
+
+## D20 · 2026-10-26 · the redesign: a CHANGE to a merged job in its live session; artifacts at the merge; the job's Stop hook
+
+Tranche `tranche/D20` from `dryrun-main/D20` (`7346c2d`, with D19's fixes). D20 BOB #1 (`session_013Dy2gsxdAiYHMTwKpw6LHd`, sonnet), ALPHA #1 (`session_01FkV9sz1e7ScrjkABTStnXE`, haiku); the lane played ROOT.
+
+| path | evidence | result |
+| --- | --- | --- |
+| RD11 a job may not end its turn WORKING | ALPHA #1, told to end its turn once at once: "The Stop hook then refused the WORKING record, so I set WAITING with my question" (`32ed2a6`); BOB saw it as `ANSWER` and answered by message | PROVEN |
+| RD12 the merge regenerates and verifies the artifacts | K1 `f316e62`: tests 7/7, met R7; `beta/dist/bundle.txt` and `legacy/dist/legacy.bundle.txt` regenerated and committed with the merge | PROVEN (D19 F1 fixed) |
+| RD13 a CHANGE to a job already merged reaches its live session; merged again | `proc job route` printed `{"action":"message","session":"session_01FkV9sz1e7ScrjkABTStnXE"}`; the CHANGE sent; the same session merged the tranche, applied it, completed again (`18d7fb0`); K2 `be6adac`; the job had 1 session for the round | PROVEN (K4219 retired) |
+| RD14 the round closes clean | layer close `de661f6`, archive and row `40417aa`, round close `846e7ba`, backstop deleted | PROVEN |
+
+Findings: **F1** the metrics row read the first completion's Size line, and `test runs` did not count a second completion: fixed (the last line; this session's runs). **F2** BOB built the `--usage` JSON from `archive_session`'s `usage` block: that is the intended input, now said in situations/merge-close.md. Refusals met: none but the Stop hook's.
+
+Cost: BOB #1 2.23 M, ALPHA #1 2.74 M tokens processed. Wall time: 20:57 to 21:01 UTC, four minutes.
+
+## D21 · 2026-10-26 · the redesign: the tool's changes after D20 (PROCESS-REDESIGN #2)
+
+Tranche `tranche/D21` from `dryrun-main/D21` (`2b667c3`: the lane's tools at `f944006` plus a seed with a round R1 plan, the product's `build/situations/job.md`, a `build/handoff.md` of 26,056 bytes, and a ruling of Bob's, K9001, with no home). D21 BOB #1 (`session_01Q9MkLzV5Y3TzjjRRNT6GXr`, sonnet), ALPHA #1 (`session_01RboLS5tkHZFVvQM8fLPWiP`, haiku); the lane played ROOT.
+
+| path | evidence | result |
+| --- | --- | --- |
+| RD20 takeover owes the prune of a document over its limit (§17), and stops no one | `proc takeover` printed the `SIZE build/handoff.md 26056 > 25600` act; BOB pruned it (`6e805c2`); the job started and completed meanwhile, unrefused | PROVEN |
+| RD21 takeover owes a home for a recent ruling of Bob's with none | the act for K9001 printed; BOB placed it in `rulings-active.md` (`6e805c2`); `proc handoff` then passed (`460d7e3`). The refusal before placement: fixture | PROVEN (refusal by fixture) |
+| RD22 a START names the product's rules for every job, and the job reads them | START line "Before changing code, read `build/situations/job.md` whole"; the job's report quotes its D21 marker verbatim | PROVEN |
+| RD23 `job complete` runs fixtures (and words where the product has a word table) | the record: "Checks: format, architecture, coverage, fixtures, ownership 0 failures" (`ea0f6a8`); the toy has no word table, words: fixture | PROVEN |
+| RD24 `merge --context` writes BOB's context in the ruling | K9002: "… BOB's context 12 %" (`6c1afa5`) | PROVEN |
+| RD25 the round closes and the handoff reaches ROOT by message | `61c09b5`, `1f539d0`, `8b059e2`; `START BOB #2: tranche/D21 @ 460d7e3` arrived by `send_message` at 21:39:31 | PROVEN |
+
+Not live: the role-skill check (`proc shims` against the product's skills; the dry run's skills matched, so no act; fixture covers both cases) and the artifact table refused when unparsable (fixture). Findings: none. Cost: BOB #1 2.84 M, ALPHA #1 1.71 M tokens processed. Wall time: 21:36 to 21:39 UTC, three minutes.
+
+## D22 · 2026-10-26 · history on demand from a shallow start (lane HANDOFF R8)
+
+Tranche `tranche/D22`: `dryrun-main/D22` (the round plan) plus 80 commits, so a session's 50-commit clone cannot see where the tranche began. D22 BOB #1 (`session_01Sr2i1KuFfYhwimZ1tNdaSS`, sonnet), ALPHA #1 (haiku); the lane played ROOT.
+
+| path | evidence | result |
+| --- | --- | --- |
+| RD27 a session starts shallow, and the tool fetches the history a merge needs when it needs it | at start: shallow, 50 commits; round R1 merged (K1, 5/5), layer and round closed on the shallow clone; `proc history --ref origin/dryrun-main/D22` (the close's merge of `main`, stood in for) fetched it in 1.71 s (282 commits after); `git merge` then found its base ("Already up to date") | PROVEN |
+
+Not a finding of the process: takeover owed the archive of the seed's placeholder BOB (`session_01PROCESSREDESIGNPLACEHOLDER`), which auto mode refused, rightly; a seed names a real predecessor or none. The backstop was deleted by the lane. bio's start-up without the full download: measured on a fresh 50-commit clone of bio, 48 s with seven package installs (BOB #315's start with it: 3 min 31 s); the T51 close's own merge base was already within the clone.

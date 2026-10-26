@@ -1,3 +1,8 @@
+// RETIRED IN PART by the process redesign (PROCESS-MECHANICS §13, revised; lane-process-redesign/DESIGN.md §2.3): BOB and
+// the jobs now talk by `send_message` and keep state through tools/proc.mjs. Once the redesign is adopted, only the
+// cross-account channel (the x-commands, §13.1) and the size functions proc.mjs reads (§17) are in use; the rest stays
+// for the running tranche until its close, and is then removed.
+//
 // The mailboxes between BOB and a module job (PROCESS-MECHANICS §13; bio K168). A message is a numbered entry in its
 // writer's own file in git; each side keeps a cursor, the last entry of the other side it has processed; a routine
 // carries no content, only "check your mailbox". So a late, duplicated, reordered or lost routine changes nothing: the

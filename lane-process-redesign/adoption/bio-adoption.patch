@@ -1,0 +1,519 @@
+From ef44ad1999f10a631f9e628878b8ea361f58d03b Mon Sep 17 00:00:00 2001
+From: PROCESS-REDESIGN #2 <noreply@anthropic.com>
+Date: Mon, 26 Oct 2026 21:32:00 +0000
+Subject: [PATCH] The process redesign adopted (bio K5334; civicos-process
+ lane/process-redesign): CLAUDE.md an index; role skills by proc shims; Bob's
+ product rulings by subject (K5323); rulings-active cut to process judgments;
+ the product's situations; the manifest's artifact table in proc's form
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01PpUDVnuZpceq4TvX8bQ7gq
+---
+ .claude/hooks/session-start.sh              | 10 ++--
+ .claude/skills/civicos-bob/SKILL.md         | 14 +++++
+ .claude/skills/civicos-job/SKILL.md         | 14 +++++
+ CLAUDE.md                                   | 14 ++---
+ build/manifest.md                           | 49 +++++++---------
+ build/plan/bob-rulings-placed.txt           |  1 +
+ build/rulings-active.md                     | 64 ++++-----------------
+ build/rulings-product/ai.md                 |  8 +++
+ build/rulings-product/installer-accounts.md |  9 +++
+ build/rulings-product/platform.md           |  6 ++
+ build/rulings-product/quality.md            |  9 +++
+ build/rulings-product/reading.md            |  7 +++
+ build/rulings-product/scope.md              |  8 +++
+ build/rulings-product/stewards.md           |  5 ++
+ build/rulings-product/tests.md              |  5 ++
+ build/rulings-product/words-ux.md           |  6 ++
+ build/situations/deploy-and-walk.md         |  9 +++
+ build/situations/design-channel.md          |  7 +++
+ build/situations/fix-round.md               |  6 ++
+ build/situations/job.md                     | 12 ++++
+ build/situations/release.md                 |  7 +++
+ 21 files changed, 179 insertions(+), 91 deletions(-)
+ create mode 100644 .claude/skills/civicos-bob/SKILL.md
+ create mode 100644 .claude/skills/civicos-job/SKILL.md
+ create mode 100644 build/rulings-product/ai.md
+ create mode 100644 build/rulings-product/installer-accounts.md
+ create mode 100644 build/rulings-product/platform.md
+ create mode 100644 build/rulings-product/quality.md
+ create mode 100644 build/rulings-product/reading.md
+ create mode 100644 build/rulings-product/scope.md
+ create mode 100644 build/rulings-product/stewards.md
+ create mode 100644 build/rulings-product/tests.md
+ create mode 100644 build/rulings-product/words-ux.md
+ create mode 100644 build/situations/deploy-and-walk.md
+ create mode 100644 build/situations/design-channel.md
+ create mode 100644 build/situations/fix-round.md
+ create mode 100644 build/situations/job.md
+ create mode 100644 build/situations/release.md
+
+diff --git a/.claude/hooks/session-start.sh b/.claude/hooks/session-start.sh
+index bf5994b5a0..c5e66dbf42 100755
+--- a/.claude/hooks/session-start.sh
++++ b/.claude/hooks/session-start.sh
+@@ -48,10 +48,10 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+ fi
+ 
+ # 2 · full history ----------------------------------------------------------------------------
+-if [ "$(git -C "$REPO" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+-  say "unshallowing the clone"
+-  git -C "$REPO" fetch --quiet --unshallow origin || say "FAILED to unshallow — git-history checks will misread dates"
+-fi
++# RETIRED 2026-10-26 (the process redesign, civicos-process lane HANDOFF R8; Bob, in that lane's session): the full
++# history was fetched here for the old process's date checks (`tools/corpuscheck.mjs`, retired 2026-09-26), and cost
++# every session about 3 minutes (T51: 39,093 commits in 30 days). A session now starts shallow; the process tool fetches
++# the history a merge needs when it needs it (`proc history`, PROCESS-MECHANICS §4).
+ 
+ # 2b · the id ledger's directory: RETIRED 2026-10-01 with the old process's id allocator (T19 BOB-5, K653).
+ 
+@@ -60,7 +60,7 @@ fi
+ # (PROCESS-MECHANICS §8), and it is no longer installed.
+ 
+ # 3 · dependencies ----------------------------------------------------------------------------
+-for pkg in bio-plane pdf-worker ocr-worker newgroup; do
++for pkg in bio-plane pdf-worker ocr-worker newgroup file-scanner agent-runner sheet-worker; do   # the bundle members verified at each merge (manifest)
+   dir="$REPO/$pkg"
+   [ -f "$dir/package-lock.json" ] || continue
+   # Skip when an install exists and is newer than the lockfile; npm ci otherwise (it refuses drift).
+diff --git a/.claude/skills/civicos-bob/SKILL.md b/.claude/skills/civicos-bob/SKILL.md
+new file mode 100644
+index 0000000000..02124f5467
+--- /dev/null
++++ b/.claude/skills/civicos-bob/SKILL.md
+@@ -0,0 +1,14 @@
++---
++name: civicos-bob
++description: CivicOS BOB, the architecture session: invoke at the start of every BOB session, before anything else.
++hooks:
++  PreToolUse:
++    - hooks:
++        - type: command
++          command: 'node "/home/user/civicos-process/tools/hooks.mjs" bob pre'
++  Stop:
++    - hooks:
++        - type: command
++          command: 'node "/home/user/civicos-process/tools/hooks.mjs" bob stop'
++---
++!`cat "/home/user/civicos-process/roles/BOB.md" || echo "STOP: the process repository is not at /home/user/civicos-process; attach it, then invoke this skill again."`
+diff --git a/.claude/skills/civicos-job/SKILL.md b/.claude/skills/civicos-job/SKILL.md
+new file mode 100644
+index 0000000000..9d51afdb40
+--- /dev/null
++++ b/.claude/skills/civicos-job/SKILL.md
+@@ -0,0 +1,14 @@
++---
++name: civicos-job
++description: CivicOS module job: invoke at the start of every module job session, before anything else.
++hooks:
++  PreToolUse:
++    - hooks:
++        - type: command
++          command: 'node "/home/user/civicos-process/tools/hooks.mjs" job pre'
++  Stop:
++    - hooks:
++        - type: command
++          command: 'node "/home/user/civicos-process/tools/hooks.mjs" job stop'
++---
++!`cat "/home/user/civicos-process/roles/JOB.md" || echo "STOP: the process repository is not at /home/user/civicos-process; attach it, then invoke this skill again."`
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 9b21451c57..74e384edcf 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -1,15 +1,15 @@
+ # BIO / CivicOS — read this first
+ 
+-**The development process changed on 2026-09-25.** It is defined in the separate repository `believeinoakland/civicos-process`; attach it to your session and read your role's instructions there before anything else. The old process (lanes, kickoffs, `coord` ledgers, QUEUE, the gate and push guard, `tools/`) is retired: do not follow it, and do not start or message its lanes. Its instructions are archived at `docs/archive/CLAUDE-2026-09-26-old-process.md` for reference only.
++The development process is defined in `believeinoakland/civicos-process` (the old process, before 2026-09-25, is retired: `docs/archive/CLAUDE-2026-09-26-old-process.md`, reference only).
+ 
+-**Start here:**
+-1. Attach `believeinoakland/civicos-process` and read `roles/BOB.md` (the architecture session), `roles/JOB.md` (a module job) or `roles/ROOT.md` (the session that starts every BOB), whole.
+-2. Read `build/manifest.md` in this repository: where the build state, requirements and tests live.
+-3. BOB also reads the latest handoff, `build/handoff.md`.
++**A BOB or a module job session:**
++1. If `/home/user/civicos-process` does not exist, attach `believeinoakland/civicos-process` (`add_repo`) and clone it there.
++2. Invoke your role's skill: `civicos-bob` (the architecture session) or `civicos-job` (a module job). It shows your role's instructions from that repository and registers its hooks; follow it. Never edit `.claude/skills/civicos-*`: `proc shims` writes them.
+ 
+-**Working with Bob (principle P17, always):** Bob decides only policy and doctrine, requirements, high-level architecture (like the definition of layers) and UX, each brought to him with an explanation he can understand, a set of options, and a recommendation. Details about layers, modules and their boundaries and order, what goes into a tranche and when it opens are BOB's. Every lower-level technical or detailed decision is BOB's, made without asking him, recorded once in `build/rulings.md` and reported to him as done. Bob does not edit files or enter commands; when only he can act, name the one act and walk him through it in plain steps. Show him documents rendered, never as Markdown source.
++**ROOT** reads `roles/ROOT.md` there. **A lane** (design, study) follows its own charter. `build/manifest.md` says where the build state, requirements, tests and this product's own procedures live.
+ 
+-**Standing safety rules:** never force-push; never rewrite `main`'s history; never delete the restore point, branch `snapshot/pre-refactor-2026-09-25`; never print a secret; Cloudflare account `20b533579290b9b93168345edd3b7f72` only, and the throwaway rehearsal account named by `CS_TEST_CF_ACCOUNT_ID` for the new-team rehearsal alone (K4942) (stop and say so if wrangler reports any other).
++**Working with Bob (principle P17, always):** Bob decides only policy and doctrine, requirements, high-level architecture and UX, each brought to him with an explanation he can understand, options and a recommendation; every lower-level decision is BOB's, recorded once and reported done. Bob does not edit files or enter commands; when only he can act, name the one act and walk him through it in plain steps. Show him documents rendered, never as Markdown source.
+ 
++**Standing safety rules:** never force-push; never rewrite `main`'s history; never delete the restore point, branch `snapshot/pre-refactor-2026-09-25`; never print a secret; Cloudflare account `20b533579290b9b93168345edd3b7f72` only, and the throwaway rehearsal account named by `CS_TEST_CF_ACCOUNT_ID` for the new-team rehearsal alone (K4942) (stop and say so if wrangler reports any other).
+ 
+ **Standing direction from Bob (2026-10-02).** Development pull requests, including the UX design stream's, are merged into `main` by BOB sessions with the GitHub merge tool, at a tranche boundary, without my review. I have authorized this as policy; no session asks me to approve such a merge. Sessions also archive finished sessions, delete their own timers, and read the design channel without asking me.
+diff --git a/build/manifest.md b/build/manifest.md
+index 756f685c8f..e296d2aef7 100644
+--- a/build/manifest.md
++++ b/build/manifest.md
+@@ -6,17 +6,19 @@
+ 
+ | what | where |
+ | --- | --- |
+-| the process: principles, mechanics, role instructions, checks, the mail tool | `believeinoakland/civicos-process` (attach it to the session) |
++| the process: principles, mechanics, role indexes and situations, the process tool, hooks and checks | `believeinoakland/civicos-process`, cloned at `/home/user/civicos-process`; each role's skill here (`.claude/skills/civicos-bob`, `civicos-job`) is written by its `proc shims` |
++| the product's own procedures, each read whole when its situation arises | `build/situations/`: `release.md`, `deploy-and-walk.md`, `fix-round.md`, `design-channel.md`; `job.md`, every job's standing rules, named in each START |
+ | the requirements canon (mission, product requirements, construct designs) | listed in `requirements/README.md`; the files are under `docs/architecture/` and `docs/development/` |
+ | the layers, with their contracts and rulings | `build/layers.md` (rendered: `build/layers-view.html`); their split history, `build/plan/archive/layers-history.md` |
+ | the modules in their total order, with paths, tests and uses | `build/modules.json` |
+ | each module's requirements, and the conventions they follow | `build/requirements/<module>.md`, `build/requirements/README.md` |
+-| the running tranche's plan, the next one, the finished ones | `build/plan/current.md`, `build/plan/next.md`, `build/plan/archive/T<n>.md` |
++| the running round's plan (its Status, Round, Jobs and Owed lines written by `proc`), the next one, the finished tranches and rounds | `build/plan/current.md`, `build/plan/next.md`, `build/plan/archive/T<n>.md`, `archive/T<n>-R<k>.md` |
+ | what each coming extraction moves out of a legacy module (P18) | `build/extraction/<module>.md` |
+-| one record per module job | `build/jobs/T<n>/<module>.md` |
++| one record per module job (its Status line and completion reports, written by `proc job …`) | `build/jobs/T<n>/<module>.md` |
+ | the capability ladders: what each construct can do at each rung L0–L5, every need found, and what each later rung takes (read before planning a stage that adds capability, or when a member's situation shows a gap) | `docs/architecture/BIO_Capability_Ladders_v0_1.md` (canon); the study's full evidence on branch `study/constructs`, commit `892fca16c4` (never deleted, K1433) |
+ | what Anthropic's plans and terms permit or forbid: verbatim quotes, each with its page, date read and the plan it governs (ids `AT-n`), the questions the pages leave open, and Bob's own choices; every other statement cites it (K1763) | `build/terms/anthropic.md` |
+-| the rulings in force, read whole at takeover | `build/rulings-active.md` |
++| the rulings in force, read whole at takeover: Bob's process judgments and BOB's conventions no code holds | `build/rulings-active.md` |
++| Bob's product rulings by subject (K5323), each read whole by the work that touches it: `ai`, `installer-accounts`, `platform`, `quality`, `reading`, `scope`, `stewards`, `tests`, `words-ux` | `build/rulings-product/<subject>.md` |
+ | every ruling, one line each (searched on need, never read whole) | `build/rulings.md` |
+ | tokens processed per session | `build/metrics/T<n>.csv` (transition sessions under `T0`) |
+ | the latest handoff (replaced whole at each handoff) | `build/handoff.md` |
+@@ -33,28 +35,21 @@ The full regression runs only at a release or when Bob asks (P11): the GitHub wo
+ 
+ ## Generated artifacts (PROCESS-MECHANICS §14)
+ 
+-Committed files built by `bundler` (`bio-plane/scripts/fleet-bundle.mjs`, `writeMember`) from several modules' source. No job edits one by hand or writes another module's; a job that stales one reports it. At each layer close BOB regenerates every one, verifies, and commits the result on the tranche branch.
++Committed files built from several modules' source. No job edits one by hand or writes another module's; a job that stales one reports it. At every merge and every layer close, `proc merge` and `proc layer close` run each row's regenerate command, then its verify command, from the repository root, in this table's order (K1540: member-roster's order, setup-words, then program.mjs, which prints the members' words through setup-words' rows, K4355; court-data and wizard-scripts' data; the bundles, which take program.mjs; newgroup last), and commit what changed; a verify that fails undoes the merge. A `SKIP` in a bundle verify means a member's `node_modules` is missing (`npm ci` there first, `build/situations/job.md`). Baseline on `tranche/T1` @ BOB #40's takeover: 96 pass, 0 fail, no skip.
+ 
+-| artifact, with its manifest | owned by | regenerate (run in that directory) | its inputs come from |
++| artifact | owned by | regenerate | verify |
+ | --- | --- | --- | --- |
+-| `bio-plane/dist/bio-plane.bundled.mjs`, `.bundle.json` | `not_product` | `bio-plane/`: `npm run build` (renders `src/signpage.mjs` first) | the plane's source |
+-| `pdf-worker/dist/pdf-worker.bundled.mjs`, `.bundle.json` | `pdf-worker` | `pdf-worker/`: `npm run build` | `pdf-worker`, and `pdf-reader`, `subresources`, `runtime-limits` files |
+-| `ocr-worker/dist/ocr-worker.bundled.mjs`, `.bundle.json` | `ocr-worker` | `ocr-worker/`: `npm run build` (re-renders `src/tesslib.mjs` when `tesseract-wasm` is installed) | `ocr-worker`, `pdf-pixels`, `image-codecs`, plane `pdfstructure` (and `subresources`, `cpu`) |
+-| `agent-runner/dist/agent-runner.bundled.mjs`, `.bundle.json` | `agent-runner` | `agent-runner/`: `npm run build` (bundler's `writeMember`; `@cloudflare/containers` 0.3.7 inlined as a vendored input; K1799) | `agent-runner`, through `bundler` |
+-| `agent-worker/dist/agent-worker.bundled.mjs`, `.bundle.json` | `agent-worker` | `agent-worker/`: `npm run build` | `agent-worker` and `agent-steps` (its delegate since T51-45/65, K3850, K3894), the plane's `bio-plane/src/tokens.mjs` (runtime-limits) and `run-rules` (with observation-log's `checks.mjs` and `vocabulary.mjs` through it, and record-grammar's `ids.mjs` through those since T33-30; K1598); query-language's `bio-plane/src/query.mjs` and its import tree since R085's R97 (the meaning arms, K3504); no catalogue, skills or ai-runs input since T18 layer 6 (R48 reads the rendered pack from `op=agentpack` since T36-24, K2135; K683) |
+-| `bio-plane/public/newgroup/index.html` (the invitation page, R79; K4073) | `installer` | `newgroup/`: `node scripts/invite-page.mjs` (check: `--check`) | setup-words' rows (the 24 `installer.invite.*` keys) |
+-| `newgroup/dist/newgroup.bundled.mjs` | `installer` | `newgroup/`: `npm run build` | `installer`, `installer-steps` (`newgroup/src/steps/`, K4083), and `signatures` (`sshsig.mjs`) and `record-grammar` (`document.mjs`, which reads `conformance.*` word rows at load; found at T24 L1, K1182, K4083) |
+-| `bio-plane/src/case-checker/program.mjs` (the standalone checker, with its own SHA-256) | `case-checker` | repository root: `node bio-plane/src/case-checker/build-program.mjs` | `case-checker` and the modules it uses (record-grammar, signatures, content, strength, case-grammar), through `bundler` (K1315; verified byte-identical by case-checker's own test) |
+-| `bio-plane/src/setup-words/rows.mjs` (the interface's word list, K3366) | `setup-words` | repository root: `node bio-plane/src/setup-words/build.mjs` (check: `--check`) | the design stream's `docs/development/ux-substrate/screens/words.json` (R10), and every `t(id, en)` call in tracked product source under a module's `paths` (R15; a new file is seen only once `git add`ed); it also writes and checks `bio-plane/src/setup-words/words-unreviewed.json`, the design's review list (R16, K3932); `--pseudo` writes the never-committed `rows.pseudo.mjs` (R17) |
+-| `bio-plane/src/wizard-scripts/screen-registry.mjs`, `front-doors.mjs`, `civicsmith-library.mjs` (K3771) | `wizard-scripts` | repository root: `node bio-plane/src/wizard-scripts/build-data.mjs` (check: `--check`) | the design stream's `docs/development/ux-substrate/` registry, front doors and wizard library at the design commit wizard-scripts R41 names |
+-| `site/src/pages.mjs` (civicsmith.org's pages, K3372) | `site` | repository root: `node site/build.mjs` (check: `--check`) | `site`'s design drawing `SCR.site` at `SITE_COMMIT`, `words.json` through setup-words, `jurisdictions/profiles/` |
+-| `bio-plane/src/member-roster/order.mjs` (`MODULE_ORDER`'s source since CR-4, K3633, K3972, K3979) | `member-roster` | repository root: `node bio-plane/src/member-roster/order-build.mjs` (check: `--check`) | `build/modules.json` (regenerate whenever it changes) |
+-| `court-citations/court-data.mjs` (reporters-db and courts-db, translated) | `court-citations` | repository root: `node court-citations/build.mjs` (check: `--check`) | the vendored, pinned packages under `court-citations/vendor/` (K1518) |
+-| `sheet-worker/dist/sheet-worker.bundled.mjs`, `.bundle.json` | `sheet-worker` | `sheet-worker/`: `npm run build` (the vendored engine `assets/sheet-engine.wasm` is rebuilt only by `npm run build:engine`, which needs rustup's `wasm32-unknown-unknown` target and `wasm-bindgen-cli` 0.2.126; K1531) | `sheet-worker`, and `runtime-limits`' `cpu.mjs` |
+-
+-**Order (K1540):** regenerate member-roster's `order.mjs` (K3633, K3979), setup-words' `rows.mjs`, then `program.mjs` (it prints the members' words through setup-words' rows, so it follows them; K4355), `court-data.mjs` and wizard-scripts' data first, then the bundles with `node bio-plane/scripts/bundles.mjs` from the repository root (it rebuilds every stale bundle; the plane bundles `program.mjs`), then `newgroup`.
+-
+-**Verify, after regenerating:** `node --test bio-plane/test/system/fleetbundles.test.mjs` from the repository root (`verifyStatic` and `verifyFresh` over every member: input hashes, byte identity, externals). Also `node --test bio-plane/test/system/newgroup-bundle-fresh.test.mjs` for the installer's bundle. Each must print `0 fail` with no `SKIP`; a `SKIP` means a member's `node_modules` is missing (`npm ci` there first). Baseline on `tranche/T1` @ BOB #40's takeover: 96 pass, 0 fail, no skip.
++| `bio-plane/src/member-roster/order.mjs` | member-roster (from `build/modules.json`; K3633, K3972, K3979) | `node bio-plane/src/member-roster/order-build.mjs` | `node bio-plane/src/member-roster/order-build.mjs --check` |
++| `bio-plane/src/setup-words/rows.mjs`, `bio-plane/src/setup-words/words-unreviewed.json` | setup-words (from `words.json` and every `t(id, en)` call; K3366, K3932) | `node bio-plane/src/setup-words/build.mjs` | `node bio-plane/src/setup-words/build.mjs --check` |
++| `bio-plane/src/case-checker/program.mjs` | case-checker (through `bundler`; K1315) | `node bio-plane/src/case-checker/build-program.mjs` | `node --test bio-plane/test/m/case-checker/program.test.mjs` |
++| `court-citations/court-data.mjs` | court-citations (vendored packages; K1518) | `node court-citations/build.mjs` | `node court-citations/build.mjs --check` |
++| `bio-plane/src/wizard-scripts/screen-registry.mjs`, `bio-plane/src/wizard-scripts/front-doors.mjs`, `bio-plane/src/wizard-scripts/civicsmith-library.mjs` | wizard-scripts (the design registry; K3771) | `node bio-plane/src/wizard-scripts/build-data.mjs` | `node bio-plane/src/wizard-scripts/build-data.mjs --check` |
++| `site/src/pages.mjs` | site (K3372) | `node site/build.mjs` | `node site/build.mjs --check` |
++| `bio-plane/public/newgroup/index.html` | installer (R79; K4073) | `cd newgroup && node scripts/invite-page.mjs` | `cd newgroup && node scripts/invite-page.mjs --check` |
++| `bio-plane/dist`, `pdf-worker/dist`, `ocr-worker/dist`, `agent-runner/dist`, `agent-worker/dist`, `sheet-worker/dist`, `file-scanner/dist` | each member (`bundler`; the plane `not_product`) | `node bio-plane/scripts/bundles.mjs` | `node --test --test-force-exit bio-plane/test/system/fleetbundles.test.mjs` |
++| `newgroup/dist` | installer (K4083) | `cd newgroup && npm run build` | `node --test --test-force-exit bio-plane/test/system/newgroup-bundle-fresh.test.mjs` |
++
++The sheet-worker's vendored engine `assets/sheet-engine.wasm` is rebuilt only by `npm run build:engine` there (rustup's `wasm32-unknown-unknown` and `wasm-bindgen-cli` 0.2.126; K1531), never at a merge.
+ 
+ ## Parallel work: the UX design stream (Bob, 2026-10-01; K945)
+ 
+@@ -91,6 +86,6 @@ The READING-ARCHITECTURE lane designed how Civicsmith reads every file type and
+ 
+ ## Starting a session
+ 
+-- **ROOT** (mechanics §2, K156): started by Bob, the parent of every BOB; reads `roles/ROOT.md`. Current, on Bob's **primary** account: **ROOT #10**, `session_01XHjMEPkzmkLycoWtxb4yn6` (started by Bob 2026-10-26, replacing ROOT #7 `session_01NBNGB2ziVqiZg4ewLgRSWm`; K5313), replaced (by Bob) when its context passes 55% of its window (Bob, 2026-10-11, K2679). ROOT #5 `session_0187SrKsqhqzSTqwDk2hzcXy` is archived. On the **third** account, where the work runs since BOB #269 (K4786-K4790): **ROOT #9**, `session_01GndWUi5ubGmXCVVnFqtJAi` (started by Bob 2026-10-23; K4789), which started BOB #269. On the **secondary** account, superseded by ROOT #9 and unreachable from the third: **ROOT #8**, `session_01R3hvN64bYHG3vPQmYmaeLR` (started by Bob 2026-10-20; K4213), which started BOB #232 to #268; ROOT #6 `session_01FXbdTJZyPp3Bhcv7pfVSR1` (2026-10-07; K2022) is superseded. Sessions on one account are unreachable from the other. Earlier ROOTs are archived (rulings K693–K2022).
+-- **BOB:** read `roles/BOB.md` in the process repository, then this file, then `build/rulings-active.md`, then the latest handoff, `build/handoff.md`.
+-- **A module job:** read `roles/JOB.md` in the process repository; BOB's first message names the module and the tranche.
++- **ROOT** (mechanics §2, K156): started by Bob, the parent of every BOB; reads `roles/ROOT.md`; woken by a BOB's `send_message` and by the platform's event when a BOB it started fails. Current, on Bob's **primary** account: **ROOT #10**, `session_01XHjMEPkzmkLycoWtxb4yn6` (started by Bob 2026-10-26, replacing ROOT #7 `session_01NBNGB2ziVqiZg4ewLgRSWm`; K5313), replaced (by Bob) when its context passes 55% of its window (Bob, 2026-10-11, K2679). ROOT #5 `session_0187SrKsqhqzSTqwDk2hzcXy` is archived. On the **third** account, where the work runs since BOB #269 (K4786-K4790): **ROOT #9**, `session_01GndWUi5ubGmXCVVnFqtJAi` (started by Bob 2026-10-23; K4789), which started BOB #269. On the **secondary** account, superseded by ROOT #9 and unreachable from the third: **ROOT #8**, `session_01R3hvN64bYHG3vPQmYmaeLR` (started by Bob 2026-10-20; K4213), which started BOB #232 to #268; ROOT #6 `session_01FXbdTJZyPp3Bhcv7pfVSR1` (2026-10-07; K2022) is superseded. Sessions on one account are unreachable from the other. Earlier ROOTs are archived (rulings K693–K2022).
++- **BOB:** invoke the skill `civicos-bob` (`CLAUDE.md`); it names the takeover reading.
++- **A module job:** invoke the skill `civicos-job`; its first command prints the START.
+diff --git a/build/plan/bob-rulings-placed.txt b/build/plan/bob-rulings-placed.txt
+index 988c0076dc..a953d18411 100644
+--- a/build/plan/bob-rulings-placed.txt
++++ b/build/plan/bob-rulings-placed.txt
+@@ -7,3 +7,4 @@ K5038 · done: civicsmith.org and the installer deployed
+ K5175 · superseded for the alpha by K5257 and K5258 (in rulings-active)
+ K5183 · done: the work moved to Bob's primary account
+ K5298 · the alpha cut's checklist (`walk-T51-alpha/alpha-cut.md`) and the handoff: stewards@civicsmith.org
++K4976 · the process tool: a quiet or dropped job is `proc status` QUIET and the platform's child-session event (civicos-process mechanics §5.4); RUNNING retired with the mailbox
+diff --git a/build/rulings-active.md b/build/rulings-active.md
+index 5794801874..0c6fb2d5c6 100644
+--- a/build/rulings-active.md
++++ b/build/rulings-active.md
+@@ -1,38 +1,17 @@
+ # Rulings in force (read whole at takeover)
+ 
+-**Status** · Read whole at every takeover: what a BOB must follow beyond `roles/BOB.md` and the mechanics, each line a rule with its source ids. The full record, `build/rulings.md`, is searched on need, always before an act on `main` (§16). A ruling that changes a rule updates its line here in the same commit; a line out of force is removed. At most 80 lines and 25 KB (Bob, K5012), kept under 95 % (K5123): a new rule replaces or merges a line.
++**Status** · Read whole at every takeover: Bob's process judgments and BOB's standing conventions that no code, situation or product file holds. Bob's product rulings are under `build/rulings-product/<subject>.md`; the product's procedures under `build/situations/` (manifest); steps that must always happen are the process tool's and hooks' (K5326). The full record, `build/rulings.md`, is searched on need, always before an act on `main` (§16). A ruling that changes a rule updates its line here in the same commit; a line out of force is removed. At most 80 lines and 25 KB (Bob, K5012), kept under 95 % (K5123): a new rule replaces or merges a line.
+ 
+-## 1. Working with Bob
++## 1. Working with Bob, and how the work runs
+ - BOB decides and reports, never asks: packaging (where a function or ruled capability lives, splits, boundaries, `uses` edges, a field added to a provided service without changing its meaning; K2008); a release, only when its deployment or measurement lets held work into the next tranche, at most one per boundary, never mid-tranche from unmerged work (K1876); protective limits unless one changes what a member or group may do (K1881).
+ - Check Bob has not already answered; trust no "for Bob" label inherited from a plan or handoff (K1913, K2009). Record his ruling in his own words, adding no limit he did not state, BOB's additions marked "BOB's details (P17)"; his words govern a differing recorded ruling (K1762). A mechanics or tool text that changes no principle is BOB's (Bob, K5036: "WAY too low level for me"): BOB decides it, certifies it by a dry run (P3), reports it done; a principle changes only with Bob's approval (P16); recurring confusion is fixed by a fresh BOB and ROOT, not a principle change (K2020).
+ - BOB takes technical steps itself and brings Bob no approval request (K3466, K3600); any website may be reached for Civicsmith purposes without asking, its bot protection never worked around (K3656). A refused act is never worked around, split, rephrased or retried (K4696), except one K5120 approves standing (§2): take another legitimate route, else record the blocker. A waiting turn names only Bob's acts now (K4953).
+ - Anthropic's terms (Bob, K3540: "If you're not sure, or it's ambiguous in your mind, then don't bring it to me. Period."): state a point only after reading Anthropic's latest text live and quoting it, the register `build/terms/anthropic.md` (`AT-n`) updated; an unconfirmed, ambiguous or open (`U-n`) point is never brought to Bob and restricts nothing (K2425); never raise U-2 or U-7 (K3061).
+ - A tranche carries everything safely doable: no job-count cap, every rung of a ruled construct, each exclusion with its hard reason; with nothing doable none opens (K1741). "The next fix round" is no reason: at takeover and each placement, an item a plan or handoff leaves for later with none of P19's three reasons starts now as a job (K5006); the walks cover every row now, never after (K5122). An out-of-layer job needs Bob's approval each time (K1548), except in a release's fix round, which K3466 covers (K3528).
+-- Real users (Bob, K3052) must understand the product, be comfortable with it and pick journeys reflecting their interests. BOB pushes back, with reasons, on any ruling or plan, Bob's included, that leaves them something unfit: each plan is audited screen by screen and journey by journey against the design before it opens (a missing screen is a defect); a release is checked as administrator and member at `/` and every screen before Bob is told it is ready. Layout, wording, flow and look go to UX-DESIGN as one HANDOFF, BOB keeps what is broken (K3462).
+-- A release must render properly, be as close to fully functional as reasonable and work as designed (Bob, K3296); civicsmith.org at `workers.dev` first, then BOB walks Bob through his domain.
+-- Bob's answers (K3445 and earlier; in the requirements): the designed screens are the interface; Workers Paid required; images in the public GitHub registry each release; sessions 15 min idle (unkept), 30 min lock, 12 h (kept); Bob's test group may use the test-instance exception to D14's AI bar and his subscription.
+-- Anthropic is one provider of the multi-AI design (Bob, K4421); development aims at an assistant for several AIs chosen by team, project and member, explored first by AI-DESIGN (N1220). T51 and T52 add no assistant work (K3717: "Don't disable the assistant ... Just don't put any more effort into getting it to work.").
+-- AI accounts (K4443): a member's own subscription serves only that member, never a project, team or failover; a project's account is the project's, else the member's, else the group's; one at its limit refuses, never moving on. API keys (Bob, K3347: "Do NOT add API support unless and until we get subscription support fully running and debugged. And make a note NOT TO ASK AGAIN."): none added, BOB never raises it, withdrawn work waits as N1105.
+-- The assistant is understood bottom up (Bob, K3558): documentation, then low-level tests, each layer proven live before the one above, end-to-end only once every layer below is certain. It is investigated, not passed (K3574): records state what was measured, what held on repetition, what is unknown and the tradeoff, never pass/fail; where it runs is decided after every viable option is tested and compared (K3538). The journeys lane works a real investigation by hand through every stage it reaches (K3578).
+-- No cap on concurrent job sessions unless usage risks running out (Bob, K5323); what must always happen is code, not instructions (Bob, K5326); providers first; each archived at its merge; a CHANGE to a merged job is a new session (K4219). A job is merged only when its record's cursor has read BOB's newest entry (§5.5; K5171).
++- No cap on concurrent job sessions unless usage risks running out (Bob, K5323; `proc layer start --usage`); what must always happen is code, not instructions (Bob, K5326); providers first. A job's session stays to its layer's close and a CHANGE reaches it there (P10; the process redesign retires K4219's archive at merge and K5171's cursor, mechanics §5.5, §13).
+ - Development runs until Bob says pause (K2605); no layer or job waits on the meter, and token efficiency stands (K4614). Weekly usage is Bob's, never raised by BOB (K5136); accounts switch only when Bob says so, at the next layer close with no job live (handoff; Bob starts a ROOT there); sessions left behind get no `BOB-final` row; `build/channels.md`'s `BOB` row follows the account (K4790).
+-- T51's aim (Bob, K3815): "We're looking to build a system that can actually be used (without assistance)."; "I don't want any excuses for why you didn't do this or that in T51." It carries T50's focus (K3666, less the assistant): "can be walked and exercised unassisted through sample, though real-world, investigation journeys through to completion", every screen rendered and every control operating as designed (walked on biosmoke8 at 1280 and 390 px before Bob is told), and K3803's items: container images any install can pull (N1242), "team" for "group", the 43 failing tests, legacy-ui and the setup page retired; the release cut, deployed, walked live, every defect fixed in T51.
+-- T52 carries every pure wording sweep of `draft-T51-plan.md` (Bob, K3804: "they MUST happen in the next tranche") and the registers and trail (K4403: team-filtered imports, mechanical and never on AI; company officers out of the alpha and in the beta; automatic watches only for a project's stated interest). BOB does not raise the four AI choices (K3804). Design work enters T51 only for an operation that fails or a required screen nothing reaches; misused words go to `build/plan/later-ux.md` (K4269).
+-- An invited, not yet joined member is told at a weighty act's start (a filing, conclusion, case edition, the password-again acts) that only joined members may; gathering stays open (K4557).
+ - No scans (Bob, K3588: "you must not scan documents"): never act on a document read in part; read it whole, or stop, tell Bob in one line and trim or split it first (mechanics §17); after a search of `rulings.md` read whole every ruling relied on and Bob's on the same subject. A job about to read part of its set stops (`BLOCKED`, cause `reading`); BOB trims or splits it (K3678).
+ - No round-end step (redeploy, live walks) waits on a running study session (Bob, K5036).
+-- Deploy first, fix fast (Bob, K4297; K5257: "Deploy now. Once the deployment is done, do the live walk to learn about remaining real issues, but once the alpha deployment is done then change the focus to be development of the beta release with all of it's requirements included. Be efficient in your use of tokens, but don't defer work. Progress with a sense of urgency."): (1) deploy the test copy as it stands and walk it live; only a red test of a member's operation failing holds a deploy; the suite and test-hygiene work run beside, never a gate. (2) BOB or its worker fixes a stale test (test files only); product code stays a job's, one per cause. (3) A walk is one complete pass, defects grouped by cause, fixed in one round, one redeploy, a targeted re-walk. (4) At most two suites at once on 4 cores. (5) After the alpha is deployed, every effort goes to the beta with all its requirements. **No job or worker opens just to fix tests** (Bob, K5258) after the alpha, tests assert word keys, never English (Bob, K5313). **Until the alpha cut (K5311):** no new job unless a member's operation fails; running jobs merge; then artifacts, redeploy, cut, each step checked; process fixed before T52 (Bob, K5319).
+-- Every defect understood before the next deploy (Bob, K4426: "...really fixed every issue before we do another deployment."; K4597). Each walk defect has, in the fix plan the day it is written, (1) its root cause with evidence; (2) why tests missed it, that gap fixed; (3) a test of the walker's exact case through its real entry, seen red then green; (4) if platform-dependent, a check at its real shape. "Unknown" only with a diagnosis file holding a reproduction at that shape (K4428). One owning job per cause, closed only on the walker's case (K4427). BOB reads the cited code before placing; a worker's "probable" is never adopted (K4849).
+-- No load-dependent tests (Bob, K4787): a test red on a busy machine is fixed to assert work or a same-run control, or is a product defect when slow; the whole suite runs alone in its own session and container. A pass never clears a red seen under load: reproduce it under named load, instrument it to its timing cause, fix it, prove it green under that load (K4966). A run under `--test-force-exit` can lose reports; the close's runner, without it, is the authority (K5124).
+-- The scheduler heals itself unseen (Bob, K4565): a stall is never shown to anyone; a past alarm is never trusted, any request re-arms; the scheduled trigger is a watchdog, "efficient - but mission-critical bulletproof" (K4566), that never fails silently.
+-- Reading is never silent or failing: a web capture is answered within 15 s up to about 8 MB, a larger one at once as fetched in the background (K4562). A document a member supplies or captures is read whole, any bound that must stay is stated to the member (Bob, K4571: "silent scanning is death!"). A file within the standard's per-kind bound is never refused for size; one above, refused with its size stated (K4630). Every document is held, read whole and searchable; structured data is interpreted selectively, what was interpreted stated on its page (K4632, K4636).
+-- The beta's file standard (Bob, K4628; tiers N1267; folded in the requirements): every type a public body publishes or a member likely holds, read whole, searchable, citable; each major data type gets a cause-family review, a generated corpus each round end, its subset live each redeploy (K4785, K4798).
+-- No reading cause is fixed piecemeal (Bob, K4812): changes follow only the architecture he confirmed (K4831; in the requirements and `build/plan/reading-for-bob.html`): Workflows carry every read, heavy kinds read by established tools in a container BOB caps; the alpha ships today's limits, each stated to the member.
+-- The record's size (Bob, K4635): teams are told it depends on their Cloudflare plan and the infrastructure; now one Durable Object per team with a measured storage gauge and stated warnings; for the beta, split across objects with bulk tables in R2 (N1271). Service levels (K4746, in the requirements) name their design stage and Cloudflare plan, figures measured before a team sees them (K4747: the minimum in the alpha).
+-- The alpha's bar (Bob, K4781): after biosmoke8's new room is claimed, one real investigation is worked through every construct (regulations, court decisions, ties, organizations, standards, policies, money, conclusions, actions), first offline in Miniflare, then live; every defect a fix round in T51. Every design journey completes and every use case works or is held by Bob's exclusion with an honest screen (K4170).
+-- The alpha's new-team experience (Bob, K4935): an up-to-date civicsmith.org, installer and release; Bob installs the signed alpha into another Cloudflare account and walks it, after BOB's rehearsal on a fresh test copy passes (nothing told ready before). The installer checks the founder's account first and handles every unready condition in the interface, never asking a token or account id (K4937, K4951). The rehearsal's throwaway account is reached only by `CS_TEST_CF_TOKEN` and `CS_TEST_CF_ACCOUNT_ID` (K4942).
+-- Walks (Bob, K4782): targeted at areas not yet tested for the current tranche and changes since the last round (`build/plan/walk-coverage-T51.md`). A live walk runs 5 member walkers at once, every screen and act timed (K4783). Speed (K4354): a screen drawn and an act answered within 2 s, a web capture within 15 s, on the test copy; slower is a defect the PERFORMANCE lane reports.
+-- Long-term goals (Bob, K4164): "a source tree that isn't fragile", "architecturally clean", and rigorous, efficient bug-finding. A fix lands in the module that owns the cause; a cause needing edits across layers is fixed by moving ownership, never by spreading the edit; the dead-end census runs before every release.
+ 
+ ## 2. Standing approvals and recorded refusals (check before acting, §16)
+ - Standing list (both repositories' `.claude/settings.json`, Bob's): `mcp__github__merge_pull_request` (CLAUDE.md, K1177), `archive_session` under both tool names, `delete_trigger`, `mail.mjs xcheck`, `git rm -q --` under the four test directories, removing `.git/hooks`. A listed act refused anyway is §16 again, one-off; edits to `.claude/settings.json` are refused even with Bob's approval, Bob writes them (K1702, K620).
+@@ -41,38 +20,19 @@
+ - Releases (Bob, K5293, 2026-10-26: "You do not need my approval for a release. I've given you those permission - twice."; K5120): every act of a release, `dist/cut-*` pushes, its `ssh-keygen -Y verify` checks, the installer and site deploys, is BOB's without asking; a refusal by auto mode is answered by citing K5293 in the refused session, never relayed to Bob as a request. A signed release cut is merged into the open tranche branch at once (K3217). Tag pushes are refused by the git proxy (HTTP 403): never retry; branch `study/constructs` is never deleted (K1709).
+ - A job's session refused reading its own module's files by name ("Credential Materialization"): Bob approves in that job's session, not listed (K1758). A session showing auto mode's "no verdict" fault is replaced, not approved in (K273).
+ 
+-## 3. Standing doctrine and policy (not yet in requirements)
+-- Bob's construct rulings live in canon (Capability Ladders, Intake Doctrine §3, AI Roles §3 rule 11): apply them from there, do not re-ask (K1944). Substrate first: a member screen is never a precondition of a substrate stage (K1430).
+-- The installer alone installs every part of a group's Civicsmith, "without fail" (Bob, K3447); an account already holding a Civicsmith is a supported situation, not a question for Bob (K3471); every install situation is recorded the day it is seen in `build/plan/install-situations.md` (K3496).
+-- A member sees the assistant's progress as it happens and its answer only after Civicsmith's check (Bob, K3602). The assistant may read any public site to plan research, but nothing it reads enters the record: only the substrate's capture does (K1880).
+-- No credential travels in a URL; DEC-2, the root of trust, is not reopened (K1874). The cursor changes only over a control, never to a question mark (DEC-224, K3166).
+-- The stewards' service (Bob, K2819; folded in `stewards`): shown publicly only as "Civicsmith's stewards", Believe in Oakland responsible; anonymous reports accepted. Its contact address is named by Bob before any public release, which is not cut without it; a member's own hidden project is never rescued (K2782, K2799).
+-- Members' words (K3472): "team", never "group", in any text people read; "record", never "bundle"; "your team's Civicsmith" to members, "this team's Civicsmith" to a reader without credentials, never "copy", "instance" or "plane" (K1821).
+-- No member or administrator meets an old interface (Bob, K3052): the new interface replaced the setup page and legacy-ui for every user; both are retired (K4100), and an old interface brought back is a defect.
++## 3. Operational lessons
++- A push answered "Internal Server Error" is retried at once with `git -c http.version=HTTP/1.1 push` (K1977).
++- Before any test run, BOB follows `build/situations/job.md` (npm ci, bundle-test flags, background tasks; K4113, K3972, K4207).
++- A check is read by its failure count (K4668); a START asks an explicit test for ids other tests name (K874); a plane bundle over 32 MiB goes to Bob (K2547); a module's size (P6) is its own code's (K2513).
++- BOB reads its `context_usage` (`get_session`; its `max_tokens` is the window, K3987) at every backstop check and before every merge ruling, passes it to `proc merge --context`, and refreshes past 40 % (mechanics §2, §5.8); never early (Bob, K5167: "go back to the original means of watching the context windows").
++- A quiet job's session is read with `get_session` for one long live turn before a fresh session is started (K506).
+ 
+-## 4. Operational lessons
+-- A live instance is reached through the environment's proxy unchanged (Chromium `proxy: {server: HTTPS_PROXY}`), never the direct route (`--noproxy`, unset proxy variables, a private HOME; K4733). A live walk signs in with `JOURNEY_ADMIN_*`/`JOURNEY_MEMBER_*`; BOB debugs the running instance itself, Bob is never the tester (K3546).
+-- A push answered "Internal Server Error" is retried at once with `git -c http.version=HTTP/1.1 push` (K1977). `mail post` and `done` push the whole local tranche branch: only after a local merge is verified (K4683).
+-- Merge a complete job with `node build/plan/premerge.mjs <module> ...` (K5309); merge commits, never a rebase; one that re-applied tranche commits under new hashes only after checking it differs from the tranche only in its own paths and record (K1991). The ownership check runs against `git merge-base` (K1295). Before closing a layer, every `job/T<n>/*` branch is an ancestor of the tranche branch (K3797); a merge ruling is checked against the remote (K5113).
+-- A job branch is moved only by `mail jobbranch --module <m>` (civicos-process `prep/jobbranch-K4385` until T51's close): no session pushes to a job branch by hand and nothing is force-pushed (K4385); a branch far behind makes `mail start` conflict (K3969).
+-- Before any test run, in every container (Bob, K4113): `npm ci --ignore-scripts --no-audit --no-fund` in every directory with a tracked `package-lock.json` and no `node_modules` (a restart empties them).
+-- Run `newgroup-bundle-fresh` and `fleetbundles` with `node --test --test-force-exit` (K3972); never edit `modules.json` or `order.mjs` while a bundle build runs; never stop agent-worker's test run midway (restore from HEAD; K1994); a long command runs as a session-tracked background task, never a bare `nohup` (K4207).
+-- A check is read by its failure count (K4668); after each merge the words check runs over the merged modules (K3986); a START asks an explicit test for ids other tests name (K874); a plane bundle over 32 MiB goes to Bob (K2547); a module's size (P6) is its own code's (K2513); artifacts regenerate in the manifest's order, newgroup last (K1540).
+-- Every scripted edit is read back (K702); plane LIKE/GLOB patterns stay within workerd's 50 bytes, `sql.exec` cursors spread (K313); a table key, thrown `feature` or compared string code is an identifier, never a `localize` sentence (K3971).
+-- BOB reads its `context_usage` (`get_session`; its `max_tokens` is the window, K3987) at every backstop check and before every merge ruling, writes the figure in that ruling, and refreshes past 40 % (mechanics §2, §5.8); never early (Bob, K5167: "go back to the original means of watching the context windows").
+-- A refused doorbell is rung a minute later, never beside a destructive local command (K1825); on a point already answered, wait for the job's next entry (K1172); a QUIET job's session is checked for one long live turn before a restart (K506).
+-- A dropped container is caught by the tool (Bob, K4976; civicos-process `prep/running-cap-K4976` until T51's close): `RUNNING until` at most 30 minutes ahead; a RUNNING job 30 minutes past its last push, or a session idle or disconnected while its record says `WORKING` or `RUNNING`, is QUIET.
+-- Container images are built by workflow (GHCR, by digest), never in a session; the Cloudflare token is `bio-biosmoke7-deploy`, Containers - Edit (K1898, K1985).
+-
+-## 5. Standing BOB conventions
+-- A job never strikes a `not yet met` mark: it names the met ids and BOB strikes them at the merge (K787). A test names a requirement id at the module's interface; an id not yet met is named in a `test.todo`, never a red test or a pin of today's behaviour (K208).
++## 4. Standing BOB conventions
+ - Splitting a product module: copy, then delete, in one tranche; the new module builds by copy and merges early, then the source module's job deletes its copy and re-points; a moved id is retired as "moved to <module> R<n>", never reused (K624). A new module enters `modules.json` with empty `paths` and `tests`, filled from its job's COMPLETE, and carries a membership `MODULE_ORDER` (R83) entry in the same act (K1185, K1975).
+-- One code, one condition, one site: the module owning an absent object provides the helper and the row; distinct conditions get distinct codes; a member-facing refusal follows DEC-83's sentence-then-remedy pattern (K446). Merge in `modules.json` order, upstream first; promotion's stamp merges last in its layer (K1965). An entry found mid-tranche for a module whose job has not started joins that job's START when small (K411).
++- Merge in `modules.json` order, upstream first; promotion's stamp merges last in its layer (K1965).
+ - The handoff is `build/handoff.md`, replaced whole each time (K2026); it names the few rulings its successor must read, and every ruling of Bob's that sets how the work is done enters this file in the commit that records it. Every handoff prunes (Bob, K3559): lines no longer in force are removed, finished plans, drafts and walk files under `build/plan/` move to `build/plan/archive/`, and the handoff checks this file's count (K5012).
+ - Reading-set budgets: BOB's takeover set at most 250 KB; a module job's set at most 600 KB, measured by `build/plan/reading-sets.py` at each START; a set still over it is given a task digest by the job's workers (K2700). A job reads its requirements, entries, layer contract, own code, the used services its entries touch and the tests naming a requirement its entries change; its other tests are run, not read (K3271).
+-- Words: tests never copy a sentence people read; a test asserts the key or reads the expected text from the word table, and a wording change is a word-table edit, never a module job (K3810). Words are kept (Bob, K3930): a sentence is written once at its use as `localize(id, en, vars)` (K3943) and extracted into the word table by a build step; the table wins, code wording is never synced back. The `unkeyed` list is not counted by the check (K3944); a refusal `detail` is a sentence a member can read wherever it travels (K3985).
+-- Module tests at the providers' real shapes (Bob, K4990, K4993): a test never hand-builds another module's answer or a stub of its interface; it uses the provider's published fixture, produced by the provider's real code when the test runs, never stored; a `fixtures` check refuses hand-built answers (its text to Bob before it binds); the through-the-door seam test of each cause is written before its module jobs start.
+-- Fewer tiny-change fan-outs (K3268): a test asserts its own module's behaviour and never hand-lists another module's ops, rows or words; a split keeps the old module delegating to the new one; a wording-only requirement fix with no code change is BOB's edit, never a job (K3259).
++- A split keeps the old module delegating to the new one; a wording-only requirement fix with no code change is BOB's edit, never a job (K3259, K3268).
+ - Citations (K3676): a rule's line cites only the latest ruling that sets it. A body over about 50 KB that BOB must review whole is read by a reading worker told the task, never into BOB's own context.
+ - Effort (Bob, K3269, K3294, K3518): plans and STARTs spend fewer tokens. A job's model, BOB's choice at its START, is the cheapest able: haiku-5-5 for test-only, wording-only and mechanical re-points; sonnet-5-5 otherwise; the default only for a new module, a new provided service of over three ids, a screen job drawing the claim or first sign-in, or a restart after a Sonnet job blocks on tests. BOB on opus at medium; each worker spawn names model and effort (haiku low mechanical, else sonnet medium; never opus).
+ - Lanes (K3538, K3553, K3469, K3718; K5295: BOB starts each UX-DESIGN successor itself from its NEXT-SESSION-PROMPT, never asking Bob): UX-DESIGN (its charter includes dashboard-style entry points per area, K3053), PROCESS-REDESIGN (K5334), INVESTIGATION-DESIGN (each hand-off folded into requirements, answered with a K; K2076), AI-DESIGN, JOURNEYS, PERFORMANCE (K4351); BOB reads each `HANDOFF.md` at takeover and each backstop, each defect an entry (K3551); lanes change no code. A ruling of Bob's is posted that turn to every lane it touches, and rung when on BOB's account (K3082, K3086).
+diff --git a/build/rulings-product/ai.md b/build/rulings-product/ai.md
+new file mode 100644
+index 0000000000..8af522e5d3
+--- /dev/null
++++ b/build/rulings-product/ai.md
+@@ -0,0 +1,8 @@
++# Bob's product rulings: the assistant and AI accounts
++
++**Status** · Bob's product rulings on the assistant and AI accounts, by subject (Bob, K5323), read whole by the work that plans or changes the assistant, AI accounts or providers. Each line keeps its source ids; `build/rulings.md` is the full log. Moved from `rulings-active.md` when the process redesign was adopted; a ruling of Bob's on this subject is added here in the commit that records it. The four AI choices BOB never raises, and T52's assistant scope, are in `scope.md` (K3804).
++
++- Anthropic is one provider of the multi-AI design (Bob, K4421); development aims at an assistant for several AIs chosen by team, project and member, explored first by AI-DESIGN (N1220). T51 and T52 add no assistant work (K3717: "Don't disable the assistant ... Just don't put any more effort into getting it to work.").
++- AI accounts (K4443): a member's own subscription serves only that member, never a project, team or failover; a project's account is the project's, else the member's, else the group's; one at its limit refuses, never moving on. API keys (Bob, K3347: "Do NOT add API support unless and until we get subscription support fully running and debugged. And make a note NOT TO ASK AGAIN."): none added, BOB never raises it, withdrawn work waits as N1105.
++- The assistant is understood bottom up (Bob, K3558): documentation, then low-level tests, each layer proven live before the one above, end-to-end only once every layer below is certain. It is investigated, not passed (K3574): records state what was measured, what held on repetition, what is unknown and the tradeoff, never pass/fail; where it runs is decided after every viable option is tested and compared (K3538). The journeys lane works a real investigation by hand through every stage it reaches (K3578).
++- A member sees the assistant's progress as it happens and its answer only after Civicsmith's check (Bob, K3602). The assistant may read any public site to plan research, but nothing it reads enters the record: only the substrate's capture does (K1880).
+diff --git a/build/rulings-product/installer-accounts.md b/build/rulings-product/installer-accounts.md
+new file mode 100644
+index 0000000000..e4bd974f6b
+--- /dev/null
++++ b/build/rulings-product/installer-accounts.md
+@@ -0,0 +1,9 @@
++# Bob's product rulings: the installer, accounts and sign-in
++
++**Status** · Bob's product rulings on the installer, accounts and sign-in, by subject (Bob, K5323), read whole by the work that plans or changes the installer, accounts, sign-in or membership. Each line keeps its source ids; `build/rulings.md` is the full log. Moved from `rulings-active.md` when the process redesign was adopted; a ruling of Bob's on this subject is added here in the commit that records it.
++
++- Bob's answers (K3445 and earlier; in the requirements): the designed screens are the interface; Workers Paid required; images in the public GitHub registry each release; sessions 15 min idle (unkept), 30 min lock, 12 h (kept); Bob's test group may use the test-instance exception to D14's AI bar and his subscription.
++- An invited, not yet joined member is told at a weighty act's start (a filing, conclusion, case edition, the password-again acts) that only joined members may; gathering stays open (K4557).
++- The alpha's new-team experience (Bob, K4935): an up-to-date civicsmith.org, installer and release; Bob installs the signed alpha into another Cloudflare account and walks it, after BOB's rehearsal on a fresh test copy passes (nothing told ready before). The installer checks the founder's account first and handles every unready condition in the interface, never asking a token or account id (K4937, K4951). The rehearsal's throwaway account is reached only by `CS_TEST_CF_TOKEN` and `CS_TEST_CF_ACCOUNT_ID` (K4942).
++- The installer alone installs every part of a group's Civicsmith, "without fail" (Bob, K3447); an account already holding a Civicsmith is a supported situation, not a question for Bob (K3471); every install situation is recorded the day it is seen in `build/plan/install-situations.md` (K3496).
++- No credential travels in a URL; DEC-2, the root of trust, is not reopened (K1874). The cursor changes only over a control, never to a question mark (DEC-224, K3166).
+diff --git a/build/rulings-product/platform.md b/build/rulings-product/platform.md
+new file mode 100644
+index 0000000000..66185d1cf3
+--- /dev/null
++++ b/build/rulings-product/platform.md
+@@ -0,0 +1,6 @@
++# Bob's product rulings: the scheduler, the record's size and service levels
++
++**Status** · Bob's product rulings on the scheduler, the record's size and service levels, by subject (Bob, K5323), read whole by the work that plans or changes the scheduler, storage or service levels. Each line keeps its source ids; `build/rulings.md` is the full log. Moved from `rulings-active.md` when the process redesign was adopted; a ruling of Bob's on this subject is added here in the commit that records it.
++
++- The scheduler heals itself unseen (Bob, K4565): a stall is never shown to anyone; a past alarm is never trusted, any request re-arms; the scheduled trigger is a watchdog, "efficient - but mission-critical bulletproof" (K4566), that never fails silently.
++- The record's size (Bob, K4635): teams are told it depends on their Cloudflare plan and the infrastructure; now one Durable Object per team with a measured storage gauge and stated warnings; for the beta, split across objects with bulk tables in R2 (N1271). Service levels (K4746, in the requirements) name their design stage and Cloudflare plan, figures measured before a team sees them (K4747: the minimum in the alpha).
+diff --git a/build/rulings-product/quality.md b/build/rulings-product/quality.md
+new file mode 100644
+index 0000000000..fcdeb1549b
+--- /dev/null
++++ b/build/rulings-product/quality.md
+@@ -0,0 +1,9 @@
++# Bob's product rulings: the quality bar for members and releases
++
++**Status** · Bob's product rulings on the quality bar for members and releases, by subject (Bob, K5323), read whole by the work that plans a tranche or a round, cuts a release, or judges a screen, journey or speed. Each line keeps its source ids; `build/rulings.md` is the full log. Moved from `rulings-active.md` when the process redesign was adopted; a ruling of Bob's on this subject is added here in the commit that records it.
++
++- Real users (Bob, K3052) must understand the product, be comfortable with it and pick journeys reflecting their interests. BOB pushes back, with reasons, on any ruling or plan, Bob's included, that leaves them something unfit: each plan is audited screen by screen and journey by journey against the design before it opens (a missing screen is a defect); a release is checked as administrator and member at `/` and every screen before Bob is told it is ready. Layout, wording, flow and look go to UX-DESIGN as one HANDOFF, BOB keeps what is broken (K3462).
++- A release must render properly, be as close to fully functional as reasonable and work as designed (Bob, K3296); civicsmith.org at `workers.dev` first, then BOB walks Bob through his domain.
++- Speed (K4354): a screen drawn and an act answered within 2 s, a web capture within 15 s, on the test copy; slower is a defect the PERFORMANCE lane reports.
++- Long-term goals (Bob, K4164): "a source tree that isn't fragile", "architecturally clean", and rigorous, efficient bug-finding. A fix lands in the module that owns the cause; a cause needing edits across layers is fixed by moving ownership, never by spreading the edit; the dead-end census runs before every release.
++- Bob's construct rulings live in canon (Capability Ladders, Intake Doctrine §3, AI Roles §3 rule 11): apply them from there, do not re-ask (K1944). Substrate first: a member screen is never a precondition of a substrate stage (K1430).
+diff --git a/build/rulings-product/reading.md b/build/rulings-product/reading.md
+new file mode 100644
+index 0000000000..8978c6d968
+--- /dev/null
++++ b/build/rulings-product/reading.md
+@@ -0,0 +1,7 @@
++# Bob's product rulings: reading documents and the file standard
++
++**Status** · Bob's product rulings on reading documents and the file standard, by subject (Bob, K5323), read whole by the work that plans or changes how Civicsmith captures, reads or holds a document. Each line keeps its source ids; `build/rulings.md` is the full log. Moved from `rulings-active.md` when the process redesign was adopted; a ruling of Bob's on this subject is added here in the commit that records it.
++
++- Reading is never silent or failing: a web capture is answered within 15 s up to about 8 MB, a larger one at once as fetched in the background (K4562). A document a member supplies or captures is read whole, any bound that must stay is stated to the member (Bob, K4571: "silent scanning is death!"). A file within the standard's per-kind bound is never refused for size; one above, refused with its size stated (K4630). Every document is held, read whole and searchable; structured data is interpreted selectively, what was interpreted stated on its page (K4632, K4636).
++- The beta's file standard (Bob, K4628; tiers N1267; folded in the requirements): every type a public body publishes or a member likely holds, read whole, searchable, citable; each major data type gets a cause-family review, a generated corpus each round end, its subset live each redeploy (K4785, K4798).
++- No reading cause is fixed piecemeal (Bob, K4812): changes follow only the architecture he confirmed (K4831; in the requirements and `build/plan/reading-for-bob.html`): Workflows carry every read, heavy kinds read by established tools in a container BOB caps; the alpha ships today's limits, each stated to the member.
+diff --git a/build/rulings-product/scope.md b/build/rulings-product/scope.md
+new file mode 100644
+index 0000000000..d4017397c3
+--- /dev/null
++++ b/build/rulings-product/scope.md
+@@ -0,0 +1,8 @@
++# Bob's product rulings: the alpha's and the next tranches' scope
++
++**Status** · Bob's product rulings on the alpha's and the next tranches' scope, by subject (Bob, K5323), read whole by BOB when it writes a tranche's or a round's plan; lines here leave when their tranche closes. Each line keeps its source ids; `build/rulings.md` is the full log. Moved from `rulings-active.md` when the process redesign was adopted; a ruling of Bob's on this subject is added here in the commit that records it.
++
++- T51's aim (Bob, K3815): "We're looking to build a system that can actually be used (without assistance)."; "I don't want any excuses for why you didn't do this or that in T51." It carries T50's focus (K3666, less the assistant): "can be walked and exercised unassisted through sample, though real-world, investigation journeys through to completion", every screen rendered and every control operating as designed (walked on biosmoke8 at 1280 and 390 px before Bob is told), and K3803's items: container images any install can pull (N1242), "team" for "group", the 43 failing tests, legacy-ui and the setup page retired; the release cut, deployed, walked live, every defect fixed in T51.
++- T52 carries every pure wording sweep of `draft-T51-plan.md` (Bob, K3804: "they MUST happen in the next tranche") and the registers and trail (K4403: team-filtered imports, mechanical and never on AI; company officers out of the alpha and in the beta; automatic watches only for a project's stated interest). BOB does not raise the four AI choices (K3804). Design work enters T51 only for an operation that fails or a required screen nothing reaches; misused words go to `build/plan/later-ux.md` (K4269).
++- The alpha's bar (Bob, K4781): after biosmoke8's new room is claimed, one real investigation is worked through every construct (regulations, court decisions, ties, organizations, standards, policies, money, conclusions, actions), first offline in Miniflare, then live; every defect a fix round in T51. Every design journey completes and every use case works or is held by Bob's exclusion with an honest screen (K4170).
++- No member or administrator meets an old interface (Bob, K3052): the new interface replaced the setup page and legacy-ui for every user; both are retired (K4100), and an old interface brought back is a defect.
+diff --git a/build/rulings-product/stewards.md b/build/rulings-product/stewards.md
+new file mode 100644
+index 0000000000..f649f3d0e0
+--- /dev/null
++++ b/build/rulings-product/stewards.md
+@@ -0,0 +1,5 @@
++# Bob's product rulings: the stewards' service
++
++**Status** · Bob's product rulings on the stewards' service, by subject (Bob, K5323), read whole by the work that plans or changes the stewards' service, and every release cut. Each line keeps its source ids; `build/rulings.md` is the full log. Moved from `rulings-active.md` when the process redesign was adopted; a ruling of Bob's on this subject is added here in the commit that records it.
++
++- The stewards' service (Bob, K2819; folded in `stewards`): shown publicly only as "Civicsmith's stewards", Believe in Oakland responsible; anonymous reports accepted. Its contact address is named by Bob before any public release, which is not cut without it; a member's own hidden project is never rescued (K2782, K2799).
+diff --git a/build/rulings-product/tests.md b/build/rulings-product/tests.md
+new file mode 100644
+index 0000000000..c0e4155490
+--- /dev/null
++++ b/build/rulings-product/tests.md
+@@ -0,0 +1,5 @@
++# Bob's product rulings: tests
++
++**Status** · Bob's product rulings on tests, by subject (Bob, K5323), read whole by the work that writes, runs or judges a test (with `build/situations/job.md` for every job). Each line keeps its source ids; `build/rulings.md` is the full log. Moved from `rulings-active.md` when the process redesign was adopted; a ruling of Bob's on this subject is added here in the commit that records it.
++
++- No load-dependent tests (Bob, K4787): a test red on a busy machine is fixed to assert work or a same-run control, or is a product defect when slow; the whole suite runs alone in its own session and container. A pass never clears a red seen under load: reproduce it under named load, instrument it to its timing cause, fix it, prove it green under that load (K4966). A run under `--test-force-exit` can lose reports; the close's runner, without it, is the authority (K5124).
+diff --git a/build/rulings-product/words-ux.md b/build/rulings-product/words-ux.md
+new file mode 100644
+index 0000000000..444552a633
+--- /dev/null
++++ b/build/rulings-product/words-ux.md
+@@ -0,0 +1,6 @@
++# Bob's product rulings: members' words and interface conventions
++
++**Status** · Bob's product rulings on members' words and interface conventions, by subject (Bob, K5323), read whole by the work that writes a sentence people read, a refusal, or a screen. Each line keeps its source ids; `build/rulings.md` is the full log. Moved from `rulings-active.md` when the process redesign was adopted; a ruling of Bob's on this subject is added here in the commit that records it.
++
++- Members' words (K3472): "team", never "group", in any text people read; "record", never "bundle"; "your team's Civicsmith" to members, "this team's Civicsmith" to a reader without credentials, never "copy", "instance" or "plane" (K1821).
++- One code, one condition, one site: the module owning an absent object provides the helper and the row; distinct conditions get distinct codes; a member-facing refusal follows DEC-83's sentence-then-remedy pattern (K446).
+diff --git a/build/situations/deploy-and-walk.md b/build/situations/deploy-and-walk.md
+new file mode 100644
+index 0000000000..fac648af07
+--- /dev/null
++++ b/build/situations/deploy-and-walk.md
+@@ -0,0 +1,9 @@
++# Situation: deploying the test copy; a live walk
++
++**Status** · The product's own procedure, read whole by BOB before a deploy or a walk (the process's `roles/BOB.md` names this folder; the manifest lists each file). Bob's rulings it carries keep their source ids.
++
++- Deploy first, fix fast (Bob, K4297; K5257: "Deploy now. Once the deployment is done, do the live walk to learn about remaining real issues, but once the alpha deployment is done then change the focus to be development of the beta release with all of it's requirements included. Be efficient in your use of tokens, but don't defer work. Progress with a sense of urgency."): (1) deploy the test copy as it stands and walk it live; only a red test of a member's operation failing holds a deploy; the suite and test-hygiene work run beside, never a gate. (2) BOB or its worker fixes a stale test (test files only); product code stays a job's, one per cause. (3) A walk is one complete pass, defects grouped by cause, fixed in one round, one redeploy, a targeted re-walk. (4) At most two suites at once on 4 cores. (5) After the alpha is deployed, every effort goes to the beta with all its requirements. **No job or worker opens just to fix tests** (Bob, K5258) after the alpha, tests assert word keys, never English (Bob, K5313). **Until the alpha cut (K5311):** no new job unless a member's operation fails; running jobs merge; then artifacts, redeploy, cut, each step checked; process fixed before T52 (Bob, K5319).
++- Walks (Bob, K4782): targeted at areas not yet tested for the current tranche and changes since the last round (`build/plan/walk-coverage-T51.md`). A live walk runs 5 member walkers at once, every screen and act timed (K4783).
++- A live instance is reached through the environment's proxy unchanged (Chromium `proxy: {server: HTTPS_PROXY}`), never the direct route (`--noproxy`, unset proxy variables, a private HOME; K4733). A live walk signs in with `JOURNEY_ADMIN_*`/`JOURNEY_MEMBER_*`; BOB debugs the running instance itself, Bob is never the tester (K3546).
++- Container images are built by workflow (GHCR, by digest), never in a session; the Cloudflare token is `bio-biosmoke7-deploy`, Containers - Edit (K1898, K1985).
++- After a walk, its defects become the next round's entries, planned whole by `fix-round.md`; a redeploy is a milestone, after which the release is walked for rendering, every journey and the whole flow; job COMPLETEs are read by a haiku-low worker reporting success (K4269, K4270).
+diff --git a/build/situations/design-channel.md b/build/situations/design-channel.md
+new file mode 100644
+index 0000000000..55f670f51d
+--- /dev/null
++++ b/build/situations/design-channel.md
+@@ -0,0 +1,7 @@
++# Situation: the design stream and the lanes
++
++**Status** · The product's own procedure, read whole by BOB at takeover, at each backstop, and before recording a ruling of Bob's (the process's `roles/BOB.md` names this folder; the manifest lists each file). Bob's rulings it carries keep their source ids.
++
++- The UX design stream is reached across accounts by the channel (process mechanics §13.1, `node <process>/tools/mail.mjs xcheck`); its ownership rules are §13.1 item 5 and the manifest's "UX design stream" section.
++- Layout, wording, flow and look go to UX-DESIGN as one HANDOFF; BOB keeps what is broken; an incomprehensible screen is MAJOR, its unexplained terms quoted (K3462, K3460). Misused words go to `build/plan/later-ux.md` (K4269).
++- The lanes and how BOB reads them: `rulings-active.md` §4 ("Lanes") and the manifest's "Parallel work" sections.
+diff --git a/build/situations/fix-round.md b/build/situations/fix-round.md
+new file mode 100644
+index 0000000000..65f49f285d
+--- /dev/null
++++ b/build/situations/fix-round.md
+@@ -0,0 +1,6 @@
++# Situation: a round of fixes from a walk
++
++**Status** · The product's own procedure, read whole by BOB when it writes a round from walk defects (the process's `roles/BOB.md` names this folder; the manifest lists each file). Bob's rulings it carries keep their source ids.
++
++- Every defect understood before the next deploy (Bob, K4426: "...really fixed every issue before we do another deployment."; K4597). Each walk defect has, in the fix plan the day it is written, (1) its root cause with evidence; (2) why tests missed it, that gap fixed; (3) a test of the walker's exact case through its real entry, seen red then green; (4) if platform-dependent, a check at its real shape. "Unknown" only with a diagnosis file holding a reproduction at that shape (K4428). One owning job per cause, closed only on the walker's case (K4427). BOB reads the cited code before placing; a worker's "probable" is never adopted (K4849).
++- A fix round is a round (mechanics §5.2): its plan is fixed when it opens, and defects found while it runs go to the running job of their module, else to the next round.
+diff --git a/build/situations/job.md b/build/situations/job.md
+new file mode 100644
+index 0000000000..e768ee71bc
+--- /dev/null
++++ b/build/situations/job.md
+@@ -0,0 +1,12 @@
++# Situation: every module job's standing rules
++
++**Status** · The product's own procedure, read whole by every module job before it changes code (its START names this file) (the process's `roles/BOB.md` names this folder; the manifest lists each file). Bob's rulings it carries keep their source ids.
++
++- Before any test run (BOB too), in every container (Bob, K4113): `npm ci --ignore-scripts --no-audit --no-fund` in every directory with a tracked `package-lock.json` and no `node_modules` (a restart empties them).
++- Run `newgroup-bundle-fresh` and `fleetbundles` with `node --test --test-force-exit` (K3972); never edit `modules.json` or `order.mjs` while a bundle build runs; never stop agent-worker's test run midway (restore from HEAD; K1994); a long command runs as a session-tracked background task, never a bare `nohup` (K4207).
++- A test names a requirement id at the module's interface; an id not yet met is named in a `test.todo`, never a red test or a pin of today's behaviour (K208). The report's `**Met**` line names the ids met; `proc merge` strikes their marks (K787).
++- Every scripted edit is read back (K702); plane LIKE/GLOB patterns stay within workerd's 50 bytes, `sql.exec` cursors spread (K313); a table key, thrown `feature` or compared string code is an identifier, never a `localize` sentence (K3971).
++- Words: tests never copy a sentence people read; a test asserts the key or reads the expected text from the word table, and a wording change is a word-table edit, never a module job (K3810). Words are kept (Bob, K3930): a sentence is written once at its use as `localize(id, en, vars)` (K3943) and extracted into the word table by a build step; the table wins, code wording is never synced back. The `unkeyed` list is not counted by the check (K3944); a refusal `detail` is a sentence a member can read wherever it travels (K3985).
++- Module tests at the providers' real shapes (Bob, K4990, K4993): a test never hand-builds another module's answer or a stub of its interface; it uses the provider's published fixture, produced by the provider's real code when the test runs, never stored; a `fixtures` check refuses hand-built answers (its text to Bob before it binds); the through-the-door seam test of each cause is written before its module jobs start.
++- A test asserts its own module's behaviour and never hand-lists another module's ops, rows or words (K3268).
++- Tests: `build/rulings-product/tests.md`; members' words and refusals: `build/rulings-product/words-ux.md`.
+diff --git a/build/situations/release.md b/build/situations/release.md
+new file mode 100644
+index 0000000000..3664a32d54
+--- /dev/null
++++ b/build/situations/release.md
+@@ -0,0 +1,7 @@
++# Situation: cutting a release
++
++**Status** · The product's own procedure, read whole by BOB before it cuts, signs or announces a release (the process's `roles/BOB.md` names this folder; the manifest lists each file). Bob's rulings it carries keep their source ids.
++
++- A release is cut from the open tranche branch after the full regression (mechanics §11); what it changes reaches `main` only through the tranche's close.
++- Before it is cut: the dead-end census (`rulings-product/quality.md`, K4164); the stewards' contact address named by Bob (`rulings-product/stewards.md`); the release checked as administrator and member at `/` and every screen (`rulings-product/quality.md`, K3052); the new-team rehearsal (`rulings-product/installer-accounts.md`, K4935).
++- Every act of a release is BOB's without asking, and a signed cut is merged into the open tranche branch at once: `rulings-active.md` §2 ("Releases", K5293, K3217).
+-- 
+2.43.0
+

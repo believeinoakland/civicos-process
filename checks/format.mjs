@@ -75,7 +75,7 @@ export const TERMS_FIRST_RULING = 1764;
 // existing); any other reason fails." Each entry line of `build/plan/next.md` (one line each) carries `hard reason: `
 // and the text after it begins with one of NEXT_REASONS. No other plan file is judged.
 export const NEXT_REASONS = /^(?:Bob's|a deployment|a measurement|outside the product)/i;
-const ENTRY = /^- ((?:N|T\d+-)\d+|[A-Z]+-\d+) · /;
+const ENTRY = /^- ((?:N|T\d+[a-z]?-)\d+|[A-Z]+-\d+) · /;
 function nextReasons(root) {
   const p = join(root, 'build/plan/next.md');
   if (!existsSync(p)) return [];
@@ -299,7 +299,7 @@ export function checkFormat(root, { approvalsLastExempt = APPROVALS_LAST_EXEMPT,
     const keys = [];
     for (const line of readFileSync(join(root, plan), 'utf8').split('\n')) {
       if (/^\*\*[a-z][a-z0-9-]*\*\*(,\s*\*\*[a-z][a-z0-9-]*\*\*)*(\s*\(.*\))?\s*$/.test(line) || /^#/.test(line)) { under = line; continue; }
-      const m = line.match(/^- ((?:N|T\d+-)\d+|[A-Z]+-\d+) · /);
+      const m = line.match(/^- ((?:N|T\d+[a-z]?-)\d+|[A-Z]+-\d+) · /);
       if (m) keys.push(`${m[1]}\u0000${under}`);
     }
     const dup = keys.filter((k, i) => keys.indexOf(k) !== i).map((k) => k.split('\u0000')[0]);
