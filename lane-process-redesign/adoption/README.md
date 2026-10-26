@@ -19,3 +19,4 @@
 - **The archived jobs** (OP-CAPABILITIES #2, JOURNEY-CHECK #16): their entries go to T51b's R1 if the alpha needs them, else to T52 (`next.md`, P19 reason "Bob's", K5336).
 - **The first merge runs every artifact row**: `npm ci` in `file-scanner/` first (bio's SessionStart hook does not install it), or the bundle row's verify reads SKIP and fails.
 - **Step 2's PR** (`lane/process-redesign` to the process repository's `main`) is not open yet: open it yourself; its tests are `node --test checks/test/*.test.mjs tools/test/*.test.mjs` (242/242 at `90fe2c7`).
+- **(R8) The patch now retires bio's full-history download at session start.** Sessions start shallow; `proc` fetches history when a merge needs it. Before the T51b close's merge of `main`: `proc history --ref origin/main`. The old process (T51's close) still runs with the download until the patch lands, so T51's close is unaffected.

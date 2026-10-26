@@ -288,3 +288,13 @@ Tranche `tranche/D21` from `dryrun-main/D21` (`2b667c3`: the lane's tools at `f9
 | RD25 the round closes and the handoff reaches ROOT by message | `61c09b5`, `1f539d0`, `8b059e2`; `START BOB #2: tranche/D21 @ 460d7e3` arrived by `send_message` at 21:39:31 | PROVEN |
 
 Not live: the role-skill check (`proc shims` against the product's skills; the dry run's skills matched, so no act; fixture covers both cases) and the artifact table refused when unparsable (fixture). Findings: none. Cost: BOB #1 2.84 M, ALPHA #1 1.71 M tokens processed. Wall time: 21:36 to 21:39 UTC, three minutes.
+
+## D22 · 2026-10-26 · history on demand from a shallow start (lane HANDOFF R8)
+
+Tranche `tranche/D22`: `dryrun-main/D22` (the round plan) plus 80 commits, so a session's 50-commit clone cannot see where the tranche began. D22 BOB #1 (`session_01Sr2i1KuFfYhwimZ1tNdaSS`, sonnet), ALPHA #1 (haiku); the lane played ROOT.
+
+| path | evidence | result |
+| --- | --- | --- |
+| RD27 a session starts shallow, and the tool fetches the history a merge needs when it needs it | at start: shallow, 50 commits; round R1 merged (K1, 5/5), layer and round closed on the shallow clone; `proc history --ref origin/dryrun-main/D22` (the close's merge of `main`, stood in for) fetched it in 1.71 s (282 commits after); `git merge` then found its base ("Already up to date") | PROVEN |
+
+Not a finding of the process: takeover owed the archive of the seed's placeholder BOB (`session_01PROCESSREDESIGNPLACEHOLDER`), which auto mode refused, rightly; a seed names a real predecessor or none. The backstop was deleted by the lane. bio's start-up without the full download: measured on a fresh 50-commit clone of bio, 48 s with seven package installs (BOB #315's start with it: 3 min 31 s); the T51 close's own merge base was already within the clone.
