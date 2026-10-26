@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { add, sum } from '../src/index.mjs';
+import { add, sub, sum } from '../src/index.mjs';
 
 // Finite numbers covering every class: zeros of both signs, subnormals, the extremes,
 // fractions whose sum rounds, integers beyond 2^53, and seeded random values.
@@ -96,4 +96,24 @@ test('R4 sum throws a TypeError for an element that is not a finite number, coer
   }
 });
 
-test.todo('R7 sub returns a - b for two finite numbers, and throws a TypeError otherwise (D20)');
+test('R7 sub returns a - b for every pair of finite numbers in each class', () => {
+  for (const a of FINITE) {
+    for (const b of FINITE) {
+      assert.ok(Object.is(sub(a, b), a - b), `sub(${a}, ${b})`);
+    }
+  }
+  assert.equal(sub(5, 3), 2);
+  assert.equal(sub(1, 1), 0);
+  assert.equal(sub(-Number.MAX_VALUE, Number.MAX_VALUE), -Infinity); // a - b, overflow included
+});
+
+test('R7 sub throws a TypeError when either argument is not a finite number, coercing nothing', () => {
+  for (const bad of NOT_FINITE()) {
+    for (const ok of [0, -1, 2.5, Number.MAX_VALUE]) {
+      assert.throws(() => sub(bad, ok), TypeError, `sub(${typeof bad}, ${ok})`);
+      assert.throws(() => sub(ok, bad), TypeError, `sub(${ok}, ${typeof bad})`);
+    }
+    for (const bad2 of NOT_FINITE()) assert.throws(() => sub(bad, bad2), TypeError);
+  }
+  assert.throws(() => sub('5', 2), TypeError); // not coerced to 3
+});
