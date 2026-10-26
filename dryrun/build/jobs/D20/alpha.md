@@ -21,3 +21,24 @@
 
 Tests: 7/7. Checks: format, architecture, coverage, ownership 0 failures.
 Size (session_01FkV9sz1e7ScrjkABTStnXE): test runs 1, module lines 26
+
+## Completion (2026-10-26)
+
+# alpha D20 report (re-completion after CHANGE)
+
+**Entries applied**
+- N1, N2: as in the first completion (sub(a, b) and R7 tests).
+- CHANGE from BOB: added `// D20 change` as the first line of `alpha/src/index.mjs`.
+
+**Merged:** `origin/tranche/D20` (f316e62) into the job branch before the change, per BOB's note. The merge brought in BOB's update to alpha's requirements (R7 no longer marked "not yet met"). I took that as current.
+
+**Not done:** nothing.
+
+**Other modules:** nothing.
+
+**Tests:** `node --test alpha/test/alpha.test.mjs`: 7 pass, 0 fail.
+
+**Met** · R7
+
+Tests: 7/7. Checks: format, architecture, coverage, ownership 0 failures.
+Size (session_01FkV9sz1e7ScrjkABTStnXE): test runs 1, module lines 27
