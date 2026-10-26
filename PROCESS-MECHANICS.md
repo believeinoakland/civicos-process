@@ -84,6 +84,8 @@ A job for a module being written, or gaining capabilities, reads the **Purpose**
 
 A failed tranche is abandoned without touching `main`.
 
+**History on demand (P13).** A session starts on a shallow clone of its branch. The tool fetches older history only when a step needs to find where two branches split (`proc merge`, `job start`, `job complete`, `status`); before a merge BOB makes itself, `proc history --ref <ref>` does the same. No session downloads the whole history at start.
+
 ## 5. The tranche cycle (P10, P12, P13, P14, P18, P19)
 
 Each step is one command of the process tool, `node <process>/tools/proc.mjs <command> --product <product> --tranche T<n> …` (the command list is its header). A command checks the state it needs, does the whole step, commits, pushes and verifies the push, or refuses (exit 1, naming what is missing) and writes nothing; it never leaves a step half done (P16; Bob, K5326). A platform act a script cannot take (start, message or archive a session) is printed as the exact call and recorded in the plan's `Owed` line; the command that records its result clears it, and BOB's hooks (§5.11) refuse any other form of the call and the end of a turn while an act is owed. BOB reads, for each situation, the file `roles/BOB.md` names; this section says what each command does and why.

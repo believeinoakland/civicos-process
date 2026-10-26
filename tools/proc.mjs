@@ -24,7 +24,7 @@
 //         layer close --layer <L>   job archived --module <m> --usage <json>   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
 //         job complete --module <m> --report-file <f>
-//   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>
+//   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
@@ -56,6 +56,19 @@ export function repo(product) {
   const fetch = (...branches) => { for (const b of branches) { try { g(['fetch', '-q', 'origin', `+refs/heads/${b}:refs/remotes/origin/${b}`]); } catch { /* absent */ } } };
   const branch = () => g(['rev-parse', '--abbrev-ref', 'HEAD']);
   return { dir, root, g, rel, read, write, remote, fetch, branch };
+}
+// A cloud session starts on a shallow clone (its last 50 commits); older history stays on the remote and is fetched
+// only when a step needs it: where two lines of work split (bio's full-history download at session start is retired,
+// lane HANDOFF R8). Deepens the clone until `a` and `b` have a merge base, then returns it (null: no common history).
+export function history(R, a, b) {
+  const base = () => { try { return R.g(['merge-base', a, b]); } catch { return null; } };
+  const refs = [a, b].filter((x) => x.startsWith('origin/')).map((x) => `+refs/heads/${x.slice(7)}:refs/remotes/${x}`);
+  for (let depth = 200; ; depth *= 5) {
+    const found = base();
+    if (found || R.g(['rev-parse', '--is-shallow-repository']) !== 'true') return found;
+    if (depth > 125000) R.g(['fetch', '-q', '--unshallow', 'origin', ...refs]);
+    else R.g(['fetch', '-q', `--deepen=${depth}`, 'origin', ...refs]);
+  }
 }
 function on(R, want) { const b = R.branch(); if (b !== want) refuse(`check out ${want} first (on ${b})`); }
 // Commit the named files and push; a push that loses a race merges the remote once (never a rebase, never a force).
@@ -134,6 +147,14 @@ export function addr(o) {
 
 // ---- commands: BOB ----
 
+// Before a merge BOB makes itself (the tranche's close merges `main` into it, §5.7): the history that merge needs.
+export function historyCmd(o) {
+  const R = repo(o.product); const ref = o.ref || refuse('--ref <ref>, e.g. origin/main');
+  if (ref.startsWith('origin/')) R.fetch(ref.slice(7));
+  const base = history(R, ref, 'HEAD') ?? refuse(`${ref} shares no history with HEAD`);
+  return { ref, base, shallow: R.g(['rev-parse', '--is-shallow-repository']) === 'true' };
+}
+
 // §5.1 whole: the Status line, the role file, and everything a successor must act on, from git alone.
 export function takeover(o) {
   if (!/^BOB #\d+$/.test(o.name || '') || !SESSION.test(o.session || '')) refuse('--name "BOB #<n>" --session <id> --depth <d>');
@@ -167,7 +188,7 @@ export function status(o) {
     R.fetch(jb);
     const rec = parseRecord(R.remote(jb, recordPath(T, j.module)));
     let pushed = NaN; try { pushed = Number(R.g(['log', '-1', '--format=%ct', `origin/${jb}`])) * 1000; } catch { /* none */ }
-    let merged = false; try { R.g(['merge-base', '--is-ancestor', `origin/${jb}`, 'HEAD']); merged = true; } catch { /* not merged */ }
+    let merged = false; try { history(R, `origin/${jb}`, 'HEAD'); R.g(['merge-base', '--is-ancestor', `origin/${jb}`, 'HEAD']); merged = true; } catch { /* not merged */ }
     const state = rec?.state ?? 'NOT STARTED';
     const quiet = state === 'WORKING' && now - pushed > 60 * 60e3;
     const needs = [];
@@ -253,7 +274,7 @@ function pushJobBranch(R, T, m) {
   const jb = jobBranch(T, m), tip = R.g(['rev-parse', 'HEAD']);
   R.fetch(jb);
   let head = null; try { head = R.g(['rev-parse', `origin/${jb}`]); } catch { /* new */ }
-  if (head) { try { R.g(['merge-base', '--is-ancestor', head, tip]); } catch { return; } }   // holds its own work: the job merges the tranche itself
+  if (head) { try { history(R, `origin/${jb}`, tip); R.g(['merge-base', '--is-ancestor', head, tip]); } catch { return; } }   // holds its own work: the job merges the tranche itself
   R.g(['push', '-q', 'origin', `${tip}:refs/heads/${jb}`]);
 }
 // A session was created for a job: its address, and the owed start cleared.
@@ -288,7 +309,7 @@ export function merge(o) {
   const recText = R.remote(jb, recordPath(T, m)), rec = parseRecord(recText);
   if (rec?.state !== 'COMPLETE') refuse(`${m}: its record reads ${rec ? rec.state : 'no Status line'}, not COMPLETE`);
   const met = (recText.match(/^\*\*Met\*\* · (.*)$/m)?.[1] || '').split(/,\s*/).filter((x) => /^R\d+$/.test(x));
-  const base = R.g(['merge-base', 'HEAD', `origin/${jb}`]);
+  const base = history(R, 'HEAD', `origin/${jb}`) ?? refuse(`${m}: ${jb} shares no history with ${trancheBranch(T)}`);
   const own = run('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, base, `origin/${jb}`]);
   if (own.status !== 0) refuse(`${m}: ownership: ${lastLine(own)}`);
   const pre = R.g(['rev-parse', 'HEAD']);
@@ -416,6 +437,7 @@ export function jobStart(o) {
   const R = repo(o.product), T = o.tranche, m = o.module;
   on(R, jobBranch(T, m));
   R.fetch(trancheBranch(T));
+  history(R, `origin/${trancheBranch(T)}`, 'HEAD');
   try { R.g(['merge', '-q', '--no-edit', `origin/${trancheBranch(T)}`]); } catch { refuse(`merging ${trancheBranch(T)} into ${jobBranch(T, m)} conflicts: resolve it, then start`); }
   const path = recordPath(T, m), text = R.read(path), st = parseRecord(text);
   const line = `**Status** · ${o.session} · depth ${Number(o.depth)} · WORKING`;
@@ -444,7 +466,7 @@ export function jobComplete(o) {
   if (!/^\*\*Met\*\* · (none|R\d+(, R\d+)*)$/m.test(report)) refuse('the report names the requirement ids it meets: a line "**Met** · R1, R2" (or "**Met** · none")');
   if (R.g(['status', '--porcelain', '--untracked-files=no'])) refuse('commit your module\'s changes first');
   R.fetch(trancheBranch(T));
-  try { R.g(['merge-base', '--is-ancestor', `origin/${trancheBranch(T)}`, 'HEAD']); } catch { refuse(`merge ${trancheBranch(T)} into your branch first: BOB has changed it`); }
+  try { history(R, `origin/${trancheBranch(T)}`, 'HEAD'); R.g(['merge-base', '--is-ancestor', `origin/${trancheBranch(T)}`, 'HEAD']); } catch { refuse(`merge ${trancheBranch(T)} into your branch first: BOB has changed it`); }
   const tests = runTests(R, m);
   if (tests.fail || !tests.tests) refuse(`tests: ${tests.pass}/${tests.tests} pass; nothing marked complete`);
   const fails = [];
@@ -452,7 +474,7 @@ export function jobComplete(o) {
   // to the module where the check takes one; ownership against the merge base.
   const cs = ['format', 'architecture', 'coverage', 'fixtures', ...(existsSync(join(R.dir, 'docs/development/ux-substrate/screens/words.json')) ? ['words'] : [])];
   for (const c of cs) { const r = run('node', [join(PROCESS, `checks/${c}.mjs`), R.dir, ...(c === 'format' ? [] : [m])]); if (r.status) fails.push(`${c}: ${lastLine(r)}`); }
-  const own = run('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, R.g(['merge-base', 'HEAD', `origin/${trancheBranch(T)}`]), 'HEAD']);
+  const own = run('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, history(R, 'HEAD', `origin/${trancheBranch(T)}`), 'HEAD']);
   if (own.status) fails.push(`ownership: ${lastLine(own)}`);
   if (fails.length) refuse(`checks: ${fails.join('; ')}; nothing marked complete`);
   const text = R.read(path), st = parseRecord(text) ?? refuse(`${path}: run job start first`);
@@ -488,7 +510,7 @@ function args(argv) {
   return o;
 }
 const COMMANDS = {
-  takeover, status, addr, handoff, merge, shims,
+  takeover, status, addr, handoff, merge, shims, history: historyCmd,
   'round open': roundOpen, 'round close': roundClose, 'layer start': layerStart, 'layer close': layerClose,
   'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived,
   'job start': jobStart, 'job state': jobState, 'job complete': jobComplete,

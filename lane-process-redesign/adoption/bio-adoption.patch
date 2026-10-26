@@ -1,4 +1,4 @@
-From 8e882b82913555dcffdcefef419ffad8f8ad003c Mon Sep 17 00:00:00 2001
+From ef44ad1999f10a631f9e628878b8ea361f58d03b Mon Sep 17 00:00:00 2001
 From: PROCESS-REDESIGN #2 <noreply@anthropic.com>
 Date: Mon, 26 Oct 2026 21:32:00 +0000
 Subject: [PATCH] The process redesign adopted (bio K5334; civicos-process
@@ -9,6 +9,7 @@ Subject: [PATCH] The process redesign adopted (bio K5334; civicos-process
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01PpUDVnuZpceq4TvX8bQ7gq
 ---
+ .claude/hooks/session-start.sh              | 10 ++--
  .claude/skills/civicos-bob/SKILL.md         | 14 +++++
  .claude/skills/civicos-job/SKILL.md         | 14 +++++
  CLAUDE.md                                   | 14 ++---
@@ -29,7 +30,7 @@ Claude-Session: https://claude.ai/code/session_01PpUDVnuZpceq4TvX8bQ7gq
  build/situations/fix-round.md               |  6 ++
  build/situations/job.md                     | 12 ++++
  build/situations/release.md                 |  7 +++
- 20 files changed, 174 insertions(+), 86 deletions(-)
+ 21 files changed, 179 insertions(+), 91 deletions(-)
  create mode 100644 .claude/skills/civicos-bob/SKILL.md
  create mode 100644 .claude/skills/civicos-job/SKILL.md
  create mode 100644 build/rulings-product/ai.md
@@ -47,6 +48,34 @@ Claude-Session: https://claude.ai/code/session_01PpUDVnuZpceq4TvX8bQ7gq
  create mode 100644 build/situations/job.md
  create mode 100644 build/situations/release.md
 
+diff --git a/.claude/hooks/session-start.sh b/.claude/hooks/session-start.sh
+index bf5994b5a0..c5e66dbf42 100755
+--- a/.claude/hooks/session-start.sh
++++ b/.claude/hooks/session-start.sh
+@@ -48,10 +48,10 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+ fi
+ 
+ # 2 · full history ----------------------------------------------------------------------------
+-if [ "$(git -C "$REPO" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+-  say "unshallowing the clone"
+-  git -C "$REPO" fetch --quiet --unshallow origin || say "FAILED to unshallow — git-history checks will misread dates"
+-fi
++# RETIRED 2026-10-26 (the process redesign, civicos-process lane HANDOFF R8; Bob, in that lane's session): the full
++# history was fetched here for the old process's date checks (`tools/corpuscheck.mjs`, retired 2026-09-26), and cost
++# every session about 3 minutes (T51: 39,093 commits in 30 days). A session now starts shallow; the process tool fetches
++# the history a merge needs when it needs it (`proc history`, PROCESS-MECHANICS §4).
+ 
+ # 2b · the id ledger's directory: RETIRED 2026-10-01 with the old process's id allocator (T19 BOB-5, K653).
+ 
+@@ -60,7 +60,7 @@ fi
+ # (PROCESS-MECHANICS §8), and it is no longer installed.
+ 
+ # 3 · dependencies ----------------------------------------------------------------------------
+-for pkg in bio-plane pdf-worker ocr-worker newgroup; do
++for pkg in bio-plane pdf-worker ocr-worker newgroup file-scanner agent-runner sheet-worker; do   # the bundle members verified at each merge (manifest)
+   dir="$REPO/$pkg"
+   [ -f "$dir/package-lock.json" ] || continue
+   # Skip when an install exists and is newer than the lockfile; npm ci otherwise (it refuses drift).
 diff --git a/.claude/skills/civicos-bob/SKILL.md b/.claude/skills/civicos-bob/SKILL.md
 new file mode 100644
 index 0000000000..02124f5467

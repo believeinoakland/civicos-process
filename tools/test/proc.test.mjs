@@ -222,3 +222,24 @@ test('a ruling of Bob\'s with no home is owed at takeover and refuses the handof
   g(w.bobRoot, 'add', '-A'); g(w.bobRoot, 'commit', '-qm', 'placed'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
   assert.match(P.handoff(O(w.bob)).text, /^START BOB #3/);
 });
+
+test('a shallow clone fetches the history a merge needs, and only then (lane R8: no full download at session start)', () => {
+  const w = world();
+  // a job branch forks from the tranche, then the tranche moves 120 commits on
+  g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/job/${T}/alpha`);
+  for (let i = 0; i < 120; i++) { writeFileSync(join(w.bob, 'build/filler.txt'), `${i}\n`); g(w.bobRoot, 'add', '-A'); g(w.bobRoot, 'commit', '-qm', `filler ${i}`); }
+  g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  // a session's clone: its branch's last 5 commits only, as a cloud session starts with its last 50
+  const d = join(w.base, 'shallow');
+  execFileSync('git', ['clone', '-q', '--depth', '5', '-b', `tranche/${T}`, `file://${w.origin}`, d], { stdio: 'ignore' });
+  const R = P.repo(join(d, 'toy'));
+  R.fetch(`job/${T}/alpha`);
+  assert.equal(g(d, 'rev-parse', '--is-shallow-repository'), 'true');
+  assert.throws(() => g(d, 'merge-base', 'HEAD', `origin/job/${T}/alpha`));
+  const before = Number(g(d, 'rev-list', '--count', 'HEAD'));
+  const base = P.history(R, 'HEAD', `origin/job/${T}/alpha`);
+  assert.equal(base, g(d, 'rev-parse', `origin/job/${T}/alpha`));
+  assert.ok(Number(g(d, 'rev-list', '--count', 'HEAD')) > before);
+  // a merge base already present costs no fetch
+  assert.equal(P.history(R, 'HEAD', 'HEAD~1'), g(d, 'rev-parse', 'HEAD~1'));
+});
