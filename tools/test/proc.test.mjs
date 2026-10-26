@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, cpSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -118,11 +118,13 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   const rec = g(job.root, 'show', `origin/job/${T}/alpha:toy/build/jobs/${T}/alpha.md`);
   assert.match(rec, /· COMPLETE$/m);
   assert.match(rec, /^Size \(session_\w+\): test runs 1, module lines \d+$/m);
+  assert.match(rec, /Checks: format, architecture, coverage, fixtures, ownership 0 failures/);
 
   // the merge: one command, gates, ruling line, pushed and verified
   assert.deepEqual(P.status(O(w.bob)).jobs[0].needs, ['MERGE']);
-  const mg = P.merge(O(w.bob, { module: 'alpha' }));
+  const mg = P.merge(O(w.bob, { module: 'alpha', context: 12 }));
   assert.match(mg.ruling, /^K\d+$/);
+  assert.match(readFileSync(join(w.bob, 'build/rulings.md'), 'utf8'), /BOB's context 12 %/);
   // alpha's change made beta's bundle (which embeds alpha) stale: the merge regenerated and committed it (D19 finding 1)
   assert.ok(mg.regenerated.includes('beta/dist/bundle.txt'));
   assert.equal(execFileSync('node', ['beta/scripts/bundle.mjs', '--verify'], { cwd: w.bob }).toString().includes('STALE'), false);
@@ -192,4 +194,15 @@ test('artifacts: a row may name several paths; a Generated artifacts section wit
   assert.deepEqual(P.artifacts(R)[0].paths, ['x/dist', 'y/dist']);
   writeFileSync(mf, '# Build manifest\n\n## Generated artifacts\n\n| artifact | owner | regenerate | inputs |\n| `x/dist` | x | `x/`: `npm run build` | its source |\n');
   assert.throws(() => P.artifacts(R), /no row/);
+});
+
+test('a START names the product\'s standing rules for every job when the product has them', () => {
+  const w = world();
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  mkdirSync(join(w.bob, 'build/situations'), { recursive: true });
+  writeFileSync(join(w.bob, P.JOBRULES), '# Every job\n');
+  const ls = P.layerStart(O(w.bob, { layer: 1 }));
+  assert.match(readFileSync(join(w.bob, P.startPath(T, 'alpha')), 'utf8'), /read `build\/situations\/job\.md` whole/);
+  assert.equal(ls.specs.length, 1);
 });

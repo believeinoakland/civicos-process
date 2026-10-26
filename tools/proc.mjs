@@ -20,7 +20,7 @@
 // Usage: node tools/proc.mjs <command> --product <dir> --tranche <T> [options]
 //   BOB   takeover --name "BOB #n" --session <id> --depth <d>   status [--gate]   round open --round R<k> --plan <file>
 //         layer start --layer <L> [--usage <status>]   job started --module <m> --name "<M> #k" --session <id>
-//         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m>
+//         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m> [--context <pct>]
 //         layer close --layer <L>   job archived --module <m> --usage <json>   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
 //         job complete --module <m> --report-file <f>
@@ -35,6 +35,7 @@ const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const PLAN = 'build/plan/current.md';
 export const recordPath = (T, m) => `build/jobs/${T}/${m}.md`;
 export const startPath = (T, m) => `build/plan/starts-${T}/${m}.txt`;
+export const JOBRULES = 'build/situations/job.md';   // the product's standing rules for every job, named in each START
 export const jobBranch = (T, m) => `job/${T}/${m}`;
 export const trancheBranch = (T) => `tranche/${T}`;
 const SESSION = /^session_[0-9A-Za-z]+$/;
@@ -211,7 +212,7 @@ export function layerStart(o) {
   for (const m of mods) {
     const live = p.jobs.find((j) => j.module === m.id);
     const cmd = `node ${o.process || PROCESS}/tools/proc.mjs <command> --product ${R.rel('.')} --tranche ${T} --module ${m.id}`;
-    const body = `Round R${p.round}, layer ${L}, module ${m.id}, tranche ${T}. Your depth: ${p.bob.depth + 1}. BOB: ${p.bob.name} (${p.bob.session}).\nThe process tool: \`${cmd}\`. Start with \`<command>\` = \`job start --session <your session id> --depth ${p.bob.depth + 1}\`.\n\nEntries:\n${entriesOf(text, L, m.id)}\n`;
+    const body = `Round R${p.round}, layer ${L}, module ${m.id}, tranche ${T}. Your depth: ${p.bob.depth + 1}. BOB: ${p.bob.name} (${p.bob.session}).\nThe process tool: \`${cmd}\`. Start with \`<command>\` = \`job start --session <your session id> --depth ${p.bob.depth + 1}\`.\n${R.read(JOBRULES) !== null ? `Before changing code, read \`${JOBRULES}\` whole: the product's standing rules for every job.\n` : ''}\nEntries:\n${entriesOf(text, L, m.id)}\n`;
     R.write(startPath(T, m.id), body); paths.push(startPath(T, m.id));
     if (live) specs.push({ module: m.id, action: 'message', session: live.session, message: body });
     else specs.push({ module: m.id, action: 'create_session', source_url: sourceUrl(R), title: `${m.id.toUpperCase()} #${nextK(R, T, m.id)}`, source_revision: jobBranch(T, m.id), prompt: jobPrompt(m.id, T, { product: R.rel('.') }) });
@@ -285,7 +286,7 @@ export function merge(o) {
   }
   const reqPath = `build/requirements/${m}.md`, req = R.read(reqPath);
   if (req && met.length) R.write(reqPath, req.split('\n').map((l) => (met.some((id) => l.includes(`**${id}**`)) ? l.replace(` *(not yet met: ${T})*`, '') : l)).join('\n'));
-  const k = ruling(R, m, `Merged ${m} (${jb}): COMPLETE; ownership ${lastLine(own).replace(/^ownership: /, '')}; tests ${tests.pass}/${tests.tests}; checks 0 failures; struck ${met.join(', ') || 'none'}`, '§5.5; P7, P12');
+  const k = ruling(R, m, `Merged ${m} (${jb}): COMPLETE; ownership ${lastLine(own).replace(/^ownership: /, '')}; tests ${tests.pass}/${tests.tests}; checks 0 failures; struck ${met.join(', ') || 'none'}${o.context !== undefined ? `; BOB's context ${o.context} %` : ''}`, '§5.5; P7, P12');
   const commit = commitPush(R, trancheBranch(T), [reqPath, 'build/rulings.md'].filter((p) => R.read(p) !== null), `${k}: merged ${m}`);
   R.fetch(trancheBranch(T));
   if (R.g(['rev-parse', 'HEAD']) !== R.g(['rev-parse', `origin/${trancheBranch(T)}`])) refuse('pushed, but origin does not show the merge: read it by hand');
@@ -426,7 +427,10 @@ export function jobComplete(o) {
   const tests = runTests(R, m);
   if (tests.fail || !tests.tests) refuse(`tests: ${tests.pass}/${tests.tests} pass; nothing marked complete`);
   const fails = [];
-  for (const c of ['format', 'architecture', 'coverage']) { const r = run('node', [join(PROCESS, `checks/${c}.mjs`), R.dir, ...(c === 'format' ? [] : [m])]); if (r.status) fails.push(`${c}: ${lastLine(r)}`); }
+  // mechanics §8: format, architecture, coverage, fixtures, and words where the product has a word table, each scoped
+  // to the module where the check takes one; ownership against the merge base.
+  const cs = ['format', 'architecture', 'coverage', 'fixtures', ...(existsSync(join(R.dir, 'docs/development/ux-substrate/screens/words.json')) ? ['words'] : [])];
+  for (const c of cs) { const r = run('node', [join(PROCESS, `checks/${c}.mjs`), R.dir, ...(c === 'format' ? [] : [m])]); if (r.status) fails.push(`${c}: ${lastLine(r)}`); }
   const own = run('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, R.g(['merge-base', 'HEAD', `origin/${trancheBranch(T)}`]), 'HEAD']);
   if (own.status) fails.push(`ownership: ${lastLine(own)}`);
   if (fails.length) refuse(`checks: ${fails.join('; ')}; nothing marked complete`);
@@ -434,7 +438,7 @@ export function jobComplete(o) {
   const mod = modules(R).find((x) => x.id === m);
   const lines = (mod.paths || []).flatMap((p) => R.g(['ls-files', '--', R.rel(p)]).split('\n')).filter(Boolean).reduce((n, f) => n + readFileSync(join(R.root, f), 'utf8').split('\n').length, 0);
   const runs = [...text.matchAll(new RegExp(`^Size \\(${st.session}\\): test runs (\\d+)`, 'gm'))].map((x) => Number(x[1])).pop() + 1 || 1;   // this session's runs so far
-  const body = `${text.replace(RSTATUS, `**Status** · ${st.session} · depth ${st.depth} · COMPLETE`).trimEnd()}\n\n## Completion (${today()})\n\n${report}\n\nTests: ${tests.pass}/${tests.tests}. Checks: format, architecture, coverage, ownership 0 failures.\nSize (${st.session}): test runs ${runs}, module lines ${lines}\n`;
+  const body = `${text.replace(RSTATUS, `**Status** · ${st.session} · depth ${st.depth} · COMPLETE`).trimEnd()}\n\n## Completion (${today()})\n\n${report}\n\nTests: ${tests.pass}/${tests.tests}. Checks: ${cs.join(', ')}, ownership 0 failures.\nSize (${st.session}): test runs ${runs}, module lines ${lines}\n`;
   R.write(path, body);
   const commit = commitPush(R, jobBranch(T, m), [path], `${m} ${T}: COMPLETE`);
   return { commit, tests, bob: addr({ product: o.product, tranche: T, bob: true }), message: `${m.toUpperCase()} (${T}): COMPLETE at ${commit}. Tests ${tests.pass}/${tests.tests}; checks 0. Met: ${report.match(/^\*\*Met\*\* · (.*)$/m)[1]}.` };

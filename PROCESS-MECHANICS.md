@@ -99,7 +99,7 @@ Each step is one command of the process tool, `node <process>/tools/proc.mjs <co
 A tranche runs as one or more **rounds** (`situations/round.md`). A round's scope is fixed when it opens: its plan, entries grouped by module under `## Layer <n>`, is copied whole into `current.md` by `proc round open --round R<k> --plan <file>`, which refuses while another round is open. Work found while it runs goes to the running job of its module (§13), else to the START of its module's job in a layer not yet started, else into the next round's plan, which opens the moment this one closes: nothing found waits for another tranche, and no running round is re-planned (P10, P19). The tranche's completion round (P10) is its last round.
 1. Open no tranche while an archived plan reads `CLOSING` and `main` is behind it (§5.7), nor while the words check reports a finding (P12, P7).
 2. Every plan is written from the work that remains, with the hard reason for each entry left out (P19), and opens with its legacy census: each module marked legacy in `modules.json`, with the entry that retires it or the hard reason it stays.
-3. Opening a tranche, tell Bob in one line what it covers and ask for his weekly meter reading; the tranche does not wait for it (P14).
+3. Opening a tranche, tell Bob in one line what it covers. His weekly meter is noted when he gives it (P14); BOB never asks for it or raises it (Bob, bio K5136: "Don't worry about weekly usage. I'm watching it.").
 
 ### 5.3 Start a layer
 
@@ -115,7 +115,7 @@ A job's message wakes BOB (§13). Whatever wakes BOB, `proc status` reads every 
 
 ### 5.5 Merge a job
 
-`proc merge --module <m>` (`situations/merge-close.md`), as soon as a job's record reads COMPLETE, in the layer's merge order when the plan names one (P12). It refuses unless the record reads COMPLETE; runs the ownership check against the merge base (for an extraction BOB reads every `ADDED` line it lists, §12.2); merges with a merge commit; regenerates and verifies every generated artifact (§14); runs the module's tests and the checks, and undoes the merge if anything is red; strikes the `*(not yet met: T<n>)*` marks the report's `**Met**` line names (§3); writes the ruling line (§9); pushes and verifies on origin. A red is never merged: the job fixes it, or BOB re-scopes its entry with the job (P7). The job's session stays active until its layer closes (P10): a later CHANGE re-opens it, and it is merged again when it is complete once more.
+`proc merge --module <m> --context <BOB's context %>` (`situations/merge-close.md`), as soon as a job's record reads COMPLETE, in the layer's merge order when the plan names one (P12). It refuses unless the record reads COMPLETE; runs the ownership check against the merge base (for an extraction BOB reads every `ADDED` line it lists, §12.2); merges with a merge commit; regenerates and verifies every generated artifact (§14); runs the module's tests and the checks, and undoes the merge if anything is red; strikes the `*(not yet met: T<n>)*` marks the report's `**Met**` line names (§3); writes the ruling line (§9) with BOB's context figure (bio K5167); pushes and verifies on origin. A red is never merged: the job fixes it, or BOB re-scopes its entry with the job (P7). The job's session stays active until its layer closes (P10): a later CHANGE re-opens it, and it is merged again when it is complete once more.
 
 ### 5.6 Close a layer
 
@@ -128,7 +128,7 @@ Each step is pushed, so an interrupted close is a named state any BOB resumes (P
 2. Archive the plan as `archive/T<n>.md` on the tranche branch, with each entry's outcome and the tranche's measured usage, its Status `CLOSING` (P12, P14).
 3. Bring `main` to that commit through a pull request from `tranche/T<n>` to `main`, merged with the GitHub merge tool (method `merge`), never a direct push: BOB's hook allows the merge only once the plan reads CLOSING, and refuses any push to `main`. The tranche is closed exactly when `main` contains that commit. Its authority is Bob's standing direction in the product's `CLAUDE.md` (bio K1177). A refused step is §16's (P12, P17).
 4. Delete the backstop (P13).
-5. Ask Bob for his weekly meter reading again and report the tranche in plain words: elapsed time, the work finished (legacy lines removed, entries applied), what was deferred and why, the work left, what it cost (P14, P19).
+5. Report the tranche to Bob in plain words (his meter is noted only when he gives it, §5.2): elapsed time, the work finished (legacy lines removed, entries applied), what was deferred and why, the work left, what it cost (P14, P19).
 6. Open the next tranche at once (§5.2) (P18).
 
 ### 5.8 Refresh: handoff to a successor through ROOT
@@ -163,11 +163,11 @@ The same Stop refusal three times running lets the turn end, so a cause the sess
 
 A job follows `roles/JOB.md`, its whole standing instruction, and writes its record only through the tool: `proc job start` (merges the tranche into its branch, writes its Status line naming its session and depth, counts its sessions, prints its START), `proc job state --set <STATE>`, and `proc job complete --report-file <f>`. Its record's states are `WORKING`, `WAITING: <the question in one line>`, `BLOCKED: <tests|context|reading|needs Bob> …`, `NEEDS BOB: <the one act>`, and `COMPLETE`, set only by `job complete`. A state that waits is the record a successor BOB reads, so a question is never only in a message (§13).
 
-1. **Read in full**, never scanned: its own requirements (both parts); its entries; its layer's contract; its own code; of each module it uses, the services its entries touch (§3); and the tests that name a requirement its entries change. Its other tests are run, not read.
+1. **Read in full**, never scanned: the product's standing rules for every job when its START names them (`build/situations/job.md`); its own requirements (both parts); its entries; its layer's contract; its own code; of each module it uses, the services its entries touch (§3); and the tests that name a requirement its entries change. Its other tests are run, not read.
 2. **Ambiguity:** a QUESTION (§13), carrying on against its best reading, stated in the question; it stops only if the answer decides what it builds next. When BOB answers, it merges the tranche branch if BOB changed a file it reads.
 3. **Change the module** to apply every entry, and deal with every flaw or improvement found in it in the job whenever possible (P8). One it cannot finish goes to BOB, who places it in this tranche (P10); it waits for another tranche only for one of P19's three reasons.
 4. **Test.** Every requirement id is named by a test that checks full compliance with it at the interface (P7). The module's tests, then its layer's; a job that changed a provided service also runs the tests of the modules that use it, after BOB has updated the requirements (§7).
-5. **Complete:** `proc job complete` refuses while the report lacks its `**Met**` line, the work is uncommitted, the tranche has moved past the branch, a test is red, or a check fails (format, architecture, coverage, ownership; §8); when it passes it writes the completion report with the line `Size (<session id>): test runs <n>, module lines <n>` (§10), sets COMPLETE, pushes, and prints the message for BOB. The job **stays available** until BOB archives its session at the layer's close: a CHANGE re-opens it, and it completes again.
+5. **Complete:** `proc job complete` refuses while the report lacks its `**Met**` line, the work is uncommitted, the tranche has moved past the branch, a test is red, or a check fails (format, architecture, coverage, fixtures, words where the product has a word table, ownership; §8); when it passes it writes the completion report with the line `Size (<session id>): test runs <n>, module lines <n>` (§10), sets COMPLETE, pushes, and prints the message for BOB. The job **stays available** until BOB archives its session at the layer's close: a CHANGE re-opens it, and it completes again.
 
 **When tests will not pass** after three honest attempts, the job sets `BLOCKED: tests: …` and works the problem with BOB, who can clarify a requirement, route a cause found in another module, or re-scope the entry. Only if the two cannot resolve it is that entry deferred, and the job completes the rest. **A job whose context passes half its window** finishes its step, pushes, sets `BLOCKED: context: next is <step>`, and tells BOB, who starts its successor (§5.4).
 
@@ -192,7 +192,7 @@ Each question comes with an explanation he can understand, a set of options, and
 
 ## 8. The seven checks (P4, P7, P15, P16)
 
-Small tools in the process repository; with `tools/proc.mjs`, `tools/hooks.mjs` (§5) and `tools/mail.mjs` (§13.1), the only process tooling. `proc job complete` runs the first four for a job, `proc merge` and `proc layer close` run them all (`checks/run.mjs`):
+Small tools in the process repository; with `tools/proc.mjs`, `tools/hooks.mjs` (§5) and `tools/mail.mjs` (§13.1), the only process tooling. `proc job complete` runs all but channels for a job, scoped to its module, `proc merge` and `proc layer close` run them all (`checks/run.mjs`):
 1. **Architecture:** every product file is in exactly one module's `paths`, and every import is to the module itself or to a module earlier in the order that is declared in `uses`.
 2. **Coverage:** every live requirement id is named by at least one of the module's tests.
 3. **Ownership:** a job's diff touches only its module's `paths` and `tests` and its job record; an extraction job's additions to its legacy module are only imports from its own paths and lines that use them, with a net removal, each listed for BOB (§12.2); a line changed only by removing text from it counts as removed, not added (P7).
