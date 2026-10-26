@@ -1,0 +1,6 @@
+Round R1, layer 1, module alpha, tranche D19. Your depth: 2. BOB: BOB #1 (session_01WPPHiKWTxangtKbuuHat16).
+The process tool: `node /home/user/civicos-process/tools/proc.mjs <command> --product dryrun --tranche D19 --module alpha`. Start with `<command>` = `job start --session <your session id> --depth 2`.
+
+Entries:
+- N1 · Add the provided service `mul(a, b) → number` that meets alpha R6 (in alpha's requirements, marked not yet met; replace the `test.todo` for R6 with a real test). R6 does not say what `mul` does when an argument is not a finite number: ask BOB (set your state WAITING with the question and your best reading, then message BOB), carry on with your best reading, and meet BOB's answer.
+- N2 · Once, before you complete, run `git push origin HEAD:refs/heads/tranche/D19` and quote in your report what refused it.
