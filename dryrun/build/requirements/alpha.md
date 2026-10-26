@@ -20,7 +20,7 @@ Arithmetic on numbers.
 - **R4** Throws a `TypeError` when an element is not a finite number (a non-number, `NaN` or an infinity); nothing is coerced or skipped.
 
 **mul(a, b) → number** (added by BOB for D19)
-- **R6** Returns `a * b` for two finite numbers. *(not yet met: D19)*
+- **R6** Returns `a * b` for two finite numbers. It throws a TypeError for a non-finite argument, as add does (R5). *(not yet met: D19)*
 
 ## Private
 
