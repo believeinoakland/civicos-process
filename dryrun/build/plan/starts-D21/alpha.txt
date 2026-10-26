@@ -1,0 +1,6 @@
+Round R1, layer 1, module alpha, tranche D21. Your depth: 2. BOB: BOB #1 (session_01Q9MkLzV5Y3TzjjRRNT6GXr).
+The process tool: `node /home/user/civicos-process/tools/proc.mjs <command> --product dryrun --tranche D21 --module alpha`. Start with `<command>` = `job start --session <your session id> --depth 2`.
+Before changing code, read `build/situations/job.md` whole: the product's standing rules for every job.
+
+Entries:
+- N1 · Add the line `// D21: alpha touched` as the first line of `alpha/src/index.mjs`, then complete. In your report, quote the D21 marker line of the product's rules for every job (your START names the file).
