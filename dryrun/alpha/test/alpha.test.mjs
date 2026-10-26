@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { add, sum } from '../src/index.mjs';
+import { add, mul, sum } from '../src/index.mjs';
 
 // Finite numbers covering every class: zeros of both signs, subnormals, the extremes,
 // fractions whose sum rounds, integers beyond 2^53, and seeded random values.
@@ -96,4 +96,25 @@ test('R4 sum throws a TypeError for an element that is not a finite number, coer
   }
 });
 
-test.todo('R6 mul returns a * b for two finite numbers (D19)');
+test('R6 mul returns a * b for every pair of finite numbers in each class', () => {
+  for (const a of FINITE) {
+    for (const b of FINITE) {
+      assert.ok(Object.is(mul(a, b), a * b), `mul(${a}, ${b})`);
+    }
+  }
+  assert.equal(mul(2, 3), 6);
+  assert.equal(mul(-1, 1), -1);
+  assert.equal(mul(Number.MAX_VALUE, 2), Infinity); // a * b, overflow included
+  assert.ok(Object.is(mul(0, -1), -0)); // a * b, sign of zero included
+});
+
+test('R6 mul throws a TypeError when either argument is not a finite number, coercing nothing', () => {
+  for (const bad of NOT_FINITE()) {
+    for (const ok of [0, -1, 2.5, Number.MAX_VALUE]) {
+      assert.throws(() => mul(bad, ok), TypeError, `mul(${typeof bad}, ${ok})`);
+      assert.throws(() => mul(ok, bad), TypeError, `mul(${ok}, ${typeof bad})`);
+    }
+    for (const bad2 of NOT_FINITE()) assert.throws(() => mul(bad, bad2), TypeError);
+  }
+  assert.throws(() => mul('2', 3), TypeError); // coerced to 6 without the check
+});
