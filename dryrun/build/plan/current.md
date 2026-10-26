@@ -1,6 +1,7 @@
 # Plan D20
 
 **Status** · OPEN · BOB #1 · session_013Dy2gsxdAiYHMTwKpw6LHd · depth 1
+**Owed** · start alpha
 **Round** · R1 · layer 1 OPEN
 
 The dry run D20 of the process redesign (dryrun/CERTIFICATION.md, D20).

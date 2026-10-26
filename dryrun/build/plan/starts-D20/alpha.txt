@@ -1,0 +1,6 @@
+Round R1, layer 1, module alpha, tranche D20. Your depth: 2. BOB: BOB #1 (session_013Dy2gsxdAiYHMTwKpw6LHd).
+The process tool: `node /home/user/civicos-process/tools/proc.mjs <command> --product dryrun --tranche D20 --module alpha`. Start with `<command>` = `job start --session <your session id> --depth 2`.
+
+Entries:
+- N1 · First, right after `job start`, end your turn once without changing your state, and quote in your report what stopped you; then carry on.
+- N2 · Add the provided service `sub(a, b) → number` that meets alpha R7 (in alpha's requirements, marked not yet met; replace the `test.todo` for R7 with real tests), then complete. BOB will later send you a CHANGE in this same session: apply it and complete again.
