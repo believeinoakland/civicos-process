@@ -1,3 +1,4 @@
+// D26: alpha touched
 // alpha: arithmetic for the dry run's toy product.
 
 function finite(x, who) {
