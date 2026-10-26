@@ -1,6 +1,6 @@
 # Plan D19
 
-**Status** · OPEN · BOB #1 · session_01WPPHiKWTxangtKbuuHat16 · depth 1
+**Status** · OPEN · BOB #2 · session_01NtgMUbqYG9WJVQgPPoXHpD · depth 1
 **Jobs** · alpha: ALPHA #1 session_01ArFnUrLd3iuSMDRE9tnazR; beta: BETA #1 session_01XXaDQD4aj4wzqDYQquEsPz
 **Owed** · none
 **Round** · R1 · layer 1 OPEN
