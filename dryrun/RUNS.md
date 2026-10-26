@@ -322,3 +322,14 @@ Its seed pointed `origin/main` at the run's base, which the layer close would ha
 | RD31 the layer close runs every check once, refusing only findings new since the tranche opened | second attempt: closed in 3.1 s with R98 (old) present | PROVEN after finding 1 |
 
 **Finding 1:** the first close was refused, naming R98 as new: deepening history to find the tranche's start had re-fetched `origin/main` from the real `main`, moving the run's pinned base. Fixed: deepening never moves a ref the session holds (`cd89726`; fixture test seen red without the fix). Re-run as D26.
+
+## D26 · 2026-10-26 · D25 re-run on the deepen fix
+
+`tranche/D26` from `dryrun-main/D26` (D25's seed and old debt, on `cd89726`). D26 BOB #1 (`session_01KF48a3b7uTKuJGHurgT7wY`, sonnet), ALPHA #1 (haiku).
+
+| path | evidence | result |
+| --- | --- | --- |
+| RD30 | `Inherited reds: ["D26 old red"]`; K1: "tests 5/6 (inherited reds 1); checks: no new finding"; `proc merge` 4.4 s | PROVEN |
+| RD31 | `proc layer close` at its first attempt, 3.6 s, with R98 (old) present; `origin/main` the pinned base | PROVEN (D25 finding 1 fixed) |
+
+Noted: BOB ran a plain `git fetch origin` of its own, which moved the dry run's pinned `origin/main` (in a product `origin/main` is the real `main`); it restored it before the close and said so.
