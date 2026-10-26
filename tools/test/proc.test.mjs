@@ -46,6 +46,11 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   assert.match(readFileSync(join(w.bob, P.PLAN), 'utf8'), new RegExp(`^\\*\\*Status\\*\\* · OPEN · BOB #2 · ${B1} · depth 1$`, 'm'));
   assert.ok(tk.acts.some((a) => /archive BOB #1/.test(a)) && tk.acts.some((a) => /backstop/.test(a)));
   assert.equal(P.readRole(w.bobRoot).role, 'bob');
+  assert.deepEqual(tk.size, []);
+  // the role skills are absent in this product: writing them is owed; once written by `proc shims`, nothing is
+  assert.ok(tk.acts.some((a) => /civicos-bob\/SKILL\.md is missing/.test(a)));
+  P.shims({ out: join(w.bobRoot, '.claude/skills'), process: join(HERE, '..', '..') });
+  assert.equal(P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 })).acts.filter((a) => /role skill/.test(a)).length, 0);
 
   // a round's plan is fixed when it opens; a second open while it runs is refused
   P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
@@ -167,4 +172,15 @@ test('shims: one skill per role, hooks in the frontmatter, the role text loaded 
   assert.match(s['civicos-job'], /^---\nname: civicos-job\n/);
   assert.match(s['civicos-job'], /command: 'node "\/home\/user\/civicos-process\/tools\/hooks.mjs" job stop'/);
   assert.match(s['civicos-bob'], /!`cat "\/home\/user\/civicos-process\/roles\/BOB.md"/);
+});
+
+test('status lists a document over its limit for BOB to prune (mechanics §17); takeover owes the prune; nothing is refused', () => {
+  const w = world();
+  writeFileSync(join(w.bob, 'build/handoff.md'), 'x'.repeat(25601));
+  const st = P.status(O(w.bob));
+  assert.deepEqual(st.size, ['SIZE build/handoff.md 25601 > 25600']);
+  const tk = P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  assert.ok(tk.acts.some((a) => /^prune build\/handoff\.md under its limit/.test(a)));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  assert.equal(P.layerStart(O(w.bob, { layer: 1 })).specs.length, 1);
 });

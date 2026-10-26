@@ -29,6 +29,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sizeLines } from './mail.mjs';
 
 const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const PLAN = 'build/plan/current.md';
@@ -143,9 +144,18 @@ export function takeover(o) {
   if (Number(o.depth) !== 1) acts.push(`tell Bob: BOB at depth ${o.depth}, not 1 (P13)`);
   if (before.bob && before.bob.session !== o.session) acts.push(`archive ${before.bob.name} ${before.bob.session} once idle, then: proc bob archived --name "${before.bob.name}" --session ${before.bob.session} --usage '<archive_session usage json>'`, `delete every routine into ${before.bob.session}`);
   acts.push('arm the backstop: send_later into your own session, 60 minutes (DESIGN §2.7)');
-  return { commit, previous: before.bob, owed: before.owed, jobs: status(o).jobs, acts };
+  // A product inside this repository (the dry run) reaches the process by its project dir; any other at PROCESS.
+  const via = R.root === PROCESS ? '${CLAUDE_PROJECT_DIR:-.}' : PROCESS;
+  for (const [k, v] of Object.entries(shims({ process: via }))) {
+    const f = join(R.root, '.claude/skills', k, 'SKILL.md');
+    if (!existsSync(f) || readFileSync(f, 'utf8') !== v) acts.push(`the role skill .claude/skills/${k}/SKILL.md ${existsSync(f) ? 'differs from' : 'is missing; write it with'} \`proc shims --out <repo>/.claude/skills --process '${via}'\`: rewrite it so, commit and push (DESIGN §3)`);
+  }
+  const st = status(o);
+  for (const s of st.size.filter((x) => x.startsWith('SIZE '))) acts.push(`prune ${s.split(' ')[1]} under its limit (mechanics §17): ${s}`);
+  return { commit, previous: before.bob, owed: before.owed, jobs: st.jobs, size: st.size, acts };
 }
-// Every job's state, read from git; quiet jobs; owed acts. `gate` adds the reasons this BOB may not end a turn.
+// Every job's state, read from git; quiet jobs; owed acts; documents over or near their limits (mechanics §17: listed for
+// BOB to prune, never a gate on anyone, bio K5123). `gate` adds the reasons this BOB may not end a turn.
 export function status(o) {
   const R = repo(o.product), T = o.tranche, now = o.now ?? Date.now();
   R.fetch(trancheBranch(T));
@@ -167,7 +177,7 @@ export function status(o) {
     return { ...j, state, merged, needs };
   });
   const gate = [...p.owed.map((x) => `owed: ${x}`), ...unpushed(R)];
-  return { state: p.state, round: p.round, layers: p.layers, jobs, owed: p.owed, gate };
+  return { state: p.state, round: p.round, layers: p.layers, jobs, owed: p.owed, size: sizeLines(R.dir), gate };
 }
 // A round's plan is fixed when it opens (DESIGN §2.1): the file is copied whole into current.md's body.
 export function roundOpen(o) {
