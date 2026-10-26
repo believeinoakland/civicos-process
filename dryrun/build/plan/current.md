@@ -2,8 +2,8 @@
 
 **Status** · OPEN · BOB #1 · session_013Dy2gsxdAiYHMTwKpw6LHd · depth 1
 **Jobs** · alpha: ALPHA #1 session_01FkV9sz1e7ScrjkABTStnXE
-**Owed** · none
-**Round** · R1 · layer 1 OPEN
+**Owed** · archive alpha
+**Round** · R1 · layer 1 CLOSED
 
 The dry run D20 of the process redesign (dryrun/CERTIFICATION.md, D20).
 
