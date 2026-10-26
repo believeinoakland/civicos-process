@@ -100,6 +100,8 @@ function setLine(text, key, value, after = '**Status**') {
   const end = text.indexOf('\n', i);
   return `${text.slice(0, end + 1)}${line}\n${text.slice(end + 1)}`;
 }
+// The repository's GitHub URL, for create_session's source_url (a proxied remote names owner/repo at its end).
+export function sourceUrl(R) { const u = R.g(['remote', 'get-url', 'origin']); const m = u.match(/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/); return m ? `https://github.com/${m[1]}/${m[2]}` : u; }
 const fmtJobs = (jobs) => jobs.map((j) => `${j.module}: ${j.name} ${j.session}`).join('; ') || 'none';
 const fmtRound = (n, layers) => `R${n}${layers.map((l) => ` · layer ${l.layer} ${l.state}`).join('')}`;
 function planEdit(R, T, edit, message) {
@@ -202,7 +204,7 @@ export function layerStart(o) {
     const body = `Round R${p.round}, layer ${L}, module ${m.id}, tranche ${T}. Your depth: ${p.bob.depth + 1}. BOB: ${p.bob.name} (${p.bob.session}).\nThe process tool: \`${cmd}\`. Start with \`<command>\` = \`job start --session <your session id> --depth ${p.bob.depth + 1}\`.\n\nEntries:\n${entriesOf(text, L, m.id)}\n`;
     R.write(startPath(T, m.id), body); paths.push(startPath(T, m.id));
     if (live) specs.push({ module: m.id, action: 'message', session: live.session, message: body });
-    else specs.push({ module: m.id, action: 'create_session', title: `${m.id.toUpperCase()} #${nextK(R, T, m.id)}`, source_revision: jobBranch(T, m.id), prompt: jobPrompt(m.id, T, { product: R.rel('.') }) });
+    else specs.push({ module: m.id, action: 'create_session', source_url: sourceUrl(R), title: `${m.id.toUpperCase()} #${nextK(R, T, m.id)}`, source_revision: jobBranch(T, m.id), prompt: jobPrompt(m.id, T, { product: R.rel('.') }) });
   }
   R.write(PLAN, addOwed(text, p, specs.map((s) => `${s.action === 'message' ? 'message' : 'start'} ${s.module}`)));
   paths.push(PLAN);
@@ -244,7 +246,7 @@ export function jobRoute(o) {
   const j = p.jobs.find((x) => x.module === o.module);
   const dead = !j || /ARCHIVED|FAILED|INACTIVE/i.test(o.sessionStatus || '') || Number(o.contextPct) > 50;
   if (!dead) return { action: 'message', session: j.session };
-  return { action: 'create_session', title: `${o.module.toUpperCase()} #${nextK(R, o.tranche, o.module)}`, source_revision: jobBranch(o.tranche, o.module), prompt: jobPrompt(o.module, o.tranche, { product: R.rel('.') }), archive: j?.session ?? null };
+  return { action: 'create_session', source_url: sourceUrl(R), title: `${o.module.toUpperCase()} #${nextK(R, o.tranche, o.module)}`, source_revision: jobBranch(o.tranche, o.module), prompt: jobPrompt(o.module, o.tranche, { product: R.rel('.') }), archive: j?.session ?? null };
 }
 // §5.5 whole: the gates, the merge, the tests, the checks, the marks struck, the ruling line; pushed and verified.
 export function merge(o) {
