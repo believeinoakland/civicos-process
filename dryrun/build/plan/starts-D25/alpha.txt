@@ -1,0 +1,5 @@
+Round R1, layer 1, module alpha, tranche D25. Your depth: 2. BOB: BOB #1 (session_018cSSQpNgRq9D54EW7zJLqE).
+The process tool: `node /home/user/civicos-process/tools/proc.mjs <command> --product dryrun --tranche D25 --module alpha`. Start with `<command>` = `job start --session <your session id> --depth 2`.
+
+Entries:
+- N1 · Add the line `// D25: alpha touched` as the first line of `alpha/src/index.mjs`, then complete. Leave the test named `D25 old red` failing as it is: it is old debt, not yours.
