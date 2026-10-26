@@ -451,7 +451,7 @@ export function layerClose(o) {
   // against the tranche as it opened (its merge base with main), so debt older than the tranche never refuses.
   const now = allChecks(R);
   if (now.fails.size) {
-    R.fetch('main');
+    try { R.g(['rev-parse', '--verify', '-q', 'refs/remotes/origin/main']); } catch { R.fetch('main'); }   // the tranche's start does not move
     const start = history(R, 'origin/main', 'HEAD') ?? refuse('the tranche shares no history with main');
     const added = fresh(now.fails, at(R, start, () => allChecks(R)).fails);
     if (added.length) refuse(`checks: ${added.length} finding(s) new since the tranche opened: ${added.slice(0, 10).join('; ')}`);
