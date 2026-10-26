@@ -184,3 +184,12 @@ test('status lists a document over its limit for BOB to prune (mechanics §17); 
   P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
   assert.equal(P.layerStart(O(w.bob, { layer: 1 })).specs.length, 1);
 });
+
+test('artifacts: a row may name several paths; a Generated artifacts section with no row in the parsed form is refused', () => {
+  const w = world(), R = P.repo(w.bob), mf = join(w.bob, 'build/manifest.md');
+  assert.deepEqual(P.artifacts(R).map((a) => a.paths), [['beta/dist/bundle.txt'], ['legacy/dist/legacy.bundle.txt']]);
+  writeFileSync(mf, '# Build manifest\n\n## Generated artifacts\n\n| a | b | c | d |\n| --- | --- | --- | --- |\n| `x/dist`, `y/dist` | x | `node x.mjs` | `node x.mjs --check` |\n');
+  assert.deepEqual(P.artifacts(R)[0].paths, ['x/dist', 'y/dist']);
+  writeFileSync(mf, '# Build manifest\n\n## Generated artifacts\n\n| artifact | owner | regenerate | inputs |\n| `x/dist` | x | `x/`: `npm run build` | its source |\n');
+  assert.throws(() => P.artifacts(R), /no row/);
+});

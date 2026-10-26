@@ -291,16 +291,22 @@ export function merge(o) {
   if (R.g(['rev-parse', 'HEAD']) !== R.g(['rev-parse', `origin/${trancheBranch(T)}`])) refuse('pushed, but origin does not show the merge: read it by hand');
   return { commit, ruling: k, tests, met, regenerated: art.changed };
 }
-// The product's generated artifacts: rows of the manifest's table `| \`<path>\` | <owner> | \`<regenerate>\` | \`<verify>\` |`.
+// The product's generated artifacts: rows of the manifest's table `| \`<path>\`[, \`<path>\`…] | <owner> | \`<regenerate>\` | \`<verify>\` |`,
+// run in the table's order from the product's root. A manifest with a "Generated artifacts" section and no such row is
+// refused, so a table in another form never passes as "nothing to regenerate".
 export function artifacts(R) {
-  return [...(R.read('build/manifest.md') || '').matchAll(/^\| `([^`]+)` \| [^|]+ \| `([^`]+)` \| `([^`]+)` \|$/gm)].map((x) => ({ path: x[1], regen: x[2], verify: x[3] }));
+  const text = R.read('build/manifest.md') || '';
+  const rows = [...text.matchAll(/^\| (`[^`|]+`(?:, `[^`|]+`)*) \| [^|]+ \| `([^`]+)` \| `([^`]+)` \|$/gm)].map((x) => ({ paths: [...x[1].matchAll(/`([^`]+)`/g)].map((y) => y[1]), regen: x[2], verify: x[3] }));
+  if (!rows.length && /^## Generated artifacts/m.test(text)) refuse('build/manifest.md has a Generated artifacts section but no row `| `<path>` | <owner> | `<regenerate>` | `<verify>` |` (mechanics §14)');
+  return rows.map((r) => ({ ...r, path: r.paths.join(', ') }));
 }
 // Regenerate each artifact, verify it, and commit what changed; returns { changed, stale }.
 function regenerate(R, why) {
   const sh = (c) => spawnSync('sh', ['-c', c], { cwd: R.dir, encoding: 'utf8' });
   const list = artifacts(R), stale = [];
   for (const a of list) { sh(a.regen); if (sh(a.verify).status !== 0) stale.push(a.path); }
-  const changed = list.filter((a) => { try { R.g(['diff', '--quiet', '--', R.rel(a.path)]); return false; } catch { return true; } }).map((a) => a.path);
+  const moved = (p) => { try { R.g(['diff', '--quiet', '--', R.rel(p)]); return false; } catch { return true; } };
+  const changed = list.flatMap((a) => a.paths.filter(moved));
   if (changed.length && !stale.length) { R.g(['add', '--', ...changed.map(R.rel)]); R.g(['commit', '-q', '-m', `artifacts regenerated ${why}: ${changed.join(', ')}`]); }
   return { changed, stale };
 }
