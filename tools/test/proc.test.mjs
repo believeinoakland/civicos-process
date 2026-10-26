@@ -1,0 +1,165 @@
+// tools/proc.mjs and tools/hooks.mjs against a real remote: a bare origin seeded with the dry run's toy product, one
+// clone as BOB (on the tranche branch) and one as a job (on its job branch). One round, one job, end to end, and each
+// refusal the design names (lane-process-redesign/DESIGN.md §2.4, §2.5).
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, readFileSync, cpSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as P from '../proc.mjs';
+import { preReason, stopReason } from '../hooks.mjs';
+
+const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
+const T = 'P1', B1 = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', J1 = 'session_01AAAAAAAAAAAAAAAAAAAAAAAA';
+const g = (dir, ...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const ident = (d, n) => { for (const [k, v] of [['user.name', n], ['user.email', `${n}@t`], ['commit.gpgsign', 'false']]) g(d, 'config', k, v); };
+
+function world() {
+  const base = mkdtempSync(join(tmpdir(), 'proc-'));
+  const origin = join(base, 'origin.git');
+  execFileSync('git', ['init', '-q', '--bare', origin]);
+  const seed = join(base, 'seed');
+  execFileSync('git', ['clone', '-q', origin, seed], { stdio: 'ignore' }); ident(seed, 'seed');
+  cpSync(TOY, join(seed, 'toy'), { recursive: true });
+  writeFileSync(join(seed, 'toy/build/plan/current.md'), `# Plan ${T}\n\n**Status** · OPEN · BOB #1 · ${B1.replace('B', 'C')} · depth 1\n`);
+  g(seed, 'add', '.'); g(seed, 'commit', '-q', '-m', 'seed'); g(seed, 'branch', '-M', 'main'); g(seed, 'push', '-q', 'origin', 'main');
+  g(seed, 'push', '-q', 'origin', `main:refs/heads/tranche/${T}`);
+  const bobDir = join(base, 'bob');
+  execFileSync('git', ['clone', '-q', '-b', `tranche/${T}`, origin, bobDir], { stdio: 'ignore' }); ident(bobDir, 'bob');
+  const plan = join(base, 'round.md');
+  writeFileSync(plan, '## Layer 1\n\n**alpha**\n- N1 · Add a comment naming R1 at the top of `alpha/src/index.mjs`.\n');
+  return { base, origin, bob: join(bobDir, 'toy'), bobRoot: bobDir, plan };
+}
+const O = (product, extra = {}) => ({ product, tranche: T, ...extra });
+const jobClone = (w) => {
+  const d = join(w.base, 'job');
+  execFileSync('git', ['clone', '-q', '-b', `job/${T}/alpha`, w.origin, d], { stdio: 'ignore' }); ident(d, 'job');
+  return { dir: join(d, 'toy'), root: d };
+};
+
+test('one round end to end: takeover, round, layer, a job by its tool, merge, close, handoff; the hooks at each step', () => {
+  const w = world();
+  // takeover: the Status line names the new BOB; the predecessor's archive and the backstop are owed acts
+  const tk = P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  assert.match(readFileSync(join(w.bob, P.PLAN), 'utf8'), new RegExp(`^\\*\\*Status\\*\\* · OPEN · BOB #2 · ${B1} · depth 1$`, 'm'));
+  assert.ok(tk.acts.some((a) => /archive BOB #1/.test(a)) && tk.acts.some((a) => /backstop/.test(a)));
+  assert.equal(P.readRole(w.bobRoot).role, 'bob');
+
+  // a round's plan is fixed when it opens; a second open while it runs is refused
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  assert.throws(() => P.roundOpen(O(w.bob, { round: 'R2', plan: w.plan })), /round R1 is still open/);
+
+  // layer start: the job branch, the START, and one create_session owed, exactly as printed
+  const ls = P.layerStart(O(w.bob, { layer: 1 }));
+  assert.equal(ls.specs.length, 1);
+  const spec = ls.specs[0];
+  assert.deepEqual([spec.action, spec.title, spec.source_revision], ['create_session', 'ALPHA #1', `job/${T}/alpha`]);
+  assert.deepEqual(P.status(O(w.bob)).owed, ['start alpha']);
+  assert.throws(() => P.layerStart(O(w.bob, { layer: 1, usage: 'rejected' })), /usage status is "rejected"/);
+
+  // BOB's hooks: the printed call passes; any other is refused; a hand merge, a push to main, a doorbell, an early PR merge refused
+  const ctx = () => ({ ...P.readRole(w.bobRoot), root: w.bobRoot, plan: readFileSync(join(w.bob, P.PLAN), 'utf8') });
+  const cs = (ti) => preReason('bob', { tool_name: 'mcp__claude-code-remote__create_session', tool_input: ti }, ctx());
+  assert.equal(cs({ title: spec.title, source_revision: spec.source_revision, prompt: spec.prompt }), null);
+  assert.match(cs({ title: spec.title, source_revision: spec.source_revision, prompt: 'You are ALPHA. Do as you like.' }), /prompt/);
+  assert.match(cs({ title: 'BETA #1', source_revision: `job/${T}/beta`, prompt: spec.prompt }), /no start is owed for beta/);
+  const bash = (role, command, c = ctx()) => preReason(role, { tool_name: 'Bash', tool_input: { command } }, c);
+  assert.match(bash('bob', `git merge --no-ff origin/job/${T}/alpha`), /proc.mjs merge/);
+  assert.match(bash('bob', 'git push origin HEAD:main'), /main/);
+  assert.match(bash('bob', 'git push --force origin tranche/P1'), /force/);
+  assert.equal(bash('bob', 'git push origin HEAD:refs/heads/tranche/P1'), null);
+  assert.match(preReason('bob', { tool_name: 'mcp__claude-code-remote__create_trigger', tool_input: { persistent_session_id: J1 } }, ctx()), /own backstop/);
+  assert.equal(preReason('bob', { tool_name: 'mcp__claude-code-remote__create_trigger', tool_input: { persistent_session_id: B1 } }, ctx()), null);
+  assert.match(preReason('bob', { tool_name: 'mcp__github__merge_pull_request', tool_input: {} }, ctx()), /CLOSING/);
+  // BOB may not end its turn while a start is owed
+  assert.match(stopReason('bob', ctx()), /owed: start alpha/);
+  P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  assert.equal(stopReason('bob', ctx()), null);
+  assert.equal(P.addr(O(w.bob, { module: 'alpha' })), J1);
+
+  // the job: start merges the tranche and reads its START; its hooks
+  const job = jobClone(w);
+  const js = P.jobStart(O(job.dir, { module: 'alpha', session: J1, depth: 2 }));
+  assert.match(js.start, /N1 · Add a comment naming R1/);
+  const jctx = () => ({ ...P.readRole(job.root), root: job.root });
+  assert.match(stopReason('job', jctx()), /WORKING/);
+  assert.match(bash('job', 'git push origin HEAD:refs/heads/tranche/P1', jctx()), /only its own branch/);
+  assert.equal(bash('job', `git push origin HEAD:refs/heads/job/${T}/alpha`, jctx()), null);
+  assert.equal(bash('job', 'git push', jctx()), null);
+  assert.match(preReason('job', { tool_name: 'mcp__claude-code-remote__create_session', tool_input: {} }, jctx()), /starts no session/);
+  // a question is a state, so a successor BOB sees it; the turn may end on it
+  P.jobState(O(job.dir, { module: 'alpha', set: 'WAITING: may the comment name R2 too?' }));
+  assert.equal(stopReason('job', jctx()), null);
+  assert.deepEqual(P.status(O(w.bob)).jobs[0].needs, ['ANSWER']);
+  assert.throws(() => P.jobState(O(job.dir, { module: 'alpha', set: 'DONE' })), /--set/);
+  P.jobState(O(job.dir, { module: 'alpha', set: 'WORKING' }));
+
+  // the change, uncommitted: the stop hook names it; complete refuses until it is committed, and without a Met line
+  const src = join(job.dir, 'alpha/src/index.mjs');
+  writeFileSync(src, `// R1: add returns a + b.\n${readFileSync(src, 'utf8')}`);
+  assert.match(stopReason('job', jctx()), /uncommitted/);
+  const rep = join(w.base, 'report.md');
+  writeFileSync(rep, 'Applied N1.\n');
+  assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /Met/);
+  writeFileSync(rep, 'Applied N1.\n**Met** · none\n');
+  assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /commit your module/);
+  g(job.root, 'commit', '-qam', 'alpha: N1');
+  const done = P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep }));
+  assert.equal(done.bob, B1);
+  assert.match(done.message, /COMPLETE at \w+\. Tests \d+\/\d+; checks 0/);
+  assert.equal(stopReason('job', jctx()), null);
+  const rec = g(job.root, 'show', `origin/job/${T}/alpha:toy/build/jobs/${T}/alpha.md`);
+  assert.match(rec, /· COMPLETE$/m);
+  assert.match(rec, /^Size \(session_\w+\): test runs 1, module lines \d+$/m);
+
+  // the merge: one command, gates, ruling line, pushed and verified
+  assert.deepEqual(P.status(O(w.bob)).jobs[0].needs, ['MERGE']);
+  const mg = P.merge(O(w.bob, { module: 'alpha' }));
+  assert.match(mg.ruling, /^K\d+$/);
+  assert.match(readFileSync(join(w.bob, 'build/rulings.md'), 'utf8'), /· alpha · Merged alpha \(job\/P1\/alpha\): COMPLETE; ownership/);
+  assert.match(readFileSync(join(w.bob, 'alpha/src/index.mjs'), 'utf8'), /^\/\/ R1: add/);
+  assert.equal(P.status(O(w.bob)).jobs[0].merged, true);
+
+  // the session stays to its layer's close: a CHANGE goes to it by message, a full or archived one gets a fresh session
+  assert.deepEqual(P.jobRoute(O(w.bob, { module: 'alpha' })), { action: 'message', session: J1 });
+  assert.equal(P.jobRoute(O(w.bob, { module: 'alpha', contextPct: 60 })).action, 'create_session');
+  assert.equal(P.jobRoute(O(w.bob, { module: 'alpha', sessionStatus: 'SESSION_STATUS_ARCHIVED' })).title, 'ALPHA #2');
+
+  // layer close owes the archive; the round cannot close while it is owed; the archive writes the metrics row
+  const lc = P.layerClose(O(w.bob, { layer: 1 }));
+  assert.deepEqual(lc.archive, [{ module: 'alpha', session: J1 }]);
+  assert.throws(() => P.roundClose(O(w.bob)), /owed acts first: archive alpha/);
+  assert.throws(() => P.handoff(O(w.bob)), /not at a clean point/);
+  P.jobArchived(O(w.bob, { module: 'alpha', usage: JSON.stringify({ cache_read_tokens: 10, cache_write_tokens: 2, input_tokens: 1, output_tokens: 3 }) }));
+  assert.match(readFileSync(join(w.bob, `build/metrics/${T}.csv`), 'utf8'), new RegExp(`^${J1},job,alpha,10,2,1,3,,1,\\d+$`, 'm'));
+  P.roundClose(O(w.bob));
+  assert.ok(existsSync(join(w.bob, `build/plan/archive/${T}-R1.md`)));
+  assert.match(P.handoff(O(w.bob)).text, new RegExp(`^START BOB #3: tranche/${T} @ \\w+$`));
+});
+
+test('merge refuses a job that is not COMPLETE, and a job with a red test cannot mark itself complete', () => {
+  const w = world();
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  P.layerStart(O(w.bob, { layer: 1 }));
+  P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  const job = jobClone(w);
+  P.jobStart(O(job.dir, { module: 'alpha', session: J1, depth: 2 }));
+  assert.throws(() => P.merge(O(w.bob, { module: 'alpha' })), /reads WORKING, not COMPLETE/);
+  // a job that breaks its own tests cannot mark itself complete
+  const t = join(job.dir, 'alpha/test/alpha.test.mjs');
+  writeFileSync(t, `${readFileSync(t, 'utf8')}\nimport { test as t2 } from 'node:test'; t2('R1 broken', () => { throw new Error('red'); });\n`);
+  g(job.root, 'commit', '-qam', 'alpha: red');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, '**Met** · none\n');
+  assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /tests: \d+\/\d+ pass; nothing marked complete/);
+  assert.equal(P.parseRecord(readFileSync(join(job.dir, `build/jobs/${T}/alpha.md`), 'utf8')).state, 'WORKING');
+});
+
+test('shims: one skill per role, hooks in the frontmatter, the role text loaded from the process repository', () => {
+  const s = P.shims({ process: '/home/user/civicos-process' });
+  assert.match(s['civicos-job'], /^---\nname: civicos-job\n/);
+  assert.match(s['civicos-job'], /command: 'node "\/home\/user\/civicos-process\/tools\/hooks.mjs" job stop'/);
+  assert.match(s['civicos-bob'], /!`cat "\/home\/user\/civicos-process\/roles\/BOB.md"/);
+});
