@@ -95,3 +95,5 @@ test('R4 sum throws a TypeError for an element that is not a finite number, coer
     }
   }
 });
+
+test.todo('R7 sub returns a - b for two finite numbers, and throws a TypeError otherwise (D20)');
