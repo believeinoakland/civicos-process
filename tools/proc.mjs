@@ -24,7 +24,7 @@
 //         layer close --layer <L>   job archived --module <m> --usage <json>   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
 //         job complete --module <m> --report-file <f>
-//   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)
+//   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   footprint [--base <ref>]
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
@@ -62,12 +62,17 @@ export function repo(product) {
 // lane HANDOFF R8). Deepens the clone until `a` and `b` have a merge base, then returns it (null: no common history).
 export function history(R, a, b) {
   const base = () => { try { return R.g(['merge-base', a, b]); } catch { return null; } };
-  const refs = [a, b].filter((x) => x.startsWith('origin/')).map((x) => `+refs/heads/${x.slice(7)}:refs/remotes/${x}`);
+  const named = [a, b].filter((x) => x.startsWith('origin/'));
+  const refs = named.map((x) => `+refs/heads/${x.slice(7)}:refs/remotes/${x}`);
+  // Deepening adds history; it never moves a ref the session already holds (D25: it had moved a pinned origin/main).
+  const held = Object.fromEntries(named.map((x) => { try { return [x, R.g(['rev-parse', '--verify', '-q', `refs/remotes/${x}`])]; } catch { return [x, null]; } }));
+  const keep = () => { for (const [x, sha] of Object.entries(held)) if (sha) R.g(['update-ref', `refs/remotes/${x}`, sha]); };
   for (let depth = 200; ; depth *= 5) {
     const found = base();
     if (found || R.g(['rev-parse', '--is-shallow-repository']) !== 'true') return found;
     if (depth > 125000) R.g(['fetch', '-q', '--unshallow', 'origin', ...refs]);
     else R.g(['fetch', '-q', `--deepen=${depth}`, 'origin', ...refs]);
+    keep();
   }
 }
 function on(R, want) { const b = R.branch(); if (b !== want) refuse(`check out ${want} first (on ${b})`); }
@@ -147,6 +152,28 @@ export function addr(o) {
 
 // ---- commands: BOB ----
 
+// The tranche's footprint in the repository (P14; lane HANDOFF R9): its commits since `--base` (default origin/main),
+// each non-merge commit by what it changed: product code or tests, job records only, other build state only, docs.
+// Reported at the tranche's close, so bookkeeping that grows back is seen within one tranche.
+export function footprint(o) {
+  const R = repo(o.product), ref = o.base || 'origin/main';
+  if (ref.startsWith('origin/')) R.fetch(ref.slice(7));
+  const base = history(R, ref, 'HEAD') ?? refuse(`${ref} shares no history with HEAD`);
+  const pre = R.rel('.') === '.' ? '' : `${R.rel('.')}/`;
+  const kinds = { product: 0, 'job records': 0, 'other build state': 0, docs: 0 };
+  let merges = 0;
+  for (const block of R.g(['log', '--format=@@%P', '--name-only', `${base}..HEAD`]).split('@@').slice(1)) {
+    const [parents, ...files] = block.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (parents.split(' ').length > 1) { merges++; continue; }
+    const rel = files.map((f) => (f.startsWith(pre) ? f.slice(pre.length) : `../${f}`));
+    if (!rel.length) continue;
+    const k = rel.every((f) => f.startsWith('build/jobs/')) ? 'job records' : rel.every((f) => f.startsWith('build/')) ? 'other build state'
+      : rel.every((f) => f.startsWith('build/') || f.startsWith('docs/')) ? 'docs' : 'product';
+    kinds[k]++;
+  }
+  const commits = Object.values(kinds).reduce((a, b) => a + b, 0);
+  return { base, commits, merges, kinds, bookkeeping: commits ? `${Math.round((100 * (commits - kinds.product)) / commits)} %` : '0 %' };
+}
 // Before a merge BOB makes itself (the tranche's close merges `main` into it, §5.7): the history that merge needs.
 export function historyCmd(o) {
   const R = repo(o.product); const ref = o.ref || refuse('--ref <ref>, e.g. origin/main');
@@ -313,21 +340,31 @@ export function merge(o) {
   const own = run('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, base, `origin/${jb}`]);
   if (own.status !== 0) refuse(`${m}: ownership: ${lastLine(own)}`);
   const pre = R.g(['rev-parse', 'HEAD']);
-  const mg = spawnSync('git', ['-C', R.root, 'merge', '-q', '--no-ff', `origin/${jb}`, '-m', `Merge ${jb}`], { encoding: 'utf8' });
-  if (mg.status !== 0) { spawnSync('git', ['-C', R.root, 'merge', '--abort']); refuse(`${m}: merge conflict; aborted, nothing changed`); }
+  const inherited = JSON.parse(recText.match(/^Inherited reds: (\[.*\])$/m)?.[1] || '[]');
+  const before = moduleChecks(R, m);
+  // One commit per merge (lane HANDOFF R9: keep the repository a ledger): the merge, its regenerated artifacts, the
+  // struck marks and the ruling line are made in the working tree and committed together once everything is green.
+  // The checkout had no uncommitted tracked change when the merge began (refused above), so restoring every tracked
+  // file to `pre` undoes exactly the merge and what regenerating wrote.
+  const undo = () => { spawnSync('git', ['-C', R.root, 'merge', '--abort']); R.g(['reset', '-q', '--hard', pre]); };
+  const mg = spawnSync('git', ['-C', R.root, 'merge', '-q', '--no-ff', '--no-commit', `origin/${jb}`], { encoding: 'utf8' });
+  if (mg.status !== 0) { undo(); refuse(`${m}: merge conflict; aborted, nothing changed`); }
   // A merged change can make another module's generated artifact stale (D19 finding 1): every artifact the manifest
   // lists is regenerated and verified at each merge, in the manifest's order, and committed with it (mechanics §14).
-  const art = regenerate(R, `after merging ${m}`);
+  const art = regenerate(R, `after merging ${m}`, false);
   const tests = runTests(R, m);
-  const checks = run('node', [join(PROCESS, 'checks/run.mjs'), R.dir]);
-  if (art.stale.length || tests.fail || checks.status !== 0) {
-    R.g(['reset', '-q', '--keep', pre]);
-    refuse(`${m}: after the merge, ${art.stale.length ? `artifacts stale after regenerating: ${art.stale.join(', ')}; ` : ''}tests ${tests.pass}/${tests.tests}${checks.status ? `, checks: ${lastLine(checks)}` : ''}; the merge was undone`);
+  const newReds = Number.isNaN(tests.tests) ? ['the test run gave no summary'] : tests.failed.filter((n) => !inherited.includes(n));
+  const newFindings = fresh(moduleChecks(R, m).fails, before.fails);
+  if (art.stale.length || newReds.length || newFindings.length) {
+    undo();
+    refuse(`${m}: after the merge, ${art.stale.length ? `artifacts stale after regenerating: ${art.stale.join(', ')}; ` : ''}tests ${tests.pass}/${tests.tests}${newReds.length ? ` (new reds: ${newReds.join('; ')})` : ''}${newFindings.length ? `; new check findings: ${newFindings.join('; ')}` : ''}; the merge was undone`);
   }
   const reqPath = `build/requirements/${m}.md`, req = R.read(reqPath);
   if (req && met.length) R.write(reqPath, req.split('\n').map((l) => (met.some((id) => l.includes(`**${id}**`)) ? l.replace(` *(not yet met: ${T})*`, '') : l)).join('\n'));
-  const k = ruling(R, m, `Merged ${m} (${jb}): COMPLETE; ownership ${lastLine(own).replace(/^ownership: /, '')}; tests ${tests.pass}/${tests.tests}; checks 0 failures; struck ${met.join(', ') || 'none'}${o.context !== undefined ? `; BOB's context ${o.context} %` : ''}`, '§5.5; P7, P12');
-  const commit = commitPush(R, trancheBranch(T), [reqPath, 'build/rulings.md'].filter((p) => R.read(p) !== null), `${k}: merged ${m}`);
+  const k = ruling(R, m, `Merged ${m} (${jb}): COMPLETE; ownership ${lastLine(own).replace(/^ownership: /, '')}; tests ${tests.pass}/${tests.tests}${tests.failed.length ? ` (inherited reds ${tests.failed.length})` : ''}; checks: no new finding (${before.fails.size} before); struck ${met.join(', ') || 'none'}${o.context !== undefined ? `; BOB's context ${o.context} %` : ''}`, '§5.5; P7, P12');
+  R.g(['add', '--', ...[reqPath, 'build/rulings.md'].filter((p) => R.read(p) !== null).map(R.rel)]);
+  R.g(['commit', '-q', '--no-edit', '-m', `${k}: merged ${m} (${jb})${art.changed.length ? `; artifacts regenerated: ${art.changed.join(', ')}` : ''}`]);
+  const commit = commitPush(R, trancheBranch(T), ['build/rulings.md'], `${k}: merged ${m}`);
   R.fetch(trancheBranch(T));
   if (R.g(['rev-parse', 'HEAD']) !== R.g(['rev-parse', `origin/${trancheBranch(T)}`])) refuse('pushed, but origin does not show the merge: read it by hand');
   return { commit, ruling: k, tests, met, regenerated: art.changed };
@@ -342,13 +379,13 @@ export function artifacts(R) {
   return rows.map((r) => ({ ...r, path: r.paths.join(', ') }));
 }
 // Regenerate each artifact, verify it, and commit what changed; returns { changed, stale }.
-function regenerate(R, why) {
+function regenerate(R, why, commit = true) {
   const sh = (c) => spawnSync('sh', ['-c', c], { cwd: R.dir, encoding: 'utf8' });
   const list = artifacts(R), stale = [];
   for (const a of list) { sh(a.regen); if (sh(a.verify).status !== 0) stale.push(a.path); }
   const moved = (p) => { try { R.g(['diff', '--quiet', '--', R.rel(p)]); return false; } catch { return true; } };
   const changed = list.flatMap((a) => a.paths.filter(moved));
-  if (changed.length && !stale.length) { R.g(['add', '--', ...changed.map(R.rel)]); R.g(['commit', '-q', '-m', `artifacts regenerated ${why}: ${changed.join(', ')}`]); }
+  if (changed.length && !stale.length) { R.g(['add', '--', ...changed.map(R.rel)]); if (commit) R.g(['commit', '-q', '-m', `artifacts regenerated ${why}: ${changed.join(', ')}`]); }
   return { changed, stale };
 }
 function ruling(R, m, text, why) {
@@ -368,10 +405,42 @@ export function runTests(R, m) {
   const env = { ...process.env }; delete env.NODE_TEST_CONTEXT;
   const r = spawnSync('node', ['--test', '--test-reporter=tap', ...files], { encoding: 'utf8', cwd: R.dir, env, maxBuffer: 1 << 28 });
   const n = (k) => Number((`${r.stdout}`.match(new RegExp(`^(?:ℹ|#) ${k} (\\d+)$`, 'm')) || [])[1] ?? NaN);
-  const out = { tests: n('tests'), pass: n('pass'), fail: n('fail') };
+  const failed = [...new Set([...`${r.stdout}`.matchAll(/^\s*not ok \d+ - (.+?)(?: # .*)?$/gm)].map((x) => x[1].trim()))];
+  const out = { tests: n('tests'), pass: n('pass'), fail: n('fail'), failed };
   if (Number.isNaN(out.tests)) out.fail = 1;
   return out;
 }
+// Old debt never blocks new work, and new work never adds to it (lane HANDOFF R10; the old process's "no new finding in
+// your files"). A failure is judged against the same measure taken on the tranche before the work: only a new one
+// refuses. A check's finding is compared without its line numbers, so a finding that only moved is the same finding.
+const norm = (c, l) => `${c}: ${l.replace(/^FAIL\s+/, '').replace(/:\d+(?::\d+)?\b/g, '').trim()}`;
+const WORDS_TABLE = 'docs/development/ux-substrate/screens/words.json';
+// The checks a module's work answers for (mechanics §8), scoped to the module where the check takes one.
+export function moduleChecks(R, m) {
+  const names = ['format', 'architecture', 'coverage', 'fixtures', ...(existsSync(join(R.dir, WORDS_TABLE)) ? ['words'] : [])];
+  const fails = new Set();
+  for (const c of names) {
+    const r = run('node', [join(PROCESS, `checks/${c}.mjs`), R.dir, ...(c === 'format' ? [] : [m])]);
+    const lines = `${r.stdout}`.split('\n').filter((l) => l.startsWith('FAIL'));
+    for (const l of lines) fails.add(norm(c, l));
+    if (r.status && !lines.length) fails.add(`${c}: ${lastLine(r)}`);
+  }
+  return { names, fails };
+}
+// Every check over the whole product (checks/run.mjs), once per layer close.
+export function allChecks(R) {
+  const r = run('node', [join(PROCESS, 'checks/run.mjs'), R.dir]);
+  const fails = new Set(`${r.stdout}`.split('\n').filter((l) => l.startsWith('FAIL')).map((l) => norm('check', l)));
+  if (r.status && !fails.size) fails.add(`check: ${lastLine(r)}`);
+  return { fails };
+}
+// A measure taken on another commit in this same checkout (its untracked installs stay in place); the checkout is clean.
+function at(R, ref, fn) {
+  const back = R.branch(), head = R.g(['rev-parse', 'HEAD']);
+  R.g(['checkout', '-q', '--detach', ref]);
+  try { return fn(); } finally { R.g(['checkout', '-q', back === 'HEAD' ? head : back]); }
+}
+const fresh = (now, before) => [...now].filter((x) => !before.has(x));
 // §5.6: every job of the layer merged and not re-opened; the checks; the archives owed.
 export function layerClose(o) {
   const R = repo(o.product), T = o.tranche, L = Number(o.layer);
@@ -383,8 +452,15 @@ export function layerClose(o) {
   on(R, trancheBranch(T));
   const art = regenerate(R, `at layer ${L}'s close`);
   if (art.stale.length) refuse(`artifacts stale after regenerating: ${art.stale.join(', ')}`);
-  const checks = run('node', [join(PROCESS, 'checks/run.mjs'), R.dir]);
-  if (checks.status !== 0) refuse(`checks: ${lastLine(checks)}`);
+  // Every check over the whole product, once per layer: interactions between the layer's merges show here. Judged
+  // against the tranche as it opened (its merge base with main), so debt older than the tranche never refuses.
+  const now = allChecks(R);
+  if (now.fails.size) {
+    try { R.g(['rev-parse', '--verify', '-q', 'refs/remotes/origin/main']); } catch { R.fetch('main'); }   // the tranche's start does not move
+    const start = history(R, 'origin/main', 'HEAD') ?? refuse('the tranche shares no history with main');
+    const added = fresh(now.fails, at(R, start, () => allChecks(R)).fails);
+    if (added.length) refuse(`checks: ${added.length} finding(s) new since the tranche opened: ${added.slice(0, 10).join('; ')}`);
+  }
   const commit = planEdit(R, T, (text, p) => addOwed(setLine(text, 'Round', fmtRound(p.round, p.layers.map((l) => (l.layer === L ? { ...l, state: 'CLOSED' } : l)))), p, jobs.map((j) => `archive ${j.module}`)), `plan ${T}: layer ${L} closes`);
   return { commit, archive: jobs.map((j) => ({ module: j.module, session: j.session })) };
 }
@@ -468,12 +544,16 @@ export function jobComplete(o) {
   R.fetch(trancheBranch(T));
   try { history(R, `origin/${trancheBranch(T)}`, 'HEAD'); R.g(['merge-base', '--is-ancestor', `origin/${trancheBranch(T)}`, 'HEAD']); } catch { refuse(`merge ${trancheBranch(T)} into your branch first: BOB has changed it`); }
   const tests = runTests(R, m);
-  if (tests.fail || !tests.tests) refuse(`tests: ${tests.pass}/${tests.tests} pass; nothing marked complete`);
+  if (!tests.tests || Number.isNaN(tests.tests)) refuse(`tests: none ran (${tests.pass}/${tests.tests}); nothing marked complete`);
+  // A red the module already had on the tranche is inherited, named in the record and carried to the merge; a new one refuses.
+  const base = tests.failed.length ? at(R, `origin/${trancheBranch(T)}`, () => runTests(R, m)) : { failed: [] };
+  const newReds = tests.failed.filter((n) => !base.failed.includes(n));
+  if (tests.fail && (newReds.length || !tests.failed.length)) refuse(`tests: ${tests.pass}/${tests.tests} pass; new reds: ${newReds.join('; ') || 'unnamed'}; nothing marked complete`);
   const fails = [];
   // mechanics §8: format, architecture, coverage, fixtures, and words where the product has a word table, each scoped
-  // to the module where the check takes one; ownership against the merge base.
-  const cs = ['format', 'architecture', 'coverage', 'fixtures', ...(existsSync(join(R.dir, 'docs/development/ux-substrate/screens/words.json')) ? ['words'] : [])];
-  for (const c of cs) { const r = run('node', [join(PROCESS, `checks/${c}.mjs`), R.dir, ...(c === 'format' ? [] : [m])]); if (r.status) fails.push(`${c}: ${lastLine(r)}`); }
+  // to the module where the check takes one; a finding the tranche already had is not this job's.
+  const ck = moduleChecks(R, m), cs = ck.names;
+  if (ck.fails.size) fails.push(...fresh(ck.fails, at(R, `origin/${trancheBranch(T)}`, () => moduleChecks(R, m)).fails));
   const own = run('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, history(R, 'HEAD', `origin/${trancheBranch(T)}`), 'HEAD']);
   if (own.status) fails.push(`ownership: ${lastLine(own)}`);
   if (fails.length) refuse(`checks: ${fails.join('; ')}; nothing marked complete`);
@@ -481,7 +561,7 @@ export function jobComplete(o) {
   const mod = modules(R).find((x) => x.id === m);
   const lines = (mod.paths || []).flatMap((p) => R.g(['ls-files', '--', R.rel(p)]).split('\n')).filter(Boolean).reduce((n, f) => n + readFileSync(join(R.root, f), 'utf8').split('\n').length, 0);
   const runs = [...text.matchAll(new RegExp(`^Size \\(${st.session}\\): test runs (\\d+)`, 'gm'))].map((x) => Number(x[1])).pop() + 1 || 1;   // this session's runs so far
-  const body = `${text.replace(RSTATUS, `**Status** · ${st.session} · depth ${st.depth} · COMPLETE`).trimEnd()}\n\n## Completion (${today()})\n\n${report}\n\nTests: ${tests.pass}/${tests.tests}. Checks: ${cs.join(', ')}, ownership 0 failures.\nSize (${st.session}): test runs ${runs}, module lines ${lines}\n`;
+  const body = `${text.replace(RSTATUS, `**Status** · ${st.session} · depth ${st.depth} · COMPLETE`).trimEnd()}\n\n## Completion (${today()})\n\n${report}\n\nTests: ${tests.pass}/${tests.tests}. Checks: ${cs.join(', ')}, ownership: no new finding.${tests.failed.length ? `\nInherited reds: ${JSON.stringify(tests.failed)}` : ''}\nSize (${st.session}): test runs ${runs}, module lines ${lines}\n`;
   R.write(path, body);
   const commit = commitPush(R, jobBranch(T, m), [path], `${m} ${T}: COMPLETE`);
   return { commit, tests, bob: addr({ product: o.product, tranche: T, bob: true }), message: `${m.toUpperCase()} (${T}): COMPLETE at ${commit}. Tests ${tests.pass}/${tests.tests}; checks 0. Met: ${report.match(/^\*\*Met\*\* · (.*)$/m)[1]}.` };
@@ -510,7 +590,7 @@ function args(argv) {
   return o;
 }
 const COMMANDS = {
-  takeover, status, addr, handoff, merge, shims, history: historyCmd,
+  takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd,
   'round open': roundOpen, 'round close': roundClose, 'layer start': layerStart, 'layer close': layerClose,
   'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived,
   'job start': jobStart, 'job state': jobState, 'job complete': jobComplete,
