@@ -198,7 +198,8 @@ export function layerStart(o) {
   const specs = [], paths = [];
   for (const m of mods) {
     const live = p.jobs.find((j) => j.module === m.id);
-    const body = `Round R${p.round}, layer ${L}, module ${m.id}. Your depth: ${p.bob.depth + 1}. BOB: ${p.bob.name} (${p.bob.session}).\n\nEntries:\n${entriesOf(text, L, m.id)}\n`;
+    const cmd = `node ${o.process || PROCESS}/tools/proc.mjs <command> --product ${R.rel('.')} --tranche ${T} --module ${m.id}`;
+    const body = `Round R${p.round}, layer ${L}, module ${m.id}, tranche ${T}. Your depth: ${p.bob.depth + 1}. BOB: ${p.bob.name} (${p.bob.session}).\nThe process tool: \`${cmd}\`. Start with \`<command>\` = \`job start --session <your session id> --depth ${p.bob.depth + 1}\`.\n\nEntries:\n${entriesOf(text, L, m.id)}\n`;
     R.write(startPath(T, m.id), body); paths.push(startPath(T, m.id));
     if (live) specs.push({ module: m.id, action: 'message', session: live.session, message: body });
     else specs.push({ module: m.id, action: 'create_session', title: `${m.id.toUpperCase()} #${nextK(R, T, m.id)}`, source_revision: jobBranch(T, m.id), prompt: jobPrompt(m.id, T, { product: R.rel('.') }) });
@@ -210,7 +211,7 @@ export function layerStart(o) {
   for (const m of mods) pushJobBranch(R, T, m.id);
   return { commit, specs };
 }
-export const jobPrompt = (m, T, o) => `You are ${m.toUpperCase()}, the module job for \`${m}\` in tranche ${T}${o.product && o.product !== '.' ? ` (product root \`${o.product}\`)` : ''}. Invoke the skill civicos-job first, then follow it.`;
+export const jobPrompt = (m, T, o) => `You are ${m.toUpperCase()}, the module job for \`${m}\` in tranche ${T}${o.product && o.product !== '.' ? ` (product root \`${o.product}\`)` : ''}. If /home/user/civicos-process does not exist, attach believeinoakland/civicos-process (add_repo) and clone it there. Then invoke the skill civicos-job and follow it; your START is printed by its first command.`;
 function nextK(R, T, m) {
   const names = parsePlan(R.read(PLAN)).jobs.filter((j) => j.module === m).map((j) => Number(j.name.split('#')[1]));
   const prior = Number((R.read(`build/jobs/${T}/${m}.md`) || '').match(/^\*\*Sessions\*\* · (\d+)/m)?.[1] || 0);
