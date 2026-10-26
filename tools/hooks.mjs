@@ -27,7 +27,7 @@ export function preReason(role, input, ctx) {
     if (role === 'bob' && /\bgit\b[^|;&]*\bmerge\b[^|;&]*\bjob\//.test(c)) return 'a job is merged only by `node tools/proc.mjs merge --module <m>`, which runs every gate (mechanics §5.5)';
     return null;
   }
-  if (role === 'job' && [`${REMOTE}create_session`, `${REMOTE}create_trigger`, `${REMOTE}fire_trigger`, `${REMOTE}send_later`].includes(tool)) return 'a job starts no session and arms no timer (mechanics §6)';
+  if (role === 'job' && [`${REMOTE}create_session`, `${REMOTE}create_trigger`, `${REMOTE}fire_trigger`, `${REMOTE}send_later`].includes(tool)) return 'a job starts no session and arms no timer (mechanics §5.11)';
   if (role === 'bob') {
     if (tool === `${REMOTE}fire_trigger`) return 'never fire a routine to reach a session: send a message (DESIGN §2.3)';
     if (tool === `${REMOTE}create_trigger` && ti.persistent_session_id !== ctx.session) return 'BOB arms only its own backstop; a job is reached by send_message, never by a routine (DESIGN §2.3, §2.7)';

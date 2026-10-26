@@ -408,7 +408,7 @@ export function jobState(o) {
   R.write(path, text.replace(RSTATUS, `**Status** · ${st.session} · depth ${st.depth} · ${s}`));
   return commitPush(R, jobBranch(T, o.module), [path], `${o.module} ${T}: ${s.slice(0, 60)}`);
 }
-// mechanics §6 steps 5-7 whole: tests, checks, the report, COMPLETE, pushed; then the message to send.
+// mechanics §6 step 5 whole: tests, checks, the report, COMPLETE, pushed; then the message to send.
 export function jobComplete(o) {
   const R = repo(o.product), T = o.tranche, m = o.module, path = recordPath(T, m);
   on(R, jobBranch(T, m));
