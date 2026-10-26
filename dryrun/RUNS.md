@@ -258,3 +258,18 @@ Tranche `tranche/D19` from `dryrun-main/D19` (`405b14a`, the lane's tools and ro
 Findings, each fixed on the lane (`lane/process-redesign`): **F1** a merge made another module's generated artifact stale and the next merge was refused: every merge and layer close now regenerates and verifies the manifest's artifacts and commits them (`proc merge`, `layer close`). **F2** layer close did not regenerate artifacts (same fix). **F3** no command wrote a `BOB-final` row: `proc bob archived`. **F4** depth: a BOB counts its depth up to the session its prompt names as ROOT (takeover.md). **F5** routines are listed page by page. **F6** BOB #2 left its backstop armed at the run's end (disabled by its archive). Not exercised: a CHANGE to a job already merged (F1 sent it before the merge): D20.
 
 Cost (tokens processed, from the archives): BOB #1 2.36 M, BOB #2 3.22 M, ALPHA #1 2.68 M, BETA #1 2.23 M. Wall time: 20:47 to 20:53 UTC, six minutes.
+
+## D20 · 2026-10-26 · the redesign: a CHANGE to a merged job in its live session; artifacts at the merge; the job's Stop hook
+
+Tranche `tranche/D20` from `dryrun-main/D20` (`7346c2d`, with D19's fixes). D20 BOB #1 (`session_013Dy2gsxdAiYHMTwKpw6LHd`, sonnet), ALPHA #1 (`session_01FkV9sz1e7ScrjkABTStnXE`, haiku); the lane played ROOT.
+
+| path | evidence | result |
+| --- | --- | --- |
+| RD11 a job may not end its turn WORKING | ALPHA #1, told to end its turn once at once: "The Stop hook then refused the WORKING record, so I set WAITING with my question" (`32ed2a6`); BOB saw it as `ANSWER` and answered by message | PROVEN |
+| RD12 the merge regenerates and verifies the artifacts | K1 `f316e62`: tests 7/7, met R7; `beta/dist/bundle.txt` and `legacy/dist/legacy.bundle.txt` regenerated and committed with the merge | PROVEN (D19 F1 fixed) |
+| RD13 a CHANGE to a job already merged reaches its live session; merged again | `proc job route` printed `{"action":"message","session":"session_01FkV9sz1e7ScrjkABTStnXE"}`; the CHANGE sent; the same session merged the tranche, applied it, completed again (`18d7fb0`); K2 `be6adac`; the job had 1 session for the round | PROVEN (K4219 retired) |
+| RD14 the round closes clean | layer close `de661f6`, archive and row `40417aa`, round close `846e7ba`, backstop deleted | PROVEN |
+
+Findings: **F1** the metrics row read the first completion's Size line, and `test runs` did not count a second completion: fixed (the last line; this session's runs). **F2** BOB built the `--usage` JSON from `archive_session`'s `usage` block: that is the intended input, now said in situations/merge-close.md. Refusals met: none but the Stop hook's.
+
+Cost: BOB #1 2.23 M, ALPHA #1 2.74 M tokens processed. Wall time: 20:57 to 21:01 UTC, four minutes.

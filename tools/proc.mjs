@@ -335,7 +335,7 @@ export function layerClose(o) {
 export function jobArchived(o) {
   const R = repo(o.product), T = o.tranche, u = typeof o.usage === 'string' ? JSON.parse(o.usage) : o.usage || {};
   const p = parsePlan(R.read(PLAN)), j = p.jobs.find((x) => x.module === o.module) ?? refuse(`no job for ${o.module}`);
-  const size = (R.remote(jobBranch(T, o.module), recordPath(T, o.module)) || '').match(/^Size \(\S+\): test runs (\d+), module lines (\d+)/m) || [];
+  const size = [...(R.remote(jobBranch(T, o.module), recordPath(T, o.module)) || '').matchAll(/^Size \(\S+\): test runs (\d+), module lines (\d+)/gm)].pop() || [];   // the last completion's
   const csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? 'session,role,module,cache-read,cache-write,input,output,turns,test runs,module lines\n';
   R.write(csv, `${cur}${[j.session, 'job', o.module, u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', '', size[1] ?? '', size[2] ?? ''].join(',')}\n`);
   const text = R.read(PLAN);
@@ -417,7 +417,7 @@ export function jobComplete(o) {
   const text = R.read(path), st = parseRecord(text) ?? refuse(`${path}: run job start first`);
   const mod = modules(R).find((x) => x.id === m);
   const lines = (mod.paths || []).flatMap((p) => R.g(['ls-files', '--', R.rel(p)]).split('\n')).filter(Boolean).reduce((n, f) => n + readFileSync(join(R.root, f), 'utf8').split('\n').length, 0);
-  const runs = Number((text.match(/^\*\*Test runs\*\* · (\d+)/m) || [])[1] || 0) + 1;
+  const runs = [...text.matchAll(new RegExp(`^Size \\(${st.session}\\): test runs (\\d+)`, 'gm'))].map((x) => Number(x[1])).pop() + 1 || 1;   // this session's runs so far
   const body = `${text.replace(RSTATUS, `**Status** · ${st.session} · depth ${st.depth} · COMPLETE`).trimEnd()}\n\n## Completion (${today()})\n\n${report}\n\nTests: ${tests.pass}/${tests.tests}. Checks: format, architecture, coverage, ownership 0 failures.\nSize (${st.session}): test runs ${runs}, module lines ${lines}\n`;
   R.write(path, body);
   const commit = commitPush(R, jobBranch(T, m), [path], `${m} ${T}: COMPLETE`);
