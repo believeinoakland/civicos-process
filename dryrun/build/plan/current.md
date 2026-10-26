@@ -1,8 +1,8 @@
 # Plan D19
 
 **Status** · OPEN · BOB #2 · session_01NtgMUbqYG9WJVQgPPoXHpD · depth 1
-**Jobs** · beta: BETA #1 session_01XXaDQD4aj4wzqDYQquEsPz
-**Owed** · archive beta
+**Jobs** · none
+**Owed** · none
 **Round** · R1 · layer 1 CLOSED
 
 The dry run D19 of the process redesign (lane-process-redesign/DESIGN.md §5; dryrun/CERTIFICATION.md, D19).
