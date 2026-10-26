@@ -118,7 +118,8 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   const rec = g(job.root, 'show', `origin/job/${T}/alpha:toy/build/jobs/${T}/alpha.md`);
   assert.match(rec, /· COMPLETE$/m);
   assert.match(rec, /^Size \(session_\w+\): test runs 1, module lines \d+$/m);
-  assert.match(rec, /Checks: format, architecture, coverage, fixtures, ownership 0 failures/);
+  assert.match(rec, /Checks: format, architecture, coverage, fixtures, ownership: no new finding\./);
+  assert.doesNotMatch(rec, /Inherited reds/);
 
   // the merge: one command, gates, ruling line, pushed and verified
   assert.deepEqual(P.status(O(w.bob)).jobs[0].needs, ['MERGE']);
@@ -175,7 +176,7 @@ test('merge refuses a job that is not COMPLETE, and a job with a red test cannot
   writeFileSync(t, `${readFileSync(t, 'utf8')}\nimport { test as t2 } from 'node:test'; t2('R1 broken', () => { throw new Error('red'); });\n`);
   g(job.root, 'commit', '-qam', 'alpha: red');
   const rep = join(w.base, 'report.md'); writeFileSync(rep, '**Met** · none\n');
-  assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /tests: \d+\/\d+ pass; nothing marked complete/);
+  assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /tests: \d+\/\d+ pass; new reds: R1 broken; nothing marked complete/);
   assert.equal(P.parseRecord(readFileSync(join(job.dir, `build/jobs/${T}/alpha.md`), 'utf8')).state, 'WORKING');
 });
 
@@ -276,4 +277,62 @@ test('a merge whose artifacts fail to verify is undone whole: no merge state, no
   assert.equal(g(w.bobRoot, 'rev-parse', 'HEAD'), pre);
   assert.equal(existsSync(join(w.bobRoot, '.git/MERGE_HEAD')), false);
   assert.equal(g(w.bobRoot, 'status', '--porcelain', '--untracked-files=no'), '');
+});
+
+test('old debt never blocks new work, and new work never adds to it: an inherited red is carried to the merge; a new red is refused', () => {
+  const w = world();
+  // the tranche already has a red test in alpha before the job starts
+  const t = join(w.bob, 'alpha/test/alpha.test.mjs');
+  writeFileSync(t, `${readFileSync(t, 'utf8')}\nimport { test as t2 } from 'node:test'; t2('old red', () => { throw new Error('red'); });\n`);
+  g(w.bobRoot, 'commit', '-qam', 'alpha: an old red'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  P.layerStart(O(w.bob, { layer: 1 }));
+  P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  const job = jobClone(w);
+  P.jobStart(O(job.dir, { module: 'alpha', session: J1, depth: 2 }));
+  const jt = join(job.dir, 'alpha/test/alpha.test.mjs'), src = join(job.dir, 'alpha/src/index.mjs');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n**Met** · none\n');
+  // a new red is refused, naming it; the old one is not this job's
+  writeFileSync(jt, `${readFileSync(jt, 'utf8')}\nt2('new red', () => { throw new Error('red'); });\n`);
+  g(job.root, 'commit', '-qam', 'alpha: a new red');
+  assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /new reds: new red; nothing marked complete/);
+  writeFileSync(jt, readFileSync(jt, 'utf8').replace(/\nt2\('new red'.*\n/, '\n'));
+  writeFileSync(src, `// R1: add returns a + b.\n${readFileSync(src, 'utf8')}`);
+  g(job.root, 'commit', '-qam', 'alpha: N1, the new red gone');
+  P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep }));
+  const rec = g(job.root, 'show', `origin/job/${T}/alpha:toy/build/jobs/${T}/alpha.md`);
+  assert.match(rec, /^Inherited reds: \["old red"\]$/m);
+  // the merge accepts the inherited red, and only it
+  const mg = P.merge(O(w.bob, { module: 'alpha' }));
+  assert.match(readFileSync(join(w.bob, 'build/rulings.md'), 'utf8'), /inherited reds 1\); checks: no new finding/);
+  assert.match(mg.ruling, /^K\d+$/);
+});
+
+test('the layer close runs every check once, refusing only findings new since the tranche opened', () => {
+  const w = world();
+  const req = join(w.bob, 'build/requirements/beta.md');
+  // a coverage gap already on main when the tranche opened: old debt (the toy's main is its tranche's start)
+  writeFileSync(req, `${readFileSync(req, 'utf8')}\n- **R98** An old requirement no test names.\n`);
+  g(w.bobRoot, 'commit', '-qam', 'beta: R98, untested'); g(w.bobRoot, 'push', '-q', 'origin', 'HEAD:refs/heads/main'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  P.layerStart(O(w.bob, { layer: 1 }));
+  P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  const job = jobClone(w);
+  P.jobStart(O(job.dir, { module: 'alpha', session: J1, depth: 2 }));
+  const src = join(job.dir, 'alpha/src/index.mjs');
+  writeFileSync(src, `// R1: add returns a + b.\n${readFileSync(src, 'utf8')}`);
+  g(job.root, 'commit', '-qam', 'alpha: N1');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n**Met** · none\n');
+  P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep }));
+  P.merge(O(w.bob, { module: 'alpha' }));
+  // a new gap on the tranche since it opened: the close refuses it, naming it
+  writeFileSync(req, `${readFileSync(req, 'utf8')}- **R99** A new requirement no test names.\n`);
+  g(w.bobRoot, 'commit', '-qam', 'beta: R99, untested'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  assert.throws(() => P.layerClose(O(w.bob, { layer: 1 })), /new since the tranche opened: .*R99/);
+  // without it, the old gap alone does not refuse the close
+  writeFileSync(req, readFileSync(req, 'utf8').replace(/- \*\*R99\*\*.*\n/, ''));
+  g(w.bobRoot, 'commit', '-qam', 'beta: R99 withdrawn'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  assert.deepEqual(P.layerClose(O(w.bob, { layer: 1 })).archive, [{ module: 'alpha', session: J1 }]);
 });
