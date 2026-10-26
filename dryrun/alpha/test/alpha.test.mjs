@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { add, sum } from '../src/index.mjs';
+import { add, mul, sum } from '../src/index.mjs';
 
 // Finite numbers covering every class: zeros of both signs, subnormals, the extremes,
 // fractions whose sum rounds, integers beyond 2^53, and seeded random values.
@@ -96,4 +96,14 @@ test('R4 sum throws a TypeError for an element that is not a finite number, coer
   }
 });
 
-test.todo('R6 mul returns a * b for two finite numbers (D19)');
+test('R6 mul returns a * b for every pair of finite numbers in each class', () => {
+  for (const a of FINITE) {
+    for (const b of FINITE) {
+      assert.ok(Object.is(mul(a, b), a * b), `mul(${a}, ${b})`);
+    }
+  }
+  assert.equal(mul(2, 3), 6);
+  assert.equal(mul(-1, 1), -1);
+  assert.equal(mul(Number.MAX_VALUE, 2), Infinity); // a * b, overflow included
+  assert.ok(Object.is(mul(0, -1), -0)); // a * b, sign of zero included
+});
