@@ -298,3 +298,27 @@ Tranche `tranche/D22`: `dryrun-main/D22` (the round plan) plus 80 commits, so a 
 | RD27 a session starts shallow, and the tool fetches the history a merge needs when it needs it | at start: shallow, 50 commits; round R1 merged (K1, 5/5), layer and round closed on the shallow clone; `proc history --ref origin/dryrun-main/D22` (the close's merge of `main`, stood in for) fetched it in 1.71 s (282 commits after); `git merge` then found its base ("Already up to date") | PROVEN |
 
 Not a finding of the process: takeover owed the archive of the seed's placeholder BOB (`session_01PROCESSREDESIGNPLACEHOLDER`), which auto mode refused, rightly; a seed names a real predecessor or none. The backstop was deleted by the lane. bio's start-up without the full download: measured on a fresh 50-commit clone of bio, 48 s with seven package installs (BOB #315's start with it: 3 min 31 s); the T51 close's own merge base was already within the clone.
+
+## D23 · 2026-10-26 · one commit per merge; the footprint (lane HANDOFF R9)
+
+`tranche/D23` from `dryrun-main/D23`. D23 BOB #1 (`session_01NMD4fZw9BA7wLD4qa5Z5kq`, sonnet), ALPHA #1 (haiku); the lane played ROOT.
+
+| path | evidence | result |
+| --- | --- | --- |
+| RD28 one commit per merge | `06ca98d` (parents `b46c65c 0cd9075`): "K1: merged alpha (job/D23/alpha); artifacts regenerated: beta/dist/bundle.txt, legacy/dist/legacy.bundle.txt", carrying alpha's code, both artifacts, its record and `build/rulings.md` | PROVEN |
+| RD29 the footprint | `proc footprint --base origin/dryrun-main/D23`: 10 commits, 1 merge; product 1, job records 2, other build state 7; bookkeeping 90 % (one toy job) | PROVEN |
+
+## D24 · 2026-10-26 · stopped by the lane at start
+
+Its seed pointed `origin/main` at the run's base, which the layer close would have fetched over with the real `main`: stopped and re-run as D25 with the close fetching `main` only when absent (`3c67223`).
+
+## D25 · 2026-10-26 · old debt inherited, never blocking; scoped checks at merge; every check once at layer close (lane HANDOFF R10)
+
+`tranche/D25` from `dryrun-main/D25`, seeded with old debt: a failing test `D25 old red` in alpha, an untested requirement R98 in beta. D25 BOB #1 (`session_018cSSQpNgRq9D54EW7zJLqE`, sonnet), ALPHA #1 (haiku).
+
+| path | evidence | result |
+| --- | --- | --- |
+| RD30 an old red is inherited and carried to the merge; a merge runs its module's checks only | alpha's record `Inherited reds: ["D25 old red"]`; K1: "tests 5/6 (inherited reds 1); checks: no new finding (0 before)"; `proc merge` 4.6 s | PROVEN |
+| RD31 the layer close runs every check once, refusing only findings new since the tranche opened | second attempt: closed in 3.1 s with R98 (old) present | PROVEN after finding 1 |
+
+**Finding 1:** the first close was refused, naming R98 as new: deepening history to find the tranche's start had re-fetched `origin/main` from the real `main`, moving the run's pinned base. Fixed: deepening never moves a ref the session holds (`cd89726`; fixture test seen red without the fix). Re-run as D26.
