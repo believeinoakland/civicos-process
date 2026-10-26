@@ -191,3 +191,18 @@ Branch `prep/job-K5120`: a job's mail commands are gated only by `build/plan/`, 
 | SG7 | a job's `start`, `inbox`, `post` and `done` are not refused while rulings-active.md is over its limit (it is not the job's reading set) | two real job sessions' records on `job/D18/alpha` and `job/D18/beta`, started, read and COMPLETE under the over-limit file | PROVEN D18 (ALPHA #1, BETA #1) |
 | SG8 | the jobs merge by §5.5 (ownership 0) and their sessions are archived | ownership lines, merge commits, archive results | PROVEN D18 |
 | JOB-RA | `roles/JOB.md` carries the refused-act rule (b) and a job finds and names it | each job names the rule in its COMPLETE | READ AND IDENTIFIED D18; the retry after a real refusal can be proven only in a product tranche, whose first such refusal is recorded in `RUNS.md` |
+
+## The process redesign (lane-process-redesign/DESIGN.md; PROCESS-REDESIGN #1, 2026-10-26)
+
+Messages carry messages (`send_message`), git carries state, one process tool does each procedure, the role skills' hooks enforce what must always hold. Rows C1, C2 (the doorbell) and every row about mailbox cursors are retired with the mechanism; C3-C5 are carried by RD5 and RD10.
+
+| # | path | evidence | status |
+| --- | --- | --- | --- |
+| RD0 | the platform: a message between cloud sessions both ways, wakes an idle one, refused for an archived one; repository hooks and skills load from the starting repository only; a skill's hooks hold once invoked | probes P1-P3 (`lane-process-redesign/HANDOFF.md` R2, R3) | PROVEN |
+| RD1-RD10 | takeover; round and layer by printed calls; question by state and message; a job's push refused; a successor finds what its predecessor was sent; CHANGE to a running job; merge by tool; a red merge undone; layer and round close with rows; handoff through ROOT by message | D19 (`RUNS.md`) | PROVEN |
+| RD11-RD14 | the job's Stop hook; artifacts regenerated at the merge; a CHANGE to a merged job in its live session, merged again; a clean round close | D20 | PROVEN |
+| RD15 | BOB's hooks: a hand merge, a push to `main`, a routine into another session, a session start not printed by the tool, a PR merge before CLOSING, all refused | fixture `tools/test/proc.test.mjs` (the hook functions on a real git world); no BOB met one in D19 or D20 | PROVEN by fixture; live: T1, the check is the first such refusal recorded in a product ruling |
+| RD16 | `layer start` refuses while usage is not `allowed` (K5323) | fixture | PROVEN by fixture; live: T1 |
+| RD17 | many jobs message BOB at once | T1 (the toy has two modules); the check: every job's state in `proc status` is acted on | T1 |
+| RD18 | ROOT restarts a BOB whose session failed, from the child-session event | T1 (a failure cannot be injected); the check: ROOT's turn on the event | T1 |
+| RD19 | the tranche close (CLOSING, the PR, the merge tool) | not run: unchanged in substance from §5.7 except the hook; the check is the first product close under the redesign | T1 |
