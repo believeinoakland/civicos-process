@@ -2,8 +2,8 @@
 
 **Status** · OPEN · BOB #1 · session_01KF48a3b7uTKuJGHurgT7wY · depth 1
 **Jobs** · alpha: ALPHA #1 session_01EjxWyEJDEtc5Yo2Mz6NhV7
-**Owed** · none
-**Round** · R1 · layer 1 OPEN
+**Owed** · archive alpha
+**Round** · R1 · layer 1 CLOSED
 
 The dry run D26 of the process redesign (dryrun/CERTIFICATION.md, D26): old debt inherited, never blocking; scoped checks at merge; every check once at layer close.
 
