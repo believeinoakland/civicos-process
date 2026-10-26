@@ -1,0 +1,5 @@
+Round R1, layer 1, module alpha, tranche D23. Your depth: 2. BOB: BOB #1 (session_01NMD4fZw9BA7wLD4qa5Z5kq).
+The process tool: `node /home/user/civicos-process/tools/proc.mjs <command> --product dryrun --tranche D23 --module alpha`. Start with `<command>` = `job start --session <your session id> --depth 2`.
+
+Entries:
+- N1 · Add the line `// D23: alpha touched` as the first line of `alpha/src/index.mjs`, then complete.
