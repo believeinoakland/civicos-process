@@ -251,6 +251,19 @@ test('a shallow clone fetches the history a merge needs, and only then (lane R8:
   const base = P.history(R, 'HEAD', `origin/job/${T}/alpha`);
   assert.equal(base, g(d, 'rev-parse', `origin/job/${T}/alpha`));
   assert.ok(Number(g(d, 'rev-list', '--count', 'HEAD')) > before);
+  // deepening never moves a ref the session already holds: a pinned origin/job ref stays where it was
+  const d2 = join(w.base, 'shallow2');
+  execFileSync('git', ['clone', '-q', '--depth', '5', '-b', `tranche/${T}`, `file://${w.origin}`, d2], { stdio: 'ignore' });
+  const R2 = P.repo(join(d2, 'toy'));
+  R2.fetch(`job/${T}/alpha`);
+  const pinned = g(d2, 'rev-parse', `origin/job/${T}/alpha`);
+  const other = join(w.base, 'other');
+  execFileSync('git', ['clone', '-q', '-b', `job/${T}/alpha`, w.origin, other], { stdio: 'ignore' }); ident(other, 'other');
+  g(other, 'commit', '-q', '--allow-empty', '-m', 'the job branch moves on the remote'); g(other, 'push', '-q', 'origin', `HEAD:refs/heads/job/${T}/alpha`);
+  assert.throws(() => g(d2, 'merge-base', 'HEAD', `origin/job/${T}/alpha`));
+  P.history(R2, 'HEAD', `origin/job/${T}/alpha`);
+  assert.notEqual(g(d2, 'rev-list', '--count', 'HEAD'), '5');
+  assert.equal(g(d2, 'rev-parse', `origin/job/${T}/alpha`), pinned);
   // a merge base already present costs no fetch
   assert.equal(P.history(R, 'HEAD', 'HEAD~1'), g(d, 'rev-parse', 'HEAD~1'));
 });

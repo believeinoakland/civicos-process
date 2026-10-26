@@ -62,12 +62,17 @@ export function repo(product) {
 // lane HANDOFF R8). Deepens the clone until `a` and `b` have a merge base, then returns it (null: no common history).
 export function history(R, a, b) {
   const base = () => { try { return R.g(['merge-base', a, b]); } catch { return null; } };
-  const refs = [a, b].filter((x) => x.startsWith('origin/')).map((x) => `+refs/heads/${x.slice(7)}:refs/remotes/${x}`);
+  const named = [a, b].filter((x) => x.startsWith('origin/'));
+  const refs = named.map((x) => `+refs/heads/${x.slice(7)}:refs/remotes/${x}`);
+  // Deepening adds history; it never moves a ref the session already holds (D25: it had moved a pinned origin/main).
+  const held = Object.fromEntries(named.map((x) => { try { return [x, R.g(['rev-parse', '--verify', '-q', `refs/remotes/${x}`])]; } catch { return [x, null]; } }));
+  const keep = () => { for (const [x, sha] of Object.entries(held)) if (sha) R.g(['update-ref', `refs/remotes/${x}`, sha]); };
   for (let depth = 200; ; depth *= 5) {
     const found = base();
     if (found || R.g(['rev-parse', '--is-shallow-repository']) !== 'true') return found;
     if (depth > 125000) R.g(['fetch', '-q', '--unshallow', 'origin', ...refs]);
     else R.g(['fetch', '-q', `--deepen=${depth}`, 'origin', ...refs]);
+    keep();
   }
 }
 function on(R, want) { const b = R.branch(); if (b !== want) refuse(`check out ${want} first (on ${b})`); }
