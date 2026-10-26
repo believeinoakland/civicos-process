@@ -21,7 +21,7 @@
 //   BOB   takeover --name "BOB #n" --session <id> --depth <d>   status [--gate]   round open --round R<k> --plan <file>
 //         layer start --layer <L> [--usage <status>]   job started --module <m> --name "<M> #k" --session <id>
 //         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m>
-//         layer close --layer <L>   job archived --module <m> --usage <json>   round close   handoff
+//         layer close --layer <L>   job archived --module <m> --usage <json>   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
 //         job complete --module <m> --report-file <f>
 //   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>
@@ -141,7 +141,7 @@ export function takeover(o) {
   writeFileSync(roleFile(R), JSON.stringify({ role: 'bob', product: R.rel('.'), tranche: T, session: o.session }));
   const acts = [];
   if (Number(o.depth) !== 1) acts.push(`tell Bob: BOB at depth ${o.depth}, not 1 (P13)`);
-  if (before.bob && before.bob.session !== o.session) acts.push(`archive ${before.bob.name} ${before.bob.session} once idle, and write its BOB-final row`, `delete every routine into ${before.bob.session}`);
+  if (before.bob && before.bob.session !== o.session) acts.push(`archive ${before.bob.name} ${before.bob.session} once idle, then: proc bob archived --name "${before.bob.name}" --session ${before.bob.session} --usage '<archive_session usage json>'`, `delete every routine into ${before.bob.session}`);
   acts.push('arm the backstop: send_later into your own session, 60 minutes (DESIGN §2.7)');
   return { commit, previous: before.bob, owed: before.owed, jobs: status(o).jobs, acts };
 }
@@ -261,13 +261,17 @@ export function merge(o) {
   const base = R.g(['merge-base', 'HEAD', `origin/${jb}`]);
   const own = run('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, base, `origin/${jb}`]);
   if (own.status !== 0) refuse(`${m}: ownership: ${lastLine(own)}`);
+  const pre = R.g(['rev-parse', 'HEAD']);
   const mg = spawnSync('git', ['-C', R.root, 'merge', '-q', '--no-ff', `origin/${jb}`, '-m', `Merge ${jb}`], { encoding: 'utf8' });
   if (mg.status !== 0) { spawnSync('git', ['-C', R.root, 'merge', '--abort']); refuse(`${m}: merge conflict; aborted, nothing changed`); }
+  // A merged change can make another module's generated artifact stale (D19 finding 1): every artifact the manifest
+  // lists is regenerated and verified at each merge, in the manifest's order, and committed with it (mechanics §14).
+  const art = regenerate(R, `after merging ${m}`);
   const tests = runTests(R, m);
   const checks = run('node', [join(PROCESS, 'checks/run.mjs'), R.dir]);
-  if (tests.fail || checks.status !== 0) {
-    R.g(['reset', '-q', '--keep', 'HEAD~1']);
-    refuse(`${m}: after the merge, tests ${tests.pass}/${tests.tests}${checks.status ? `, checks: ${lastLine(checks)}` : ''}; the merge was undone`);
+  if (art.stale.length || tests.fail || checks.status !== 0) {
+    R.g(['reset', '-q', '--keep', pre]);
+    refuse(`${m}: after the merge, ${art.stale.length ? `artifacts stale after regenerating: ${art.stale.join(', ')}; ` : ''}tests ${tests.pass}/${tests.tests}${checks.status ? `, checks: ${lastLine(checks)}` : ''}; the merge was undone`);
   }
   const reqPath = `build/requirements/${m}.md`, req = R.read(reqPath);
   if (req && met.length) R.write(reqPath, req.split('\n').map((l) => (met.some((id) => l.includes(`**${id}**`)) ? l.replace(` *(not yet met: ${T})*`, '') : l)).join('\n'));
@@ -275,7 +279,20 @@ export function merge(o) {
   const commit = commitPush(R, trancheBranch(T), [reqPath, 'build/rulings.md'].filter((p) => R.read(p) !== null), `${k}: merged ${m}`);
   R.fetch(trancheBranch(T));
   if (R.g(['rev-parse', 'HEAD']) !== R.g(['rev-parse', `origin/${trancheBranch(T)}`])) refuse('pushed, but origin does not show the merge: read it by hand');
-  return { commit, ruling: k, tests, met };
+  return { commit, ruling: k, tests, met, regenerated: art.changed };
+}
+// The product's generated artifacts: rows of the manifest's table `| \`<path>\` | <owner> | \`<regenerate>\` | \`<verify>\` |`.
+export function artifacts(R) {
+  return [...(R.read('build/manifest.md') || '').matchAll(/^\| `([^`]+)` \| [^|]+ \| `([^`]+)` \| `([^`]+)` \|$/gm)].map((x) => ({ path: x[1], regen: x[2], verify: x[3] }));
+}
+// Regenerate each artifact, verify it, and commit what changed; returns { changed, stale }.
+function regenerate(R, why) {
+  const sh = (c) => spawnSync('sh', ['-c', c], { cwd: R.dir, encoding: 'utf8' });
+  const list = artifacts(R), stale = [];
+  for (const a of list) { sh(a.regen); if (sh(a.verify).status !== 0) stale.push(a.path); }
+  const changed = list.filter((a) => { try { R.g(['diff', '--quiet', '--', R.rel(a.path)]); return false; } catch { return true; } }).map((a) => a.path);
+  if (changed.length && !stale.length) { R.g(['add', '--', ...changed.map(R.rel)]); R.g(['commit', '-q', '-m', `artifacts regenerated ${why}: ${changed.join(', ')}`]); }
+  return { changed, stale };
 }
 function ruling(R, m, text, why) {
   const cur = R.read('build/rulings.md') || '# Rulings\n';
@@ -306,6 +323,9 @@ export function layerClose(o) {
   const jobs = st.jobs.filter((j) => mods.includes(j.module));
   const open = jobs.filter((j) => j.state !== 'COMPLETE' || !j.merged);
   if (open.length) refuse(`layer ${L}: ${open.map((j) => `${j.module} ${j.state}${j.merged ? '' : ', not merged'}`).join('; ')}`);
+  on(R, trancheBranch(T));
+  const art = regenerate(R, `at layer ${L}'s close`);
+  if (art.stale.length) refuse(`artifacts stale after regenerating: ${art.stale.join(', ')}`);
   const checks = run('node', [join(PROCESS, 'checks/run.mjs'), R.dir]);
   if (checks.status !== 0) refuse(`checks: ${lastLine(checks)}`);
   const commit = planEdit(R, T, (text, p) => addOwed(setLine(text, 'Round', fmtRound(p.round, p.layers.map((l) => (l.layer === L ? { ...l, state: 'CLOSED' } : l)))), p, jobs.map((j) => `archive ${j.module}`)), `plan ${T}: layer ${L} closes`);
@@ -321,6 +341,15 @@ export function jobArchived(o) {
   const text = R.read(PLAN);
   R.write(PLAN, clearOwed(setLine(text, 'Jobs', fmtJobs(p.jobs.filter((x) => x.module !== o.module))), p, `archive ${o.module}`));
   return commitPush(R, trancheBranch(T), [csv, PLAN], `metrics ${T}: ${j.name} archived`);
+}
+// A predecessor BOB archived (§5.1, §10): its BOB-final row from archive_session's usage.
+export function bobArchived(o) {
+  if (!/^BOB #\d+$/.test(o.name || '') || !SESSION.test(o.session || '')) refuse('--name "BOB #<n>" --session <id> --usage <json>');
+  const R = repo(o.product), T = o.tranche, u = typeof o.usage === 'string' ? JSON.parse(o.usage) : o.usage || {};
+  on(R, trancheBranch(T));
+  const csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? 'session,role,module,cache-read,cache-write,input,output,turns,test runs,module lines\n';
+  R.write(csv, `${cur}${[o.session, 'BOB-final', '', u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', '', '', ''].join(',')}\n`);
+  return commitPush(R, trancheBranch(T), [csv], `metrics ${T}: ${o.name} archived (BOB-final)`);
 }
 // A round ends when every layer has closed; its plan is archived whole (DESIGN §2.1).
 export function roundClose(o) {
@@ -420,7 +449,7 @@ function args(argv) {
 const COMMANDS = {
   takeover, status, addr, handoff, merge, shims,
   'round open': roundOpen, 'round close': roundClose, 'layer start': layerStart, 'layer close': layerClose,
-  'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived,
+  'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived,
   'job start': jobStart, 'job state': jobState, 'job complete': jobComplete,
 };
 if (import.meta.url === `file://${process.argv[1]}`) {

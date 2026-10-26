@@ -118,6 +118,9 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   assert.deepEqual(P.status(O(w.bob)).jobs[0].needs, ['MERGE']);
   const mg = P.merge(O(w.bob, { module: 'alpha' }));
   assert.match(mg.ruling, /^K\d+$/);
+  // alpha's change made beta's bundle (which embeds alpha) stale: the merge regenerated and committed it (D19 finding 1)
+  assert.ok(mg.regenerated.includes('beta/dist/bundle.txt'));
+  assert.equal(execFileSync('node', ['beta/scripts/bundle.mjs', '--verify'], { cwd: w.bob }).toString().includes('STALE'), false);
   assert.match(readFileSync(join(w.bob, 'build/rulings.md'), 'utf8'), /· alpha · Merged alpha \(job\/P1\/alpha\): COMPLETE; ownership/);
   assert.match(readFileSync(join(w.bob, 'alpha/src/index.mjs'), 'utf8'), /^\/\/ R1: add/);
   assert.equal(P.status(O(w.bob)).jobs[0].merged, true);
@@ -134,6 +137,8 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   assert.throws(() => P.handoff(O(w.bob)), /not at a clean point/);
   P.jobArchived(O(w.bob, { module: 'alpha', usage: JSON.stringify({ cache_read_tokens: 10, cache_write_tokens: 2, input_tokens: 1, output_tokens: 3 }) }));
   assert.match(readFileSync(join(w.bob, `build/metrics/${T}.csv`), 'utf8'), new RegExp(`^${J1},job,alpha,10,2,1,3,,1,\\d+$`, 'm'));
+  P.bobArchived(O(w.bob, { name: 'BOB #1', session: B1.replace('B', 'C'), usage: '{"cache_read_tokens":5}' }));
+  assert.match(readFileSync(join(w.bob, `build/metrics/${T}.csv`), 'utf8'), /^session_01CB+,BOB-final,,5,/m);
   P.roundClose(O(w.bob));
   assert.ok(existsSync(join(w.bob, `build/plan/archive/${T}-R1.md`)));
   assert.match(P.handoff(O(w.bob)).text, new RegExp(`^START BOB #3: tranche/${T} @ \\w+$`));
