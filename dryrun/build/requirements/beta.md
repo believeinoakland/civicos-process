@@ -30,4 +30,4 @@ Totals of lists of numbers, and a generated bundle of its and alpha's source.
 ### Satisfies
 
 - The dry run (mechanics §15).
-- **R98** An old requirement no test names (seeded by D24: old debt for the layer close).
+- **R98** An old requirement no test names (seeded by D25: old debt for the layer close).
