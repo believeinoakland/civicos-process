@@ -8,7 +8,7 @@ import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, existsSync } from 
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { post, inbox, done, start, state, bob, addjob, jobbranch, addr, check, parseEntries, parseStatus, ringText, oversize, sizeLines, xwriter, xpost, xinbox, xcheck, xdone } from '../mail.mjs';
+import { post, inbox, done, start, state, bob, addjob, retire, refspecs, jobbranch, addr, check, parseEntries, parseStatus, ringText, oversize, sizeLines, xwriter, xpost, xinbox, xcheck, xdone } from '../mail.mjs';
 
 const MAIL = join(dirname(fileURLToPath(import.meta.url)), '..', 'mail.mjs');
 
@@ -396,4 +396,63 @@ test('jobbranch (§5.3 (1); bio K4385): creates or fast-forwards a job branch by
   const before = remote(`job/${T}/alpha`);
   assert.throws(() => jobbranch({ product: w.bob, tranche: T, module: 'alpha' }), /never forced/);
   assert.equal(remote(`job/${T}/alpha`), before);
+});
+
+// ---- retire and the MERGED action (K5296) ----
+function mergeJob(w) {
+  g(w.bob, 'fetch', '-q', 'origin');
+  g(w.bob, 'merge', '-q', '--no-edit', `origin/job/${T}/alpha`);
+  g(w.bob, 'push', '-q', 'origin', `tranche/${T}`);
+}
+const jobsLine = (dir) => readFileSync(join(dir, 'build/plan/current.md'), 'utf8').match(/^\*\*Jobs\*\*.*$/m)?.[0];
+
+test('retire: removes a merged job\'s entry from the Jobs line and pushes; an unmerged job is refused and nothing is written', () => {
+  const w = world();
+  addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
+  addjob({ ...J(w.bob), module: 'beta', name: 'BETA #1', session: J1.replace('A', 'D') });
+  start({ ...J(w.job), session: J1, depth: 2 });
+  post({ ...J(w.job), as: 'job', kind: 'COMPLETE', body: 'Done.' });
+  const before = g(w.bob, 'rev-parse', 'HEAD');
+  assert.throws(() => retire(J(w.bob)), /not merged/);
+  assert.equal(g(w.bob, 'rev-parse', 'HEAD'), before);
+  assert.match(jobsLine(w.bob), /alpha: ALPHA #1/);
+  mergeJob(w);
+  retire(J(w.bob));
+  assert.doesNotMatch(jobsLine(w.bob), /alpha/);
+  assert.match(jobsLine(w.bob), /beta: BETA #1/);
+  assert.equal(g(w.bob, 'rev-parse', 'HEAD'), g(w.bob, 'rev-parse', `origin/tranche/${T}`));   // pushed
+  assert.throws(() => retire(J(w.bob)), /no job for alpha/);
+});
+
+test('check: a merged, settled job reads MERGED; an unmerged quiet one reads nothing', () => {
+  const w = world();
+  addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
+  start({ ...J(w.job), session: J1, depth: 2 });
+  state({ ...J(w.job), set: 'WAITING ON BOB (J1)' });
+  let [r] = check({ product: w.bob, tranche: T });
+  assert.deepEqual(r.needs, []);                                           // unmerged: nothing
+  mergeJob(w);
+  [r] = check({ product: w.bob, tranche: T });
+  assert.deepEqual(r.needs, ['MERGED → archive its session, then retire']);
+  post({ ...J(w.bob), as: 'bob', kind: 'CHANGE', body: 'one more thing' });   // unread by the job: not settled
+  [r] = check({ product: w.bob, tranche: T });
+  assert.ok(!r.needs.some((n) => /^MERGED/.test(n)));
+  const out = spawnSync(process.execPath, [MAIL, 'check', '--product', w.bob, '--tranche', T], { encoding: 'utf8' }).stdout;
+  assert.match(out, /alpha .*→ /);
+});
+
+test('check: one git fetch for the tranche-and-all-jobs list; refspecs are one per branch; a missing branch falls back', () => {
+  assert.deepEqual(refspecs(['job/D1/a', 'job/D1/b']), ['+refs/heads/job/D1/a:refs/remotes/origin/job/D1/a', '+refs/heads/job/D1/b:refs/remotes/origin/job/D1/b']);
+  const w = world();
+  addjob({ ...J(w.bob), name: 'ALPHA #1', session: J1 });
+  addjob({ ...J(w.bob), module: 'beta', name: 'BETA #1', session: J1.replace('A', 'D') });   // beta has no branch on origin
+  addjob({ ...J(w.bob), module: 'gamma', name: 'GAMMA #1', session: J1.replace('A', 'E') });
+  const trace = join(mkdtempSync(join(tmpdir(), 'trace-')), 't');
+  const rows = check.call(null, { product: w.bob, tranche: T });
+  assert.equal(rows.length, 3);
+  assert.ok(rows.every((r) => r.state === 'NOT STARTED' || r.state));        // a missing branch is tolerated
+  process.env.GIT_TRACE = trace;
+  try { spawnSync(process.execPath, [MAIL, 'check', '--product', w.bob, '--tranche', T], { encoding: 'utf8', env: process.env }); } finally { delete process.env.GIT_TRACE; }
+  const fetches = (existsSync(trace) ? readFileSync(trace, 'utf8') : '').split('\n').filter((l) => /git.* fetch -q origin/.test(l) && !/run_command|exec:/.test(l));
+  assert.ok(fetches.length > 0 && fetches.length <= 1 + 1 + 3 + 3, `fetches: ${fetches.length}`);   // tranche, batch, fallback per branch
 });

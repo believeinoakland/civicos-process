@@ -16,6 +16,8 @@
 //         product has a registry, BOB's Writer line in its outbox (as xwriter --as BOB, account from the registry;
 //         bio K3361); a failed channel step keeps the Status line and warns with the xwriter command to run by hand
 //         addjob --module <m> --name "<M> #k" --session <id>             add or replace a job's address
+//         retire --module <m>              remove a merged job's entry from the plan's Jobs line (refused, nothing written,
+//                                          unless origin/job/<T>/<m> is an ancestor of origin/tranche/<T>)
 //         jobbranch --module <m>           create job/<T>/<m> at the tranche tip, or fast-forward it there (§5.3 (1));
 //                                          a job branch holding commits the tranche lacks is refused, never forced
 //         post --as bob --module <m> --kind <KIND> [--re J<n>] (--body <text> | --body-file <f>)
@@ -105,6 +107,18 @@ function repo(product) {
 }
 function fetchBranch(R, branch) {
   try { R.g(['fetch', '-q', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { quiet: true }); return true; } catch { return false; }
+}
+// The refspecs of one fetch for several branches (a pure function, tested on its own).
+export const refspecs = (branches) => branches.map((b) => `+refs/heads/${b}:refs/remotes/origin/${b}`);
+// Fetch several branches in ONE git call; if that fails (a branch missing on origin), fall back to one fetch per
+// branch. Returns the set of branches that could be fetched.
+function fetchMany(R, branches) {
+  if (!branches.length) return new Set();
+  try { R.g(['fetch', '-q', 'origin', ...refspecs(branches)], { quiet: true }); return new Set(branches); } catch { /* fall back */ }
+  return new Set(branches.filter((b) => fetchBranch(R, b)));
+}
+function isAncestor(R, a, b) {
+  try { R.g(['merge-base', '--is-ancestor', a, b], { quiet: true }); return true; } catch { return false; }
 }
 function showRemote(R, branch, path) {
   try { return R.g(['show', `origin/${branch}:${R.inRepo(path)}`], { quiet: true }); } catch { return null; }
@@ -334,6 +348,25 @@ export function addjob(o) {
   writeLocal(R, PLAN, text);
   return { commit: commitPush(R, branch, PLAN, `plan ${T}: ${name} ${session} for ${m}`) };
 }
+// Retire a merged job: its entry leaves the Jobs line (the line otherwise grows for ever and `check` fetches each
+// entry). Refused, writing nothing, unless the job's branch is already merged into the tranche branch.
+export function retire(o) {
+  const { tranche: T, module: m } = o;
+  if (!/^[a-z][a-z0-9-]*$/.test(m || '')) throw new Error('--module <m>');
+  const R = repo(o.product), tb = branchOf('bob', T), jb = branchOf('job', T, m);
+  onBranch(R, tb);
+  const got = fetchMany(R, [tb, jb]);
+  if (!got.has(tb)) throw new Error(`no ${tb} on origin`);
+  if (!got.has(jb) || !isAncestor(R, `origin/${jb}`, `origin/${tb}`)) throw new Error(`${jb} is not merged into ${tb} (not an ancestor of origin/${tb}, or not on origin): not retired, nothing written`);
+  let text = readLocal(R, PLAN);
+  const all = parseJobs(text);
+  if (!all.some((j) => j.module === m)) throw new Error(`no job for ${m} in the plan's Jobs line`);
+  const jobs = all.filter((j) => j.module !== m);
+  const line = `**Jobs** · ${jobs.map((j) => `${j.module}: ${j.name} ${j.session}`).join('; ')}`;
+  text = text.replace(/^\*\*Jobs\*\*.*$/m, line);
+  writeLocal(R, PLAN, text);
+  return { commit: commitPush(R, tb, PLAN, `plan ${T}: retire ${m} (merged)`) };
+}
 // §5.3 (1); bio K3969, K4385: a job's branch is created at the tranche's tip, or fast-forwarded to it, by a plain push
 // only. A branch that is not an ancestor of the tranche holds work the tranche lacks: it is refused, with the remedy
 // (the job merges the tranche into its branch), and never rewritten. The one way a session moves a job branch.
@@ -376,9 +409,10 @@ export function check(o) {
   const R = repo(o.product), T = o.tranche, tb = branchOf('bob', T), now = o.now ?? Date.now();
   fetchBranch(R, tb);
   const plan = showRemote(R, tb, PLAN) ?? readLocal(R, PLAN);
-  return parseJobs(plan).map((j) => {
+  const listed = parseJobs(plan);
+  fetchMany(R, listed.map((j) => branchOf('job', T, j.module)));   // one fetch for all job branches
+  return listed.map((j) => {
     const jb = branchOf('job', T, j.module);
-    fetchBranch(R, jb);
     const rec = showRemote(R, jb, recordPath(T, j.module));
     const out = readLocal(R, outboxPath(T, j.module)) ?? showRemote(R, tb, outboxPath(T, j.module));
     const st = parseStatus(rec);
@@ -391,6 +425,8 @@ export function check(o) {
     if (st && r.handled < r.lastB) r.needs.push('RING');
     if (/^NEEDS BOB/.test(r.state)) r.needs.push('BOB: relay to Bob');
     if (st && quietOf(r.state, now - lastPushMs(R, jb), now)) r.needs.push('QUIET');
+    // Merged and settled: nothing left to read on either side, only the session to archive and the entry to retire.
+    if (st && !r.needs.length && /^(COMPLETE|WAITING ON BOB)/.test(r.state) && isAncestor(R, `origin/${jb}`, `origin/${tb}`)) r.needs.push('MERGED → archive its session, then retire');
     return r;
   });
 }
@@ -671,6 +707,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         break;
       }
       case 'addjob': console.log(`job address written (${addjob(o).commit})`); break;
+      case 'retire': console.log(`job retired (${retire(o).commit})`); break;
       case 'jobbranch': { const r = jobbranch(o); console.log(`${r.branch} ${r.action}${r.from ? ` from ${r.from}` : ''} at ${r.commit}`); break; }
       case 'addr': console.log(addr(o)); break;
       case 'ring-text': console.log(ringText(o.tranche, o.to || 'BOB')); break;
