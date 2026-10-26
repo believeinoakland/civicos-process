@@ -95,3 +95,5 @@ test('R4 sum throws a TypeError for an element that is not a finite number, coer
     }
   }
 });
+
+test.todo('R6 mul returns a * b for two finite numbers (D19)');

@@ -1,20 +1,5 @@
-# Plan: dry run D3
+# Plan D19
 
-**Status** · OPEN. The third dry run of the mechanics (§15; `CERTIFICATION.md`, D3). BOB's session: `session_01DskKyz9F8BW9BtAVJNqBFG`. Each entry is written to drive a path of the mechanics: do exactly what it says.
+**Status** · OPEN · BOB #0 · session_01PROCESSREDESIGNPLACEHOLDER · depth 2
 
-## Layer 1
-
-**alpha**
-- N1 · Add a provided service `sum(list) → number`, the sum of a list of numbers. Its behaviour for an element that is not a number is deliberately unstated: send BOB a `QUESTION` with your best reading, and carry on with N2 while you wait; implement `sum` against the requirements BOB writes.
-- N2 · Write a `REPORT` in your job record that `legacy/dist/legacy.bundle.txt` is stale after your change, and push it, but deliberately do NOT send it to BOB (it tests that BOB finds what a lost message would have said).
-
-**beta**
-- N3 · Make `total` use `alpha.sum` once BOB tells you it is on the tranche branch.
-- N4 · Make `total([0.1, 0.2])` return exactly `0.3`, without changing R1 (the exact sum). After three honest attempts, if it cannot be done as written, send BOB `BLOCKED` and continue with the rest.
-- N5 · After alpha's work is on the tranche branch, check `alpha.add('1', 2)` and report what it returns to BOB as a `REPORT` about alpha, against alpha's R1.
-
-## Layer 2
-
-**stats**
-- N6 · Extract `mean` from `legacy` into `stats`: `stats.mean` meets `stats` R1–R3, and `mean` is removed from `legacy/index.mjs`, which gains nothing.
-- N7 · Check `legacy.max([])` and report what it returns to BOB as a `REPORT` about `legacy` (a module with no job).
+The dry run D19 of the process redesign (lane-process-redesign/DESIGN.md §5; dryrun/CERTIFICATION.md, D19).
