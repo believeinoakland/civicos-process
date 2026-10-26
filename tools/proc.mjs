@@ -24,7 +24,7 @@
 //         layer close --layer <L>   job archived --module <m> --usage <json>   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
 //         job complete --module <m> --report-file <f>
-//   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)
+//   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   footprint [--base <ref>]
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
@@ -147,6 +147,28 @@ export function addr(o) {
 
 // ---- commands: BOB ----
 
+// The tranche's footprint in the repository (P14; lane HANDOFF R9): its commits since `--base` (default origin/main),
+// each non-merge commit by what it changed: product code or tests, job records only, other build state only, docs.
+// Reported at the tranche's close, so bookkeeping that grows back is seen within one tranche.
+export function footprint(o) {
+  const R = repo(o.product), ref = o.base || 'origin/main';
+  if (ref.startsWith('origin/')) R.fetch(ref.slice(7));
+  const base = history(R, ref, 'HEAD') ?? refuse(`${ref} shares no history with HEAD`);
+  const pre = R.rel('.') === '.' ? '' : `${R.rel('.')}/`;
+  const kinds = { product: 0, 'job records': 0, 'other build state': 0, docs: 0 };
+  let merges = 0;
+  for (const block of R.g(['log', '--format=@@%P', '--name-only', `${base}..HEAD`]).split('@@').slice(1)) {
+    const [parents, ...files] = block.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (parents.split(' ').length > 1) { merges++; continue; }
+    const rel = files.map((f) => (f.startsWith(pre) ? f.slice(pre.length) : `../${f}`));
+    if (!rel.length) continue;
+    const k = rel.every((f) => f.startsWith('build/jobs/')) ? 'job records' : rel.every((f) => f.startsWith('build/')) ? 'other build state'
+      : rel.every((f) => f.startsWith('build/') || f.startsWith('docs/')) ? 'docs' : 'product';
+    kinds[k]++;
+  }
+  const commits = Object.values(kinds).reduce((a, b) => a + b, 0);
+  return { base, commits, merges, kinds, bookkeeping: commits ? `${Math.round((100 * (commits - kinds.product)) / commits)} %` : '0 %' };
+}
 // Before a merge BOB makes itself (the tranche's close merges `main` into it, §5.7): the history that merge needs.
 export function historyCmd(o) {
   const R = repo(o.product); const ref = o.ref || refuse('--ref <ref>, e.g. origin/main');
@@ -313,21 +335,28 @@ export function merge(o) {
   const own = run('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, base, `origin/${jb}`]);
   if (own.status !== 0) refuse(`${m}: ownership: ${lastLine(own)}`);
   const pre = R.g(['rev-parse', 'HEAD']);
-  const mg = spawnSync('git', ['-C', R.root, 'merge', '-q', '--no-ff', `origin/${jb}`, '-m', `Merge ${jb}`], { encoding: 'utf8' });
-  if (mg.status !== 0) { spawnSync('git', ['-C', R.root, 'merge', '--abort']); refuse(`${m}: merge conflict; aborted, nothing changed`); }
+  // One commit per merge (lane HANDOFF R9: keep the repository a ledger): the merge, its regenerated artifacts, the
+  // struck marks and the ruling line are made in the working tree and committed together once everything is green.
+  // The checkout had no uncommitted tracked change when the merge began (refused above), so restoring every tracked
+  // file to `pre` undoes exactly the merge and what regenerating wrote.
+  const undo = () => { spawnSync('git', ['-C', R.root, 'merge', '--abort']); R.g(['reset', '-q', '--hard', pre]); };
+  const mg = spawnSync('git', ['-C', R.root, 'merge', '-q', '--no-ff', '--no-commit', `origin/${jb}`], { encoding: 'utf8' });
+  if (mg.status !== 0) { undo(); refuse(`${m}: merge conflict; aborted, nothing changed`); }
   // A merged change can make another module's generated artifact stale (D19 finding 1): every artifact the manifest
   // lists is regenerated and verified at each merge, in the manifest's order, and committed with it (mechanics §14).
-  const art = regenerate(R, `after merging ${m}`);
+  const art = regenerate(R, `after merging ${m}`, false);
   const tests = runTests(R, m);
   const checks = run('node', [join(PROCESS, 'checks/run.mjs'), R.dir]);
   if (art.stale.length || tests.fail || checks.status !== 0) {
-    R.g(['reset', '-q', '--keep', pre]);
+    undo();
     refuse(`${m}: after the merge, ${art.stale.length ? `artifacts stale after regenerating: ${art.stale.join(', ')}; ` : ''}tests ${tests.pass}/${tests.tests}${checks.status ? `, checks: ${lastLine(checks)}` : ''}; the merge was undone`);
   }
   const reqPath = `build/requirements/${m}.md`, req = R.read(reqPath);
   if (req && met.length) R.write(reqPath, req.split('\n').map((l) => (met.some((id) => l.includes(`**${id}**`)) ? l.replace(` *(not yet met: ${T})*`, '') : l)).join('\n'));
   const k = ruling(R, m, `Merged ${m} (${jb}): COMPLETE; ownership ${lastLine(own).replace(/^ownership: /, '')}; tests ${tests.pass}/${tests.tests}; checks 0 failures; struck ${met.join(', ') || 'none'}${o.context !== undefined ? `; BOB's context ${o.context} %` : ''}`, '§5.5; P7, P12');
-  const commit = commitPush(R, trancheBranch(T), [reqPath, 'build/rulings.md'].filter((p) => R.read(p) !== null), `${k}: merged ${m}`);
+  R.g(['add', '--', ...[reqPath, 'build/rulings.md'].filter((p) => R.read(p) !== null).map(R.rel)]);
+  R.g(['commit', '-q', '--no-edit', '-m', `${k}: merged ${m} (${jb})${art.changed.length ? `; artifacts regenerated: ${art.changed.join(', ')}` : ''}`]);
+  const commit = commitPush(R, trancheBranch(T), ['build/rulings.md'], `${k}: merged ${m}`);
   R.fetch(trancheBranch(T));
   if (R.g(['rev-parse', 'HEAD']) !== R.g(['rev-parse', `origin/${trancheBranch(T)}`])) refuse('pushed, but origin does not show the merge: read it by hand');
   return { commit, ruling: k, tests, met, regenerated: art.changed };
@@ -342,13 +371,13 @@ export function artifacts(R) {
   return rows.map((r) => ({ ...r, path: r.paths.join(', ') }));
 }
 // Regenerate each artifact, verify it, and commit what changed; returns { changed, stale }.
-function regenerate(R, why) {
+function regenerate(R, why, commit = true) {
   const sh = (c) => spawnSync('sh', ['-c', c], { cwd: R.dir, encoding: 'utf8' });
   const list = artifacts(R), stale = [];
   for (const a of list) { sh(a.regen); if (sh(a.verify).status !== 0) stale.push(a.path); }
   const moved = (p) => { try { R.g(['diff', '--quiet', '--', R.rel(p)]); return false; } catch { return true; } };
   const changed = list.flatMap((a) => a.paths.filter(moved));
-  if (changed.length && !stale.length) { R.g(['add', '--', ...changed.map(R.rel)]); R.g(['commit', '-q', '-m', `artifacts regenerated ${why}: ${changed.join(', ')}`]); }
+  if (changed.length && !stale.length) { R.g(['add', '--', ...changed.map(R.rel)]); if (commit) R.g(['commit', '-q', '-m', `artifacts regenerated ${why}: ${changed.join(', ')}`]); }
   return { changed, stale };
 }
 function ruling(R, m, text, why) {
@@ -510,7 +539,7 @@ function args(argv) {
   return o;
 }
 const COMMANDS = {
-  takeover, status, addr, handoff, merge, shims, history: historyCmd,
+  takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd,
   'round open': roundOpen, 'round close': roundClose, 'layer start': layerStart, 'layer close': layerClose,
   'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived,
   'job start': jobStart, 'job state': jobState, 'job complete': jobComplete,

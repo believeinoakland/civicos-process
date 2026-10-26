@@ -122,7 +122,12 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
 
   // the merge: one command, gates, ruling line, pushed and verified
   assert.deepEqual(P.status(O(w.bob)).jobs[0].needs, ['MERGE']);
+  const before = g(w.bobRoot, 'rev-parse', 'HEAD');
   const mg = P.merge(O(w.bob, { module: 'alpha', context: 12 }));
+  // one commit: the merge itself carries the regenerated artifacts and the ruling line (lane R9)
+  assert.equal(g(w.bobRoot, 'rev-list', '--count', '--first-parent', `${before}..HEAD`), '1');
+  assert.equal(g(w.bobRoot, 'rev-list', '--parents', '-n', '1', 'HEAD').split(' ').length, 3);
+  assert.match(g(w.bobRoot, 'show', '--stat', '--format=%s', 'HEAD'), /merged alpha[\s\S]*build\/rulings\.md/);
   assert.match(mg.ruling, /^K\d+$/);
   assert.match(readFileSync(join(w.bob, 'build/rulings.md'), 'utf8'), /BOB's context 12 %/);
   // alpha's change made beta's bundle (which embeds alpha) stale: the merge regenerated and committed it (D19 finding 1)
@@ -149,6 +154,11 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   P.roundClose(O(w.bob));
   assert.ok(existsSync(join(w.bob, `build/plan/archive/${T}-R1.md`)));
   assert.match(P.handoff(O(w.bob)).text, new RegExp(`^START BOB #3: tranche/${T} @ \\w+$`));
+  // the tranche's footprint: its commits by kind since main (the toy's main is the seed)
+  const fp = P.footprint(O(w.bob));
+  assert.ok(fp.kinds.product >= 1 && fp.kinds['job records'] >= 3 && fp.kinds['other build state'] >= 5, JSON.stringify(fp));
+  assert.equal(fp.merges, 1);
+  assert.match(fp.bookkeeping, /^\d+ %$/);
 });
 
 test('merge refuses a job that is not COMPLETE, and a job with a red test cannot mark itself complete', () => {
@@ -242,4 +252,28 @@ test('a shallow clone fetches the history a merge needs, and only then (lane R8:
   assert.ok(Number(g(d, 'rev-list', '--count', 'HEAD')) > before);
   // a merge base already present costs no fetch
   assert.equal(P.history(R, 'HEAD', 'HEAD~1'), g(d, 'rev-parse', 'HEAD~1'));
+});
+
+test('a merge whose artifacts fail to verify is undone whole: no merge state, no commit, a clean tree', () => {
+  const w = world();
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  P.layerStart(O(w.bob, { layer: 1 }));
+  P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  const job = jobClone(w);
+  P.jobStart(O(job.dir, { module: 'alpha', session: J1, depth: 2 }));
+  const src = join(job.dir, 'alpha/src/index.mjs');
+  writeFileSync(src, `// R1: add returns a + b.\n${readFileSync(src, 'utf8')}`);
+  g(job.root, 'commit', '-qam', 'alpha: N1');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n**Met** · none\n');
+  P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep }));
+  // the manifest's first verify now always fails
+  const mf = join(w.bob, 'build/manifest.md');
+  writeFileSync(mf, readFileSync(mf, 'utf8').replace('`node beta/scripts/bundle.mjs --verify`', '`false`'));
+  g(w.bobRoot, 'commit', '-qam', 'manifest: a verify that fails'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  const pre = g(w.bobRoot, 'rev-parse', 'HEAD');
+  assert.throws(() => P.merge(O(w.bob, { module: 'alpha' })), /artifacts stale after regenerating: beta\/dist\/bundle\.txt; .*the merge was undone/);
+  assert.equal(g(w.bobRoot, 'rev-parse', 'HEAD'), pre);
+  assert.equal(existsSync(join(w.bobRoot, '.git/MERGE_HEAD')), false);
+  assert.equal(g(w.bobRoot, 'status', '--porcelain', '--untracked-files=no'), '');
 });
