@@ -12,5 +12,29 @@
       "Bash(node tools/mail.mjs xcheck:*)",
       "Bash(node /home/user/civicos-process/tools/mail.mjs xcheck:*)"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/probe.sh start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/probe.sh stop",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
   }
 }
