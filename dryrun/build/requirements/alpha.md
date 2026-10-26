@@ -20,7 +20,7 @@ Arithmetic on numbers.
 - **R4** Throws a `TypeError` when an element is not a finite number (a non-number, `NaN` or an infinity); nothing is coerced or skipped.
 
 **sub(a, b) → number** (added by BOB for D20)
-- **R7** Returns `a - b` for two finite numbers; a non-finite argument throws a `TypeError`, as `add` does (R5). *(not yet met: D20)*
+- **R7** Returns `a - b` for two finite numbers; a non-finite argument throws a `TypeError`, as `add` does (R5).
 
 ## Private
 
