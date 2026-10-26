@@ -273,3 +273,18 @@ Tranche `tranche/D20` from `dryrun-main/D20` (`7346c2d`, with D19's fixes). D20 
 Findings: **F1** the metrics row read the first completion's Size line, and `test runs` did not count a second completion: fixed (the last line; this session's runs). **F2** BOB built the `--usage` JSON from `archive_session`'s `usage` block: that is the intended input, now said in situations/merge-close.md. Refusals met: none but the Stop hook's.
 
 Cost: BOB #1 2.23 M, ALPHA #1 2.74 M tokens processed. Wall time: 20:57 to 21:01 UTC, four minutes.
+
+## D21 · 2026-10-26 · the redesign: the tool's changes after D20 (PROCESS-REDESIGN #2)
+
+Tranche `tranche/D21` from `dryrun-main/D21` (`2b667c3`: the lane's tools at `f944006` plus a seed with a round R1 plan, the product's `build/situations/job.md`, a `build/handoff.md` of 26,056 bytes, and a ruling of Bob's, K9001, with no home). D21 BOB #1 (`session_01Q9MkLzV5Y3TzjjRRNT6GXr`, sonnet), ALPHA #1 (`session_01RboLS5tkHZFVvQM8fLPWiP`, haiku); the lane played ROOT.
+
+| path | evidence | result |
+| --- | --- | --- |
+| RD20 takeover owes the prune of a document over its limit (§17), and stops no one | `proc takeover` printed the `SIZE build/handoff.md 26056 > 25600` act; BOB pruned it (`6e805c2`); the job started and completed meanwhile, unrefused | PROVEN |
+| RD21 takeover owes a home for a recent ruling of Bob's with none | the act for K9001 printed; BOB placed it in `rulings-active.md` (`6e805c2`); `proc handoff` then passed (`460d7e3`). The refusal before placement: fixture | PROVEN (refusal by fixture) |
+| RD22 a START names the product's rules for every job, and the job reads them | START line "Before changing code, read `build/situations/job.md` whole"; the job's report quotes its D21 marker verbatim | PROVEN |
+| RD23 `job complete` runs fixtures (and words where the product has a word table) | the record: "Checks: format, architecture, coverage, fixtures, ownership 0 failures" (`ea0f6a8`); the toy has no word table, words: fixture | PROVEN |
+| RD24 `merge --context` writes BOB's context in the ruling | K9002: "… BOB's context 12 %" (`6c1afa5`) | PROVEN |
+| RD25 the round closes and the handoff reaches ROOT by message | `61c09b5`, `1f539d0`, `8b059e2`; `START BOB #2: tranche/D21 @ 460d7e3` arrived by `send_message` at 21:39:31 | PROVEN |
+
+Not live: the role-skill check (`proc shims` against the product's skills; the dry run's skills matched, so no act; fixture covers both cases) and the artifact table refused when unparsable (fixture). Findings: none. Cost: BOB #1 2.84 M, ALPHA #1 1.71 M tokens processed. Wall time: 21:36 to 21:39 UTC, three minutes.
