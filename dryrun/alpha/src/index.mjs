@@ -10,6 +10,11 @@ export function add(a, b) {
   return finite(a, 'add') + finite(b, 'add');
 }
 
+// R7: a - b for finite numbers; anything else throws, as add does.
+export function sub(a, b) {
+  return finite(a, 'sub') - finite(b, 'sub');
+}
+
 // R3–R4: left to right, 0 for an empty list; a non-finite element throws.
 // Elements are checked, then added as `add` adds them. A running total that overflows to
 // ±Infinity is carried on, not refused, since every element is finite (job record Q2).
