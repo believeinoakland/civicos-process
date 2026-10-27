@@ -36,6 +36,9 @@ import { pathToFileURL } from 'node:url';
 import { readModules, trackedFiles, ownerIndex, notProduct, report } from './lib.mjs';
 
 export const WORDS_JSON = 'docs/development/ux-substrate/screens/words.json';
+// The generated word rows (setup-words R10, R15): the design's words followed by the sentences written first in code
+// (`t`/`localize(id, en)`, Words B). A key there is a word `word(key)` answers, so `missingkey` does not judge it (bio K5579).
+export const WORD_ROWS = 'bio-plane/src/setup-words/rows.mjs';
 export const READS_JSON = 'docs/development/ux-substrate/screens/words-reads.json';
 const CODE_EXT = /\.(mjs|js|cjs|ts|tsx|jsx)$/;
 const SKIP_DIR = /(^|\/)(node_modules|dist|vendor|vendored|fixtures?|testdata|generated|coverage|profiles|datasets?|scripts|\.git)\//;
@@ -301,7 +304,7 @@ function excerpt(v) {
 // ---- product knowledge ------------------------------------------------------------------------------------------------
 export function loadWords(root) {
   const p = join(root, WORDS_JSON);
-  if (!existsSync(p)) return { keys: new Set(), ens: new Map(), blob: '', codes: new Set() };
+  if (!existsSync(p)) return { keys: new Set(), ens: new Map(), blob: '', codes: new Set(), codeKeys: new Set() };
   const rows = JSON.parse(readFileSync(p, 'utf8')).words || [];
   const keys = new Set(), ens = new Map(), codes = new Set();
   for (const r of rows) {
@@ -311,7 +314,10 @@ export function loadWords(root) {
     if (m) codes.add(m[1]);
   }
   const blob = '\n' + [...ens.keys()].join('\n') + '\n';
-  return { keys, ens, blob, codes };
+  const codeKeys = new Set();
+  const g = join(root, WORD_ROWS);
+  if (existsSync(g)) for (const m of readFileSync(g, 'utf8').matchAll(/^\s*\["([^"\\]+)",/gm)) codeKeys.add(m[1]);
+  return { keys, ens, blob, codes, codeKeys };
 }
 
 // op name -> owning module id (or null when the declarations give no owner). From `build/ops.json` (an array of names,
@@ -450,7 +456,7 @@ export async function checkWords(root, only = [], { release = false, record = fa
       const t = toks[k];
       if (t.t === 'id' && (t.v === 'word' || t.v === 'hasWord' || t.v === 'wordsOf') && toks[k + 1].v === '(' && toks[k + 1].t === 'p') {
         const a = toks[k + 2];
-        if (a.t === 'str' && !a.interp && KEY_RE.test(a.v) && words.keys.size && !words.keys.has(a.v)) {
+        if (a.t === 'str' && !a.interp && KEY_RE.test(a.v) && words.keys.size && !words.keys.has(a.v) && !words.codeKeys.has(a.v)) {
           const next = toks[k + 3];
           const sameLine = toks.filter((x) => x.line === a.line && x.t === 'id').map((x) => x.v);
           const negated = (toks[k - 1] && toks[k - 1].v === '!') || sameLine.some((x) => ['false', 'throws', 'notOk', 'rejects', 'UNKNOWN_WORD', 'WORD_ROWS'].includes(x)) || /no[._ -]?such|nonesuch|nonexist|not[._-]a[._-]key|unknown|\bzz\b/i.test(a.v); // a test of the refusal itself
