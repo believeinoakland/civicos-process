@@ -360,6 +360,57 @@ test('the layer close runs every check once, refusing only findings new since th
   assert.deepEqual(P.layerClose(O(w.bob, { layer: 1 })).archive, [{ module: 'alpha', session: J1 }]);
 });
 
+test('a test run never gives "no result" without its cause; a runaway test fails itself (lane R14)', () => {
+  const d = mkdtempSync(join(tmpdir(), 'proc-runs-'));
+  execFileSync('git', ['init', '-q', d]);
+  const f = (n, body) => { writeFileSync(join(d, n), `import test from 'node:test';\n${body}\n`); return join(d, n); };
+  const ok = f('ok.test.mjs', "for (const i of [1, 2]) test(`ok ${i}`, () => {});");
+  const red = f('red.test.mjs', "test('a red', () => { throw new Error('red'); });");
+  const killed = f('killed.test.mjs', "test('killed', () => { process.kill(process.pid, 'SIGKILL'); });");
+  const heap = f('heap.test.mjs', "test('runaway', () => { const a = []; for (;;) a.push(new Array(1e5).fill(1)); });");
+  const R = P.repo(d);
+  // a file whose process dies is no result, named with its cause, never a red; the others' results stand
+  const r = P.runSuite(R, [ok, red, killed, heap], { heapMb: 64, label: 't' });
+  assert.deepEqual([r.tests, r.pass, r.failed], [5, 2, ['a red']]);
+  assert.deepEqual(r.noResult.map((x) => [x.name, x.cause]).sort(), [['heap.test.mjs', 'out of heap (over its 64 MB cap)'], ['killed.test.mjs', 'killed (SIGKILL)']]);
+  assert.deepEqual(P.reds(r).sort(), ['NO RESULT heap.test.mjs', 'NO RESULT killed.test.mjs', 'a red']);
+  assert.ok(existsSync(r.report) && r.report.includes('.git/civicos-runs/'));
+  assert.ok(r.peaks.length && r.peaks.every((p) => / \d+ MB$/.test(p)));
+  // a process over its memory cap is killed by proc's watch and named, whatever holds the memory (here, outside the heap)
+  const big = f('big.test.mjs', "test('outside the heap', async () => { const k = []; for (;;) { k.push(Buffer.alloc(32 << 20, 1)); await new Promise((r) => setTimeout(r, 20)); } });");
+  const b = P.runSuite(R, [ok, big], { capMb: 300, label: 't' });
+  assert.deepEqual(b.noResult, [{ name: 'big.test.mjs', cause: "over its 300 MB memory cap (killed by proc's memory watch)" }]);
+  assert.equal(b.pass, 2);
+  assert.ok(b.heavy.some((h) => h.startsWith('big.test.mjs ')));
+  // the runner itself killed: the whole suite is no result, with its cause
+  const parent = f('parent.test.mjs', "test('kills its runner', () => { process.kill(process.ppid, 'SIGKILL'); });");
+  assert.match(P.runSuite(R, [parent], { label: 't' }).noResult.find((x) => x.name === 'the whole suite').cause, /^the runner was killed \(SIGKILL\)/);
+  // a hung suite is stopped at its timeout
+  const hang = f('hang.test.mjs', "test('hangs', () => new Promise((r) => setTimeout(r, 20000)));");
+  assert.deepEqual(P.runSuite(R, [hang], { timeoutMin: 0.05, label: 't' }).noResult, [{ name: 'the whole suite', cause: 'timed out after 0.05 min' }]);
+});
+
+test('proc tests: a pass\'s suites and their users\', each judged against the base; only a new red or NO RESULT counts (lane R14)', () => {
+  const w = world();
+  const t = join(w.bob, 'alpha/test/alpha.test.mjs');
+  writeFileSync(t, `${readFileSync(t, 'utf8')}\nimport { test as t2 } from 'node:test'; t2('old red', () => { throw new Error('red'); });\n`);
+  g(w.bobRoot, 'commit', '-qam', 'alpha: an old red'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  // the pass, committed locally: a new red and a test that dies
+  writeFileSync(t, `${readFileSync(t, 'utf8')}\nt2('new red', () => { throw new Error('red'); });\n`);
+  writeFileSync(join(w.bob, 'alpha/test/dies.test.mjs'), "import test from 'node:test';\ntest('dies', () => { process.kill(process.pid, 'SIGKILL'); });\n");
+  g(w.bobRoot, 'add', 'toy/alpha');
+  assert.throws(() => P.testsCmd(O(w.bob, { modules: 'alpha', users: true })), /commit the work first/);
+  g(w.bobRoot, 'commit', '-qm', 'the pass');
+  const r = P.testsCmd(O(w.bob, { modules: 'alpha', users: true }));
+  process.exitCode = 0;   // the command marks a new red for its command line; this test judges the result itself
+  assert.deepEqual(r.modules.map((x) => x.module), ['alpha', 'beta', 'stats']);
+  const a = r.modules[0];
+  assert.deepEqual(a.new, ['new red', 'NO RESULT toy/alpha/test/dies.test.mjs: killed (SIGKILL)']);
+  assert.deepEqual(a.inherited, ['old red']);
+  assert.match(r.verdict, /^new reds or no result in alpha$/);
+  assert.equal(g(w.bobRoot, 'status', '--porcelain', '--untracked-files=no'), '');
+});
+
 test('proc ruling: BOB\'s own ruling is numbered by the tool from the tranche as it stands, with the files it owes (lane R17)', () => {
   const w = world();
   P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));

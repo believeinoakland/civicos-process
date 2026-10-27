@@ -25,9 +25,11 @@
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
 //         job complete --module <m> --report-file <f>
 //   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   footprint [--base <ref>]
+//         tests --modules <m1,m2> [--users] [--base <ref>] [--heap-mb <n>] [--cap-mb <n>] [--timeout-min <n>] (a pass's test run; lane R14)
 //         ruling --line-file <f> [--files <p1,p2>] (BOB's own ruling, numbered by the tool; lane R17)
-import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { execFileSync, spawnSync, spawn } from 'node:child_process';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, openSync, closeSync } from 'node:fs';
+import { totalmem, availableParallelism } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sizeLines } from './mail.mjs';
@@ -354,7 +356,7 @@ export function merge(o) {
   // lists is regenerated and verified at each merge, in the manifest's order, and committed with it (mechanics §14).
   const art = regenerate(R, `after merging ${m}`, false);
   const tests = runTests(R, m);
-  const newReds = Number.isNaN(tests.tests) ? ['the test run gave no summary'] : tests.failed.filter((n) => !inherited.includes(n));
+  const newReds = reds(tests).filter((n) => !inherited.includes(n)).map(why(tests));
   const newFindings = fresh(moduleChecks(R, m).fails, before.fails);
   if (art.stale.length || newReds.length || newFindings.length) {
     undo();
@@ -362,7 +364,7 @@ export function merge(o) {
   }
   const reqPath = `build/requirements/${m}.md`, req = R.read(reqPath);
   if (req && met.length) R.write(reqPath, req.split('\n').map((l) => (met.some((id) => l.includes(`**${id}**`)) ? l.replace(` *(not yet met: ${T})*`, '') : l)).join('\n'));
-  const k = ruling(R, m, `Merged ${m} (${jb}): COMPLETE; ownership ${lastLine(own).replace(/^ownership: /, '')}; tests ${tests.pass}/${tests.tests}${tests.failed.length ? ` (inherited reds ${tests.failed.length})` : ''}; checks: no new finding (${before.fails.size} before); struck ${met.join(', ') || 'none'}${o.context !== undefined ? `; BOB's context ${o.context} %` : ''}`, '§5.5; P7, P12');
+  const k = ruling(R, m, `Merged ${m} (${jb}): COMPLETE; ownership ${lastLine(own).replace(/^ownership: /, '')}; tests ${tests.pass}/${tests.tests}${reds(tests).length ? ` (inherited reds ${reds(tests).length})` : ''}; checks: no new finding (${before.fails.size} before); struck ${met.join(', ') || 'none'}${o.context !== undefined ? `; BOB's context ${o.context} %` : ''}`, '§5.5; P7, P12');
   R.g(['add', '--', ...[reqPath, 'build/rulings.md'].filter((p) => R.read(p) !== null).map(R.rel)]);
   R.g(['commit', '-q', '--no-edit', '-m', `${k}: merged ${m} (${jb})${art.changed.length ? `; artifacts regenerated: ${art.changed.join(', ')}` : ''}`]);
   const commit = commitPush(R, trancheBranch(T), ['build/rulings.md'], `${k}: merged ${m}`);
@@ -415,19 +417,107 @@ function ruling(R, m, text, why) {
 }
 const run = (cmd, args, cwd) => spawnSync(cmd, args, { encoding: 'utf8', cwd, maxBuffer: 1 << 28 });
 const lastLine = (r) => `${r.stdout || ''}${r.stderr || ''}`.trim().split('\n').pop();
-// A module's tests, every *.test.mjs under its `tests` paths, read from the run's own summary lines.
-export function runTests(R, m) {
-  const mod = modules(R).find((x) => x.id === m) ?? refuse(`no module ${m} in build/modules.json`);
-  const files = (mod.tests || []).flatMap((p) => R.g(['ls-files', '--', R.rel(p)]).split('\n')).filter((f) => f.endsWith('.test.mjs')).map((f) => join(R.root, f));
-  if (!files.length) return { tests: 0, pass: 0, fail: 0 };
+// ---- test runs (lane HANDOFF R14: a run that gives no result says why; a runaway test fails itself) ----
+
+// This process's memory cgroup (v2 or v1): the memory every process shares, and its count of OOM kills (null if unread).
+export function memory() {
+  const rd = (p) => { try { return readFileSync(p, 'utf8'); } catch { return null; } };
+  const cg = rd('/proc/self/cgroup') || '';
+  const v1 = cg.match(/^\d+:(?:[^:\n]*,)?memory(?:,[^:\n]*)?:(\S*)$/m)?.[1], v2 = cg.match(/^0::(\S*)$/m)?.[1];
+  const dir = v1 !== undefined && existsSync('/sys/fs/cgroup/memory') ? join('/sys/fs/cgroup/memory', v1) : v2 !== undefined ? join('/sys/fs/cgroup', v2) : null;
+  const limits = [];
+  for (let d = dir; d && d.startsWith('/sys/fs/cgroup'); d = dirname(d)) {
+    const n = Number((rd(join(d, 'memory.max')) ?? rd(join(d, 'memory.limit_in_bytes')) ?? '').trim());
+    if (n > 0) limits.push(n);
+    if (d === '/sys/fs/cgroup' || d === '/sys/fs/cgroup/memory') break;
+  }
+  const limit = Math.min(totalmem(), ...limits);
+  const ooms = () => { const t = dir && (rd(join(dir, 'memory.events')) ?? rd(join(dir, 'memory.oom_control'))); const n = t?.match(/^oom_kill (\d+)$/m)?.[1]; return n === undefined ? null : Number(n); };
+  return { limit, ooms };
+}
+// One `node --test` run, its report written to a file (never a pipe), at a file concurrency the memory allows, each test
+// process under a heap cap and, by tools/memwatch.mjs, a memory cap: a process over it is killed and named, so a runaway
+// test fails by itself (lane R14: in bio, 3 files reached 12 GB outside the JS heap and starved their neighbours).
+// Returns the summary, the failed tests, and the results it could not get, each with its cause:
+// { tests, pass, fail, failed, noResult: [{ name, cause }], peaks, heavy, report }.
+export function runSuite(R, files, o = {}) {
+  const mem = memory(), MiB = 1 << 20, heap = Number(o.heapMb) || Math.min(4096, Math.floor(mem.limit / MiB / 4));
+  const conc = Math.max(1, Math.min(availableParallelism() - 1, Math.floor((mem.limit * 0.6) / (heap * MiB))));
+  const cap = Number(o.capMb) || Math.floor((mem.limit * 0.6) / MiB / conc);
+  const dir = join(R.g(['rev-parse', '--absolute-git-dir']), 'civicos-runs'); mkdirSync(dir, { recursive: true });
+  const base = join(dir, `${o.label || 'run'}-${new Date().toISOString().replace(/[:.]/g, '-')}`), report = `${base}.tap`, watchLog = `${base}.mem`;
   // A clean environment: under a test runner, NODE_TEST_CONTEXT would send the child's report to the parent instead.
   const env = { ...process.env }; delete env.NODE_TEST_CONTEXT;
-  const r = spawnSync('node', ['--test', '--test-reporter=tap', ...files], { encoding: 'utf8', cwd: R.dir, env, maxBuffer: 1 << 28 });
-  const n = (k) => Number((`${r.stdout}`.match(new RegExp(`^(?:ℹ|#) ${k} (\\d+)$`, 'm')) || [])[1] ?? NaN);
-  const failed = [...new Set([...`${r.stdout}`.matchAll(/^\s*not ok \d+ - (.+?)(?: # .*)?$/gm)].map((x) => x[1].trim()))];
-  const out = { tests: n('tests'), pass: n('pass'), fail: n('fail'), failed };
-  if (Number.isNaN(out.tests)) out.fail = 1;
-  return out;
+  env.NODE_OPTIONS = `${env.NODE_OPTIONS || ''} --max-old-space-size=${heap}`.trim();
+  const min = Number(o.timeoutMin) || 30, oom0 = mem.ooms();
+  const watch = spawn(process.execPath, [join(PROCESS, 'tools/memwatch.mjs'), String(process.pid), String(cap), watchLog], { stdio: 'ignore' });
+  const out = openSync(report, 'w'), err = openSync(`${base}.err`, 'w');
+  const r = spawnSync('node', ['--test', '--test-reporter=tap', `--test-concurrency=${conc}`, ...files], { cwd: R.dir, env, stdio: ['ignore', out, err], timeout: min * 60000 });
+  closeSync(out); closeSync(err); watch.kill('SIGTERM');
+  const ooms = oom0 === null ? null : mem.ooms() - oom0;
+  const watched = (existsSync(watchLog) ? readFileSync(watchLog, 'utf8').match(/^\{.*\}$/gm) || [] : []).map((l) => JSON.parse(l)).sort((a, b) => b.mb - a.mb);
+  const capped = new Set(watched.filter((x) => x.killed).map((x) => x.file));
+  const text = readFileSync(report, 'utf8'), all = `${text}\n${readFileSync(`${base}.err`, 'utf8')}`;
+  const n = (k) => Number((text.match(new RegExp(`^(?:ℹ|#) ${k} (\\d+)$`, 'm')) || [])[1] ?? NaN);
+  const killedBy = (sig, file) => (file && capped.has(file) ? `over its ${cap} MB memory cap (killed by proc's memory watch)` : sig === 'SIGABRT' && /heap out of memory/.test(all) ? `out of heap (over its ${heap} MB cap)` : sig === 'SIGKILL' && ooms ? 'killed by the memory cgroup (OOM)' : `killed (${sig})`);
+  // A test file whose process died is reported by node as `not ok - <file>` with its signal: not a red but no result.
+  const noResult = [], dead = new Set();
+  for (const x of text.matchAll(/^( *)not ok \d+ - (.+?)(?: # .*)?\n\1 {2}---\n([\s\S]*?)\n\1 {2}\.\.\.$/gm)) {
+    const sig = x[3].match(/^ *signal: '(\w+)'$/m)?.[1];
+    const name = x[2].trim();
+    if (sig) { noResult.push({ name: name.startsWith('/') ? relative(R.root, name) : name, cause: killedBy(sig, name) }); dead.add(name); }
+  }
+  const failed = [...new Set([...text.matchAll(/^\s*not ok \d+ - (.+?)(?: # .*)?$/gm)].map((x) => x[1].trim()))].filter((x) => !dead.has(x));
+  const plan = Number(text.match(/^1\.\.(\d+)$/m)?.[1] ?? NaN), seen = (text.match(/^(?:not )?ok \d+ /gm) || []).length;
+  const res = { tests: n('tests'), pass: n('pass'), fail: n('fail'), failed, noResult, report };
+  // The run as a whole: the runner itself killed, timed out, or its report cut short (no summary, or fewer results than planned).
+  const oomNote = ooms ? `; the memory cgroup killed ${ooms} process(es) for memory during the run` : '';
+  const tail = all.trim().split('\n').filter((l) => l.trim()).slice(-3).join(' | ').slice(0, 300);
+  let whole = null;
+  if (r.error?.code === 'ETIMEDOUT') whole = `timed out after ${min} min`;
+  else if (r.signal) whole = `the runner was ${killedBy(r.signal, '(runner)')}${oomNote}`;
+  else if (Number.isNaN(res.tests) || Number.isNaN(plan) || seen < plan) whole = `report incomplete: ${seen} of ${Number.isNaN(plan) ? '?' : plan} results, exit ${r.status}${oomNote}; its tail: ${tail}`;
+  if (whole) res.noResult.push({ name: 'the whole suite', cause: whole });
+  const show = (x) => `${x.file.startsWith('/') ? relative(R.root, x.file) : x.file} ${x.mb} MB`;
+  res.peaks = watched.slice(0, 3).map(show);
+  res.heavy = watched.filter((x) => x.mb > cap / 2).map(show);
+  return res;
+}
+// A module's tests, every *.test.mjs under its `tests` paths. A report cut short with no kill and no timeout (seen once
+// with --test-force-exit and a piped report, never reproduced; lane R14) is run once more, and says so.
+export function runTests(R, m, o = {}) {
+  const mod = modules(R).find((x) => x.id === m) ?? refuse(`no module ${m} in build/modules.json`);
+  const files = (mod.tests || []).flatMap((p) => R.g(['ls-files', '--', R.rel(p)]).split('\n')).filter((f) => f.endsWith('.test.mjs')).map((f) => join(R.root, f));
+  if (!files.length) return { tests: 0, pass: 0, fail: 0, failed: [], noResult: [], peaks: [], heavy: [] };
+  const first = runSuite(R, files, { ...o, label: m });
+  const cut = first.noResult.find((x) => x.name === 'the whole suite' && /^report incomplete/.test(x.cause) && !/memory cgroup/.test(x.cause));
+  if (!cut) return first;
+  return { ...runSuite(R, files, { ...o, label: `${m}-rerun` }), rerun: `the first run's ${cut.cause.split(';')[0]} (${first.report}); run once more` };
+}
+// What a run did not pass, by name: the failed tests and the results it could not get. Old ones are inherited (R10).
+export const reds = (t) => [...(t.failed || []), ...(t.noResult || []).map((x) => `NO RESULT ${x.name}`)];
+const why = (t) => (n) => { const x = (t.noResult || []).find((y) => `NO RESULT ${y.name}` === n); return x ? `${n}: ${x.cause}` : n; };
+// A pass's test run (lane R14; Bob, K5326): the named modules' suites and, with --users, every module that uses one of
+// them, each run singly on HEAD and, where HEAD has a red or no result, on the base; only a new one counts, as at merge.
+export function testsCmd(o) {
+  const R = repo(o.product), all = modules(R), named = String(o.modules || '').split(',').filter(Boolean);
+  if (!named.length) refuse('--modules <m1,m2,…>');
+  for (const m of named) if (!all.some((x) => x.id === m)) refuse(`no module ${m} in build/modules.json`);
+  if (R.g(['status', '--porcelain', '--untracked-files=no'])) refuse('commit the work first (locally; nothing is pushed): the base is measured in this same checkout');
+  const ref = o.base || `origin/${trancheBranch(o.tranche)}`;
+  if (!o.base) R.fetch(trancheBranch(o.tranche));
+  history(R, ref, 'HEAD') ?? refuse(`${ref} shares no history with HEAD`);
+  const users = o.users ? all.filter((x) => !named.includes(x.id) && (x.uses || []).some((u) => named.includes(u))).map((x) => x.id) : [];
+  const list = [...named, ...users], now = Object.fromEntries(list.map((m) => [m, runTests(R, m, o)]));
+  const redMods = list.filter((m) => reds(now[m]).length);
+  const before = redMods.length ? at(R, ref, () => Object.fromEntries(redMods.map((m) => [m, runTests(R, m, o)]))) : {};
+  const rows = list.map((m) => {
+    const t = now[m], old = before[m] ? reds(before[m]) : [];
+    return { module: m, tests: `${t.pass}/${t.tests}`, new: reds(t).filter((n) => !old.includes(n)).map(why(t)), inherited: reds(t).filter((n) => old.includes(n)).map(why(t)), heavy: t.heavy, ...(t.rerun ? { rerun: t.rerun } : {}), report: t.report };
+  });
+  const bad = rows.filter((x) => x.new.length);
+  if (bad.length) process.exitCode = 1;
+  return { base: ref, head: R.g(['rev-parse', 'HEAD']), verdict: bad.length ? `new reds or no result in ${bad.map((x) => x.module).join(', ')}` : `no new red, no new NO RESULT in ${list.length} suites`, modules: rows };
 }
 // Old debt never blocks new work, and new work never adds to it (lane HANDOFF R10; the old process's "no new finding in
 // your files"). A failure is judged against the same measure taken on the tranche before the work: only a new one
@@ -563,11 +653,12 @@ export function jobComplete(o) {
   R.fetch(trancheBranch(T));
   try { history(R, `origin/${trancheBranch(T)}`, 'HEAD'); R.g(['merge-base', '--is-ancestor', `origin/${trancheBranch(T)}`, 'HEAD']); } catch { refuse(`merge ${trancheBranch(T)} into your branch first: BOB has changed it`); }
   const tests = runTests(R, m);
-  if (!tests.tests || Number.isNaN(tests.tests)) refuse(`tests: none ran (${tests.pass}/${tests.tests}); nothing marked complete`);
-  // A red the module already had on the tranche is inherited, named in the record and carried to the merge; a new one refuses.
-  const base = tests.failed.length ? at(R, `origin/${trancheBranch(T)}`, () => runTests(R, m)) : { failed: [] };
-  const newReds = tests.failed.filter((n) => !base.failed.includes(n));
-  if (tests.fail && (newReds.length || !tests.failed.length)) refuse(`tests: ${tests.pass}/${tests.tests} pass; new reds: ${newReds.join('; ') || 'unnamed'}; nothing marked complete`);
+  if (!tests.tests && !tests.noResult.length) refuse(`tests: none ran (${tests.pass}/${tests.tests}); nothing marked complete`);
+  // A red or NO RESULT the module already had on the tranche is inherited, named in the record and carried to the merge;
+  // a new one refuses, with its cause.
+  const base = reds(tests).length ? at(R, `origin/${trancheBranch(T)}`, () => runTests(R, m)) : { failed: [] };
+  const newReds = reds(tests).filter((n) => !reds(base).includes(n));
+  if (newReds.length || (tests.fail && !reds(tests).length)) refuse(`tests: ${tests.pass}/${tests.tests} pass; new reds: ${newReds.map(why(tests)).join('; ') || 'unnamed'}; nothing marked complete (report: ${tests.report})`);
   const fails = [];
   // mechanics §8: format, architecture, coverage, fixtures, and words where the product has a word table, each scoped
   // to the module where the check takes one; a finding the tranche already had is not this job's.
@@ -580,7 +671,7 @@ export function jobComplete(o) {
   const mod = modules(R).find((x) => x.id === m);
   const lines = (mod.paths || []).flatMap((p) => R.g(['ls-files', '--', R.rel(p)]).split('\n')).filter(Boolean).reduce((n, f) => n + readFileSync(join(R.root, f), 'utf8').split('\n').length, 0);
   const runs = [...text.matchAll(new RegExp(`^Size \\(${st.session}\\): test runs (\\d+)`, 'gm'))].map((x) => Number(x[1])).pop() + 1 || 1;   // this session's runs so far
-  const body = `${text.replace(RSTATUS, `**Status** · ${st.session} · depth ${st.depth} · COMPLETE`).trimEnd()}\n\n## Completion (${today()})\n\n${report}\n\nTests: ${tests.pass}/${tests.tests}. Checks: ${cs.join(', ')}, ownership: no new finding.${tests.failed.length ? `\nInherited reds: ${JSON.stringify(tests.failed)}` : ''}\nSize (${st.session}): test runs ${runs}, module lines ${lines}\n`;
+  const body = `${text.replace(RSTATUS, `**Status** · ${st.session} · depth ${st.depth} · COMPLETE`).trimEnd()}\n\n## Completion (${today()})\n\n${report}\n\nTests: ${tests.pass}/${tests.tests}. Checks: ${cs.join(', ')}, ownership: no new finding.${reds(tests).length ? `\nInherited reds: ${JSON.stringify(reds(tests))}` : ''}${tests.heavy.length ? `\nHeavy tests: ${tests.heavy.join(', ')}` : ''}\nSize (${st.session}): test runs ${runs}, module lines ${lines}\n`;
   R.write(path, body);
   const commit = commitPush(R, jobBranch(T, m), [path], `${m} ${T}: COMPLETE`);
   return { commit, tests, bob: addr({ product: o.product, tranche: T, bob: true }), message: `${m.toUpperCase()} (${T}): COMPLETE at ${commit}. Tests ${tests.pass}/${tests.tests}; checks 0. Met: ${report.match(/^\*\*Met\*\* · (.*)$/m)[1]}.` };
@@ -609,7 +700,7 @@ function args(argv) {
   return o;
 }
 const COMMANDS = {
-  takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd, ruling: rulingCmd,
+  takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd, tests: testsCmd, ruling: rulingCmd,
   'round open': roundOpen, 'round close': roundClose, 'layer start': layerStart, 'layer close': layerClose,
   'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived,
   'job start': jobStart, 'job state': jobState, 'job complete': jobComplete,
