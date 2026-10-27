@@ -397,3 +397,16 @@ test('jobbranch (§5.3 (1); bio K4385): creates or fast-forwards a job branch by
   assert.throws(() => jobbranch({ product: w.bob, tranche: T, module: 'alpha' }), /never forced/);
   assert.equal(remote(`job/${T}/alpha`), before);
 });
+
+test('a lane\'s HANDOFF.md is capped as BOB\'s handoff is; another plan file at the plan cap (bio K5418)', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { oversize, SIZE_LIMITS } = await import('../mail.mjs');
+  const d = mkdtempSync(join(tmpdir(), 'lanecap-'));
+  mkdirSync(join(d, 'build/plan/lane-x'), { recursive: true });
+  writeFileSync(join(d, 'build/plan/lane-x/HANDOFF.md'), 'x'.repeat(SIZE_LIMITS.handoffBytes + 1));
+  writeFileSync(join(d, 'build/plan/lane-x/DRAFT.md'), 'x'.repeat(SIZE_LIMITS.handoffBytes + 1));
+  const over = oversize(d).map((v) => v.path);
+  assert.deepEqual(over, ['build/plan/lane-x/HANDOFF.md']);
+});

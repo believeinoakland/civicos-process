@@ -181,13 +181,15 @@ export function oversize(product, ref, who = 'bob') {
   const files = t ? [...t.size.keys()].filter((p) => p.startsWith('build/plan/') && !p.startsWith('build/plan/archive/') && TEXT_EXT.test(p)).sort() : planFiles(dir);
   const add = (path, n, limit, unit) => { if (n > limit && !exempt.has(path)) out.push({ path, n, limit, unit }); };
   const rulings = 'build/rulings-active.md', handoff = 'build/handoff.md';
-  if (who === 'job') { for (const p of files) add(p, bytes(p), SIZE_LIMITS.planBytes, 'bytes'); return out; }   // BOB's takeover set is never a job's
+  // a lane's HANDOFF.md (build/plan/<lane>/HANDOFF.md) is read whole at every takeover, as BOB's handoff is (bio K5418)
+  const capOf = (p) => (/^build\/plan\/[^/]+\/HANDOFF\.md$/.test(p) ? SIZE_LIMITS.handoffBytes : SIZE_LIMITS.planBytes);
+  if (who === 'job') { for (const p of files) add(p, bytes(p), capOf(p), 'bytes'); return out; }   // BOB's takeover set is never a job's
   if (has(rulings)) {
     add(rulings, lineCount(read(rulings)), SIZE_LIMITS.rulingsLines, 'lines');
     add(rulings, bytes(rulings), SIZE_LIMITS.rulingsBytes, 'bytes');
   }
   if (has(handoff)) add(handoff, bytes(handoff), SIZE_LIMITS.handoffBytes, 'bytes');
-  for (const p of files) add(p, bytes(p), SIZE_LIMITS.planBytes, 'bytes');
+  for (const p of files) add(p, bytes(p), capOf(p), 'bytes');
   return out;
 }
 // BOB's two documents above NEAR_PCT of a limit but not over it: { path, n, limit, unit }.
