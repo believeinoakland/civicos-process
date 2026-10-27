@@ -83,6 +83,11 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   assert.match(preReason('bob', { tool_name: 'mcp__claude-code-remote__create_trigger', tool_input: { persistent_session_id: J1 } }, ctx()), /own backstop/);
   assert.equal(preReason('bob', { tool_name: 'mcp__claude-code-remote__create_trigger', tool_input: { persistent_session_id: B1 } }, ctx()), null);
   assert.match(preReason('bob', { tool_name: 'mcp__github__merge_pull_request', tool_input: {} }, ctx()), /CLOSING/);
+  // only the product's own PRs wait for the close; a process-repository PR is BOB's to merge mid-round (bio K5345)
+  const own = w.origin.replace(/\.git$/, '').split('/').slice(-2);
+  const mpr = (owner, repo) => preReason('bob', { tool_name: 'mcp__github__merge_pull_request', tool_input: { owner, repo, pullNumber: 1 } }, ctx());
+  assert.match(mpr(own[0], own[1]), /CLOSING/);
+  assert.equal(mpr('believeinoakland', 'civicos-process'), null);
   // BOB may not end its turn while a start is owed
   assert.match(stopReason('bob', ctx()), /owed: start alpha/);
   P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
