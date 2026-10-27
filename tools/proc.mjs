@@ -25,12 +25,12 @@
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
 //         job complete --module <m> --report-file <f>
 //   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   footprint [--base <ref>]
-//         tests --modules <m1,m2> [--users] [--base <ref>] [--heap-mb <n>] [--timeout-min <n>] (a pass's test run; lane R14)
-import { execFileSync, spawnSync } from 'node:child_process';
+//         tests --modules <m1,m2> [--users] [--base <ref>] [--heap-mb <n>] [--cap-mb <n>] [--timeout-min <n>] (a pass's test run; lane R14)
+import { execFileSync, spawnSync, spawn } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, openSync, closeSync } from 'node:fs';
 import { totalmem, availableParallelism } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { sizeLines } from './mail.mjs';
 
 const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -416,31 +416,37 @@ export function memory() {
   const ooms = () => { const t = dir && (rd(join(dir, 'memory.events')) ?? rd(join(dir, 'memory.oom_control'))); const n = t?.match(/^oom_kill (\d+)$/m)?.[1]; return n === undefined ? null : Number(n); };
   return { limit, ooms };
 }
-// One `node --test` run, its report written to a file (never a pipe), each test process under a heap cap, at a file
-// concurrency the memory allows. Returns the summary, the failed tests, and the results it could not get, each with
-// its cause: { tests, pass, fail, failed, noResult: [{ name, cause }], peaks, heavy, report }.
+// One `node --test` run, its report written to a file (never a pipe), at a file concurrency the memory allows, each test
+// process under a heap cap and, by tools/memwatch.mjs, a memory cap: a process over it is killed and named, so a runaway
+// test fails by itself (lane R14: in bio, 3 files reached 12 GB outside the JS heap and starved their neighbours).
+// Returns the summary, the failed tests, and the results it could not get, each with its cause:
+// { tests, pass, fail, failed, noResult: [{ name, cause }], peaks, heavy, report }.
 export function runSuite(R, files, o = {}) {
-  const mem = memory(), heap = Number(o.heapMb) || Math.min(4096, Math.floor(mem.limit / (1 << 20) / 4));
-  const conc = Math.max(1, Math.min(availableParallelism() - 1, Math.floor((mem.limit * 0.6) / (heap * (1 << 20)))));
+  const mem = memory(), MiB = 1 << 20, heap = Number(o.heapMb) || Math.min(4096, Math.floor(mem.limit / MiB / 4));
+  const conc = Math.max(1, Math.min(availableParallelism() - 1, Math.floor((mem.limit * 0.6) / (heap * MiB))));
+  const cap = Number(o.capMb) || Math.floor((mem.limit * 0.6) / MiB / conc);
   const dir = join(R.g(['rev-parse', '--absolute-git-dir']), 'civicos-runs'); mkdirSync(dir, { recursive: true });
-  const base = join(dir, `${o.label || 'run'}-${new Date().toISOString().replace(/[:.]/g, '-')}`), report = `${base}.tap`, peakFile = `${base}.peak`;
+  const base = join(dir, `${o.label || 'run'}-${new Date().toISOString().replace(/[:.]/g, '-')}`), report = `${base}.tap`, watchLog = `${base}.mem`;
   // A clean environment: under a test runner, NODE_TEST_CONTEXT would send the child's report to the parent instead.
-  const env = { ...process.env, CIVICOS_PEAK_FILE: peakFile }; delete env.NODE_TEST_CONTEXT;
-  env.NODE_OPTIONS = `${env.NODE_OPTIONS || ''} --max-old-space-size=${heap} --import=${pathToFileURL(join(PROCESS, 'tools/peak.mjs')).href}`.trim();
+  const env = { ...process.env }; delete env.NODE_TEST_CONTEXT;
+  env.NODE_OPTIONS = `${env.NODE_OPTIONS || ''} --max-old-space-size=${heap}`.trim();
   const min = Number(o.timeoutMin) || 30, oom0 = mem.ooms();
+  const watch = spawn(process.execPath, [join(PROCESS, 'tools/memwatch.mjs'), String(process.pid), String(cap), watchLog], { stdio: 'ignore' });
   const out = openSync(report, 'w'), err = openSync(`${base}.err`, 'w');
   const r = spawnSync('node', ['--test', '--test-reporter=tap', `--test-concurrency=${conc}`, ...files], { cwd: R.dir, env, stdio: ['ignore', out, err], timeout: min * 60000 });
-  closeSync(out); closeSync(err);
+  closeSync(out); closeSync(err); watch.kill('SIGTERM');
   const ooms = oom0 === null ? null : mem.ooms() - oom0;
+  const watched = (existsSync(watchLog) ? readFileSync(watchLog, 'utf8').match(/^\{.*\}$/gm) || [] : []).map((l) => JSON.parse(l)).sort((a, b) => b.mb - a.mb);
+  const capped = new Set(watched.filter((x) => x.killed).map((x) => x.file));
   const text = readFileSync(report, 'utf8'), all = `${text}\n${readFileSync(`${base}.err`, 'utf8')}`;
   const n = (k) => Number((text.match(new RegExp(`^(?:ℹ|#) ${k} (\\d+)$`, 'm')) || [])[1] ?? NaN);
-  const killedBy = (sig) => (sig === 'SIGABRT' && /heap out of memory/.test(all) ? `out of heap (over its ${heap} MB cap)` : sig === 'SIGKILL' && ooms ? 'killed by the memory cgroup (OOM)' : `killed (${sig})`);
+  const killedBy = (sig, file) => (file && capped.has(file) ? `over its ${cap} MB memory cap (killed by proc's memory watch)` : sig === 'SIGABRT' && /heap out of memory/.test(all) ? `out of heap (over its ${heap} MB cap)` : sig === 'SIGKILL' && ooms ? 'killed by the memory cgroup (OOM)' : `killed (${sig})`);
   // A test file whose process died is reported by node as `not ok - <file>` with its signal: not a red but no result.
   const noResult = [], dead = new Set();
   for (const x of text.matchAll(/^( *)not ok \d+ - (.+?)(?: # .*)?\n\1 {2}---\n([\s\S]*?)\n\1 {2}\.\.\.$/gm)) {
     const sig = x[3].match(/^ *signal: '(\w+)'$/m)?.[1];
     const name = x[2].trim();
-    if (sig) { noResult.push({ name: name.startsWith('/') ? relative(R.root, name) : name, cause: killedBy(sig) }); dead.add(name); }
+    if (sig) { noResult.push({ name: name.startsWith('/') ? relative(R.root, name) : name, cause: killedBy(sig, name) }); dead.add(name); }
   }
   const failed = [...new Set([...text.matchAll(/^\s*not ok \d+ - (.+?)(?: # .*)?$/gm)].map((x) => x[1].trim()))].filter((x) => !dead.has(x));
   const plan = Number(text.match(/^1\.\.(\d+)$/m)?.[1] ?? NaN), seen = (text.match(/^(?:not )?ok \d+ /gm) || []).length;
@@ -450,12 +456,12 @@ export function runSuite(R, files, o = {}) {
   const tail = all.trim().split('\n').filter((l) => l.trim()).slice(-3).join(' | ').slice(0, 300);
   let whole = null;
   if (r.error?.code === 'ETIMEDOUT') whole = `timed out after ${min} min`;
-  else if (r.signal) whole = `the runner was ${killedBy(r.signal)}${oomNote}`;
+  else if (r.signal) whole = `the runner was ${killedBy(r.signal, '(runner)')}${oomNote}`;
   else if (Number.isNaN(res.tests) || Number.isNaN(plan) || seen < plan) whole = `report incomplete: ${seen} of ${Number.isNaN(plan) ? '?' : plan} results, exit ${r.status}${oomNote}; its tail: ${tail}`;
   if (whole) res.noResult.push({ name: 'the whole suite', cause: whole });
-  const peaks = (readFileSync(existsSync(peakFile) ? peakFile : report, 'utf8').match(/^\{.*\}$/gm) || []).map((l) => JSON.parse(l)).sort((a, b) => b.mb - a.mb);
-  res.peaks = peaks.slice(0, 3).map((p) => `${relative(R.root, p.file) || p.file} ${p.mb} MB`);
-  res.heavy = peaks.filter((p) => p.mb > heap / 2).map((p) => `${relative(R.root, p.file) || p.file} ${p.mb} MB`);
+  const show = (x) => `${x.file.startsWith('/') ? relative(R.root, x.file) : x.file} ${x.mb} MB`;
+  res.peaks = watched.slice(0, 3).map(show);
+  res.heavy = watched.filter((x) => x.mb > cap / 2).map(show);
   return res;
 }
 // A module's tests, every *.test.mjs under its `tests` paths. A report cut short with no kill and no timeout (seen once

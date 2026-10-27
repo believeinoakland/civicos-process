@@ -371,6 +371,12 @@ test('a test run never gives "no result" without its cause; a runaway test fails
   assert.deepEqual(P.reds(r).sort(), ['NO RESULT heap.test.mjs', 'NO RESULT killed.test.mjs', 'a red']);
   assert.ok(existsSync(r.report) && r.report.includes('.git/civicos-runs/'));
   assert.ok(r.peaks.length && r.peaks.every((p) => / \d+ MB$/.test(p)));
+  // a process over its memory cap is killed by proc's watch and named, whatever holds the memory (here, outside the heap)
+  const big = f('big.test.mjs', "test('outside the heap', async () => { const k = []; for (;;) { k.push(Buffer.alloc(32 << 20, 1)); await new Promise((r) => setTimeout(r, 20)); } });");
+  const b = P.runSuite(R, [ok, big], { capMb: 300, label: 't' });
+  assert.deepEqual(b.noResult, [{ name: 'big.test.mjs', cause: "over its 300 MB memory cap (killed by proc's memory watch)" }]);
+  assert.equal(b.pass, 2);
+  assert.ok(b.heavy.some((h) => h.startsWith('big.test.mjs ')));
   // the runner itself killed: the whole suite is no result, with its cause
   const parent = f('parent.test.mjs', "test('kills its runner', () => { process.kill(process.ppid, 'SIGKILL'); });");
   assert.match(P.runSuite(R, [parent], { label: 't' }).noResult.find((x) => x.name === 'the whole suite').cause, /^the runner was killed \(SIGKILL\)/);
