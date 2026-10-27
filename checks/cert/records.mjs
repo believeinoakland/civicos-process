@@ -28,7 +28,7 @@ const ID = /^(?:J\d+|B\d+|#\d+)$/;
 // Senders: `BOB #<n>`, a session name `<LANE> #<k>` (`D7-BOB #2`), `ROOT` or `ROOT #<k>`, or (non-strict) a job's
 // module id, as roles/JOB.md had it before K164.
 const SENDER = /^(?:BOB #\d+|ROOT(?: #\d+)?|[A-Z][A-Z0-9-]* #\d+|[a-z][a-z0-9-]*)$/;
-const TRANCHE = /^[TD]\d+$/;
+const TRANCHE = /^[TD]\d+[a-z]?$/;   // T51b: a tranche's suffixed successor (bio K5336)
 const FIRST = /^From (.+?)(?: \(([^)]*)\))?(?: to ([a-z][a-z0-9-]*))?: (.*)$/;
 
 // A message's first line, its envelope (§13, *K164*):

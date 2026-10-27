@@ -5,11 +5,23 @@
 //   node tools/hooks.mjs <bob|job> <pre|stop>
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { repo, readRole, unpushed, parsePlan, parseRecord, status, jobPrompt, PLAN, recordPath, jobBranch, trancheBranch } from './proc.mjs';
+import { execFileSync } from 'node:child_process';
+import { repo, readRole, unpushed, modules, parsePlan, parseRecord, status, jobPrompt, PLAN, recordPath, jobBranch, trancheBranch } from './proc.mjs';
 
 const REMOTE = 'mcp__claude-code-remote__';
 const FORCE = /\bgit\b[^|;&]*\bpush\b[^|;&]*(\s(-f|--force|--force-with-lease|--mirror|--delete|-d)\b|\s\+\S+|\s:\S)/;
 const PUSH = /\bgit\b[^|;&]*\bpush\b([^|;&]*)/;
+
+// A session titled "<WORD> #n" is a job's only when the word names a module; a lane's successor (PROCESS-REDESIGN #3)
+// is not (lane R12). When the module list cannot be read or is empty, every such title is judged a job's: the hook fails closed.
+function isModule(m, ctx) {
+  try { const all = modules(repo(join(ctx.root, ctx.product || '.'))); return !all.length || all.some((x) => x.id === m); } catch { return true; }
+}
+
+// The product's repository, "owner/name" in lower case, from its origin; null when it cannot be read.
+function productRepo(ctx) {
+  try { return execFileSync('git', ['-C', join(ctx.root, ctx.product || '.'), 'remote', 'get-url', 'origin'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim().replace(/\.git$/, '').split(/[/:]/).slice(-2).join('/').toLowerCase(); } catch { return null; }
+}
 
 // The reason a tool call is refused, or null. `ctx` = { role, tranche, module, session, plan (text), root }.
 export function preReason(role, input, ctx) {
@@ -31,13 +43,16 @@ export function preReason(role, input, ctx) {
   if (role === 'bob') {
     if (tool === `${REMOTE}fire_trigger`) return 'never fire a routine to reach a session: send a message (DESIGN §2.3)';
     if (tool === `${REMOTE}create_trigger` && ti.persistent_session_id !== ctx.session) return 'BOB arms only its own backstop; a job is reached by send_message, never by a routine (DESIGN §2.3, §2.7)';
-    if (tool === `${REMOTE}create_session` && /^[A-Z][A-Z0-9-]* #\d+$/.test(ti.title || '') && !/^BOB /.test(ti.title)) {
-      const p = parsePlan(ctx.plan), m = (ti.title || '').split(' #')[0].toLowerCase();
+    const m = /^[A-Z][A-Z0-9-]* #\d+$/.test(ti.title || '') && !/^BOB /.test(ti.title) ? ti.title.split(' #')[0].toLowerCase() : null;
+    if (tool === `${REMOTE}create_session` && m && isModule(m, ctx)) {
+      const p = parsePlan(ctx.plan);
       if (!p.owed.includes(`start ${m}`)) return `no start is owed for ${m}: run \`proc layer start\` or \`proc job route\` first, and use the call it prints`;
       if (ti.source_revision !== jobBranch(ctx.tranche, m)) return `${m}'s session starts on ${jobBranch(ctx.tranche, m)}`;
       if (ti.prompt !== jobPrompt(m, ctx.tranche, { product: ctx.product })) return 'use the prompt `proc` printed, unchanged';
     }
-    if (/merge_pull_request$/.test(tool) && parsePlan(ctx.plan).state !== 'CLOSING') return 'a PR is merged only at the tranche close, once the plan reads CLOSING (mechanics §5.7)';
+    // Only the product's own PRs wait for the close; a process-repository PR is BOB's to merge (bio K5137), so a
+    // certified process fix can land mid-round (bio K5345). A PR whose repository is not named is judged the product's.
+    if (/merge_pull_request$/.test(tool) && parsePlan(ctx.plan).state !== 'CLOSING' && !(ti.owner && ti.repo && productRepo(ctx) && `${ti.owner}/${ti.repo}`.toLowerCase() !== productRepo(ctx))) return 'a product PR is merged only at the tranche close, once the plan reads CLOSING (mechanics §5.7)';
   }
   return null;
 }

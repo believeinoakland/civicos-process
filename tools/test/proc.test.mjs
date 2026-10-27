@@ -70,6 +70,11 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   assert.equal(cs({ title: spec.title, source_revision: spec.source_revision, prompt: spec.prompt }), null);
   assert.match(cs({ title: spec.title, source_revision: spec.source_revision, prompt: 'You are ALPHA. Do as you like.' }), /prompt/);
   assert.match(cs({ title: 'BETA #1', source_revision: `job/${T}/beta`, prompt: spec.prompt }), /no start is owed for beta/);
+  // a lane's successor is not a job start: its title names no module (R12)
+  assert.equal(cs({ title: 'PROCESS-REDESIGN #3', source_revision: 'lane/process-redesign', prompt: 'You are PROCESS-REDESIGN #3.' }), null);
+  // with no module list to read, a job-like title is judged a job's (fails closed)
+  assert.match(preReason('bob', { tool_name: 'mcp__claude-code-remote__create_session', tool_input: { title: 'PROCESS-REDESIGN #3' } }, { ...ctx(), root: '/nonexistent' }), /no start is owed/);
+  assert.match(preReason('bob', { tool_name: 'mcp__claude-code-remote__create_session', tool_input: { title: 'PROCESS-REDESIGN #3' } }, { ...ctx(), product: 'no-such-dir' }), /no start is owed/);
   const bash = (role, command, c = ctx()) => preReason(role, { tool_name: 'Bash', tool_input: { command } }, c);
   assert.match(bash('bob', `git merge --no-ff origin/job/${T}/alpha`), /proc.mjs merge/);
   assert.match(bash('bob', 'git push origin HEAD:main'), /main/);
@@ -78,6 +83,11 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   assert.match(preReason('bob', { tool_name: 'mcp__claude-code-remote__create_trigger', tool_input: { persistent_session_id: J1 } }, ctx()), /own backstop/);
   assert.equal(preReason('bob', { tool_name: 'mcp__claude-code-remote__create_trigger', tool_input: { persistent_session_id: B1 } }, ctx()), null);
   assert.match(preReason('bob', { tool_name: 'mcp__github__merge_pull_request', tool_input: {} }, ctx()), /CLOSING/);
+  // only the product's own PRs wait for the close; a process-repository PR is BOB's to merge mid-round (bio K5345)
+  const own = w.origin.replace(/\.git$/, '').split('/').slice(-2);
+  const mpr = (owner, repo) => preReason('bob', { tool_name: 'mcp__github__merge_pull_request', tool_input: { owner, repo, pullNumber: 1 } }, ctx());
+  assert.match(mpr(own[0], own[1]), /CLOSING/);
+  assert.equal(mpr('believeinoakland', 'civicos-process'), null);
   // BOB may not end its turn while a start is owed
   assert.match(stopReason('bob', ctx()), /owed: start alpha/);
   P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
