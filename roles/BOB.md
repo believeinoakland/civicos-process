@@ -22,6 +22,7 @@ At takeover read, whole: this file, `PROCESS-DESIGN.md`, the product's `build/ma
 | a message from a job (question, report, complete, blocked); a change to a running job | `situations/messages.md` |
 | merging a complete job; closing a layer, a round, the tranche | `situations/merge-close.md` |
 | your context passes 40 % of its window | `situations/refresh.md` |
+| the account's weekly limit is near (`rate_limit_info` `seven_day` not `allowed`), or Bob says move | `situations/account-move.md` |
 | any refusal (a hook, a permission or safety check, the platform) | `situations/refused.md` |
 | the same mechanical change across many modules | `situations/mechanical-pass.md` |
 | the product's own procedures (release, deploy, walks, the design channel) | the product's `build/situations/`, named in its manifest |
