@@ -160,7 +160,13 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   assert.throws(() => P.handoff(O(w.bob)), /not at a clean point/);
   P.jobArchived(O(w.bob, { module: 'alpha', usage: JSON.stringify({ cache_read_tokens: 10, cache_write_tokens: 2, input_tokens: 1, output_tokens: 3 }) }));
   assert.match(readFileSync(join(w.bob, `build/metrics/${T}.csv`), 'utf8'), new RegExp(`^${J1},job,alpha,10,2,1,3,,1,\\d+$`, 'm'));
-  P.bobArchived(O(w.bob, { name: 'BOB #1', session: B1.replace('B', 'C'), usage: '{"cache_read_tokens":5}' }));
+  // the outgoing BOB deletes its own routines first (bio K5413): no archive before its reply, or why none came, is recorded
+  const C1 = B1.replace('B', 'C');
+  assert.throws(() => P.bobArchived(O(w.bob, { name: 'BOB #1', session: C1, usage: '{}' })), /has not cleared its routines/);
+  assert.throws(() => P.bobCleared(O(w.bob, { name: 'BOB #1', session: C1 })), /exactly one of --reply/);
+  P.bobCleared(O(w.bob, { name: 'BOB #1', session: C1, reply: 'ROUTINES DELETED, 2' }));
+  assert.match(readFileSync(join(w.bob, `build/metrics/${T}.csv`), 'utf8'), /^session_01CB+,BOB-cleared,reply: ROUTINES DELETED  2,/m);
+  P.bobArchived(O(w.bob, { name: 'BOB #1', session: C1, usage: '{"cache_read_tokens":5}' }));
   assert.match(readFileSync(join(w.bob, `build/metrics/${T}.csv`), 'utf8'), /^session_01CB+,BOB-final,,5,/m);
   P.roundClose(O(w.bob));
   assert.ok(existsSync(join(w.bob, `build/plan/archive/${T}-R1.md`)));

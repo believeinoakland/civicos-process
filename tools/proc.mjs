@@ -21,7 +21,7 @@
 //   BOB   takeover --name "BOB #n" --session <id> --depth <d>   status [--gate]   round open --round R<k> --plan <file>
 //         layer start --layer <L> [--usage <status>]   job started --module <m> --name "<M> #k" --session <id>
 //         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m> [--context <pct>]
-//         layer close --layer <L>   job archived --module <m> --usage <json>   bob archived --name --session --usage   round close   handoff
+//         layer close --layer <L>   job archived --module <m> --usage <json>   bob cleared --name --session (--reply|--unanswered)   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
 //         job complete --module <m> --report-file <f>
 //   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   footprint [--base <ref>]
@@ -194,7 +194,7 @@ export function takeover(o) {
   writeFileSync(roleFile(R), JSON.stringify({ role: 'bob', product: R.rel('.'), tranche: T, session: o.session }));
   const acts = [];
   if (Number(o.depth) !== 1) acts.push(`tell Bob: BOB at depth ${o.depth}, not 1 (P13)`);
-  if (before.bob && before.bob.session !== o.session) acts.push(`archive ${before.bob.name} ${before.bob.session} once idle, then: proc bob archived --name "${before.bob.name}" --session ${before.bob.session} --usage '<archive_session usage json>'`, `delete every routine into ${before.bob.session}`);
+  if (before.bob && before.bob.session !== o.session) acts.push(`send_message to ${before.bob.name} ${before.bob.session}: "TAKEN OVER by <your name>: delete every routine into your own session, then reply ROUTINES DELETED"; wait for its reply (situations/takeover.md)`, `once it replies: proc bob cleared --name "${before.bob.name}" --session ${before.bob.session} --reply "<its reply>" (none after 20 minutes and one more message: --unanswered "<why>")`, `archive ${before.bob.name} ${before.bob.session} once idle, then: proc bob archived --name "${before.bob.name}" --session ${before.bob.session} --usage '<archive_session usage json>'`);
   acts.push('arm the backstop: send_later into your own session, 60 minutes (DESIGN §2.7)');
   // A product inside this repository (the dry run) reaches the process by its project dir; any other at PROCESS.
   const via = R.root === PROCESS ? '${CLAUDE_PROJECT_DIR:-.}' : PROCESS;
@@ -585,11 +585,25 @@ export function jobArchived(o) {
   return commitPush(R, trancheBranch(T), [csv, PLAN], `metrics ${T}: ${j.name} archived`);
 }
 // A predecessor BOB archived (§5.1, §10): its BOB-final row from archive_session's usage.
+// The outgoing BOB answered TAKEN OVER (bio K5413): it deleted every routine into its own session (a successor's delete of
+// them is refused by the platform's auto-mode check at random). Its reply, or why none came, is recorded before the archive.
+export function bobCleared(o) {
+  if (!/^BOB #\d+$/.test(o.name || '') || !SESSION.test(o.session || '')) refuse('--name "BOB #<n>" --session <id> (--reply "<its reply>" | --unanswered "<why>")');
+  if (!o.reply === !o.unanswered) refuse('exactly one of --reply "<its reply>" or --unanswered "<why>" (after one message and 20 minutes)');
+  const R = repo(o.product), T = o.tranche;
+  on(R, trancheBranch(T));
+  const csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
+  const note = String(o.reply ? `reply: ${o.reply}` : `unanswered: ${o.unanswered}`).replace(/[,\n]/g, ' ');
+  R.write(csv, `${cur}${[o.session, 'BOB-cleared', note, '', '', '', '', '', '', ''].join(',')}\n`);
+  return commitPush(R, trancheBranch(T), [csv], `metrics ${T}: ${o.name} cleared its routines (${o.reply ? 'replied' : 'unanswered'})`);
+}
+const METRICS_HEAD = 'session,role,module,cache-read,cache-write,input,output,turns,test runs,module lines\n';
 export function bobArchived(o) {
   if (!/^BOB #\d+$/.test(o.name || '') || !SESSION.test(o.session || '')) refuse('--name "BOB #<n>" --session <id> --usage <json>');
   const R = repo(o.product), T = o.tranche, u = typeof o.usage === 'string' ? JSON.parse(o.usage) : o.usage || {};
   on(R, trancheBranch(T));
-  const csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? 'session,role,module,cache-read,cache-write,input,output,turns,test runs,module lines\n';
+  const csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
+  if (!cur.split('\n').some((l) => l.startsWith(`${o.session},BOB-cleared,`))) refuse(`${o.name} has not cleared its routines: send it TAKEN OVER, then \`proc bob cleared --name "${o.name}" --session ${o.session} --reply "<its reply>"\` (or --unanswered "<why>" after 20 minutes), then archive it (bio K5413)`);
   R.write(csv, `${cur}${[o.session, 'BOB-final', '', u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', '', '', ''].join(',')}\n`);
   return commitPush(R, trancheBranch(T), [csv], `metrics ${T}: ${o.name} archived (BOB-final)`);
 }
@@ -702,7 +716,7 @@ function args(argv) {
 const COMMANDS = {
   takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd, tests: testsCmd, ruling: rulingCmd,
   'round open': roundOpen, 'round close': roundClose, 'layer start': layerStart, 'layer close': layerClose,
-  'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived,
+  'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived, 'bob cleared': bobCleared,
   'job start': jobStart, 'job state': jobState, 'job complete': jobComplete,
 };
 if (import.meta.url === `file://${process.argv[1]}`) {
