@@ -46,6 +46,7 @@ export const DRAWN_MODULES = (id) => /^screens-/.test(id) || ['interface-shell',
 export const UNREVIEWED_JSON = 'bio-plane/src/setup-words/words-unreviewed.json'; // bio K3932
 const OWN_WORDS_MODULES = new Set(['setup-words']); // the word list's own module: holds the English by definition
 const OWN_DECL_MODULES = new Set(['op-declarations', 'op-capabilities']); // modules whose tests may list ops
+export const BASELINE_JSON = 'build/tests-english-baseline.json'; // bio K5426: the test files that hold English today; the count only shrinks
 export const MARKER = 'localize'; // setup-words R14 (bio K3943)
 const KEY_RE = /^[a-z][a-z0-9_-]*(\.[A-Za-z0-9_-]+)+$/;
 const ERROR_CALLEE = /(^|\.)\w*Error$/;
@@ -112,10 +113,11 @@ export function scan(src) {
         const prev = toks[toks.length - 1];
         const regexOk = !prev || (prev.t === 'p' && !')]}'.includes(prev.v)) || (prev.t === 'id' && REGEX_PREV_KW.has(prev.v));
         if (regexOk) { // a regex literal
-          let inClass = false; i++;
+          let inClass = false; i++; const rxStart = i;
           while (i < n && src[i] !== '\n') { const d = src[i]; if (d === '\\') { i += 2; continue; } if (d === '[') inClass = true; else if (d === ']') inClass = false; else if (d === '/' && !inClass) break; i++; }
+          const rxEnd = i;
           i++; while (/[a-z]/.test(src[i] || '')) i++;
-          toks.push({ t: 're', v: '/', line }); continue;
+          toks.push({ t: 're', v: '/', rx: src.slice(rxStart, rxEnd), line }); continue;
         }
       }
       if (/[A-Za-z_$]/.test(c)) { let j = i + 1; while (j < n && /[\w$]/.test(src[j])) j++; toks.push({ t: 'id', v: src.slice(i, j), line }); i = j; continue; }
@@ -387,7 +389,17 @@ function listFiles(root) {
 }
 
 // ---- the check --------------------------------------------------------------------------------------------------------
-export async function checkWords(root, only = [], { release = false } = {}) {
+const ASSERTISH = /^assert|includes$|\.has$|^has$|match$|^ok$/;
+const RX_CALLS = new Set(['match', 'doesNotMatch', 'test', 'exec', 'search']);
+// the prose fragments of a regex source: literal runs of 12+ characters with two words in them
+const rxFragments = (rx) => rx.replace(/\\(.)/g, '$1').split(/[\[\]()|?*+{}^$]|\.(?=[*+?])/).map((x) => x.trim()).filter((x) => /[A-Za-z]+ [A-Za-z]+/.test(x) && x.length >= 12);
+export function loadBaseline(root) {
+  const p = join(root, BASELINE_JSON);
+  if (!existsSync(p)) return null;
+  try { const j = JSON.parse(readFileSync(p, 'utf8')); return { files: j.files || {} }; } catch { return { files: {} }; }
+}
+
+export async function checkWords(root, only = [], { release = false, record = false } = {}) {
   const state = readModules(root);
   const words = loadWords(root);
   const ops = await loadOpNames(root);
@@ -399,13 +411,16 @@ export async function checkWords(root, only = [], { release = false } = {}) {
   const files = listFiles(root);
   const failures = [];
   const counts = {}; // module -> arm -> n
-  const bump = (m, arm, tag) => { const c = (counts[m] ??= { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0, plain: 0 }); c[arm]++; if (tag === '?') c.q++; if (tag === 'plain') c.plain++; };
+  const bump = (m, arm, tag) => { const c = (counts[m] ??= { inline: 0, testenglish: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0, plain: 0 }); c[arm]++; if (tag === '?') c.q++; if (tag === 'plain') c.plain++; };
   const items = []; // the failures with their full literal, for tools that analyse them
   const add = (arm, m, file, line, tag, text, raw) => { items.push({ arm, module: m, file, line, tag, raw: raw ?? text }); failures.push(`${arm} ${m} ${file}:${line} ${tag ? `[${tag}] ` : ''}${text}`); bump(m, arm, tag); };
   let literals = 0;
+  let englishNow = null; // file -> count of testenglish candidates, for --baseline
   const tIds = new Map(); // t id -> { en, where } of its first use
   const tReads = new Set(); // the string tokens given as a t call's id and en
   const codeEns = new Set(); // the en of every marker call in product source (bio K3962)
+  const baseline = record ? { files: {} } : loadBaseline(root); // null: the arm is off until the product records one
+  const engTests = []; // testenglish candidates: { m, f, line, frags }
   const codeTests = []; // test strings not yet judged against codeEns: { m, f, s }
   let dev = 0; // sentences given to built-in error constructors: developer text, not failures
   const ownLits = new Map(); // module -> Set of string values in its own product source (a code is its own when its source names it)
@@ -495,6 +510,23 @@ export async function checkWords(root, only = [], { release = false } = {}) {
         if (words.ens.has(v) && isCopyLen(v)) add('testcopy', m.id, f, s.line, '', excerpt(v));
         else if (v.length >= 25 && !v.includes('\n') && words.blob.includes(v)) add('testcopy', m.id, f, s.line, 'part', excerpt(v));
         else codeTests.push({ m: m.id, f, s });
+      }
+      // testenglish candidates (bio K5426): an assertion-position sentence, or a regex given to a match/test call, whose prose is a
+      // words.json value or sits in a module's product source; judged below once every product source has been read
+      if (baseline) {
+        for (const s of strs) {
+          if (s.ctx.importPath || s.ctx.title || s.ctx.console || s.ctx.assertMsg || !ASSERTISH.test(s.ctx.callee || '')) continue;
+          const last = (s.ctx.callee || '').split('.').pop();
+          if (tReads.has(s) || /^(word|hasWord|wordsOf)$/.test(last) || (hasT && last === MARKER) || !isSentence(s.v)) continue;
+          engTests.push({ m: m.id, f, line: s.line, frags: s.v.split('{}').map((x) => x.trim()).filter((x) => x.length >= 12) });
+        }
+        for (let k = 0; k < toks.length; k++) {
+          if (toks[k].t !== 're') continue;
+          const near = toks.filter((x) => x.line === toks[k].line && x.t === 'id').map((x) => x.v);
+          if (!near.some((x) => RX_CALLS.has(x))) continue;
+          const frags = rxFragments(toks[k].rx);
+          if (frags.length) engTests.push({ m: m.id, f, line: toks[k].line, frags });
+        }
       }
       // handlist: array literals of 5+ strings
       if (!OWN_DECL_MODULES.has(m.id) && !OWN_WORDS_MODULES.has(m.id)) {
@@ -600,15 +632,28 @@ export async function checkWords(root, only = [], { release = false } = {}) {
     let u = []; try { u = JSON.parse(readFileSync(join(root, UNREVIEWED_JSON), 'utf8')).unreviewed || []; } catch { /* unreadable: no rows */ }
     for (const r of u) if (!only.length || only.includes(r.module)) add('unreviewed', r.module, r.file, r.line, '', r.id);
   }
+  // testenglish: the product's own literals are now all read; a candidate counts when a prose fragment is a word's value or product text
+  if (baseline) {
+    const productBlob = '\n' + [...ownLits.values()].flatMap((x) => [...x]).join('\n') + '\n';
+    const perFile = new Map();
+    for (const c of engTests) if (c.frags.some((x) => words.blob.includes(x) || productBlob.includes(x))) (perFile.get(c.f) ?? perFile.set(c.f, []).get(c.f)).push(c);
+    for (const [f, cs] of perFile) {
+      const allowed = baseline.files[f] ?? 0;
+      if (cs.length <= allowed) continue;
+      for (const c of cs) add('testenglish', c.m, f, c.line, allowed ? `grew ${allowed} to ${cs.length}` : 'new', excerpt(c.frags[0]));
+    }
+    englishNow = Object.fromEntries([...perFile].map(([f, cs]) => [f, cs.length]).sort());
+  }
   failures.sort();
-  const tot = { inline: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0, plain: 0 };
+  const tot = { inline: 0, testenglish: 0, testcopy: 0, missingkey: 0, handlist: 0, marker: 0, unreviewed: 0, q: 0, plain: 0 };
   for (const c of Object.values(counts)) for (const k of Object.keys(tot)) tot[k] += c[k];
-  const summary = `${modsSeen.size} modules, ${literals} string literals read, ${words.keys.size} words; inline ${tot.inline}, plain ${tot.plain}, testcopy ${tot.testcopy}, missingkey ${tot.missingkey}, handlist ${tot.handlist} (${tot.q} tagged ?), marker ${tot.marker}${release ? `, unreviewed ${tot.unreviewed}` : ''}, dev ${dev}, unkeyed ${designUnkeyed}`;
-  return { failures, summary, counts, totals: { ...tot, dev, unkeyed: designUnkeyed }, items };
+  const summary = `${modsSeen.size} modules, ${literals} string literals read, ${words.keys.size} words; inline ${tot.inline}, plain ${tot.plain}, testcopy ${tot.testcopy}, missingkey ${tot.missingkey}, handlist ${tot.handlist} (${tot.q} tagged ?), marker ${tot.marker}${release ? `, unreviewed ${tot.unreviewed}` : ''}, dev ${dev}, unkeyed ${designUnkeyed}${baseline ? `, testenglish ${tot.testenglish}` : ''}`;
+  return { failures, summary, counts, totals: { ...tot, dev, unkeyed: designUnkeyed }, items, englishNow };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const args = process.argv.slice(2);
-  const { failures, summary } = await checkWords(args.find((a) => !a.startsWith('--')) || '.', args.filter((a) => !a.startsWith('--')).slice(1), { release: args.includes('--release') });
+  const { failures, summary, englishNow } = await checkWords(args.find((a) => !a.startsWith('--')) || '.', args.filter((a) => !a.startsWith('--')).slice(1), { release: args.includes('--release'), record: args.includes('--baseline') });
+  if (args.includes('--baseline')) { console.log(JSON.stringify({ files: englishNow || {} }, null, 1)); process.exit(0); }
   process.exitCode = report('words', failures, summary);
 }
