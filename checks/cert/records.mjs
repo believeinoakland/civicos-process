@@ -327,8 +327,8 @@ export function parseMessages(text, opts) {
 // The kind of a build-state file, from its path.
 export function kindOf(path) {
   if (/\.csv$/.test(path)) return 'csv';
-  if (/build\/jobs\/[A-Z]+\d+\/[^/]+\.md$/.test(path)) return 'record';
-  if (/build\/plan\/(current|archive\/[A-Z]+\d+)\.md$/.test(path)) return 'plan';
+  if (/build\/jobs\/[A-Z]+\d+[a-z]?\/[^/]+\.md$/.test(path)) return 'record';
+  if (/build\/plan\/(current|archive\/[A-Z]+\d+[a-z]?)\.md$/.test(path)) return 'plan';
   if (/(handoff|TRANSITION)[^/]*\.md$|\/handoff\//i.test(path)) return 'handoff';
   if (/messages[^/]*\.txt$/.test(path)) return 'messages';
   return null;
