@@ -134,7 +134,7 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   // `from` names one legacy module or several (a module's code may sit in more than one monolith).
   const legacies = [].concat(m.from || []).map((id) => state.modules.find((x) => x.id === id)).filter(Boolean);
   const own = [...(m.paths || []), ...(m.tests || [])];
-  const record = new RegExp(`^build/jobs/[A-Z]+\\d+/${moduleId.replace(/[-]/g, '\\-')}\\.md$`);
+  const record = new RegExp(`^build/jobs/[A-Z]+\\d+[a-z]?/${moduleId.replace(/[-]/g, '\\-')}\\.md$`);
   const failures = [], added = [], edited = [];
   const tally = new Map(legacies.map((l) => [l.id, { added: 0, removed: 0 }]));
   // A job's checkout often has only the remote-tracking branch (found in the D1 dry run): fall back to origin/<base>.

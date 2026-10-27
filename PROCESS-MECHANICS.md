@@ -214,6 +214,8 @@ One line per ruling in `build/rulings.md`:
 
 `K<n> · <date> · <module or layer> · <the ruling> · <why>`
 
+The tool numbers every ruling: `proc merge` its own, and `proc ruling --line-file <f> [--files <p1,p2>]` BOB's, which commits the files the ruling owes with it. The format check refuses an id given twice (lane R17).
+
 A ruling that changes requirements is folded into them in the same act. **Every act a ruling owes is an entry in `next.md` (or the running plan) in the same commit as the ruling** (P15, P19); a ruling never holds owed work alone. A ruling is changed only by a new line that names its evidence and the one it replaces. A ruling that records Bob's approval of a refused act states its standing-list decision (§16).
 
 ## 10. Metrics (P14)

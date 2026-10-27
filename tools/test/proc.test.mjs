@@ -83,6 +83,11 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   assert.match(preReason('bob', { tool_name: 'mcp__claude-code-remote__create_trigger', tool_input: { persistent_session_id: J1 } }, ctx()), /own backstop/);
   assert.equal(preReason('bob', { tool_name: 'mcp__claude-code-remote__create_trigger', tool_input: { persistent_session_id: B1 } }, ctx()), null);
   assert.match(preReason('bob', { tool_name: 'mcp__github__merge_pull_request', tool_input: {} }, ctx()), /CLOSING/);
+  // only the product's own PRs wait for the close; a process-repository PR is BOB's to merge mid-round (bio K5345)
+  const own = w.origin.replace(/\.git$/, '').split('/').slice(-2);
+  const mpr = (owner, repo) => preReason('bob', { tool_name: 'mcp__github__merge_pull_request', tool_input: { owner, repo, pullNumber: 1 } }, ctx());
+  assert.match(mpr(own[0], own[1]), /CLOSING/);
+  assert.equal(mpr('believeinoakland', 'civicos-process'), null);
   // BOB may not end its turn while a start is owed
   assert.match(stopReason('bob', ctx()), /owed: start alpha/);
   P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
@@ -404,4 +409,21 @@ test('proc tests: a pass\'s suites and their users\', each judged against the ba
   assert.deepEqual(a.inherited, ['old red']);
   assert.match(r.verdict, /^new reds or no result in alpha$/);
   assert.equal(g(w.bobRoot, 'status', '--porcelain', '--untracked-files=no'), '');
+});
+
+test('proc ruling: BOB\'s own ruling is numbered by the tool from the tranche as it stands, with the files it owes (lane R17)', () => {
+  const w = world();
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  const rulings = () => (existsSync(join(w.bob, 'build/rulings.md')) ? readFileSync(join(w.bob, 'build/rulings.md'), 'utf8') : '');
+  const last = Math.max(0, ...[...rulings().matchAll(/^- K(\d+) · /gm)].map((x) => Number(x[1])));
+  const lf = join(w.base, 'line.txt');
+  writeFileSync(lf, `K${last + 1} · alpha · a ruling · P15`);
+  assert.throws(() => P.rulingCmd(O(w.bob, { lineFile: lf })), /without its K number/);
+  writeFileSync(lf, 'alpha · a ruling with an owed act · P15, P19\n');
+  writeFileSync(join(w.bob, 'build/next.md'), `${existsSync(join(w.bob, 'build/next.md')) ? readFileSync(join(w.bob, 'build/next.md'), 'utf8') : ''}\n- N99 · the act it owes\n`);
+  const r = P.rulingCmd(O(w.bob, { lineFile: lf, files: 'build/next.md' }));
+  assert.equal(r.ruling, `K${last + 1}`);
+  assert.match(rulings(), new RegExp(`^- K${last + 1} · \\d{4}-\\d\\d-\\d\\d · alpha · a ruling with an owed act · P15, P19$`, 'm'));
+  assert.deepEqual(g(w.bobRoot, 'show', '--name-only', '--format=', 'HEAD').split('\n').sort(), ['toy/build/next.md', 'toy/build/rulings.md']);
+  assert.equal(g(w.bobRoot, 'rev-parse', 'HEAD'), g(w.bobRoot, 'rev-parse', `origin/tranche/${T}`));
 });

@@ -111,7 +111,7 @@ test('coverage: an id named only by another module\'s test does not count', () =
 
 test('ownership: own paths, own tests and own job record pass; another module\'s file fails', () => {
   const r = repo(base());
-  r.commit({ 'src/b/more.mjs': 'x', 'test/b/more.test.mjs': 'x', 'build/jobs/T1/b.md': 'x', 'build/jobs/D1/b.md': 'x' });
+  r.commit({ 'src/b/more.mjs': 'x', 'test/b/more.test.mjs': 'x', 'build/jobs/T1/b.md': 'x', 'build/jobs/D1/b.md': 'x', 'build/jobs/T51b/b.md': 'x' });
   assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, []);
   r.commit({ 'src/a/index.mjs': 'changed', 'build/jobs/T1/a.md': 'x' });
   assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, ["build/jobs/T1/a.md: outside b's paths, tests and job record", "src/a/index.mjs: outside b's paths, tests and job record"]);
@@ -462,4 +462,11 @@ test('run.mjs: the words check runs where the product has words.json; a planted 
   assert.equal(good.code, 0, good.out);
   const none = spawnSync('node', [fileURLToPath(new URL('../run.mjs', import.meta.url)), repo(base()).root], { encoding: 'utf8' });
   assert.doesNotMatch(none.stdout, /^words:/m, 'no word table: the check is skipped');
+});
+
+test('format: each ruling id once; the duplicates written before the check are named exceptions (lane R17)', () => {
+  const line = (n, text) => `- K${n} · 2026-10-27 · process · ${text} · P15\n`;
+  const f = checkFormat(repo(base({ 'build/rulings.md': `# Rulings\n\n${line(7, 'a')}${line(8, 'b')}${line(8, 'c')}` })).root).failures;
+  assert.deepEqual(f, ['build/rulings.md:5: K8 given twice (first at line 4); number rulings by `proc ruling`']);
+  assert.deepEqual(checkFormat(repo(base({ 'build/rulings.md': `# Rulings\n\n${line(5349, 'a')}${line(5349, 'b')}` })).root).failures, []);
 });
