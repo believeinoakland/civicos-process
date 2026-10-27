@@ -24,7 +24,7 @@
 //         layer close --layer <L>   job archived --module <m> --usage <json>   bob cleared --name --session (--reply|--unanswered)   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
 //         job complete --module <m> --report-file <f>
-//   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   footprint [--base <ref>]
+//   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   sizes (every document over its limit; a lane runs it before each commit)   footprint [--base <ref>]
 //         tests --modules <m1,m2> [--users] [--base <ref>] [--heap-mb <n>] [--cap-mb <n>] [--timeout-min <n>] (a pass's test run; lane R14)
 //         ruling --line-file <f> [--files <p1,p2>] (BOB's own ruling, numbered by the tool; lane R17)
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
@@ -716,7 +716,7 @@ function args(argv) {
 const COMMANDS = {
   takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd, tests: testsCmd, ruling: rulingCmd,
   'round open': roundOpen, 'round close': roundClose, 'layer start': layerStart, 'layer close': layerClose,
-  'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived, 'bob cleared': bobCleared,
+  'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived, 'bob cleared': bobCleared, sizes: (o) => ({ size: sizeLines(o.product) }),
   'job start': jobStart, 'job state': jobState, 'job complete': jobComplete,
 };
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -724,7 +724,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const name = COMMANDS[`${o._[0]} ${o._[1]}`] ? `${o._[0]} ${o._[1]}` : o._[0];
   try {
     const fn = COMMANDS[name] ?? refuse(`unknown command "${o._.join(' ')}"; see the header of tools/proc.mjs`);
-    if (!o.tranche && name !== 'shims') refuse('--tranche <T>');
+    if (!o.tranche && name !== 'shims' && name !== 'sizes') refuse('--tranche <T>');
     const r = fn(o);
     console.log(typeof r === 'string' ? r : JSON.stringify(r, null, 2));
     if (name === 'status' && o.gate && r.gate.length) process.exitCode = 1;
