@@ -25,6 +25,7 @@
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
 //         job complete --module <m> --report-file <f>
 //   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   footprint [--base <ref>]
+//         ruling --line-file <f> [--files <p1,p2>] (BOB's own ruling, numbered by the tool; lane R17)
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
@@ -369,6 +370,24 @@ export function merge(o) {
   if (R.g(['rev-parse', 'HEAD']) !== R.g(['rev-parse', `origin/${trancheBranch(T)}`])) refuse('pushed, but origin does not show the merge: read it by hand');
   return { commit, ruling: k, tests, met, regenerated: art.changed };
 }
+// A ruling written by BOB, numbered by the tool from the file as it stands on the tranche (lane R17: a hand-numbered
+// K5349 repeated one `proc merge` had written). The line file holds `<module or layer> · <the ruling> · <why>` on one
+// line; the files a ruling owes (requirements folded, next.md entries; mechanics §9) are committed with it.
+export function rulingCmd(o) {
+  const R = repo(o.product), T = o.tranche;
+  on(R, trancheBranch(T));
+  const line = readFileSync(o.lineFile || refuse('--line-file <f> (one line: <module or layer> · <the ruling> · <why>)'), 'utf8').trim();
+  if (line.includes('\n') || line.split(' · ').length < 3) refuse('the line file holds one line: <module or layer> · <the ruling> · <why>');
+  if (/^-? ?K\d+ · /.test(line)) refuse('write the line without its K number: the tool numbers it');
+  const with_ = String(o.files || '').split(',').filter(Boolean);
+  R.fetch(trancheBranch(T));
+  try { R.g(['merge', '-q', '--ff-only', `origin/${trancheBranch(T)}`]); } catch { refuse(`${trancheBranch(T)} has diverged from origin`); }
+  const cur = R.read('build/rulings.md') || '# Rulings\n';
+  const k = Math.max(0, ...[...cur.matchAll(/^- K(\d+) · /gm)].map((x) => Number(x[1]))) + 1;
+  R.write('build/rulings.md', `${cur.trimEnd()}\n- K${k} · ${today()} · ${line}\n`);
+  const commit = commitPush(R, trancheBranch(T), ['build/rulings.md', ...with_], `K${k}: ${line.split(' · ')[1].slice(0, 80)}`);
+  return { ruling: `K${k}`, commit };
+}
 // The product's generated artifacts: rows of the manifest's table `| \`<path>\`[, \`<path>\`…] | <owner> | \`<regenerate>\` | \`<verify>\` |`,
 // run in the table's order from the product's root. A manifest with a "Generated artifacts" section and no such row is
 // refused, so a table in another form never passes as "nothing to regenerate".
@@ -590,7 +609,7 @@ function args(argv) {
   return o;
 }
 const COMMANDS = {
-  takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd,
+  takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd, ruling: rulingCmd,
   'round open': roundOpen, 'round close': roundClose, 'layer start': layerStart, 'layer close': layerClose,
   'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived,
   'job start': jobStart, 'job state': jobState, 'job complete': jobComplete,

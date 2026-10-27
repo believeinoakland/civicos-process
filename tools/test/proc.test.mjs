@@ -359,3 +359,20 @@ test('the layer close runs every check once, refusing only findings new since th
   g(w.bobRoot, 'commit', '-qam', 'beta: R99 withdrawn'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
   assert.deepEqual(P.layerClose(O(w.bob, { layer: 1 })).archive, [{ module: 'alpha', session: J1 }]);
 });
+
+test('proc ruling: BOB\'s own ruling is numbered by the tool from the tranche as it stands, with the files it owes (lane R17)', () => {
+  const w = world();
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  const rulings = () => (existsSync(join(w.bob, 'build/rulings.md')) ? readFileSync(join(w.bob, 'build/rulings.md'), 'utf8') : '');
+  const last = Math.max(0, ...[...rulings().matchAll(/^- K(\d+) · /gm)].map((x) => Number(x[1])));
+  const lf = join(w.base, 'line.txt');
+  writeFileSync(lf, `K${last + 1} · alpha · a ruling · P15`);
+  assert.throws(() => P.rulingCmd(O(w.bob, { lineFile: lf })), /without its K number/);
+  writeFileSync(lf, 'alpha · a ruling with an owed act · P15, P19\n');
+  writeFileSync(join(w.bob, 'build/next.md'), `${existsSync(join(w.bob, 'build/next.md')) ? readFileSync(join(w.bob, 'build/next.md'), 'utf8') : ''}\n- N99 · the act it owes\n`);
+  const r = P.rulingCmd(O(w.bob, { lineFile: lf, files: 'build/next.md' }));
+  assert.equal(r.ruling, `K${last + 1}`);
+  assert.match(rulings(), new RegExp(`^- K${last + 1} · \\d{4}-\\d\\d-\\d\\d · alpha · a ruling with an owed act · P15, P19$`, 'm'));
+  assert.deepEqual(g(w.bobRoot, 'show', '--name-only', '--format=', 'HEAD').split('\n').sort(), ['toy/build/next.md', 'toy/build/rulings.md']);
+  assert.equal(g(w.bobRoot, 'rev-parse', 'HEAD'), g(w.bobRoot, 'rev-parse', `origin/tranche/${T}`));
+});

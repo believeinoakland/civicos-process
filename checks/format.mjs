@@ -45,6 +45,9 @@ function pathExists(root, tracked) {
 // It must state `standing list: added <rule>` (the settings.json rule in backticks) or `standing list: not added (<why>)`. The rulings up to and including
 // K1181 predate the rule and are exempt.
 export const APPROVALS_LAST_EXEMPT = 1181;
+// Ruling ids given twice before this check existed, kept as written because later rulings cite them (bio K5349: the
+// action-plans merge and T51b R1's close, 2026-10-27; lane HANDOFF R17).
+export const RULING_DUPS_EXEMPT = ['K5349'];
 const RULING = /^- K(\d+) · /;
 const STANDING = /standing list: (?:added\s+`[^`]+`|not added\s*\(\s*[^\s)])/i;
 export function isApprovalRuling(line) {
@@ -218,10 +221,23 @@ export function termsClaims(root) {
   return { failures, skipped: false, register, lines };
 }
 
+// Each ruling id once (P15: a ruling is cited by its id). `proc ruling` and `proc merge` number from the file as it
+// stands; an id written by hand could repeat one (lane R17), and this finds it.
+function rulingIds(root, exempt = RULING_DUPS_EXEMPT) {
+  let text; try { text = readFileSync(join(root, 'build/rulings.md'), 'utf8'); } catch { return []; }
+  const first = new Map(), failures = [];
+  text.split('\n').forEach((l, i) => {
+    const k = l.match(RULING)?.[1]; if (!k) return;
+    if (first.has(k) && !exempt.includes(`K${k}`)) failures.push(`build/rulings.md:${i + 1}: K${k} given twice (first at line ${first.get(k)}); number rulings by \`proc ruling\``);
+    if (!first.has(k)) first.set(k, i + 1);
+  });
+  return failures;
+}
+
 // N656 (K1763) is opt-in until certified by its dry run (P3; dryrun/CERTIFICATION.md TC1): CIVICOS_TERMS_CHECK=1.
 export function checkFormat(root, { approvalsLastExempt = APPROVALS_LAST_EXEMPT, terms: withTerms = process.env.CIVICOS_TERMS_CHECK === '1' } = {}) {
   const terms = withTerms ? termsClaims(root) : { failures: [], skipped: true };
-  const failures = [...conflictMarkers(root), ...approvalRulings(root, approvalsLastExempt), ...nextReasons(root), ...deferrals(root), ...terms.failures];
+  const failures = [...conflictMarkers(root), ...rulingIds(root), ...approvalRulings(root, approvalsLastExempt), ...nextReasons(root), ...deferrals(root), ...terms.failures];
   let tracked = [];
   try { tracked = trackedFiles(root); } catch { /* not a git repository: the checkout alone is read */ }
   const exists = pathExists(root, tracked);
