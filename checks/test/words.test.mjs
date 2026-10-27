@@ -153,6 +153,14 @@ test('missingkey: a key the generated word rows hold (a sentence written first i
   assert.ok(has(failures, 'missingkey', 'viol', 'test/viol/rows.test.mjs', 3), failures.join('\n'));
 });
 
+test('missingkey: a key declared by a localize call in product source is not missing before the rows are regenerated (bio K5583)', async () => {
+  const src = 'import { localize } from "../setup-words/index.mjs";\nexport const s = () => localize("viol.declared.here", "Declared in code first.");\n';
+  const t = ['import { word } from "../../src/setup-words/index.mjs";', 'export const a = word("viol.declared.here");', 'export const b = word("viol.declared.nowhere");', ''].join('\n');
+  const { failures } = await checkWords(product({ 'src/viol/declared.mjs': src, 'test/viol/declared.test.mjs': t }));
+  assert.ok(!failures.some((f) => f.startsWith('missingkey viol test/viol/declared.test.mjs:2 ')), failures.join('\n'));
+  assert.ok(has(failures, 'missingkey', 'viol', 'test/viol/declared.test.mjs', 3), failures.join('\n'));
+});
+
 test('missingkey: a key listed in words-reads.json that words.json lacks is found', async () => {
   const reads = { modules: { viol: { reads: ['screen.home.title', 'screen.gone.away'], unkeyed: [] }, clean: { reads: ['screen.home.title'], unkeyed: [] } } };
   const { failures } = await checkWords(product({ 'docs/development/ux-substrate/screens/words-reads.json': JSON.stringify(reads, null, 1) }));

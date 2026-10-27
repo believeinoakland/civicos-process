@@ -433,6 +433,17 @@ export async function checkWords(root, only = [], { release = false, record = fa
   const lists = []; // handlist candidates, judged once every module's own source has been read
   const modsSeen = new Set();
 
+  // A key a module declares by a `localize(id, en)` or `t(id, en)` call in its own source is a word `word(key)` answers
+  // once the rows are regenerated at merge: `missingkey` does not judge it, so a job's tests can read its own new keys
+  // before the merge regenerates the rows (bio K5583).
+  const declared = new Set();
+  for (const f of files) {
+    if (!CODE_EXT.test(f) || SKIP_DIR.test(f) || outside(f) || !owner(f)) continue;
+    let src; try { src = readFileSync(join(root, f), 'utf8'); } catch { continue; }
+    if (isGeneratedText(src)) continue;
+    for (const m of src.matchAll(/(?<![\w.$])(?:localize|t)\(\s*(["'`])([A-Za-z][\w.-]*)\1\s*,/g)) declared.add(m[2]);
+  }
+
   for (const f of files) {
     if (!CODE_EXT.test(f) || SKIP_DIR.test(f) || outside(f)) continue;
     const o = owner(f);
@@ -456,7 +467,7 @@ export async function checkWords(root, only = [], { release = false, record = fa
       const t = toks[k];
       if (t.t === 'id' && (t.v === 'word' || t.v === 'hasWord' || t.v === 'wordsOf') && toks[k + 1].v === '(' && toks[k + 1].t === 'p') {
         const a = toks[k + 2];
-        if (a.t === 'str' && !a.interp && KEY_RE.test(a.v) && words.keys.size && !words.keys.has(a.v) && !words.codeKeys.has(a.v)) {
+        if (a.t === 'str' && !a.interp && KEY_RE.test(a.v) && words.keys.size && !words.keys.has(a.v) && !words.codeKeys.has(a.v) && !declared.has(a.v)) {
           const next = toks[k + 3];
           const sameLine = toks.filter((x) => x.line === a.line && x.t === 'id').map((x) => x.v);
           const negated = (toks[k - 1] && toks[k - 1].v === '!') || sameLine.some((x) => ['false', 'throws', 'notOk', 'rejects', 'UNKNOWN_WORD', 'WORD_ROWS'].includes(x)) || /no[._ -]?such|nonesuch|nonexist|not[._-]a[._-]key|unknown|\bzz\b/i.test(a.v); // a test of the refusal itself
