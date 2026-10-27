@@ -445,3 +445,35 @@ test('foldLiteralChains: quotes and templates join; interpolated, mixed and memb
   assert.deepEqual(v('x("a" + "b".length)'), [['a', 1], ['b', 1]]);
   assert.deepEqual(v('x("a" + "b" + y)'), [['a', 1], ['b', 1]]);
 });
+
+test('testenglish (bio K5426): off without a baseline; with one, English in a new or grown test file is refused and a shrunk one is not', async () => {
+  const files = {
+    'src/viol/index.mjs': 'export const says = "Your project could not be found here.";\n',
+    'test/viol/old.test.mjs': [
+      'import assert from "node:assert/strict";',
+      'assert.ok(x.includes("Your project could not be found here."));',      // product text
+      'assert.match(y, /not found/);',                                         // a fragment under 12 characters is not judged
+      'assert.match(y, /Your project could not be found/);',                   // regex: product text
+      'assert.equal(z, "Some words only the test knows about.");',            // in neither: test data
+    ].join('\n') + '\n',
+    'test/viol/fresh.test.mjs': 'import assert from "node:assert/strict";\nassert.ok(x.includes("You cannot see that project here."));\n',
+  };
+  const root = product(files);
+  const off = await checkWords(root);
+  assert.equal(off.totals.testenglish, 0, 'no baseline file: the arm is off');
+  const rec = await checkWords(root, [], { record: true });
+  assert.equal(rec.englishNow['test/viol/fresh.test.mjs'], 1);
+  assert.equal(rec.englishNow['test/viol/old.test.mjs'], 2);
+  const w = (obj) => writeFileSync(join(root, 'build/tests-english-baseline.json'), JSON.stringify({ files: obj }));
+  w({ 'test/viol/old.test.mjs': 2, 'test/viol/a.test.mjs': 99 });
+  let r = await checkWords(root);
+  assert.deepEqual(r.failures.filter((x) => x.startsWith('testenglish')).map((x) => x.split(' ')[2].split(':')[0]), ['test/viol/fresh.test.mjs']);
+  assert.match(r.failures.find((x) => x.startsWith('testenglish')), /\[new\]/);
+  w({ 'test/viol/old.test.mjs': 1, 'test/viol/fresh.test.mjs': 1, 'test/viol/a.test.mjs': 99 });
+  r = await checkWords(root);
+  assert.equal(r.failures.filter((x) => x.startsWith('testenglish')).length, 2, 'a file that grew past its baseline lists all its sites');
+  assert.match(r.failures.find((x) => x.startsWith('testenglish')), /grew 1 to 2/);
+  w({ 'test/viol/old.test.mjs': 5, 'test/viol/fresh.test.mjs': 1, 'test/viol/a.test.mjs': 99 });
+  r = await checkWords(root);
+  assert.equal(r.failures.filter((x) => x.startsWith('testenglish')).length, 0, 'under the baseline: no finding');
+});
