@@ -145,6 +145,14 @@ test('missingkey: a literal key words.json lacks is found; a held key and a test
   assert.ok(!failures.some((f) => f.startsWith('missingkey clean ')));
 });
 
+test('missingkey: a key the generated word rows hold (a sentence written first in code) is not missing; one they lack is (bio K5579)', async () => {
+  const rows = '/* GENERATED: do not edit by hand. */\nexport const WORD_ROWS = Object.freeze([\n  ["screen.home.title", "Home", null, null, false, "design"],\n  ["viol.code.first", "Written first in code.", null, null, false, "code"],\n]);\n';
+  const t = ['import { word } from "../../src/setup-words/index.mjs";', 'export const held = word("viol.code.first");', 'export const gone = word("viol.code.never");', ''].join('\n');
+  const { failures } = await checkWords(product({ 'bio-plane/src/setup-words/rows.mjs': rows, 'test/viol/rows.test.mjs': t }));
+  assert.ok(!failures.some((f) => f.startsWith('missingkey viol test/viol/rows.test.mjs:2 ')), failures.join('\n'));
+  assert.ok(has(failures, 'missingkey', 'viol', 'test/viol/rows.test.mjs', 3), failures.join('\n'));
+});
+
 test('missingkey: a key listed in words-reads.json that words.json lacks is found', async () => {
   const reads = { modules: { viol: { reads: ['screen.home.title', 'screen.gone.away'], unkeyed: [] }, clean: { reads: ['screen.home.title'], unkeyed: [] } } };
   const { failures } = await checkWords(product({ 'docs/development/ux-substrate/screens/words-reads.json': JSON.stringify(reads, null, 1) }));
