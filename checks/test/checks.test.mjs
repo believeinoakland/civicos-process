@@ -463,3 +463,10 @@ test('run.mjs: the words check runs where the product has words.json; a planted 
   const none = spawnSync('node', [fileURLToPath(new URL('../run.mjs', import.meta.url)), repo(base()).root], { encoding: 'utf8' });
   assert.doesNotMatch(none.stdout, /^words:/m, 'no word table: the check is skipped');
 });
+
+test('format: each ruling id once; the duplicates written before the check are named exceptions (lane R17)', () => {
+  const line = (n, text) => `- K${n} · 2026-10-27 · process · ${text} · P15\n`;
+  const f = checkFormat(repo(base({ 'build/rulings.md': `# Rulings\n\n${line(7, 'a')}${line(8, 'b')}${line(8, 'c')}` })).root).failures;
+  assert.deepEqual(f, ['build/rulings.md:5: K8 given twice (first at line 4); number rulings by `proc ruling`']);
+  assert.deepEqual(checkFormat(repo(base({ 'build/rulings.md': `# Rulings\n\n${line(5349, 'a')}${line(5349, 'b')}` })).root).failures, []);
+});
