@@ -5,15 +5,18 @@
 //   node tools/hooks.mjs <bob|job> <pre|stop>
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { repo, readRole, unpushed, parsePlan, parseRecord, status, jobPrompt, PLAN, recordPath, jobBranch, trancheBranch } from './proc.mjs';
+import { repo, readRole, unpushed, modules, parsePlan, parseRecord, status, jobPrompt, PLAN, recordPath, jobBranch, trancheBranch } from './proc.mjs';
 
 const REMOTE = 'mcp__claude-code-remote__';
 const FORCE = /\bgit\b[^|;&]*\bpush\b[^|;&]*(\s(-f|--force|--force-with-lease|--mirror|--delete|-d)\b|\s\+\S+|\s:\S)/;
 const PUSH = /\bgit\b[^|;&]*\bpush\b([^|;&]*)/;
 
-function moduleIds(ctx) {
-  try { const all = JSON.parse(readFileSync(join(ctx.root, ctx.product || '.', 'build/modules.json'), 'utf8')); return (Array.isArray(all) ? all : all.modules).map((x) => x.id); } catch { return []; }
+// A session titled "<WORD> #n" is a job's only when the word names a module; a lane's successor (PROCESS-REDESIGN #3)
+// is not (lane R12). When the module list cannot be read or is empty, every such title is judged a job's: the hook fails closed.
+function isModule(m, ctx) {
+  try { const all = modules(repo(join(ctx.root, ctx.product || '.'))); return !all.length || all.some((x) => x.id === m); } catch { return true; }
 }
+
 // The reason a tool call is refused, or null. `ctx` = { role, tranche, module, session, plan (text), root }.
 export function preReason(role, input, ctx) {
   const tool = input.tool_name || '', ti = input.tool_input || {};
@@ -34,10 +37,9 @@ export function preReason(role, input, ctx) {
   if (role === 'bob') {
     if (tool === `${REMOTE}fire_trigger`) return 'never fire a routine to reach a session: send a message (DESIGN §2.3)';
     if (tool === `${REMOTE}create_trigger` && ti.persistent_session_id !== ctx.session) return 'BOB arms only its own backstop; a job is reached by send_message, never by a routine (DESIGN §2.3, §2.7)';
-    const jm = /^[A-Z][A-Z0-9-]* #\d+$/.test(ti.title || '') && !/^BOB /.test(ti.title) ? ti.title.split(' #')[0].toLowerCase() : null;
-    // A job's session is one whose title names a module; any other (a lane's successor: JOURNEYS #4) is not a job start (R12).
-    if (tool === `${REMOTE}create_session` && jm && moduleIds(ctx).includes(jm)) {
-      const p = parsePlan(ctx.plan), m = jm;
+    const m = /^[A-Z][A-Z0-9-]* #\d+$/.test(ti.title || '') && !/^BOB /.test(ti.title) ? ti.title.split(' #')[0].toLowerCase() : null;
+    if (tool === `${REMOTE}create_session` && m && isModule(m, ctx)) {
+      const p = parsePlan(ctx.plan);
       if (!p.owed.includes(`start ${m}`)) return `no start is owed for ${m}: run \`proc layer start\` or \`proc job route\` first, and use the call it prints`;
       if (ti.source_revision !== jobBranch(ctx.tranche, m)) return `${m}'s session starts on ${jobBranch(ctx.tranche, m)}`;
       if (ti.prompt !== jobPrompt(m, ctx.tranche, { product: ctx.product })) return 'use the prompt `proc` printed, unchanged';

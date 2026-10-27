@@ -72,6 +72,9 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   assert.match(cs({ title: 'BETA #1', source_revision: `job/${T}/beta`, prompt: spec.prompt }), /no start is owed for beta/);
   // a lane's successor is not a job start: its title names no module (R12)
   assert.equal(cs({ title: 'PROCESS-REDESIGN #3', source_revision: 'lane/process-redesign', prompt: 'You are PROCESS-REDESIGN #3.' }), null);
+  // with no module list to read, a job-like title is judged a job's (fails closed)
+  assert.match(preReason('bob', { tool_name: 'mcp__claude-code-remote__create_session', tool_input: { title: 'PROCESS-REDESIGN #3' } }, { ...ctx(), root: '/nonexistent' }), /no start is owed/);
+  assert.match(preReason('bob', { tool_name: 'mcp__claude-code-remote__create_session', tool_input: { title: 'PROCESS-REDESIGN #3' } }, { ...ctx(), product: 'no-such-dir' }), /no start is owed/);
   const bash = (role, command, c = ctx()) => preReason(role, { tool_name: 'Bash', tool_input: { command } }, c);
   assert.match(bash('bob', `git merge --no-ff origin/job/${T}/alpha`), /proc.mjs merge/);
   assert.match(bash('bob', 'git push origin HEAD:main'), /main/);
