@@ -216,7 +216,7 @@ export function actions(s, p) {
       if (o.md === 'lead' && o.m === 1 && can(s, 'refresh') && s.up) add(`${n} refreshes (START BOB to ROOT)`, (t) => {
         spend(t, 'refresh'); send(t, i, 0, 'SB', -1, 0, true); t.S[i].md = 'handoff';
       });
-      // §2: the successor deletes routines into each earlier BOB, and archives it once idle.
+      // §2: the successor tells each earlier BOB to delete its own routines, and archives it once idle.
       if (o.md === 'lead') s.S.forEach((q, k) => {
         if (q.r === 'B' && q.m < o.m && !q.ar && !inbox(s, k).length) add(`${n} archives ${nm(s, k)}`, (t) => {
           t.M = t.M.filter((x) => x.to !== k || x.f); t.S[k].ar = 1;
