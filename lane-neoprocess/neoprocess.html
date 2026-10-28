@@ -1,0 +1,397 @@
+<title>neoProcess</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column (~70ch) for prose; tables and the one pipeline diagram run the full 860px. Status chips mark every statement as canon (in force today) or proposed, and whose it is. */
+:root {
+  --bg: #f5f6f8; --surface: #ffffff; --fg: #1b2330; --muted: #5c6673; --line: #d6dbe2;
+  --accent: #1f5f8b; --accent-soft: #e3edf5;
+  --draft: #9a6208; --draft-soft: #f8efdc;
+  --canon: #2a6f4e; --canon-soft: #e1f0e8;
+  --bad: #a93a2e; --bad-soft: #f7e5e2;
+  --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11161c; --surface: #182029; --fg: #e4e9ef; --muted: #9ba7b5; --line: #2b3641;
+  --accent: #7fb6e0; --accent-soft: #1a2d3d;
+  --draft: #e5aa47; --draft-soft: #2f2615;
+  --canon: #6fc39a; --canon-soft: #172b21;
+  --bad: #ef8a7c; --bad-soft: #321c19; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11161c; --surface: #182029; --fg: #e4e9ef; --muted: #9ba7b5; --line: #2b3641;
+  --accent: #7fb6e0; --accent-soft: #1a2d3d;
+  --draft: #e5aa47; --draft-soft: #2f2615;
+  --canon: #6fc39a; --canon-soft: #172b21;
+  --bad: #ef8a7c; --bad-soft: #321c19; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 17.5px; line-height: 1.6; }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 44px 96px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 52px; }
+header.top { display: grid; gap: 14px; }
+.eyebrow { font: 600 12px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 800 clamp(38px, 7vw, 58px)/1 var(--display); margin: 0; letter-spacing: -.02em; text-wrap: balance; }
+h2 { font: 700 26px/1.2 var(--display); margin: 0 0 14px; letter-spacing: -.01em; text-wrap: balance; }
+h2 .n { color: var(--muted); font-weight: 500; margin-right: 10px; }
+h3 { font: 700 18px/1.3 var(--display); margin: 22px 0 8px; text-wrap: balance; }
+p { margin: 0 0 12px; max-width: 70ch; }
+section > p:last-child, section > ol:last-child, section > ul:last-child { margin-bottom: 0; }
+.lede { font-size: 20px; max-width: 64ch; color: var(--muted); }
+strong { font-weight: 600; }
+code { font-family: var(--mono); font-size: .84em; background: var(--accent-soft); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.chip { display: inline-block; font: 600 10.5px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 3px; vertical-align: middle; white-space: nowrap; }
+.chip.canon { color: var(--canon); background: var(--canon-soft); }
+.chip.draft { color: var(--draft); background: var(--draft-soft); }
+.chip.who { color: var(--accent); background: var(--accent-soft); }
+.chip.gap { color: var(--bad); background: var(--bad-soft); }
+.pp { font: 600 12px/1 var(--mono); color: var(--accent); white-space: nowrap; }
+
+.status { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--draft); border-radius: 4px; padding: 18px 22px; display: grid; gap: 10px; }
+.status p { margin: 0; max-width: none; }
+
+.mission { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 22px 24px; display: grid; gap: 10px; }
+.mission .big { font: 600 clamp(20px, 3vw, 24px)/1.35 var(--display); margin: 0; max-width: none; letter-spacing: -.01em; }
+.mission .src { font-size: 14px; color: var(--muted); margin: 0; }
+
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; line-height: 1.45; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 11.5px/1.3 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--bg); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.k { font-weight: 600; white-space: nowrap; font-family: var(--display); }
+td.c { white-space: nowrap; }
+
+ol.ranked { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 12px; counter-reset: r; }
+ol.ranked li { position: relative; padding-left: 44px; max-width: 72ch; counter-increment: r; }
+ol.ranked li::before { content: counter(r); position: absolute; left: 0; top: 2px; width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font: 700 14px/30px var(--display); text-align: center; }
+ol.ranked li b { font-family: var(--display); font-weight: 700; }
+
+ol.steps { margin: 0; padding-left: 24px; display: grid; gap: 8px; max-width: 70ch; }
+ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
+
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 16px; display: grid; gap: 10px; }
+figcaption { font-size: 14px; color: var(--muted); }
+.diagram { overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 660px; height: auto; }
+.diagram .stage { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.2; }
+.diagram .stage.gapbox { fill: var(--draft-soft); stroke: var(--draft); }
+.diagram .found { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.diagram .found.gapbox { fill: var(--draft-soft); stroke: var(--draft); }
+.diagram .t { fill: var(--fg); font: 700 13px var(--display); }
+.diagram .p { fill: var(--accent); font: 600 11px var(--mono); }
+.diagram .p.g { fill: var(--draft); }
+.diagram .lab { fill: var(--muted); font: 600 10.5px var(--mono); letter-spacing: .06em; }
+.diagram .arrow { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+.diagram .head { fill: var(--muted); }
+.diagram .loop { stroke: var(--muted); stroke-width: 1.2; fill: none; stroke-dasharray: 3 3; }
+
+.rulebook { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 18px 20px; display: grid; gap: 10px; }
+.rulebook header { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; }
+.rulebook .id { font: 600 13px/1 var(--mono); color: var(--accent); }
+.rulebook ol { margin: 0; padding-left: 26px; display: grid; gap: 8px; }
+.rulebook li { padding-left: 4px; max-width: 72ch; }
+.rulebook li .who { font: 600 10.5px/1 var(--mono); color: var(--muted); margin-left: 6px; white-space: nowrap; }
+
+.compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.compare > div { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 14px 16px; min-width: 0; }
+.compare .tag { font: 600 11.5px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; display: block; }
+.compare .before .tag { color: var(--bad); }
+.compare .after .tag { color: var(--canon); }
+.compare p { margin: 0; font-size: 15.5px; max-width: none; }
+
+.principle { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--draft); border-radius: 4px; padding: 14px 18px; max-width: 72ch; }
+.principle p { margin: 0; max-width: none; }
+.principles { display: grid; gap: 12px; }
+
+.decisions { display: grid; gap: 14px; }
+.decision { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 18px 20px; display: grid; gap: 10px; }
+.decision h3 { margin: 0; }
+.decision ul { margin: 0; padding-left: 20px; display: grid; gap: 7px; }
+.rec { color: var(--canon); font-weight: 600; }
+.sources { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; max-width: 72ch; }
+.small { font-size: 14.5px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Draft for Bob · neoProcess #1 · 28 October 2026</div>
+  <h1>neoProcess</h1>
+  <p class="lede">A Claude Code–based process for building any product Bob starts. It begins with its mission, states the priorities and constraints the canon already sets, and puts the rules that govern each stage in front of every session that works there, by code.</p>
+</header>
+
+<section class="status" aria-label="Status">
+  <p><strong>What this page is.</strong> A rewrite of BOB #333's <a href="https://claude.ai/artifact/J8E73nE7Y4qNczAVPTB5Sn" target="_blank" rel="noopener">Civicsmith Rulebook</a>, in the order you asked for: mission first, then who decides, the priorities, the flow, how rules are kept, and only then what changes. Everything about one product (the audit, the product areas, the repository cleanup, resuming T53) moves to a companion page, <a href="https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E" target="_blank" rel="noopener">Civicsmith on neoProcess</a>.</p>
+  <p><strong>What it changes today.</strong> Nothing. Each statement is marked <span class="chip canon">canon</span> (in force now, with its principle) or <span class="chip draft">proposed</span>. A proposal takes effect only when you approve what is yours (§8) and the change is certified on a dry run (P3).</p>
+</section>
+
+<section id="mission">
+  <h2><span class="n">1</span>Mission and purpose</h2>
+  <div class="mission">
+    <p class="big">The process exists to put correct, working product behaviour that meets every defined requirement onto <code>main</code>. Nothing else is output. A rule, a record or a test has value only as far as it serves that.</p>
+    <p class="src"><span class="chip canon">canon</span> P1, verbatim.</p>
+  </div>
+  <h3>Purpose</h3>
+  <p>It is a process for building with Claude Code sessions. You start the work and decide the high level. Sessions do everything else: one architecture session carries the build from step to step, a short session per module does the building, and code enforces what must hold every time. What a session must know is kept short enough to read whole, and put in front of it by code, so that no session works from memory, from a summary, or from a log it cannot read. <span class="pp">P1 P13 P17 P20</span></p>
+  <h3>Scope</h3>
+  <p>One process, any product. The process lives in its own repository and keeps each product's build state in one subtree of that product's repository; only the process writes there. A product supplies its canon, its build state, its areas and its own procedures (§7). Civicsmith is the first product and the companion page is its supplement; nothing on this page names a Civicsmith file. <span class="pp">P2</span></p>
+</section>
+
+<section id="who">
+  <h2><span class="n">2</span>Who decides what</h2>
+  <p>The working relationship is a principle, followed at all times. You decide the high level; the architecture session decides the rest, records it once and reports it done. The roles below are the canon's, plus two the proposal adds. <span class="pp">P17 P15</span></p>
+  <div class="tbl"><table>
+    <thead><tr><th>Role</th><th>Decides</th><th>Does</th><th></th></tr></thead>
+    <tbody>
+      <tr><td class="k">Bob</td><td>Policy and doctrine; requirements and what they mean; high-level architecture (the layers, a module that carries product capability); UX; the principles.</td><td>Reads rendered pages, each question with an explanation, options and a recommendation. Edits no file and types no command. When only he can act, takes the one act he is walked through.</td><td class="c"><span class="chip canon">canon</span></td></tr>
+      <tr><td class="k">BOB</td><td>Every lower-level technical, detailed or process decision: module boundaries and order, ownership, tooling, tests, branches, CI, the wording of a requirement, which work goes into a tranche and when it opens.</td><td>Carries the build: opens rounds and layers, starts jobs, answers and routes, merges, closes. Records each decision once, reports it in plain words. Refreshes when its context passes 40 %.</td><td class="c"><span class="chip canon">canon</span></td></tr>
+      <tr><td class="k">Module job</td><td>Its module's implementation.</td><td>The only role that changes product code: one module, one round. Applies every entry, proves every requirement at the interface, reports what it found elsewhere.</td><td class="c"><span class="chip canon">canon</span></td></tr>
+      <tr><td class="k">ROOT</td><td>Nothing.</td><td>Starts each BOB, so every BOB sits at depth 1 and every job at depth 2.</td><td class="c"><span class="chip canon">canon</span></td></tr>
+      <tr><td class="k">Lane</td><td>Mechanics within its charter.</td><td>A design question in one area, chartered by BOB on your direction. Delivers a design or a rule change, never product code, and ends with its report.</td><td class="c"><span class="chip draft">proposed</span></td></tr>
+      <tr><td class="k">Reviewer</td><td>Nothing.</td><td>A fresh session that checks a merge against the module's requirements and reports only gaps.</td><td class="c"><span class="chip draft">proposed</span></td></tr>
+      <tr><td class="k">Code</td><td>Nothing.</td><td>What must happen every time: the gate, the hooks, the tool. No session has to remember it.</td><td class="c"><span class="chip canon">canon</span></td></tr>
+    </tbody>
+  </table></div>
+  <p class="small" style="margin-top:10px">Lanes exist today (PROCESS-REDESIGN, PROCESS-REPAIR, UX-DESIGN, CAPABILITIES) but no principle names them; their rules sit in a product file and in rulings. The proposal gives them a stage (§4, Design) and a rule: one lane works for one area.</p>
+</section>
+
+<section id="priorities">
+  <h2><span class="n">3</span>Priorities and constraints</h2>
+  <p>The canon ranks these. Correctness is the output; urgency is a high priority but never bought by weakening a safeguard; the rest constrain how the first two are reached. Every statement here is in force today.</p>
+  <ol class="ranked">
+    <li><b>Correct, proven, merged.</b> Every requirement is tested at the module's interface, and the tests confirm full compliance; no test merely samples. Done means merged: a job when its work is in the tranche branch, a tranche when its branch is in <code>main</code>. The full regression runs at a release, or when you ask. <span class="pp">P1 P7 P11 P12</span></li>
+    <li><b>Urgent.</b> "Development productivity is one of the highest priorities" (you, 30 Sept). Every tranche carries every entry that can safely be done in it; an entry waits only for a decision of yours not yet made, a deployment or measurement that cannot happen inside the tranche, or something outside the product that does not yet exist. Nothing found in a tranche waits for the next. The next tranche is prepared while this one runs and opens the moment it closes; nobody idles while work remains. Speed comes from full scope and no idle time, never from a weaker safeguard. <span class="pp">P19 P18 P10</span></li>
+    <li><b>From evidence, read in full.</b> A session acts only on what it has read whole or measured. A skim, a search in place of reading, or a summary that drops what the work needs is a scan, and no session acts on one. Every claim names its source; what is unread is called unknown. Reading sets are kept small enough to read whole. <span class="pp">P20 P6</span></li>
+    <li><b>Your time.</b> You see rendered pages, with options and a recommendation, only for what is yours. Everything else is decided, recorded once and reported done. When an act only you can take is needed, it is named and walked through in plain steps. <span class="pp">P17 P15</span></li>
+    <li><b>Cost.</b> Sessions are short and single-purpose; state lives in git, never in a long-running context. Usage is measured per session before any budget is set, and you set the bounds once a model of what a job costs exists. <span class="pp">P13 P14</span></li>
+    <li><b>Correct before used.</b> A meaningful flaw in the process stops product work until the process is fixed and certified: checked against the principles, then proven on a small dry run. The process is never patched in reaction while it runs. <span class="pp">P3</span></li>
+    <li><b>Rules derive from principles.</b> Every rule names the principle it serves; none is added in reaction to an incident unless it can be derived from one. A ruling is made once, recorded in one home, and not reopened without new evidence named in writing. The principles change only with your approval. <span class="pp">P16 P15</span></li>
+  </ol>
+</section>
+
+<section id="flow">
+  <h2><span class="n">4</span>The flow: six stages on four foundations</h2>
+  <p>Work flows through six stages. Four foundations hold at every stage. Each principle sits in exactly one area as its first rule; three areas have no principle today, and §8 drafts one for each. The stages and foundations are BOB #333's proposal; the principles filed in them are the canon's.</p>
+  <figure>
+    <div class="diagram" role="img" aria-label="Six stages in a row: Design, Requirements and architecture, Planning, Building, Integration, Release, with a dashed return from Release to Planning for a fix round. Below them four foundations: Governance, Sessions, Repository and tooling, Usage. Design, Release and Repository have no principle today.">
+      <svg viewBox="0 0 760 256" xmlns="http://www.w3.org/2000/svg">
+        <text class="lab" x="4" y="14">THE STAGES: WHERE WORK FLOWS</text>
+        <rect class="stage gapbox" x="4" y="24" width="112" height="82" rx="4"/>
+        <text class="t" x="60" y="56" text-anchor="middle">Design</text>
+        <text class="p g" x="60" y="80" text-anchor="middle">P21 proposed</text>
+        <rect class="stage" x="132" y="24" width="112" height="82" rx="4"/>
+        <text class="t" x="188" y="50" text-anchor="middle">Requirements</text>
+        <text class="t" x="188" y="66" text-anchor="middle">&amp; architecture</text>
+        <text class="p" x="188" y="88" text-anchor="middle">P4 P5 P6</text>
+        <rect class="stage" x="260" y="24" width="112" height="82" rx="4"/>
+        <text class="t" x="316" y="56" text-anchor="middle">Planning</text>
+        <text class="p" x="316" y="80" text-anchor="middle">P10 P18 P19</text>
+        <rect class="stage" x="388" y="24" width="112" height="82" rx="4"/>
+        <text class="t" x="444" y="56" text-anchor="middle">Building</text>
+        <text class="p" x="444" y="80" text-anchor="middle">P7 P8 P9</text>
+        <rect class="stage" x="516" y="24" width="112" height="82" rx="4"/>
+        <text class="t" x="572" y="56" text-anchor="middle">Integration</text>
+        <text class="p" x="572" y="80" text-anchor="middle">P11 P12</text>
+        <rect class="stage gapbox" x="644" y="24" width="112" height="82" rx="4"/>
+        <text class="t" x="700" y="56" text-anchor="middle">Release</text>
+        <text class="p g" x="700" y="80" text-anchor="middle">P22 proposed</text>
+        <path class="arrow" d="M116 65 H128"/><path class="head" d="M132 65 l-6 -4 v8 z"/>
+        <path class="arrow" d="M244 65 H256"/><path class="head" d="M260 65 l-6 -4 v8 z"/>
+        <path class="arrow" d="M372 65 H384"/><path class="head" d="M388 65 l-6 -4 v8 z"/>
+        <path class="arrow" d="M500 65 H512"/><path class="head" d="M516 65 l-6 -4 v8 z"/>
+        <path class="arrow" d="M628 65 H640"/><path class="head" d="M644 65 l-6 -4 v8 z"/>
+        <path class="loop" d="M700 106 V124 H316 V112"/><path class="head" d="M316 108 l-4 6 h8 z"/>
+        <text class="lab" x="330" y="121">A WALK'S FINDINGS OPEN A ROUND</text>
+        <text class="lab" x="4" y="156">THE FOUNDATIONS: WHAT EVERY STAGE STANDS ON</text>
+        <rect class="found" x="4" y="166" width="178" height="80" rx="4"/>
+        <text class="t" x="93" y="198" text-anchor="middle">Governance</text>
+        <text class="p" x="93" y="222" text-anchor="middle">P1 P2 P3 P15 P16 P17</text>
+        <rect class="found" x="196" y="166" width="178" height="80" rx="4"/>
+        <text class="t" x="285" y="198" text-anchor="middle">Sessions</text>
+        <text class="p" x="285" y="222" text-anchor="middle">P13 P20</text>
+        <rect class="found gapbox" x="388" y="166" width="178" height="80" rx="4"/>
+        <text class="t" x="477" y="198" text-anchor="middle">Repository &amp; tooling</text>
+        <text class="p g" x="477" y="222" text-anchor="middle">P23 proposed (P2 in part)</text>
+        <rect class="found" x="580" y="166" width="176" height="80" rx="4"/>
+        <text class="t" x="668" y="198" text-anchor="middle">Usage</text>
+        <text class="p" x="668" y="222" text-anchor="middle">P14</text>
+      </svg>
+    </div>
+    <figcaption>Amber areas have no principle today. Their draft principles are in §8.</figcaption>
+  </figure>
+
+  <div class="tbl" style="margin-top:16px"><table>
+    <thead><tr><th>Stage</th><th>What goes in</th><th>What comes out</th><th>Who</th><th>Principles</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Design</td><td>A question that needs your decision before anything is built.</td><td>Your decision and a design: a canon document, or a change to an area's rules.</td><td>A lane, through BOB</td><td class="c"><span class="chip draft">P21</span></td></tr>
+      <tr><td class="k">Requirements &amp; architecture</td><td>The canon designs.</td><td>Layers and modules in one total order; each module's requirements, stated as they are now, small enough to read whole.</td><td>BOB with Bob</td><td class="c"><span class="pp">P4 P5 P6</span></td></tr>
+      <tr><td class="k">Planning</td><td>The work that remains.</td><td>A tranche in rounds, each round's scope fixed when it opens; the hard reason for anything left out; the next plan ready before this one closes.</td><td>BOB</td><td class="c"><span class="pp">P10 P18 P19</span></td></tr>
+      <tr><td class="k">Building</td><td>A round's entries for one module.</td><td>Code that meets every requirement, a test for each at the interface, a report with evidence; flaws in other modules routed through BOB.</td><td>A module job</td><td class="c"><span class="pp">P7 P8 P9</span></td></tr>
+      <tr><td class="k">Integration</td><td>A complete job.</td><td>Proof and a merge: the gate, review against requirements, merge in order; a layer, a round, a tranche closed.</td><td>Code; BOB</td><td class="c"><span class="pp">P11 P12</span></td></tr>
+      <tr><td class="k">Release</td><td>A closed tranche.</td><td>A cut, signed, deployed and walked release; the walk's findings as the next round's entries.</td><td>BOB, by the product's procedure</td><td class="c"><span class="chip draft">P22</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="tbl" style="margin-top:12px"><table>
+    <thead><tr><th>Foundation</th><th>What it holds</th><th>Principles</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Governance</td><td>Who decides what; how a rule is made, changed and retired; how you are asked; the process certified before use.</td><td class="c"><span class="pp">P1 P2 P3 P15 P16 P17</span></td></tr>
+      <tr><td class="k">Sessions</td><td>Roles and depth; what each loads at start; models and effort; context limits and the handoff as state only; evidence and reading.</td><td class="c"><span class="pp">P13 P20</span></td></tr>
+      <tr><td class="k">Repository &amp; tooling</td><td>What lives in git and what leaves it; branches; CI; the few hooks; settings and the safety rules.</td><td class="c"><span class="chip draft">P23</span> <span class="pp">P2</span></td></tr>
+      <tr><td class="k">Usage</td><td>Tokens per session, the weekly meter, budgets once a model exists, moving between accounts.</td><td class="c"><span class="pp">P14</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="rules">
+  <h2><span class="n">5</span>How rules are kept</h2>
+  <p><strong>What went wrong.</strong> Rules were kept as a log: every problem added a ruling. BOB #333 counted 5,782 in 34 days. No session can read that, so sessions worked from summaries and handoffs, and rules fell out. The Claude Code documentation describes both halves of the mechanism: an always-loaded file costs attention on every task whether or not it is relevant, and instruction files are "context, not enforced configuration"; what must never be skipped goes in a hook. <span class="pp">P15 P20</span></p>
+  <p><strong>The proposal.</strong> Three kinds of text bind. Four others a session might read bind nothing. Each has one home and one way of reaching a session.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Kind</th><th>What it holds</th><th>How it reaches a session</th><th>Who changes it</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Principles</td><td>P1–P20 as they stand, plus P21–P23 if you approve them (§8).</td><td>Always loaded, by every role. About 14 KB.</td><td>You <span class="pp">P16</span></td></tr>
+      <tr><td class="k">Area rulebooks</td><td>The rules in force for one area: at most ten, on one screen, each a sentence or two that can be checked, each naming its principle and whether code enforces it.</td><td>Process areas: loaded by the role's start skill. Product areas: loaded by the paths of the files being worked on (Claude Code's <code>.claude/rules/</code> with a <code>paths:</code> filter, verified today).</td><td>You for policy; BOB for mechanics. Rewritten in place, never appended.</td></tr>
+      <tr><td class="k">Requirements and designs</td><td>What each module does now, and the canon designs.</td><td>A job reads its own module's requirements whole.</td><td>BOB with you <span class="pp">P5</span></td></tr>
+      <tr><td class="k">Code</td><td>Everything that must happen every time.</td><td>CI, the merge gate, branch protection, the tool, a few hooks. Nobody has to remember it.</td><td>BOB</td></tr>
+      <tr><td class="k">Procedures</td><td>Step-by-step situations: takeover, release, a walk.</td><td>Skills, loaded when the situation arises.</td><td>BOB</td></tr>
+      <tr><td class="k">State</td><td>What is in flight.</td><td>Job records or pull requests, and a status generated from them. The handoff carries state only.</td><td>Code</td></tr>
+      <tr><td class="k">History</td><td>Why a rule is what it is.</td><td>The archived log and git history. Never required reading.</td><td>Nobody</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>What each role has in front of it</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Role</th><th>Process areas loaded at start</th><th>Product areas</th></tr></thead>
+    <tbody>
+      <tr><td class="k">ROOT</td><td>Governance, Sessions, Usage</td><td>none</td></tr>
+      <tr><td class="k">BOB</td><td>All ten, kept under 30 KB together</td><td>An index of the product's areas, one line each</td></tr>
+      <tr><td class="k">Module job</td><td>Building, Integration, Sessions</td><td>Its module's area, by path</td></tr>
+      <tr><td class="k">Lane</td><td>Design, Governance, Sessions</td><td>The one area it works for</td></tr>
+      <tr><td class="k">Reviewer</td><td>Integration</td><td>The module's area, by path</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>What one rulebook looks like</h3>
+  <p>A draft of the Integration area, to show the shape. Codification writes the real one, and every rule in it is either one you hold today or one marked proposed in §8.</p>
+  <div class="rulebook">
+    <header><span class="id">INT</span><h3 style="margin:0">Integration · work counts only when it is merged and proven</h3></header>
+    <ol>
+      <li>Done means merged. A job is done when its work is merged into the round's tranche branch; a tranche is done when its branch is merged to <code>main</code> (P12).<span class="who">BOB'S · CODE</span></li>
+      <li>Each module's tests prove each of its requirements at its interface. A test that cannot fail does not count, and a check refuses it (P7, P11).<span class="who">YOURS · CODE</span></li>
+      <li>Every merge passes the gate first: ownership, the module's and its users' tests, the checks, the build. Code runs the gate; no session runs it by hand (P7, P16).<span class="who">BOB'S · CODE</span></li>
+      <li>Every merge is reviewed against the module's requirements by a fresh reviewer that never saw the job. It reports only correctness gaps; each is fixed, or answered with evidence, before the merge (P7, P20).<span class="who">BOB'S · PROPOSED</span></li>
+      <li>Green, reviewed work merges in module order, by code. No session merges by hand (P12).<span class="who">BOB'S · CODE</span></li>
+      <li>Work that fails the gate or the review goes back to its job, or to a fresh session for that module if the job has ended (P8).<span class="who">BOB'S · CODE</span></li>
+      <li>A layer closes when every one of its jobs is merged, and the next layer starts at once (P10, P19).<span class="who">BOB'S · CODE</span></li>
+      <li>A tranche closes by one pull request to <code>main</code>, after <code>main</code> is merged in. The full regression runs only at a release or when you ask (P11, P12).<span class="who">YOURS</span></li>
+    </ol>
+  </div>
+</section>
+
+<section id="problem">
+  <h2><span class="n">6</span>When you raise a problem</h2>
+  <ol class="steps">
+    <li>BOB names the area it belongs to.</li>
+    <li>It rewrites that area's rule so the problem cannot happen again. If the area is full, it merges or replaces a rule. If the rule must hold every time, it puts it in code, and the rule names the code.</li>
+    <li>If the rule is yours, you see its text before and after, rendered, and decide. If it is BOB's, BOB makes the change and tells you which rule changed.</li>
+    <li>The commit carries your words. Nothing else is written, and the area stays within its ten rules. No ruling is added.</li>
+  </ol>
+  <p style="margin-top:14px">An example from today. The mechanics say a job runs on "the cheapest able" model; your ruling this afternoon says Opus for every job and Sonnet for purely mechanical work; and BOB #333 found 17 of 21 jobs on a model their plan row did not name. That is what drift looks like when a rule has two homes and no code reads it.</p>
+  <div class="compare">
+    <div class="before"><span class="tag">Today</span><p>A ruling appended to the log; a rewritten line in the active rulings; a note in the handoff; mechanics §5.3 still saying "cheapest able". The plan rows written earlier name the old models, and the start command does not check them.</p></div>
+    <div class="after"><span class="tag">In the rulebook</span><p><strong>Sessions, rule 4.</strong> Every job runs on Opus; a purely mechanical job runs on Sonnet; a reviewer runs on Opus. The start command picks the model from the job's kind, so no session has to remember the rule. The mechanics say the same thing or nothing.</p></div>
+  </div>
+</section>
+
+<section id="product">
+  <h2><span class="n">7</span>Fitting it to a product</h2>
+  <p>The process repository holds everything on this page. A product adds what only it can know. The split is P2's and is in force today; the areas and rulebooks are proposed. <span class="pp">P2 P5</span></p>
+  <div class="tbl"><table>
+    <thead><tr><th>The process supplies</th><th>The product supplies</th></tr></thead>
+    <tbody>
+      <tr><td>The principles and the ten process-area rulebooks.</td><td>Its canon: the mission, the requirements and the designs, listed in one index every module's requirements cite.</td></tr>
+      <tr><td>The tool that does each procedure whole, the hooks, the checks, the gate.</td><td>Its build state: the manifest, the layers, the modules in order, each module's requirements, the plans, the records.</td></tr>
+      <tr><td>The role skills: what each role loads at start.</td><td>Its product areas: each owning its canon documents and its modules, with at most one lane. Every module belongs to exactly one.</td></tr>
+      <tr><td>The dry run that certifies a change to the process.</td><td>Its own procedures: release, deploy, walks, a design channel; its safety rules; its generated artifacts and how to rebuild them.</td></tr>
+      <tr><td>The format of a rulebook, a requirement, a record.</td><td>A <code>CLAUDE.md</code> under thirty lines: attach the process repository, invoke your role's skill.</td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:12px" id="companion">For Civicsmith, the companion page <a href="https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E" target="_blank" rel="noopener">Civicsmith on neoProcess</a> holds its ten product areas, the audit of twenty merged jobs, the repository cleanup, and the order of work back to T53.</p>
+</section>
+
+<section id="changes">
+  <h2><span class="n">8</span>What changes from today, and what is yours</h2>
+  <p>BOB #333's page presents itself as a new way to store rules. It changes more than that. Each change below names where it stands today, whose decision it is by P17, and how it is proven. <span class="pp">P3 P16 P17</span></p>
+  <div class="tbl"><table>
+    <thead><tr><th>Change</th><th>Today</th><th>Proposed</th><th>Whose</th><th>Proof</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Where rules live</td><td>A ruling log read by search; an active-rulings file under 80 lines; situation files; the mechanics (§9, §17).</td><td>Principles plus one rulebook per area, loaded by code. The log is archived; no ruling is added.</td><td>Yours: it sets how you are asked and what you read.</td><td>Dry run</td></tr>
+      <tr><td class="k">Three principles</td><td>Design, Release and Repository have none.</td><td>P21–P23, drafted below.</td><td>Yours (P16).</td><td>Text only; the rulebooks citing them are dry-run.</td></tr>
+      <tr><td class="k">Lanes</td><td>Chartered by BOB on your direction; rules in a product file and in rulings.</td><td>A stage, Design, with a rulebook; one lane per area; a lane's decision changes a rulebook or a canon design, recorded in its report.</td><td>Yours: doctrine.</td><td>Dry run</td></tr>
+      <tr><td class="k">Models</td><td>Mechanics §5.3: the cheapest able. Your ruling today: Opus for every job, Sonnet for mechanical work.</td><td>One rule in Sessions, picked by the start command.</td><td>Yours: already ruled; the text must match.</td><td>Code</td></tr>
+      <tr><td class="k">Proof at the merge</td><td>The gate checks that a test names each requirement, not that it proves it.</td><td>A fresh reviewer on every merge; a check that refuses a test that cannot fail.</td><td>BOB's (tooling). New cost: reported to you under P14.</td><td>Dry run</td></tr>
+      <tr><td class="k">Records and merging</td><td>A record per job in git; <code>proc merge</code> by BOB.</td><td>A pull request per job; the gate and the reviewer in CI; a merge queue.</td><td>BOB's (tooling).</td><td>Dry run</td></tr>
+      <tr><td class="k">Loading by code</td><td>Role skills show an index; situations read on demand.</td><td>Start skills load each role's areas; product areas load by path; size limits checked in CI.</td><td>BOB's.</td><td>Dry run</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Draft principles</h3>
+  <p>Each is one or two sentences, in the form of P1–P20. You approve, amend or decline each.</p>
+  <div class="principles">
+    <div class="principle"><p><strong>P21 · Design.</strong> A question becomes Bob's decision and a design before anything is built. A lane works for one area, reads that area whole, and delivers a design or a change to a rule, never product code; its accepted report ends it.</p></div>
+    <div class="principle"><p><strong>P22 · Release.</strong> A release is cut from the open tranche, proven by the full regression, deployed and walked. What a walk finds becomes a round's entries, never edits to a running one; what a walk produces is kept only until it is analysed.</p></div>
+    <div class="principle"><p><strong>P23 · Repository.</strong> The repository holds what a session must read or a merge must carry. Generated output, captures and finished records leave the working tree; history is kept, and is never required reading.</p></div>
+  </div>
+
+  <h3>Decisions for you</h3>
+  <div class="decisions">
+    <div class="decision">
+      <h3>1 · The areas</h3>
+      <ul>
+        <li><span class="rec">Recommended:</span> the ten process areas (six stages, four foundations). The product's areas are its own, in the companion page.</li>
+        <li>The same, with changes you name: areas to merge, split or rename.</li>
+        <li>Fewer and broader areas. Each rulebook is then longer, or its rules coarser.</li>
+      </ul>
+    </div>
+    <div class="decision">
+      <h3>2 · The shape of the rules</h3>
+      <ul>
+        <li><span class="rec">Recommended:</span> principles, plus one rulebook per area of at most ten rules on one screen, rewritten in place and loaded by code. The log goes to the archive. When you raise a problem, a rule is rewritten; no ruling is added.</li>
+        <li>Rulebooks beside the log, both kept as working records. Two sources of truth, and they will drift.</li>
+        <li>Rulebooks with no limit on size. Simpler at first; they regrow into today's problem.</li>
+      </ul>
+    </div>
+    <div class="decision">
+      <h3>3 · The three principles</h3>
+      <ul>
+        <li><span class="rec">Recommended:</span> approve P21–P23 as drafted, or with your wording.</li>
+        <li>Fold P23 into P2 instead of a new principle. Shorter; P2 is about separation, not about what the repository keeps.</li>
+        <li>Decline any of them; its area keeps a rulebook with no principle.</li>
+      </ul>
+    </div>
+    <div class="decision">
+      <h3>4 · Models</h3>
+      <ul>
+        <li><span class="rec">Recommended:</span> keep today's ruling (Opus for every job, Sonnet for purely mechanical work, Opus for a reviewer), written once in Sessions and picked by code, and measure again once review runs on every job. BOB #333's audit does not separate the models: the model followed the kind of work, and three Opus jobs is too few for a rate.</li>
+        <li>The mechanics' "cheapest able", with the reviewer as the safeguard. Cheaper; the audit found defects under every model.</li>
+      </ul>
+    </div>
+  </div>
+  <p style="margin-top:14px"><strong>Not yours by P17.</strong> Proof at the merge and the merge queue are tooling: BOB decides them and reports their cost to you. The order of work for Civicsmith (build the process and clean the repository together, then resume T53) is in the companion page; the stop on product work is yours, and so is lifting it.</p>
+</section>
+
+<section id="sources">
+  <h2><span class="n">9</span>Sources, and what is not verified</h2>
+  <ol class="sources">
+    <li>Read whole today in <code>believeinoakland/civicos-process</code> at <code>b3b20fc</code>: <code>PROCESS-DESIGN.md</code> (P1–P20), <code>PROCESS-MECHANICS.md</code> (§1–§17), <code>roles/BOB.md</code>, <code>roles/JOB.md</code>, <code>roles/ROOT.md</code>, <code>HISTORY.md</code>, and the PROCESS-REDESIGN lane's charter, design and disposition. Every <span class="pp">P</span> and § above is to those files.</li>
+    <li>BOB #333's page, read whole. Its figures (5,782 rulings; 17 of 21 jobs on another model; 19 defects in 20 jobs; the mail-door defect) are its measurements on <code>believeinoakland/bio</code>. I did not open that repository, so they are reported here as BOB #333's, not verified.</li>
+    <li><a href="https://code.claude.com/docs/en/memory" target="_blank" rel="noopener">How Claude remembers your project</a> and <a href="https://code.claude.com/docs/en/best-practices" target="_blank" rel="noopener">Best practices for Claude Code</a>, read today: <code>.claude/rules/</code> with a <code>paths:</code> filter, the <code>/goal</code> command and the Stop hook exist as described; "Claude treats them as context, not enforced configuration."</li>
+    <li>Your words quoted in §3 are as <code>HISTORY.md</code> records them (P19's approval, 30 Sept 2026).</li>
+  </ol>
+</section>
+</div>
