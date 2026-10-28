@@ -1,5 +1,5 @@
 # Plan D27
-**Status** · OPEN · BOB #1 · session_018BhcegBQhMDe3ZuS4tV1VQ · depth 3
+**Status** · OPEN · BOB #2 · session_018Bhced86RzzxLW63fnTCmx · depth 2
 **Jobs** · none
 **Owed** · none
 **Round** · R1 · closed
