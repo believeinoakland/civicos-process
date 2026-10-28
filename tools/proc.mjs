@@ -82,7 +82,11 @@ export function history(R, a, b) {
 function on(R, want) { const b = R.branch(); if (b !== want) refuse(`check out ${want} first (on ${b})`); }
 // Commit the named files and push; a push that loses a race merges the remote once (never a rebase, never a force).
 function commitPush(R, branch, paths, message) {
-  R.g(['add', '--', ...paths.map(R.rel)]);
+  // A path already removed (staged with `git rm`, or gone from the working tree but tracked) is staged as a deletion.
+  const gone = (p) => { if (existsSync(join(R.root, R.rel(p)))) return false; try { R.g(['cat-file', '-e', `HEAD:${R.rel(p)}`]); return true; } catch { return false; } };
+  const del = paths.filter(gone), keep = paths.filter((p) => !del.includes(p));
+  if (del.length) R.g(['rm', '-q', '--cached', '--ignore-unmatch', '--', ...del.map(R.rel)]);
+  R.g(['add', '--', ...keep.map(R.rel)]);
   try { R.g(['diff', '--cached', '--quiet']); } catch { R.g(['commit', '-q', '-m', message]); }
   try { R.g(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`]); }
   catch { R.g(['pull', '-q', '--no-rebase', '--no-edit', 'origin', branch]); R.g(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`]); }
@@ -302,8 +306,10 @@ export function layerStart(o) {
 export const jobPrompt = (m, T, o) => `You are ${m.toUpperCase()}, the module job for \`${m}\` in tranche ${T}${o.product && o.product !== '.' ? ` (product root \`${o.product}\`)` : ''}. If /home/user/civicos-process does not exist, attach believeinoakland/civicos-process (add_repo) and clone it there. Then invoke the skill civicos-job and follow it; your START is printed by its first command.`;
 function nextK(R, T, m) {
   const names = parsePlan(R.read(PLAN)).jobs.filter((j) => j.module === m).map((j) => Number(j.name.split('#')[1]));
-  const prior = Number((R.read(`build/jobs/${T}/${m}.md`) || '').match(/^\*\*Sessions\*\* · (\d+)/m)?.[1] || 0);
-  return Math.max(0, prior, ...names) + 1;
+  // The record's count lives on the job branch until a merge brings it to the tranche, and an archived job has left the Jobs line.
+  R.fetch(jobBranch(T, m));
+  const prior = [R.read(recordPath(T, m)), R.remote(jobBranch(T, m), recordPath(T, m))].map((t) => Number((t || '').match(/^\*\*Sessions\*\* · (\d+)/m)?.[1] || 0));
+  return Math.max(0, ...prior, ...names) + 1;
 }
 function pushJobBranch(R, T, m) {
   const jb = jobBranch(T, m), tip = R.g(['rev-parse', 'HEAD']);
