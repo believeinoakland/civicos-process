@@ -19,7 +19,7 @@
 //
 // Usage: node tools/proc.mjs <command> --product <dir> --tranche <T> [options]
 //   BOB   takeover --name "BOB #n" --session <id> --depth <d>   status [--gate]   round open --round R<k> --plan <file>
-//         layer start --layer <L> [--usage <status>]   job started --module <m> --name "<M> #k" --session <id>
+//         layer start --layer <L> [--usage <status>] [--modules <m1,m2> (only these, in a started layer)]   job started --module <m> --name "<M> #k" --session <id>
 //         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m> [--context <pct>]
 //         layer close --layer <L>   job archived --module <m> --usage <json>   bob cleared --name --session (--reply|--unanswered)   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
@@ -277,7 +277,11 @@ export function layerStart(o) {
   on(R, trancheBranch(T));
   const text = R.read(PLAN), p = parsePlan(text);
   if (!p.layers.find((l) => l.layer === L && l.state === 'OPEN')) refuse(`layer ${L} is not open in round R${p.round}`);
-  const mods = modules(R).filter((m) => m.layer === L && entriesOf(text, L, m.id));
+  // --modules starts only the named modules of an open layer: a module given entries after its layer started (P10:
+  // nothing found waits), without sending every other job its START again (BOB #327).
+  const only = String(o.modules || '').split(',').filter(Boolean);
+  const mods = modules(R).filter((m) => m.layer === L && entriesOf(text, L, m.id) && (!only.length || only.includes(m.id)));
+  for (const id of only) if (!mods.some((m) => m.id === id)) refuse(`${id}: no entries in layer ${L} of round R${p.round}`);
   if (!mods.length) refuse(`layer ${L} of round R${p.round} has no entries`);
   const specs = [], paths = [];
   for (const m of mods) {
