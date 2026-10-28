@@ -57,7 +57,7 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   assert.throws(() => P.roundOpen(O(w.bob, { round: 'R2', plan: w.plan })), /round R1 is still open/);
 
   // layer start: the job branch, the START, and one create_session owed, exactly as printed
-  const ls = P.layerStart(O(w.bob, { layer: 1 }));
+  const ls = P.layerStart(O(w.bob, { layer: 1, usage: 'allowed_warning' }));   // a weekly warning starts jobs (bio K5722)
   assert.equal(ls.specs.length, 1);
   const spec = ls.specs[0];
   assert.deepEqual([spec.action, spec.title, spec.source_revision], ['create_session', 'ALPHA #1', `job/${T}/alpha`]);
