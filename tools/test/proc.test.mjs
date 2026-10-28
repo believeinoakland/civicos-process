@@ -751,6 +751,9 @@ test('background hook: proc merge, layer close, job complete and tests are refus
     assert.equal(bash('bob', `node tools/proc.mjs ${c} --tranche ${T}`), null, c);
   assert.equal(bash('bob', 'cat roles/BOB.md'), null);
   assert.equal(bash('job', 'node --test tools/test/proc.test.mjs'), null);
+  // a mention of the command is not a run of it
+  assert.equal(bash('bob', 'pgrep -f "proc.mjs merge" || echo none'), null);
+  assert.equal(bash('bob', 'grep -n "proc.mjs merge" roles/BOB.md'), null);
 });
 
 test('background marker: written while a long command runs, removed after it ends, also after a refusal; not written for other commands', () => {

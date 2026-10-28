@@ -15,7 +15,7 @@ const PUSH = /\bgit\b[^|;&]*\bpush\b([^|;&]*)/;
 const REDIRECT = /(\d*>>?&\d+-?|&>>?\s*[^\s|;&]+|\d*>>?\s*[^\s|;&]+|<+\s*[^\s|;&]+)/g;
 
 // P13, bio K4207: these procedures run for minutes; in the foreground the session cannot answer a message meanwhile.
-const LONG_PROC = /\bproc\.mjs\s+(merge|layer\s+close|job\s+complete|tests)\b/;
+const LONG_PROC = /(?:^|[\s;&|(])node\s+(?:\S+\/)?proc\.mjs\s+(merge|layer\s+close|job\s+complete|tests)\b/; // a run of it, not a mention (pgrep, grep)
 // A session titled "<WORD> #n" is a job's only when the word names a module; a lane's successor (PROCESS-REDESIGN #3)
 // is not (lane R12). When the module list cannot be read or is empty, every such title is judged a job's: the hook fails closed.
 function isModule(m, ctx) {
