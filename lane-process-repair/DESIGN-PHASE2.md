@@ -47,7 +47,18 @@
 
 ## 5. What only Bob can set (each one act; steps to be written from GitHub's own page by `proc steps`, P20)
 
-1. **A branch ruleset on the tranche branch:** "Require merge queue" (merge method merge), "Require status checks to pass" (the gate's checks), and a block on force pushes and deletions. **Unknown and decisive:** GitHub's merge-queue page says "A merge queue cannot be enabled with branch protection rules that use wildcard characters (`*`) in the branch name pattern". Whether that also binds a ruleset targeting `tranche/*` is not stated. Test it first on a throwaway branch with a `tranche/*`-style ruleset. If it binds, the ruleset names each tranche's branch exactly, and Bob's act is then once per tranche. The alternative is a fixed integration branch name; deciding between them is BOB's (P17).
+1. **A repository branch ruleset on `tranche/*`:** "Require merge queue" (merge method merge), "Require status checks to pass" (the gate's checks), and a block on force pushes and deletions.
+   - **What GitHub's docs say** (read 2026-10-28):
+     - "Available rules for rulesets", "Require merge queue": "You can require that merges must be performed with a merge queue at the repository level"; "This rule is not available for rulesets created at the organization level."
+     - "Managing a merge queue": "A merge queue cannot be enabled with branch protection rules that use wildcard characters (`*`) in the branch name pattern."
+     - Neither page says anything about wildcard targets for a ruleset.
+     - So the classic branch rule is ruled out for `tranche/*`. The repository ruleset is neither allowed nor forbidden by the docs, and only saving one settles it.
+   - **The plan:** Bob's one act creates the ruleset with target `tranche/*`. If GitHub refuses it on save, the fallback below applies.
+   - **The fallback: one fixed integration branch.** Every tranche works on a branch `integration`, which equals `main` when a tranche opens. The ruleset names it exactly, so Bob acts once.
+     - P12's wording would change from "A tranche works on its own branch off `main`" to "A tranche works on the integration branch, which holds exactly `main` when the tranche opens; the tranche is done when it is merged to `main`". That is a principle change, so it is Bob's (P16).
+     - Mechanics §4 drops `tranche/T<n>`.
+     - Job branches stay `job/T<n>/<m>`, so their names still carry the tranche.
+     - The close merges `integration` into `main` by PR, as today. The next tranche opens on the same branch, already equal to `main`, with no ref deleted or created.
 2. **Repository settings:** under Settings, Actions, General, "Workflow permissions": read and write for `GITHUB_TOKEN` and "Allow GitHub Actions to create and approve pull requests" (docs, "Managing GitHub Actions settings for a repository"). Exact radio labels are to be read from the page when the steps are written.
 3. Nothing else. Merge queues are available to public repositories owned by an organization (the analysis's source: the 2023-07-12 GitHub changelog). Standard runners are free for public repositories (docs, "About billing for GitHub Actions").
 

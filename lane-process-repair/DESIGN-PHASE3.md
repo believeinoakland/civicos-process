@@ -62,8 +62,9 @@ Most are imported by product code at runtime and by tests: `member-roster/index.
 
 ## 4. Releases: `release/` becomes small; bundles become release files
 
+- **This repository is cleaned in place, not replaced** (BOB #333, bio K5796, correcting the Rulebook's step 5 and R4).
 - **The constraint (measured):** installed groups read `release/` straight from git on `main`.
-  - The installer fetches `https://raw.githubusercontent.com/believeinoakland/bio/main/release` (`newgroup/src/steps/api.mjs:19`), and tagged copies from `.../v<version>/release` (`:21`).
+  - The installer fetches `RELEASE_LATEST = "https://raw.githubusercontent.com/believeinoakland/bio/main/release"` (`newgroup/src/steps/api.mjs:118`), and earlier parts from `RELEASE_TAGGED`, `.../v<version>/release` (`:120`, R61). BOB #333 verified both lines.
   - Every deployed plane polls `.../main/release/NOTICE.json` (`bio-plane/src/setup.mjs:458`).
   - So `release/` cannot simply leave git. The planes already in the field would lose their update notice.
 - **The design (Bob's answer 3: "a release publishes them as release files, deploy takes them from the release"):**
@@ -72,7 +73,11 @@ Most are imported by product code at runtime and by tests: `member-roster/index.
   - The installer (`newgroup/src/steps/api.mjs`, `index.mjs:94,115,536`) and `embed-release.mjs:166-200` read the bundle from the release-asset URL and check its sha256 and signature as they do now.
   - Planes in the field keep polling `NOTICE.json` on `main`, unchanged.
   - That is a product change, to the installer's and newgroup's requirements. It goes to their jobs as entries, and the change of what `RELEASE.json` holds goes to Bob only if it changes what a member sees, which it does not.
-- **Unknown:** whether the `v0.72`-`v0.87` tags exist on origin. This clone has tags to v0.71.0, and `api.mjs:21`'s tagged URL 404s without them. Check before the first release on the new path.
+- **Measured, a live defect:** `git ls-remote --tags origin` lists tags v0.5.0 to **v0.71.0** only. **None of v0.72.0 to v0.87.0 exists.** So every `RELEASE_TAGGED` URL for a release after 0.71 is a 404 today.
+  - Sessions cannot push tags: the git proxy answers 403 (bio `rulings-active.md` §2).
+  - The new path fixes this going forward, because the release workflow creates the tag with the GitHub release.
+  - The missing 16 tags are an entry for BOB: created by a workflow on the release commits, or by Bob's act.
+- **Kept on `main`:** `release/RELEASE.json`, `NOTICE.json` and `notes/`. Everything else in `release/` becomes a release file of `v<version>`.
 
 ## 5. Walk screenshots: R2, indexed in git, deleted by code once the walk is analysed
 
@@ -82,6 +87,7 @@ Most are imported by product code at runtime and by tests: `member-roster/index.
   - Reports cite shots by bare name ("Shot names below are under `shots/A/`", `walk-T51b-live/A.md:8`).
   - The analysis is markdown: per-area reports `A.md`-`E.md`, cause files `causes-*.md`, placements `placement-entries-*.md`, and the findings table `walk-T51-findings.md`.
   - **No cleanup exists.** Two lanes deleted shots by hand; the archived reports' `shots/…` paths dangle.
+- **R2 write test:** waits until Bob approves the order of work (BOB #333). It then uses only the new walks bucket on account `20b533579290b9b93168345edd3b7f72`.
 - **R2 today (measured, `GET /accounts/20b533579290b9b93168345edd3b7f72/r2/buckets` → 200):** buckets `bio-captures`, `bio-captures-plat-s1`, `bio-published`, `bio-published-plat-s1`. No walk bucket exists.
 - **The design:**
   1. **One private bucket, `bio-walks`,** on account `20b533579290b9b93168345edd3b7f72` only, made once by BOB. Its R2 lifecycle rule deletes any object older than 14 days, so nothing can build up even if a step is missed. The rule is the backstop, not the means.
