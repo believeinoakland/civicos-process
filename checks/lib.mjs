@@ -79,3 +79,36 @@ export function report(name, failures, summary) {
   console.log(`${name}: ${summary}; ${failures.length} failure${failures.length === 1 ? '' : 's'}`);
   return failures.length ? 1 : 0;
 }
+
+// A new module enters build/modules.json with empty `paths` and `tests` (bio K1185); its first job's COMPLETE fills
+// them (lane-process-repair item e). Returns `text` with the row of `id` given `paths` and `tests`, every other byte
+// unchanged, or null when that row has no empty `paths` and `tests` to fill.
+export function fillModuleRow(text, id, { paths, tests }) {
+  const at = text.search(new RegExp(`"id":\\s*${JSON.stringify(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[,}]`));
+  if (at < 0) return null;
+  const next = text.slice(at + 1).search(/"id":\s*"/), end = next < 0 ? text.length : at + 1 + next;
+  const fmt = (xs) => `[${xs.map((x) => JSON.stringify(x)).join(', ')}]`;
+  let row = text.slice(at, end), n = 0;
+  row = row.replace(/"paths":\s*\[\s*\]/, () => { n++; return `"paths": ${fmt(paths)}`; });
+  row = row.replace(/"tests":\s*\[\s*\]/, () => { n++; return `"tests": ${fmt(tests)}`; });
+  return n === 2 ? `${text.slice(0, at)}${row}${text.slice(end)}` : null;
+}
+// What a change to build/modules.json between `before` and `after` (their texts) does, judged for module `id`:
+// { fill: { paths, tests } } when it only fills that module's own empty `paths` and `tests` (every other row, key and
+// order unchanged), else { why } naming what else changed.
+export function rowFill(before, after, id) {
+  let a, b; try { a = JSON.parse(before); b = JSON.parse(after); } catch (e) { return { why: `build/modules.json does not parse (${e.message})` }; }
+  const rows = (s) => (Array.isArray(s) ? s : s.modules) || [];
+  const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const ra = rows(a), rb = rows(b);
+  if (!same(ra.map((r) => r.id), rb.map((r) => r.id))) return { why: 'build/modules.json: rows added, removed or reordered (BOB writes rows)' };
+  if (!Array.isArray(a) && !same({ ...a, modules: null }, { ...b, modules: null })) return { why: 'build/modules.json: a field outside the rows changed' };
+  const i = ra.findIndex((r) => r.id === id);
+  for (let k = 0; k < ra.length; k++) if (k !== i && !same(ra[k], rb[k])) return { why: `build/modules.json: the row of ${ra[k].id} changed` };
+  if (i < 0) return { why: `build/modules.json: no row for ${id}` };
+  const x = ra[i], y = rb[i];
+  if ((x.paths || []).length || (x.tests || []).length) return { why: `build/modules.json: ${id}'s row already named its paths and tests; only BOB changes it` };
+  if (!same({ ...x, paths: null, tests: null }, { ...y, paths: null, tests: null })) return { why: `build/modules.json: ${id}'s row changed beyond its paths and tests` };
+  if (!(y.paths || []).length || !(y.tests || []).length) return { why: `build/modules.json: ${id}'s row is filled with both its paths and its tests, or not at all` };
+  return { fill: { paths: y.paths, tests: y.tests } };
+}

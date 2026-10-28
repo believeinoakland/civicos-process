@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { repo, readRunning, readRole, isStepsList, stepsHash, STEPS_OK, unpushed, modules, parsePlan, parseRecord, status, jobPrompt, PLAN, recordPath, jobBranch, trancheBranch } from './proc.mjs';
+import { repo, readRunning, readRole, isStepsList, stepsHash, STEPS_OK, unpushed, modules, parsePlan, parseRecord, gate, jobPrompt, CLONE, PLAN, recordPath, jobBranch, trancheBranch } from './proc.mjs';
 
 const REMOTE = 'mcp__claude-code-remote__';
 const FORCE = /\bgit\b[^|;&]*\bpush\b[^|;&]*(\s(-f|--force|--force-with-lease|--mirror|--delete|-d)\b|\s\+\S+|\s:\S)/;
@@ -16,6 +16,11 @@ const REDIRECT = /(\d*>>?&\d+-?|&>>?\s*[^\s|;&]+|\d*>>?\s*[^\s|;&]+|<+\s*[^\s|;&
 
 // P13, bio K4207: these procedures run for minutes; in the foreground the session cannot answer a message meanwhile.
 const LONG_PROC = /(?:^|[\s;&|(])node\s+(?:\S+\/)?proc\.mjs\s+(merge|layer\s+close|job\s+complete|tests)\b/; // a run of it, not a mention (pgrep, grep)
+// lane-process-repair item a: a hand-written wait on a proc process is refused. BOB #332's loop searched for the merge
+// by name, found its own command line, and waited 25 minutes with nothing merging. A `pgrep`/`pidof`, or a `sleep`,
+// `while`, `until` or `wait` at a command's start, in a command that names proc or its marker, is such a wait.
+const PROC_REF = /\bproc(?:\.mjs)?\b|civicos-running/;
+const WAITER = /\b(?:pgrep|pidof)\b|(?:^|[;&|({]|\b(?:do|then|else)\b)\s*(?:sleep|while|until|wait)\b/;
 // A session titled "<WORD> #n" is a job's only when the word names a module; a lane's successor (PROCESS-REDESIGN #3)
 // is not (lane R12). When the module list cannot be read or is empty, every such title is judged a job's: the hook fails closed.
 function isModule(m, ctx) {
@@ -45,6 +50,7 @@ export function preReason(role, input, ctx) {
   if (tool === 'Bash') {
     const c = String(ti.command || '').replace(REDIRECT, ' ');
     if (FORCE.test(c)) return 'a force push, mirror or remote delete is never done (standing safety rule)';
+    if (PROC_REF.test(c) && WAITER.test(c)) return 'a hand-written wait on a proc process is never run (lane-process-repair item a: a loop that searches for the process by name finds its own command and never ends): run the long command with run_in_background true and end your turn; its completion notice wakes you. `proc status` shows a running procedure (`running`)';
     const lp = c.match(LONG_PROC);
     if (lp && ti.run_in_background !== true) return `\`proc ${lp[1].replace(/\s+/g, ' ')}\` runs for minutes and a message reaches you only between tool calls (P13; bio K4207): run it with run_in_background true, then end your turn or do other work until the task's completion notice arrives`;
     const push = c.match(PUSH);
@@ -67,6 +73,7 @@ export function preReason(role, input, ctx) {
       if (!p.owed.includes(`start ${m}`)) return `no start is owed for ${m}: run \`proc layer start\` or \`proc job route\` first, and use the call it prints`;
       if (ti.source_revision !== jobBranch(ctx.tranche, m)) return `${m}'s session starts on ${jobBranch(ctx.tranche, m)}`;
       if (ti.prompt !== jobPrompt(m, ctx.tranche, { product: ctx.product })) return 'use the prompt `proc` printed, unchanged';
+      if (Object.entries(CLONE).some(([k, v]) => ti[k] !== v)) return `use the clone \`proc\` printed: ${Object.entries(CLONE).map(([k, v]) => `${k} ${v}`).join(', ')} (whole history, large files left out; lane-process-repair item c)`;
     }
     // Only the product's own PRs wait for the close; a process-repository PR is BOB's to merge (bio K5137), so a
     // certified process fix can land mid-round (bio K5345). A PR whose repository is not named is judged the product's.
@@ -114,12 +121,15 @@ export function stopReason(role, ctx) {
   const run = readRunning(ctx.root);
   if (run?.alive) return null;
   const R = repo(join(ctx.root, ctx.product || '.'));
+  // BOB's check is one fetch with no deepening (lane-process-repair item b); a BOB another has taken over ends its turn.
+  const g = role === 'job' ? null : gate({ product: join(ctx.root, ctx.product || '.'), tranche: ctx.tranche });
+  if (g?.superseded) return null;
   const why = unpushed(R);
   if (role === 'job') {
     const rec = parseRecord(R.read(recordPath(ctx.tranche, ctx.module)));
     if (rec?.state === 'WORKING') why.push('your record reads WORKING: finish the step, or set the wait you end on (`proc job state --set "WAITING: …"`), or run `proc job complete`');
   } else {
-    why.push(...status({ product: join(ctx.root, ctx.product || '.'), tranche: ctx.tranche }).gate.filter((g) => g.startsWith('owed: ')));
+    why.push(...g.owed.map((x) => `owed: ${x}`));
   }
   if (why.length && run) why.push(`a stale run is on record (${run.cmd || 'unknown'}${run.pid ? `, pid ${run.pid}` : ''}${run.at ? `, started ${run.at}` : ''}) and its process is gone: inspect what it left (git status, git log), then remove ${run.file}`);
   return why.length ? why.join('; ') : null;

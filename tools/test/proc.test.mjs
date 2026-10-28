@@ -67,8 +67,12 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
 
   // BOB's hooks: the printed call passes; any other is refused; a hand merge, a push to main, a doorbell, an early PR merge refused
   const ctx = () => ({ ...P.readRole(w.bobRoot), root: w.bobRoot, plan: readFileSync(join(w.bob, P.PLAN), 'utf8') });
-  const cs = (ti) => preReason('bob', { tool_name: 'mcp__claude-code-remote__create_session', tool_input: ti }, ctx());
+  const cs = (ti) => preReason('bob', { tool_name: 'mcp__claude-code-remote__create_session', tool_input: { clone_depth: spec.clone_depth, blob_limit_kb: spec.blob_limit_kb, ...ti } }, ctx());
   assert.equal(cs({ title: spec.title, source_revision: spec.source_revision, prompt: spec.prompt }), null);
+  // the printed call starts the job on its branch's whole history, large files left out (lane-process-repair item c)
+  assert.deepEqual([spec.clone_depth, spec.blob_limit_kb], [P.CLONE.clone_depth, P.CLONE.blob_limit_kb]);
+  assert.match(cs({ title: spec.title, source_revision: spec.source_revision, prompt: spec.prompt, clone_depth: 50 }), /clone_depth 1000000, blob_limit_kb 100/);
+  assert.match(cs({ title: spec.title, source_revision: spec.source_revision, prompt: spec.prompt, blob_limit_kb: undefined }), /use the clone/);
   assert.match(cs({ title: spec.title, source_revision: spec.source_revision, prompt: 'You are ALPHA. Do as you like.' }), /prompt/);
   assert.match(cs({ title: 'BETA #1', source_revision: `job/${T}/beta`, prompt: spec.prompt }), /no start is owed for beta/);
   // a lane's successor is not a job start: its title names no module (R12)
@@ -751,8 +755,8 @@ test('background hook: proc merge, layer close, job complete and tests are refus
     assert.equal(bash('bob', `node tools/proc.mjs ${c} --tranche ${T}`), null, c);
   assert.equal(bash('bob', 'cat roles/BOB.md'), null);
   assert.equal(bash('job', 'node --test tools/test/proc.test.mjs'), null);
-  // a mention of the command is not a run of it
-  assert.equal(bash('bob', 'pgrep -f "proc.mjs merge" || echo none'), null);
+  // a mention of the command is not a run of it; a search for its process is a hand-written wait (lane-process-repair item a)
+  assert.match(bash('bob', 'pgrep -f "proc.mjs merge" || echo none'), /hand-written wait/);
   assert.equal(bash('bob', 'grep -n "proc.mjs merge" roles/BOB.md'), null);
 });
 

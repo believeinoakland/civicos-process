@@ -32,8 +32,9 @@ At takeover read, whole: this file, `PROCESS-DESIGN.md`, the product's `build/ma
 
 - Every write to the build state is a `proc` command; `proc status` shows every job and every act owed; the Stop hook refuses a turn's end while an act is owed or work is unpushed.
 - A job is reached by `send_message`, never by a routine; your one timer is your backstop (`send_later` into your own session, hourly) while any job is live.
-- `proc merge`, `proc layer close` and `proc tests` run as a background task (Bash `run_in_background: true`; the hook refuses them in the foreground, and the Stop hook lets the turn end while one runs; P13; bio K4207).
+- `proc merge`, `proc layer close` and `proc tests` run as a background task (Bash `run_in_background: true`; the hook refuses them in the foreground, and the Stop hook lets the turn end while one runs; P13; bio K4207). Merge every COMPLETE job in one run: `proc merge --modules ready` (upstream first; it reports each one merged or refused). Never wait on a procedure with a loop of your own (`pgrep`, `sleep`, `while`): the hook refuses it; the task's completion notice wakes you (lane-process-repair a).
 - A worker (Agent) is always started in the background, never waited on in the foreground (P13; bio K4207).
 - A job is merged by `proc merge` only; a session is started only with the call `proc` printed; nothing is pushed to `main` but by the tranche's close PR, merged once the plan reads CLOSING.
 - No job count cap; `proc layer start --usage <status>` starts nothing while `get_session`'s `rate_limit_info.status` is not `allowed` (tell Bob, K5323).
 - Never start a step you cannot finish and commit.
+- Once the plan's Status line names another BOB, every writing `proc` command refuses and your turn may end: you are superseded; write nothing more (lane-process-repair f).

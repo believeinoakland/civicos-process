@@ -20,10 +20,10 @@
 // Usage: node tools/proc.mjs <command> --product <dir> --tranche <T> [options]
 //   BOB   takeover --name "BOB #n" --session <id> --depth <d>   status [--gate]   round open --round R<k> --plan <file>
 //         layer start --layer <L> [--usage <status>] [--modules <m1,m2> (only these, in a started layer)]   job started --module <m> --name "<M> #k" --session <id>
-//         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m> [--with <m2>[,<m3>]] [--context <pct>]
-//         layer close --layer <L>   job archived --module <m> --usage <json>   bob cleared --name --session (--reply|--unanswered)   bob archived --name --session --usage   round close   handoff
+//         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m> [--with <m2>[,<m3>]] [--context <pct>]   merge --modules <m1,m2,…|ready> [--context <pct>]
+//         prune [--apply] (merged job and prep branches, by bio's prune-branches workflow)   layer close --layer <L>   job archived --module <m> --usage <json>   bob cleared --name --session (--reply|--unanswered)   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
-//         job complete --module <m> [--with <m2>] --report-file <f>   (the report needs a `**Evidence**` section, P20)
+//         job complete --module <m> [--with <m2>] [--paths <p,…> --tests <t,…> (a new module's empty row)] --report-file <f>   (the report needs a `**Evidence**` section, P20)
 //   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   sizes (every document over its limit; a lane runs it before each commit)   footprint [--base <ref>]
 //         tests --modules <m1,m2> [--users] [--base <ref>] [--heap-mb <n>] [--cap-mb <n>] [--timeout-min <n>] (a pass's test run; lane R14)
 //         ruling --line-file <f> [--files <p1,p2>] (BOB's own ruling, numbered by the tool; lane R17)
@@ -35,7 +35,7 @@ import { totalmem, availableParallelism } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sizeLines } from './mail.mjs';
-import { artifactRows, isGenerated } from '../checks/lib.mjs';
+import { artifactRows, isGenerated, fillModuleRow, rowFill } from '../checks/lib.mjs';
 
 const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const PLAN = 'build/plan/current.md';
@@ -63,7 +63,17 @@ export function repo(product) {
   const branch = () => g(['rev-parse', '--abbrev-ref', 'HEAD']);
   return { dir, root, g, rel, read, write, remote, fetch, branch };
 }
-// A cloud session starts on a shallow clone (its last 50 commits); older history stays on the remote and is fetched
+// One fetch of the tranche and all its job branches (lane-process-repair item b: a fetch per job, about 20 in a row,
+// made BOB's end-of-turn check take 16 s at the median and 600 s at worst). The glob matches no branch without failing.
+export function fetchTranche(R, T) {
+  try { R.g(['fetch', '-q', '--no-tags', 'origin', `+refs/heads/${trancheBranch(T)}:refs/remotes/origin/${trancheBranch(T)}`, `+refs/heads/job/${T}/*:refs/remotes/origin/job/${T}/*`]); } catch { /* absent or offline: what is held is read */ }
+}
+const shallowRepo = (R) => R.g(['rev-parse', '--is-shallow-repository']) === 'true';
+const isAncestor = (R, a, b) => spawnSync('git', ['-C', R.root, 'merge-base', '--is-ancestor', a, b]).status === 0;
+// A session starts with its branch's whole history and files over `blob_limit_kb` left out (lane-process-repair item c;
+// GitHub advises partial, never shallow, clones for development): every create_session call proc prints carries these.
+export const CLONE = { clone_depth: 1000000, blob_limit_kb: 100 };
+// A session on a shallow clone (every session before item c: its last 50 commits) holds no older history; it is fetched
 // only when a step needs it: where two lines of work split (bio's full-history download at session start is retired,
 // lane HANDOFF R8). Deepens the clone until `a` and `b` have a merge base, then returns it (null: no common history).
 export function history(R, a, b) {
@@ -218,14 +228,14 @@ export function takeover(o) {
 // BOB to prune, never a gate on anyone, bio K5123). `gate` adds the reasons this BOB may not end a turn.
 export function status(o) {
   const R = repo(o.product), T = o.tranche, now = o.now ?? Date.now();
-  R.fetch(trancheBranch(T));
-  const p = parsePlan(R.read(PLAN));
+  fetchTranche(R, T);
+  const p = parsePlan(R.read(PLAN)), shallow = shallowRepo(R);
   const jobs = p.jobs.map((j) => {
     const jb = jobBranch(T, j.module);
-    R.fetch(jb);
     const rec = parseRecord(R.remote(jb, recordPath(T, j.module)));
     let pushed = NaN; try { pushed = Number(R.g(['log', '-1', '--format=%ct', `origin/${jb}`])) * 1000; } catch { /* none */ }
-    let merged = false; try { history(R, `origin/${jb}`, 'HEAD'); R.g(['merge-base', '--is-ancestor', `origin/${jb}`, 'HEAD']); merged = true; } catch { /* not merged */ }
+    // A full clone answers at once; only a shallow one (a session started before item c) deepens to find out.
+    let merged = false; try { if (shallow) history(R, `origin/${jb}`, 'HEAD'); merged = isAncestor(R, `origin/${jb}`, 'HEAD'); } catch { /* not merged */ }
     const state = rec?.state ?? 'NOT STARTED';
     const quiet = state === 'WORKING' && now - pushed > 60 * 60e3;
     const needs = [];
@@ -237,8 +247,27 @@ export function status(o) {
     return { ...j, state, merged, needs };
   });
   const gate = [...p.owed.map((x) => `owed: ${x}`), ...unpushed(R)];
-  return { state: p.state, round: p.round, layers: p.layers, jobs, owed: p.owed, size: sizeLines(R.dir), gate };
+  const run = readRunning(R.root), by = supersededBy(R, T, false);
+  return { state: p.state, round: p.round, layers: p.layers, jobs, owed: p.owed, size: sizeLines(R.dir), gate, ...(run ? { running: run } : {}), ...(by ? { superseded: by } : {}) };
 }
+// BOB's end-of-turn state check (the Stop hook; lane-process-repair item b): one fetch of the tranche and its job
+// branches, no deepening, no job record read. Returns the acts owed, and the BOB that superseded this one, if any.
+export function gate(o) {
+  const R = repo(o.product), T = o.tranche;
+  fetchTranche(R, T);
+  return { owed: parsePlan(R.read(PLAN)).owed, superseded: supersededBy(R, T, false) };
+}
+// A BOB acts only while the plan's Status line names it (lane-process-repair item f; bio K5788-K5790: a predecessor's
+// background merges went on after its successor's takeover). The plan is read as origin holds it; `fetch` false reads
+// what the last fetch brought. Returns the BOB the plan names when it is another, else null (also for a job's checkout).
+export function supersededBy(R, T, fetch = true) {
+  const role = readRole(R.root);
+  if (role?.role !== 'bob' || !SESSION.test(role.session || '') || !T) return null;
+  if (fetch) R.fetch(trancheBranch(T));
+  const p = parsePlan(R.remote(trancheBranch(T), PLAN) ?? R.read(PLAN));
+  return p.bob && p.bob.session !== role.session ? p.bob : null;
+}
+const supersededWhy = (by, T) => `${by.name} (${by.session}) has taken over tranche ${T}: this BOB is superseded and writes nothing more (lane-process-repair item f); end your turn`;
 // Every ruling of the last `days` that records Bob's own words has a home a session reads (bio K5311, K5323): it is cited
 // in rulings-active.md, a product rulings file, a product situation, or build/plan/bob-rulings-placed.txt (`K<n> · where`,
 // for a home elsewhere: requirements, mechanics, CLAUDE.md, or done). Returns each unplaced line. (bio's
@@ -297,7 +326,7 @@ export function layerStart(o) {
     const body = `Round R${p.round}, layer ${L}, module ${m.id}, tranche ${T}. Your depth: ${p.bob.depth + 1}. BOB: ${p.bob.name} (${p.bob.session}).\nThe process tool: \`${cmd}\`. Start with \`<command>\` = \`job start --session <your session id> --depth ${p.bob.depth + 1}\`.\n${R.read(JOBRULES) !== null ? `Before changing code, read \`${JOBRULES}\` whole: the product's standing rules for every job.\n` : ''}\nEntries:\n${entriesOf(text, L, m.id)}\n`;
     R.write(startPath(T, m.id), body); paths.push(startPath(T, m.id));
     if (live) specs.push({ module: m.id, action: 'message', session: live.session, message: body });
-    else specs.push({ module: m.id, action: 'create_session', source_url: sourceUrl(R), title: `${m.id.toUpperCase()} #${nextK(R, T, m.id)}`, source_revision: jobBranch(T, m.id), prompt: jobPrompt(m.id, T, { product: R.rel('.') }) });
+    else specs.push({ module: m.id, action: 'create_session', source_url: sourceUrl(R), title: `${m.id.toUpperCase()} #${nextK(R, T, m.id)}`, source_revision: jobBranch(T, m.id), prompt: jobPrompt(m.id, T, { product: R.rel('.') }), ...CLONE });
   }
   R.write(PLAN, addOwed(text, p, specs.map((s) => `${s.action === 'message' ? 'message' : 'start'} ${s.module}`)));
   paths.push(PLAN);
@@ -341,18 +370,20 @@ export function jobRoute(o) {
   const j = p.jobs.find((x) => x.module === o.module);
   const dead = !j || /ARCHIVED|FAILED|INACTIVE/i.test(o.sessionStatus || '') || Number(o.contextPct) > 50;
   if (!dead) return { action: 'message', session: j.session };
-  return { action: 'create_session', source_url: sourceUrl(R), title: `${o.module.toUpperCase()} #${nextK(R, o.tranche, o.module)}`, source_revision: jobBranch(o.tranche, o.module), prompt: jobPrompt(o.module, o.tranche, { product: R.rel('.') }), archive: j?.session ?? null };
+  return { action: 'create_session', source_url: sourceUrl(R), title: `${o.module.toUpperCase()} #${nextK(R, o.tranche, o.module)}`, source_revision: jobBranch(o.tranche, o.module), prompt: jobPrompt(o.module, o.tranche, { product: R.rel('.') }), ...CLONE, archive: j?.session ?? null };
 }
 // §5.5 whole: the gates, the merge, the tests, the checks, the marks struck, the ruling line; pushed and verified.
 // `--with <m2>[,<m3>]` merges several COMPLETE jobs as one merge commit (bio BOB #328, RD37): for jobs whose changes
 // are each red without the other (a new fleet member and the test that lists the fleet), so no tree between them is
 // ever committed. Each is gated as if merged alone (its record, its ownership, its own inherited reds and checks).
 export function merge(o) {
+  if (o.modules !== undefined) return mergeList(o);
   const R = repo(o.product), T = o.tranche, ms = [o.module, ...String(o.with || '').split(',').filter(Boolean)];
-  if (!o.module) refuse('--module <m>');
+  if (!o.module) refuse('--module <m> (or --modules <m1,m2,…|ready>)');
   if (new Set(ms).size !== ms.length) refuse(`--with names ${o.module} or a module twice`);
   const jbs = ms.map((m) => jobBranch(T, m));
   on(R, trancheBranch(T));
+  const by = supersededBy(R, T); if (by) refuse(supersededWhy(by, T));
   if (unpushed(R).length) refuse(`the tranche checkout has ${unpushed(R).join(', ')}`);
   R.fetch(trancheBranch(T), ...jbs);
   try { R.g(['merge', '-q', '--ff-only', `origin/${trancheBranch(T)}`]); } catch { refuse(`${trancheBranch(T)} has diverged from origin`); }
@@ -363,8 +394,10 @@ export function merge(o) {
     const base = history(R, 'HEAD', `origin/${jb}`) ?? refuse(`${m}: ${jb} shares no history with ${trancheBranch(T)}`);
     const own = run('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, base, `origin/${jb}`]);
     if (own.status !== 0) refuse(`${m}: ownership: ${lastLine(own)}`);
-    return { m, jb, met, own, inherited: JSON.parse(recText.match(/^Inherited reds: (\[.*\])$/m)?.[1] || '[]'), before: moduleChecks(R, m) };
+    return { m, jb, base, met, own, inherited: JSON.parse(recText.match(/^Inherited reds: (\[.*\])$/m)?.[1] || '[]'), before: moduleChecks(R, m) };
   });
+  // A job already merged and not re-opened since has nothing to merge (a list run, item a, may name one twice over).
+  for (const j of jobs) if (isAncestor(R, `origin/${j.jb}`, 'HEAD')) refuse(`${j.m}: already merged (${j.jb} is in ${trancheBranch(T)})`);
   const pre = R.g(['rev-parse', 'HEAD']);
   // One commit per merge (lane HANDOFF R9: keep the repository a ledger): the merge, its regenerated artifacts, the
   // struck marks and the ruling line are made in the working tree and committed together once everything is green.
@@ -376,8 +409,18 @@ export function merge(o) {
     // A conflict only in generated artifacts takes the tranche's copy; regenerating below makes it current (§14).
     // A joint merge is git's octopus, which stops at any conflict: each job merges the tranche first.
     const gen = artifacts(R).flatMap((a) => a.paths), un = rawGit(R.dir, ['diff', '--name-only', '--diff-filter=U', '--relative']).split('\n').filter(Boolean);
-    if (ms.length > 1 || !un.length || !un.every((f) => isGenerated(gen, f))) { undo(); refuse(`${ms.join(', ')}: merge conflict${un.length ? ` in ${un.join(', ')}` : ''}${ms.length > 1 ? ' (a joint merge takes no conflict: each job merges the tranche first)' : ''}; aborted, nothing changed`); }
-    R.g(['checkout', '-q', '--ours', '--', ...un.map(R.rel)]); R.g(['add', '--', ...un.map(R.rel)]);
+    // Two new modules of one layer each fill their own row of modules.json (item e): the lines may touch, so git
+    // conflicts; the job's fill is applied to the tranche's copy when it is a fill and nothing else.
+    const rows = un.includes('build/modules.json') && ms.length === 1 ? rowFill(atRef(R, jobs[0].base), atRef(R, `origin/${jbs[0]}`), ms[0]) : null;
+    const resolvable = (f) => isGenerated(gen, f) || (f === 'build/modules.json' && rows?.fill);
+    if (ms.length > 1 || !un.length || !un.every(resolvable)) { undo(); refuse(`${ms.join(', ')}: merge conflict${un.length ? ` in ${un.join(', ')}` : ''}${ms.length > 1 ? ' (a joint merge takes no conflict: each job merges the tranche first)' : ''}${rows?.why ? ` (${rows.why})` : ''}; aborted, nothing changed`); }
+    const art = un.filter((f) => isGenerated(gen, f));
+    if (art.length) { R.g(['checkout', '-q', '--ours', '--', ...art.map(R.rel)]); R.g(['add', '--', ...art.map(R.rel)]); }
+    if (rows?.fill) {
+      R.g(['checkout', '-q', '--ours', '--', R.rel('build/modules.json')]);
+      R.write('build/modules.json', fillModuleRow(R.read('build/modules.json'), ms[0], rows.fill) ?? (undo(), refuse(`${ms[0]}: its row in the tranche's build/modules.json has no empty paths and tests to fill; aborted, nothing changed`)));
+      R.g(['add', '--', R.rel('build/modules.json')]);
+    }
   }
   // A merged change can make another module's generated artifact stale (D19 finding 1): every artifact the manifest
   // lists is regenerated and verified at each merge, in the manifest's order, and committed with it (mechanics §14).
@@ -408,6 +451,72 @@ export function merge(o) {
   return ms.length > 1
     ? { commit, ruling: k, jobs: jobs.map((j) => ({ module: j.m, tests: j.tests, met: j.met })), regenerated: art.changed }
     : { commit, ruling: k, tests: one.tests, met: one.met, regenerated: art.changed };
+}
+// A file of the product as `ref` holds it ('' when absent).
+const atRef = (R, ref, p = 'build/modules.json') => { try { return R.g(['show', `${ref}:${R.rel(p)}`]); } catch { return ''; } };
+// lane-process-repair item a: the COMPLETE jobs named (or every job `proc status` lists as MERGE, `ready`) merged one by
+// one in one background run, in modules.json order (upstream first, K1965), each by `merge` with every gate. A refused
+// job is reported and the rest go on; a takeover by another BOB stops the run (item f). BOB waits for the task's
+// completion notice, never in a loop of its own (the hooks refuse one).
+export function mergeList(o) {
+  if (o.with) refuse('--modules takes no --with: a joint merge is `merge --module <m> --with <m2>`');
+  const R = repo(o.product), order = modules(R).map((m) => m.id);
+  let list = String(o.modules === true ? '' : o.modules).split(',').map((x) => x.trim()).filter(Boolean);
+  if (!list.length) refuse('--modules <m1,m2,…> or --modules ready');
+  if (list.length === 1 && list[0] === 'ready') list = status(o).jobs.filter((j) => j.needs.includes('MERGE')).map((j) => j.module);
+  for (const m of list) if (!order.includes(m)) refuse(`no module ${m} in build/modules.json`);
+  list = [...new Set(list)].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const merged = [], refused = [];
+  for (const m of list) {
+    try {
+      const r = merge({ ...o, modules: undefined, module: m });
+      merged.push({ module: m, ruling: r.ruling, commit: r.commit, tests: `${r.tests.pass}/${r.tests.tests}`, regenerated: r.regenerated });
+    } catch (e) {
+      if (!(e instanceof Refused)) throw e;
+      refused.push({ module: m, why: e.message });
+      if (/has taken over tranche/.test(e.message)) break;
+    }
+  }
+  if (refused.length) process.exitCode = 1;
+  return { order: list, merged, refused, left: list.filter((m) => !merged.some((x) => x.module === m) && !refused.some((x) => x.module === m)) };
+}
+// lane-process-repair item d: merged job and prep branches are deleted by bio's prune-branches workflow (sessions cannot
+// delete refs: the git proxy answers 403). The list is every `job/*` and `prep/*` branch whose tip `main` holds, but
+// none of an open tranche (one whose `tranche/T<n>` main does not hold), and never a protected branch. Prints the
+// list; with --apply pushes it as the workflow's request on branch `prune/<stamp>` (made from the tranche's tip plus the
+// request; the workflow checks every ref again at run time, then deletes the request branch).
+export const PRUNE_PROTECTED = /^(main|snapshot\/.*|study\/.*|mail\/.*|dist\/.*|prune\/.*|tranche\/.*|claude\/.*)$/;
+export function prune(o) {
+  const R = repo(o.product), T = o.tranche;
+  R.g(['fetch', '-q', '--no-tags', 'origin', '+refs/heads/*:refs/remotes/origin/*']);
+  const refs = R.g(['for-each-ref', '--format=%(refname:lstrip=3)\t%(objectname)', 'refs/remotes/origin']).split('\n').filter(Boolean).map((l) => l.split('\t'));
+  const main = 'refs/remotes/origin/main';
+  const open = new Set(refs.filter(([r]) => r.startsWith('tranche/')).filter(([, sha]) => !isAncestor(R, sha, main)).map(([r]) => r.slice('tranche/'.length)));
+  open.add(T);
+  const list = [], kept = { protected: 0, open: 0, unmerged: 0 };
+  for (const [ref, sha] of refs) {
+    if (!/^(job|prep)\//.test(ref)) continue;
+    if (PRUNE_PROTECTED.test(ref)) { kept.protected++; continue; }
+    if (ref.startsWith('job/') && open.has(ref.split('/')[1])) { kept.open++; continue; }
+    if (!isAncestor(R, sha, main)) { kept.unmerged++; continue; }
+    list.push(`${ref}\t${sha}`);
+  }
+  const out = { open: [...open], delete: list.length, kept, list: list.map((l) => l.split('\t')[0]) };
+  if (!o.apply || !list.length) return out;
+  on(R, trancheBranch(T));
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*$/, ''), tsv = `build/plan/prune/${stamp}.tsv`;
+  const tmp = join(R.g(['rev-parse', '--absolute-git-dir']), `civicos-prune-${stamp}`);
+  const env = { ...process.env, GIT_INDEX_FILE: tmp };
+  const gi = (args, input) => execFileSync('git', ['-C', R.root, ...args], { encoding: 'utf8', env, input }).trim();
+  // Built in a scratch index, so the checkout and the tranche branch are untouched.
+  gi(['read-tree', 'HEAD']);
+  const blob = (text) => gi(['hash-object', '-w', '--stdin'], text);
+  gi(['update-index', '--add', '--cacheinfo', `100644,${blob(`${list.join('\n')}\n`)},${R.rel(tsv)}`]);
+  gi(['update-index', '--add', '--cacheinfo', `100644,${blob(`${JSON.stringify({ list: tsv, limit: 0, dry_run: false })}\n`)},${R.rel('build/plan/prune-request.json')}`]);
+  const commit = gi(['commit-tree', gi(['write-tree']), '-p', 'HEAD', '-m', `prune request ${stamp}: ${list.length} merged job and prep branches (lane-process-repair item d)`]);
+  rmSync(tmp, { force: true });
+  R.g(['push', '-q', 'origin', `${commit}:refs/heads/prune/${stamp}`]);
+  return { ...out, pushed: `prune/${stamp}`, commit };
 }
 // A ruling written by BOB, numbered by the tool from the file as it stands on the tranche (lane R17: a hand-numbered
 // K5349 repeated one `proc merge` had written). The line file holds `<module or layer> · <the ruling> · <why>` on one
@@ -739,6 +848,20 @@ export function jobComplete(o) {
   if (R.g(['status', '--porcelain', '--untracked-files=no'])) refuse('commit your module\'s changes first');
   R.fetch(trancheBranch(T));
   try { history(R, `origin/${trancheBranch(T)}`, 'HEAD'); R.g(['merge-base', '--is-ancestor', `origin/${trancheBranch(T)}`, 'HEAD']); } catch { refuse(`merge ${trancheBranch(T)} into your branch first: BOB has changed it`); }
+  // A new module enters modules.json with empty paths and tests (bio K1185), so its tests could not run (K5790): its
+  // first COMPLETE names them, and the tool fills its own row on its own branch, committed with the run; ownership
+  // accepts exactly that change (checks/ownership.mjs) and the merge carries it to the tranche (lane-process-repair item e).
+  const row = modules(R).find((x) => x.id === m) ?? refuse(`no module ${m} in build/modules.json`);
+  const csv = (x) => String(x || '').split(',').map((y) => y.trim()).filter(Boolean);
+  const want = { paths: csv(o.paths), tests: csv(o.tests) }, empty = !(row.paths || []).length && !(row.tests || []).length;
+  if ((o.paths || o.tests) && !empty && JSON.stringify([row.paths, row.tests]) !== JSON.stringify([want.paths, want.tests])) refuse(`${m}'s row already names its paths and tests: --paths and --tests fill only a new module's empty row (K1185)`);
+  if (empty && !(want.paths.length && want.tests.length)) refuse(`${m} is a new module: its row in build/modules.json names no paths or tests (K1185). Complete with --paths <its code paths> --tests <its test paths>, comma-separated, each ending "/" for a directory: the tool fills its own row`);
+  if (empty) {
+    const text = fillModuleRow(R.read('build/modules.json'), m, want) ?? refuse(`${m}: no empty "paths": [] and "tests": [] in its row of build/modules.json to fill`);
+    for (const p of [...want.paths, ...want.tests]) if (!existsSync(join(R.dir, p))) refuse(`--paths/--tests: ${p} names no file or directory on your branch`);
+    R.write('build/modules.json', text); R.g(['add', '--', R.rel('build/modules.json')]);
+    R.g(['commit', '-q', '-m', `${m} ${T}: its own row of build/modules.json filled (paths, tests; K1185)`]);
+  }
   // `--with <m2>` (RD37's job side): a job that lands only together with another (`proc merge --with`) is tested on
   // its branch merged with the other's, which must already read COMPLETE; the merge is made for the run and undone.
   const partners = String(o.with || '').split(',').filter(Boolean).map((p) => {
@@ -872,7 +995,7 @@ function args(argv) {
 // `{pid, cmd, at}` in `.git` of the product repository lets the Stop hook end the
 // turn (the task's completion wakes the session) and makes every other writing command refuse until it ends.
 export const BACKGROUND = ['merge', 'layer close', 'job complete', 'tests'];
-export const READ_ONLY = ['status', 'addr', 'sizes', 'footprint', 'history', 'steps'];
+export const READ_ONLY = ['status', 'addr', 'sizes', 'footprint', 'history', 'steps'];   // prune without --apply also reads only
 export const RUNNING = 'civicos-running.json';
 export const runningPath = (root) => join(root, '.git', RUNNING);
 // null when there is no marker; else the record plus `alive` (its pid exists) and `file`. An unreadable marker is dead.
@@ -892,7 +1015,10 @@ export function createRunning(root, rec) {
 }
 export function withRunning(name, o, fn) {
   if (READ_ONLY.includes(name)) return fn(o);
-  let root; try { root = repo(o.product).root; } catch { return fn(o); }
+  let R0; try { R0 = repo(o.product); } catch { return fn(o); }
+  const root = R0.root;
+  // lane-process-repair item f: once another BOB has taken over, every writing command of this one refuses.
+  if (name !== 'takeover') { const by = supersededBy(R0, o.tranche); if (by) refuse(supersededWhy(by, o.tranche)); }
   for (let tries = 0; ; tries++) {
     const cur = readRunning(root);
     if (cur?.alive) refuse(`a procedure is running (${cur.cmd}, pid ${cur.pid}): wait for its completion notice`);
@@ -904,7 +1030,7 @@ export function withRunning(name, o, fn) {
   try { return fn(o); } finally { rmSync(runningPath(root), { force: true }); }
 }
 const COMMANDS = {
-  takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd, tests: testsCmd, ruling: rulingCmd, steps: stepsCmd,
+  takeover, status, addr, handoff, merge, prune, shims, footprint, history: historyCmd, tests: testsCmd, ruling: rulingCmd, steps: stepsCmd,
   'round open': roundOpen, 'round close': roundClose, 'layer start': layerStart, 'layer close': layerClose,
   'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived, 'bob cleared': bobCleared, sizes: (o) => ({ size: sizeLines(o.product) }),
   'job start': jobStart, 'job state': jobState, 'job complete': jobComplete,

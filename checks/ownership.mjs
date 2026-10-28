@@ -6,9 +6,11 @@
 // change, over all its legacy modules together, is a removal. Every added legacy line is listed, for BOB's review at the layer close.
 // A changed line that only removes tokens from the line it replaces (a dropped key, a lost import name) is a
 // removal, not an addition (bio K140): it is listed as EDITED, neither judged nor counted as added.
+// A new module's first job fills its own empty row of build/modules.json (bio K1185; lane-process-repair item e): that
+// change, and only that, is its own.
 // Usage: node checks/ownership.mjs <product-root> <module> <base-ref> [head-ref]
 import { posix } from 'node:path';
-import { readModules, git, pathMatches, report, generatedPaths, isGenerated } from './lib.mjs';
+import { readModules, git, pathMatches, report, generatedPaths, isGenerated, rowFill } from './lib.mjs';
 
 // Static imports and re-exports (`import … from`, `export … from`, `import '…'`).
 const STATEMENT = /(^|\n)([ \t]*)(import|export)(\s*[\w$*{}\s,]*?\s*from\s*|\s*)(['"])([^'"\n]+)\5/g;
@@ -133,26 +135,36 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   if (!m) return { failures: [`${moduleId}: no such module in build/modules.json`], added: [], edited: [], summary: 'nothing checked' };
   // `from` names one legacy module or several (a module's code may sit in more than one monolith).
   const legacies = [].concat(m.from || []).map((id) => state.modules.find((x) => x.id === id)).filter(Boolean);
-  const own = [...(m.paths || []), ...(m.tests || [])];
+  // A job's checkout often has only the remote-tracking branch (found in the D1 dry run): fall back to origin/<base>.
+  let ref = base;
+  try { git(root, ['rev-parse', '--verify', '--quiet', `${base}^{commit}`]); } catch { ref = `origin/${base}`; }
+  // The row as the job's head fills it, when it is a new module's first fill (judged below); else the row as it stands.
+  const at = (r) => { try { return git(root, ['show', `${r}:./build/modules.json`]); } catch { return ''; } };
+  const fork = git(root, ['merge-base', ref, head]).trim();
+  const filled = !(m.paths || []).length && !(m.tests || []).length ? rowFill(at(fork), at(head), moduleId).fill : null;
+  const paths = filled ? filled.paths : m.paths || [];
+  const own = [...paths, ...(filled ? filled.tests : m.tests || [])];
   const record = new RegExp(`^build/jobs/[A-Z]+\\d+[a-z]?/${moduleId.replace(/[-]/g, '\\-')}\\.md$`);
   const failures = [], added = [], edited = [];
   // A generated artifact (mechanics §14) is no module's hand-written code: its committed copy is always the one the
   // merge regenerates, so a job's copy of it is never judged (bio K5583's revert of the word rows, BOB #327).
   const gen = generatedPaths(root);
   const tally = new Map(legacies.map((l) => [l.id, { added: 0, removed: 0 }]));
-  // A job's checkout often has only the remote-tracking branch (found in the D1 dry run): fall back to origin/<base>.
-  let ref = base;
-  try { git(root, ['rev-parse', '--verify', '--quiet', `${base}^{commit}`]); } catch { ref = `origin/${base}`; }
   const lines = git(root, ['diff', '--numstat', '--no-renames', '--relative', `${ref}...${head}`]).split('\n').filter(Boolean);
   for (const line of lines) {
     const [a, r, file] = line.split('\t');
     if (own.some((p) => pathMatches(p, file)) || record.test(file) || isGenerated(gen, file)) continue;
+    if (file === 'build/modules.json') {
+      const r = rowFill(at(fork), at(head), moduleId);
+      if (r.why) failures.push(r.why);
+      continue;
+    }
     const legacy = legacies.find((l) => (l.paths || []).some((p) => pathMatches(p, file)));
     if (legacy) {
       const t = tally.get(legacy.id);
       t.removed += Number(r) || 0;
       if (a === '0') continue;
-      const j = judgeLegacyFile(root, ref, head, file, m.paths || []);
+      const j = judgeLegacyFile(root, ref, head, file, paths);
       failures.push(...j.failures);
       added.push(...j.added);
       edited.push(...j.edited);
