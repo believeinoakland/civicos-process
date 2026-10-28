@@ -468,3 +468,16 @@ test('a job runs against its generated artifacts as its merge will make them; it
   assert.match(b, /R1: add/); assert.match(b, /beta moved/);
   assert.equal(execFileSync('node', ['beta/scripts/bundle.mjs', '--verify'], { cwd: w.bob }).toString().trim(), 'bundle: fresh');
 });
+
+test('layer start --modules starts only the named modules of a started layer; the other live jobs get no START again (BOB #327)', () => {
+  const w = world();
+  writeFileSync(w.plan, '## Layer 1\n\n**alpha**\n- N1 · Add a comment naming R1 at the top of `alpha/src/index.mjs`.\n\n**beta**\n- N2 · Add a comment naming R1 at the top of `beta/src/index.mjs`.\n');
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  assert.deepEqual(P.layerStart(O(w.bob, { layer: 1, modules: 'alpha' })).specs.map((s) => s.module), ['alpha']);
+  P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  assert.throws(() => P.layerStart(O(w.bob, { layer: 1, modules: 'catalog' })), /catalog: no entries in layer 1/);
+  const ls = P.layerStart(O(w.bob, { layer: 1, modules: 'beta' }));
+  assert.deepEqual(ls.specs.map((s) => [s.module, s.action]), [['beta', 'create_session']]);
+  assert.deepEqual(P.status(O(w.bob)).owed, ['start beta']);
+});
