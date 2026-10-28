@@ -162,6 +162,26 @@ test('c: every create_session proc prints (layer start, job route) carries clone
   assert.deepEqual([route.action, route.clone_depth, route.blob_limit_kb], ["create_session", 1000000, 100]);
 });
 
+// ---- g ----
+
+test('g: the printed job start names its model (Bob, bio K5793): opus, or sonnet for a module marked mechanical; never haiku; the hook holds BOB to it', () => {
+  const w = world('## Layer 1\n\n**alpha** (mechanical)\n- N1 · Re-point an import.\n\n**beta**\n- N2 · Add `beta/src/b.txt`.\n');
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  const specs = Object.fromEntries(P.layerStart(O(w.bob, { layer: 1 })).specs.map((s) => [s.module, s]));
+  assert.deepEqual([specs.alpha.model, specs.beta.model], ['claude-sonnet-5-5', 'claude-opus-5-5']);
+  assert.equal(readFileSync(join(w.bob, P.startPath(T, 'alpha')), 'utf8').includes('(mechanical)'), false);   // the mark is not an entry
+  const ctx = { ...P.readRole(w.bobRoot), root: w.bobRoot, plan: readFileSync(join(w.bob, P.PLAN), 'utf8') };
+  const cs = (s, extra) => preReason('bob', { tool_name: 'mcp__claude-code-remote__create_session', tool_input: { title: s.title, source_revision: s.source_revision, prompt: s.prompt, clone_depth: s.clone_depth, blob_limit_kb: s.blob_limit_kb, model: s.model, ...extra } }, ctx);
+  assert.equal(cs(specs.alpha), null);
+  assert.equal(cs(specs.beta), null);
+  for (const model of ['claude-haiku-5-5', 'claude-sonnet-5-5', undefined]) assert.match(cs(specs.beta, { model }) || '', /runs on claude-opus-5-5.*K5793/);
+  assert.match(cs(specs.alpha, { model: 'claude-haiku-5-5' }) || '', /runs on claude-sonnet-5-5/);
+  P.jobStarted(O(w.bob, { module: 'beta', name: 'BETA #1', session: J2 }));
+  assert.equal(P.jobRoute(O(w.bob, { module: 'beta', sessionStatus: 'archived' })).model, 'claude-opus-5-5');
+  assert.equal(spawnSync('node', [join(HERE, '../../checks/format.mjs'), w.bob], { encoding: 'utf8' }).status, 0);
+});
+
 // ---- d ----
 
 test('d: prune lists merged job and prep branches, never an open tranche\'s, a protected or an unmerged one; --apply pushes the workflow\'s request and changes nothing else', () => {

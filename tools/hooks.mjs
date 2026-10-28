@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { repo, readRunning, readRole, isStepsList, stepsHash, STEPS_OK, unpushed, modules, parsePlan, parseRecord, gate, jobPrompt, CLONE, PLAN, recordPath, jobBranch, trancheBranch } from './proc.mjs';
+import { repo, readRunning, readRole, isStepsList, stepsHash, STEPS_OK, unpushed, modules, parsePlan, parseRecord, gate, jobPrompt, jobModel, CLONE, PLAN, recordPath, jobBranch, trancheBranch } from './proc.mjs';
 
 const REMOTE = 'mcp__claude-code-remote__';
 const FORCE = /\bgit\b[^|;&]*\bpush\b[^|;&]*(\s(-f|--force|--force-with-lease|--mirror|--delete|-d)\b|\s\+\S+|\s:\S)/;
@@ -73,6 +73,7 @@ export function preReason(role, input, ctx) {
       if (!p.owed.includes(`start ${m}`)) return `no start is owed for ${m}: run \`proc layer start\` or \`proc job route\` first, and use the call it prints`;
       if (ti.source_revision !== jobBranch(ctx.tranche, m)) return `${m}'s session starts on ${jobBranch(ctx.tranche, m)}`;
       if (ti.prompt !== jobPrompt(m, ctx.tranche, { product: ctx.product })) return 'use the prompt `proc` printed, unchanged';
+      if (ti.model !== jobModel(ctx.plan, m)) return `${m}'s job runs on ${jobModel(ctx.plan, m)}, the model \`proc\` printed (Bob, bio K5793: opus for every job but a purely mechanical one, sonnet, marked \`**${m}** (mechanical)\` in the round's plan)`;
       if (Object.entries(CLONE).some(([k, v]) => ti[k] !== v)) return `use the clone \`proc\` printed: ${Object.entries(CLONE).map(([k, v]) => `${k} ${v}`).join(', ')} (whole history, large files left out; lane-process-repair item c)`;
     }
     // Only the product's own PRs wait for the close; a process-repository PR is BOB's to merge (bio K5137), so a

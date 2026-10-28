@@ -299,12 +299,16 @@ export function roundOpen(o) {
     return `${setLine(head, 'Round', fmtRound(n, layers))}\n\n${body.trim()}\n`;
   }, `plan ${T}: round R${n} opens`);
 }
-// The entries of one module in one layer of the running round's plan.
+// The entries of one module in one layer of the running round's plan (its heading's `(mechanical)` mark left out).
 export function entriesOf(planText, layer, m) {
   const sec = planText.split(/^## /m).find((s) => s.startsWith(`Layer ${layer}`)) || '';
   const block = sec.split(/^\*\*/m).find((b) => b.startsWith(`${m}**`));
-  return block ? block.slice(m.length + 2).trim() : '';
+  return block ? block.slice(m.length + 2).replace(/^[ \t]*\(mechanical\)[ \t]*/, '').trim() : '';
 }
+// A job's model (Bob, bio K5793): opus for every job but a purely mechanical one, sonnet, whose module heading in the
+// round's plan reads `**<module>** (mechanical)`; never haiku (lane-process-repair item g).
+export const JOB_MODEL = 'claude-opus-5-5', MECHANICAL_MODEL = 'claude-sonnet-5-5';
+export const jobModel = (planText, m) => (new RegExp(`^\\*\\*${m}\\*\\*[ \\t]*\\(mechanical\\)[ \\t]*$`, 'm').test(planText || '') ? MECHANICAL_MODEL : JOB_MODEL);
 // §5.3: job branches at the tranche's tip, the START texts, and the create_session calls owed (printed, hook-checked).
 export function layerStart(o) {
   const R = repo(o.product), T = o.tranche, L = Number(o.layer);
@@ -326,7 +330,7 @@ export function layerStart(o) {
     const body = `Round R${p.round}, layer ${L}, module ${m.id}, tranche ${T}. Your depth: ${p.bob.depth + 1}. BOB: ${p.bob.name} (${p.bob.session}).\nThe process tool: \`${cmd}\`. Start with \`<command>\` = \`job start --session <your session id> --depth ${p.bob.depth + 1}\`.\n${R.read(JOBRULES) !== null ? `Before changing code, read \`${JOBRULES}\` whole: the product's standing rules for every job.\n` : ''}\nEntries:\n${entriesOf(text, L, m.id)}\n`;
     R.write(startPath(T, m.id), body); paths.push(startPath(T, m.id));
     if (live) specs.push({ module: m.id, action: 'message', session: live.session, message: body });
-    else specs.push({ module: m.id, action: 'create_session', source_url: sourceUrl(R), title: `${m.id.toUpperCase()} #${nextK(R, T, m.id)}`, source_revision: jobBranch(T, m.id), prompt: jobPrompt(m.id, T, { product: R.rel('.') }), ...CLONE });
+    else specs.push({ module: m.id, action: 'create_session', source_url: sourceUrl(R), title: `${m.id.toUpperCase()} #${nextK(R, T, m.id)}`, source_revision: jobBranch(T, m.id), prompt: jobPrompt(m.id, T, { product: R.rel('.') }), model: jobModel(text, m.id), ...CLONE });
   }
   R.write(PLAN, addOwed(text, p, specs.map((s) => `${s.action === 'message' ? 'message' : 'start'} ${s.module}`)));
   paths.push(PLAN);
@@ -370,7 +374,7 @@ export function jobRoute(o) {
   const j = p.jobs.find((x) => x.module === o.module);
   const dead = !j || /ARCHIVED|FAILED|INACTIVE/i.test(o.sessionStatus || '') || Number(o.contextPct) > 50;
   if (!dead) return { action: 'message', session: j.session };
-  return { action: 'create_session', source_url: sourceUrl(R), title: `${o.module.toUpperCase()} #${nextK(R, o.tranche, o.module)}`, source_revision: jobBranch(o.tranche, o.module), prompt: jobPrompt(o.module, o.tranche, { product: R.rel('.') }), ...CLONE, archive: j?.session ?? null };
+  return { action: 'create_session', source_url: sourceUrl(R), title: `${o.module.toUpperCase()} #${nextK(R, o.tranche, o.module)}`, source_revision: jobBranch(o.tranche, o.module), prompt: jobPrompt(o.module, o.tranche, { product: R.rel('.') }), model: jobModel(R.read(PLAN), o.module), ...CLONE, archive: j?.session ?? null };
 }
 // §5.5 whole: the gates, the merge, the tests, the checks, the marks struck, the ruling line; pushed and verified.
 // `--with <m2>[,<m3>]` merges several COMPLETE jobs as one merge commit (bio BOB #328, RD37): for jobs whose changes

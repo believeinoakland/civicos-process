@@ -67,7 +67,7 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
 
   // BOB's hooks: the printed call passes; any other is refused; a hand merge, a push to main, a doorbell, an early PR merge refused
   const ctx = () => ({ ...P.readRole(w.bobRoot), root: w.bobRoot, plan: readFileSync(join(w.bob, P.PLAN), 'utf8') });
-  const cs = (ti) => preReason('bob', { tool_name: 'mcp__claude-code-remote__create_session', tool_input: { clone_depth: spec.clone_depth, blob_limit_kb: spec.blob_limit_kb, ...ti } }, ctx());
+  const cs = (ti) => preReason('bob', { tool_name: 'mcp__claude-code-remote__create_session', tool_input: { clone_depth: spec.clone_depth, blob_limit_kb: spec.blob_limit_kb, model: spec.model, ...ti } }, ctx());
   assert.equal(cs({ title: spec.title, source_revision: spec.source_revision, prompt: spec.prompt }), null);
   // the printed call starts the job on its branch's whole history, large files left out (lane-process-repair item c)
   assert.deepEqual([spec.clone_depth, spec.blob_limit_kb], [P.CLONE.clone_depth, P.CLONE.blob_limit_kb]);
