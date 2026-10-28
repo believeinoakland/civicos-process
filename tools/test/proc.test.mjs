@@ -433,3 +433,38 @@ test('proc ruling: BOB\'s own ruling is numbered by the tool from the tranche as
   assert.deepEqual(g(w.bobRoot, 'show', '--name-only', '--format=', 'HEAD').split('\n').sort(), ['toy/build/next.md', 'toy/build/rulings.md']);
   assert.equal(g(w.bobRoot, 'rev-parse', 'HEAD'), g(w.bobRoot, 'rev-parse', `origin/tranche/${T}`));
 });
+
+test('a job runs against its generated artifacts as its merge will make them; it commits none, ownership ignores one, a conflict only in one takes the tranche copy (bio K5583, BOB #327)', () => {
+  const w = world();
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  P.layerStart(O(w.bob, { layer: 1 }));
+  P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  const job = jobClone(w);
+  P.jobStart(O(job.dir, { module: 'alpha', session: J1, depth: 2 }));
+  // alpha's new test reads beta's bundle, which holds alpha's change only once regenerated (as a word key reads the rows)
+  const src = join(job.dir, 'alpha/src/index.mjs'), bundle = join(job.dir, 'beta/dist/bundle.txt'), committed = readFileSync(bundle, 'utf8');
+  writeFileSync(src, `// R1: add returns a + b.\n${readFileSync(src, 'utf8')}`);
+  writeFileSync(join(job.dir, 'alpha/test/bundle.test.mjs'), "import { test } from 'node:test'; import assert from 'node:assert/strict'; import { readFileSync } from 'node:fs';\ntest('R1 the bundle carries the change', () => assert.match(readFileSync('beta/dist/bundle.txt', 'utf8'), /R1: add/));\n");
+  g(job.root, 'add', '.'); g(job.root, 'commit', '-qm', 'alpha: N1 and a test reading the bundle');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n**Met** · none\n');
+  const done = P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep }));
+  assert.equal(done.tests.fail, 0);
+  // the run's regeneration is put back: the tree is clean and the bundle is HEAD's
+  assert.equal(g(job.root, 'status', '--porcelain'), '');
+  assert.equal(readFileSync(bundle, 'utf8'), committed);
+  // a job that committed a regenerated copy anyway passes ownership: the merge's regeneration is the copy that counts
+  execFileSync('node', ['beta/scripts/bundle.mjs'], { cwd: job.dir });
+  g(job.root, 'commit', '-qam', 'alpha: the regenerated bundle'); g(job.root, 'push', '-q', 'origin', `HEAD:refs/heads/job/${T}/alpha`);
+  P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep }));
+  // the tranche moved the same bundle another way: the conflict is only in a generated artifact, so the merge proceeds
+  const bsrc = join(w.bob, 'beta/src/index.mjs');
+  writeFileSync(bsrc, `// beta moved\n${readFileSync(bsrc, 'utf8')}`);
+  execFileSync('node', ['beta/scripts/bundle.mjs'], { cwd: w.bob });
+  g(w.bobRoot, 'commit', '-qam', 'beta: moved'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  const mg = P.merge(O(w.bob, { module: 'alpha' }));
+  assert.match(mg.ruling, /^K\d+$/);
+  const b = readFileSync(join(w.bob, 'beta/dist/bundle.txt'), 'utf8');
+  assert.match(b, /R1: add/); assert.match(b, /beta moved/);
+  assert.equal(execFileSync('node', ['beta/scripts/bundle.mjs', '--verify'], { cwd: w.bob }).toString().trim(), 'bundle: fresh');
+});

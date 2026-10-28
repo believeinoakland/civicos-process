@@ -8,6 +8,18 @@ export function git(root, args) {
   return execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', maxBuffer: 256 << 20 });
 }
 
+// The product's generated artifacts (mechanics §14): rows of build/manifest.md's table
+// `| \`<path>\`[, \`<path>\`…] | <owner> | \`<regenerate>\` | \`<verify>\` |`, in the table's order.
+export function artifactRows(text) {
+  return [...String(text || '').matchAll(/^\| (`[^`|]+`(?:, `[^`|]+`)*) \| [^|]+ \| `([^`]+)` \| `([^`]+)` \|$/gm)].map((x) => ({ paths: [...x[1].matchAll(/`([^`]+)`/g)].map((y) => y[1]), regen: x[2], verify: x[3] }));
+}
+// Every generated artifact path of the product (a directory's path is matched as its prefix, `dist` as `dist/`).
+export function generatedPaths(root) {
+  const f = join(root, 'build/manifest.md');
+  return existsSync(f) ? artifactRows(readFileSync(f, 'utf8')).flatMap((r) => r.paths) : [];
+}
+export const isGenerated = (paths, file) => paths.some((p) => file === p || file.startsWith(p.endsWith('/') ? p : `${p}/`));
+
 // Tracked files only: what a commit holds, never a local build or node_modules.
 export function trackedFiles(root) {
   return git(root, ['ls-files', '-z']).split('\0').filter(Boolean);

@@ -33,6 +33,7 @@ import { totalmem, availableParallelism } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sizeLines } from './mail.mjs';
+import { artifactRows, isGenerated } from '../checks/lib.mjs';
 
 const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const PLAN = 'build/plan/current.md';
@@ -351,7 +352,12 @@ export function merge(o) {
   // file to `pre` undoes exactly the merge and what regenerating wrote.
   const undo = () => { spawnSync('git', ['-C', R.root, 'merge', '--abort']); R.g(['reset', '-q', '--hard', pre]); };
   const mg = spawnSync('git', ['-C', R.root, 'merge', '-q', '--no-ff', '--no-commit', `origin/${jb}`], { encoding: 'utf8' });
-  if (mg.status !== 0) { undo(); refuse(`${m}: merge conflict; aborted, nothing changed`); }
+  if (mg.status !== 0) {
+    // A conflict only in generated artifacts takes the tranche's copy; regenerating below makes it current (§14).
+    const gen = artifacts(R).flatMap((a) => a.paths), un = rawGit(R.dir, ['diff', '--name-only', '--diff-filter=U', '--relative']).split('\n').filter(Boolean);
+    if (!un.length || !un.every((f) => isGenerated(gen, f))) { undo(); refuse(`${m}: merge conflict${un.length ? ` in ${un.join(', ')}` : ''}; aborted, nothing changed`); }
+    R.g(['checkout', '-q', '--ours', '--', ...un.map(R.rel)]); R.g(['add', '--', ...un.map(R.rel)]);
+  }
   // A merged change can make another module's generated artifact stale (D19 finding 1): every artifact the manifest
   // lists is regenerated and verified at each merge, in the manifest's order, and committed with it (mechanics §14).
   const art = regenerate(R, `after merging ${m}`, false);
@@ -395,9 +401,23 @@ export function rulingCmd(o) {
 // refused, so a table in another form never passes as "nothing to regenerate".
 export function artifacts(R) {
   const text = R.read('build/manifest.md') || '';
-  const rows = [...text.matchAll(/^\| (`[^`|]+`(?:, `[^`|]+`)*) \| [^|]+ \| `([^`]+)` \| `([^`]+)` \|$/gm)].map((x) => ({ paths: [...x[1].matchAll(/`([^`]+)`/g)].map((y) => y[1]), regen: x[2], verify: x[3] }));
+  const rows = artifactRows(text);
   if (!rows.length && /^## Generated artifacts/m.test(text)) refuse('build/manifest.md has a Generated artifacts section but no row `| `<path>` | <owner> | `<regenerate>` | `<verify>` |` (mechanics §14)');
   return rows.map((r) => ({ ...r, path: r.paths.join(', ') }));
+}
+// A job's own run (tests and checks) sees the generated artifacts as its merge will make them: each is regenerated in
+// the working tree, the run made, and every artifact path put back to HEAD, so a job never commits one (mechanics §14;
+// a new word key read by its test resolves before the merge regenerates the rows, bio K5583, BOB #327).
+export function withArtifacts(R, fn) {
+  const list = artifacts(R), paths = list.flatMap((a) => a.paths);
+  for (const a of list) spawnSync('sh', ['-c', a.regen], { cwd: R.dir, encoding: 'utf8' });
+  try { return fn(); } finally {
+    // paths from the repository root, untrimmed (a porcelain line starts with its status columns)
+    const moved = rawGit(R.root, ['status', '--porcelain', '--untracked-files=all', '--', ...paths.map(R.rel)]).split('\n').filter(Boolean).map((l) => l.slice(3));
+    const tracked = moved.filter((f) => spawnSync('git', ['-C', R.root, 'cat-file', '-e', `HEAD:${f}`]).status === 0);
+    if (tracked.length) R.g(['checkout', '-q', 'HEAD', '--', ...tracked]);
+    for (const f of moved.filter((x) => !tracked.includes(x))) spawnSync('rm', ['-rf', '--', join(R.root, f)]);
+  }
 }
 // Regenerate each artifact, verify it, and commit what changed; returns { changed, stale }.
 function regenerate(R, why, commit = true) {
@@ -415,6 +435,7 @@ function ruling(R, m, text, why) {
   R.write('build/rulings.md', `${cur.trimEnd()}\n- K${k} · ${today()} · ${m} · ${text} · ${why}\n`);
   return `K${k}`;
 }
+const rawGit = (dir, args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', maxBuffer: 1 << 28 }).stdout || '';
 const run = (cmd, args, cwd) => spawnSync(cmd, args, { encoding: 'utf8', cwd, maxBuffer: 1 << 28 });
 const lastLine = (r) => `${r.stdout || ''}${r.stderr || ''}`.trim().split('\n').pop();
 // ---- test runs (lane HANDOFF R14: a run that gives no result says why; a runaway test fails itself) ----
@@ -508,7 +529,7 @@ export function testsCmd(o) {
   if (!o.base) R.fetch(trancheBranch(o.tranche));
   history(R, ref, 'HEAD') ?? refuse(`${ref} shares no history with HEAD`);
   const users = o.users ? all.filter((x) => !named.includes(x.id) && (x.uses || []).some((u) => named.includes(u))).map((x) => x.id) : [];
-  const list = [...named, ...users], now = Object.fromEntries(list.map((m) => [m, runTests(R, m, o)]));
+  const list = [...named, ...users], now = withArtifacts(R, () => Object.fromEntries(list.map((m) => [m, runTests(R, m, o)])));
   const redMods = list.filter((m) => reds(now[m]).length);
   const before = redMods.length ? at(R, ref, () => Object.fromEntries(redMods.map((m) => [m, runTests(R, m, o)]))) : {};
   const rows = list.map((m) => {
@@ -666,7 +687,7 @@ export function jobComplete(o) {
   if (R.g(['status', '--porcelain', '--untracked-files=no'])) refuse('commit your module\'s changes first');
   R.fetch(trancheBranch(T));
   try { history(R, `origin/${trancheBranch(T)}`, 'HEAD'); R.g(['merge-base', '--is-ancestor', `origin/${trancheBranch(T)}`, 'HEAD']); } catch { refuse(`merge ${trancheBranch(T)} into your branch first: BOB has changed it`); }
-  const tests = runTests(R, m);
+  const { tests, ck } = withArtifacts(R, () => ({ tests: runTests(R, m), ck: moduleChecks(R, m) }));
   if (!tests.tests && !tests.noResult.length) refuse(`tests: none ran (${tests.pass}/${tests.tests}); nothing marked complete`);
   // A red or NO RESULT the module already had on the tranche is inherited, named in the record and carried to the merge;
   // a new one refuses, with its cause.
@@ -676,7 +697,7 @@ export function jobComplete(o) {
   const fails = [];
   // mechanics §8: format, architecture, coverage, fixtures, and words where the product has a word table, each scoped
   // to the module where the check takes one; a finding the tranche already had is not this job's.
-  const ck = moduleChecks(R, m), cs = ck.names;
+  const cs = ck.names;
   if (ck.fails.size) fails.push(...fresh(ck.fails, at(R, `origin/${trancheBranch(T)}`, () => moduleChecks(R, m)).fails));
   const own = run('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, history(R, 'HEAD', `origin/${trancheBranch(T)}`), 'HEAD']);
   if (own.status) fails.push(`ownership: ${lastLine(own)}`);
