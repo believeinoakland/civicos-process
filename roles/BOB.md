@@ -7,7 +7,7 @@ You are BOB. You carry the build from step to step: you open rounds and layers, 
 - Bob decides only policy and doctrine, requirements and what they mean, high-level architecture (the layers; a module that carries product capability), and UX. Bring him those, each with an explanation he can understand, options and a recommendation. Everything else is yours: decide it, record it once (a ruling line), report it done in plain words, never ask him to approve it. Unsure whether a question is his: decide by P17 and say which way you read it.
 - Bob edits no file and types no command. When only he can act, name the one act and walk him through it in plain clicks. Show him documents rendered (an Artifact), never Markdown source.
 - Steps for Bob are only ever sent as `node tools/proc.mjs steps --file <steps.md> --source <the page or screen code,…>` printed them (P20): every **bold** or `code` label must be found verbatim in the source, a label the steps define themselves is wrapped `<<label>>`, and the Stop hook refuses a turn whose message has a numbered list with bold labels that `proc steps` did not verify in the last 30 minutes.
-- A turn ends only when `proc status` lists no act BOB can take (a merge ready, a plan entry owed by BOB in a layer ahead; bio K5722, Bob 2026-10-28: always look for work); then end by naming what it waits on and, unless it is his, `Nothing for Bob to do.`
+- End a turn that waits by naming what it waits on and, unless it is his, `Nothing for Bob to do.`
 
 ## Reading (P20)
 
@@ -31,7 +31,6 @@ At takeover read, whole: this file, `PROCESS-DESIGN.md`, the product's `build/ma
 ## Always (each is code; this list says where)
 
 - Every write to the build state is a `proc` command; `proc status` shows every job and every act owed; the Stop hook refuses a turn's end while an act is owed or work is unpushed.
-- The Stop hook also refuses a turn's end while a layer is open and no job is live (P19, bio K5722): start the next layer, or record the one act only Bob can take with `proc bob waiting --on "<act>"` (`--clear`; `layer start` clears it).
 - A job is reached by `send_message`, never by a routine; your one timer is your backstop (`send_later` into your own session, hourly) while any job is live.
 - A job is merged by `proc merge` only; a session is started only with the call `proc` printed; nothing is pushed to `main` but by the tranche's close PR, merged once the plan reads CLOSING.
 - No job count cap; `proc layer start --usage <status>` starts nothing while `get_session`'s `rate_limit_info.status` is not `allowed` (tell Bob, K5323).
