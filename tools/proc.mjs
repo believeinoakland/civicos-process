@@ -81,17 +81,10 @@ export function history(R, a, b) {
     keep();
   }
 }
-const refOk = (R, ref) => { try { R.g(['rev-parse', '--verify', '-q', ref]); return true; } catch { return false; } };
-const isAnc = (R, a, b) => { try { R.g(['merge-base', '--is-ancestor', a, b]); return true; } catch { return false; } };
 function on(R, want) { const b = R.branch(); if (b !== want) refuse(`check out ${want} first (on ${b})`); }
 // Commit the named files and push; a push that loses a race merges the remote once (never a rebase, never a force).
 function commitPush(R, branch, paths, message) {
   // A path already removed (staged with `git rm`, or gone from the working tree but tracked) is staged as a deletion.
-  // Two worktrees of one product interleave safely (P13): fetch the branch and fast-forward before committing; refuse, never force.
-  R.fetch(branch);
-  if (refOk(R, `refs/remotes/origin/${branch}`) && !isAnc(R, `origin/${branch}`, 'HEAD')) {
-    try { R.g(['merge', '-q', '--ff-only', `origin/${branch}`]); } catch { refuse(`${branch} has moved on origin and this checkout cannot fast-forward to it (diverged, or a change of yours would be overwritten): reconcile by hand, nothing was forced`); }
-  }
   const gone = (p) => { if (existsSync(join(R.root, R.rel(p)))) return false; try { R.g(['cat-file', '-e', `HEAD:${R.rel(p)}`]); return true; } catch { return false; } };
   const del = paths.filter(gone), keep = paths.filter((p) => !del.includes(p));
   if (del.length) R.g(['rm', '-q', '--cached', '--ignore-unmatch', '--', ...del.map(R.rel)]);
@@ -876,14 +869,12 @@ function args(argv) {
   return o;
 }
 // P13, bio K4207: a long procedure runs as a session-tracked background task. While one runs, `civicos-running.json`
-// `{pid, cmd, at}` in the git COMMON dir (shared by every worktree of the product) lets the Stop hook end the
+// `{pid, cmd, at}` in `.git` of the product repository lets the Stop hook end the
 // turn (the task's completion wakes the session) and makes every other writing command refuse until it ends.
 export const BACKGROUND = ['merge', 'layer close', 'job complete', 'tests'];
 export const READ_ONLY = ['status', 'addr', 'sizes', 'footprint', 'history', 'steps'];
 export const RUNNING = 'civicos-running.json';
-export function runningPath(root) {
-  try { return resolve(root, execFileSync('git', ['-C', root, '--no-optional-locks', 'rev-parse', '--git-common-dir'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(), RUNNING); } catch { return join(root, '.git', RUNNING); }
-}
+export const runningPath = (root) => join(root, '.git', RUNNING);
 // null when there is no marker; else the record plus `alive` (its pid exists) and `file`. An unreadable marker is dead.
 export function readRunning(root) {
   const file = runningPath(root);

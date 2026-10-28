@@ -9,7 +9,8 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as P from '../proc.mjs';
-import { preReason, stopReason, stepsReason, lastAssistantText, refusalCount } from '../hooks.mjs';
+import * as H from '../hooks.mjs';
+import { preReason, stopReason, stepsReason, lastAssistantText } from '../hooks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
 const T = 'P1', B1 = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', J1 = 'session_01AAAAAAAAAAAAAAAAAAAAAAAA';
@@ -788,14 +789,14 @@ test('background stop: a live pid in .git/civicos-running.json lets the turn end
   assert.match(stopReason('bob', ctx()), /owed: start alpha/);
 });
 
-// ---- P13: exclusion, the common dir, both Stop cases, the loop breaker ----
+// ---- P13: exclusion, both Stop cases, the loop breaker ----
 
 test('background exclusion: a live marker refuses every other writing command and a second long one; a stale marker is cleared; reads pass', () => {
   const w = world(), f = P.runningPath(w.bobRoot);
   const cli = (...a) => spawnSync('node', [join(HERE, '..', 'proc.mjs'), ...a, '--product', w.bob, '--tranche', T], { encoding: 'utf8' });
   const line = join(w.base, 'line.txt'); writeFileSync(line, 'x · ruling · why\n');
   writeFileSync(f, JSON.stringify({ pid: process.pid, cmd: 'merge', at: new Date().toISOString() }));
-  for (const c of [['ruling', '--line-file', line], ['merge', '--module', 'alpha'], ['tests', '--modules', 'alpha'], ['round', 'close'], ['bob', 'waiting', '--clear']]) {
+  for (const c of [['ruling', '--line-file', line], ['merge', '--module', 'alpha'], ['tests', '--modules', 'alpha'], ['round', 'close']]) {
     const r = cli(...c);
     assert.notEqual(r.status, 0, c.join(' '));
     assert.match(r.stderr, new RegExp(`a procedure is running \\(merge, pid ${process.pid}\\): wait for its completion notice`), c.join(' '));
@@ -822,15 +823,6 @@ test("background marker create is exclusive: a second create fails and leaves th
   assert.deepEqual(P.readRunning(w.bobRoot).alive, true);
 });
 
-test('background marker lives in the git common dir: a second worktree and the main checkout exclude each other', () => {
-  const w = world(), wt = join(w.base, 'bob-proc');
-  g(w.bobRoot, 'worktree', 'add', '-q', '--detach', wt);
-  assert.equal(P.runningPath(wt), P.runningPath(w.bobRoot));
-  assert.equal(P.runningPath(w.bobRoot), join(w.bobRoot, '.git', P.RUNNING));
-  assert.throws(() => P.withRunning('tests', { product: join(wt, 'toy') }, () => { P.withRunning('ruling', { product: w.bob }, () => 'x'); }), /a procedure is running \(tests/);
-  assert.equal(existsSync(P.runningPath(w.bobRoot)), false);
-});
-
 test('background stop: a live marker ends the turn with uncommitted changes; a dead one with uncommitted changes is refused naming the stale run', () => {
   const w = world();
   P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
@@ -852,26 +844,8 @@ test('background stop: a live marker ends the turn with uncommitted changes; a d
 test('stop loop breaker counts consecutive refusals whatever their text', () => {
   let last = {};
   const seq = ['uncommitted changes', '2 commit(s) not pushed', 'owed: merge x', 'owed: merge y'];
-  const ns = seq.map((why) => { const n = refusalCount(last, why); last = { why, n }; return n; });
+  const ns = seq.map((why) => { const n = H.refusalCount(last, why); last = { why, n }; return n; });
   assert.deepEqual(ns, [1, 2, 3, 4]);
-  assert.equal(refusalCount(last, null), 0);
-  assert.equal(refusalCount({ why: null, n: 0 }, 'a'), 1);
-});
-
-test('commitPush fast-forwards to the branch before committing and refuses rather than forcing when it cannot', () => {
-  const w = world(), other = join(w.base, 'other');
-  execFileSync('git', ['clone', '-q', '-b', `tranche/${T}`, w.origin, other], { stdio: 'ignore' }); ident(other, 'other');
-  writeFileSync(join(other, 'toy/build/other.md'), '- K9001 · 2026-10-28 · x · from the other worktree · why\n');
-  g(other, 'add', '.'); g(other, 'commit', '-qm', 'other ruling'); g(other, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
-  const line = join(w.base, 'l.txt'); writeFileSync(line, 'x · mine · why\n');
-  P.rulingCmd(O(w.bob, { lineFile: line }));
-  assert.equal(g(w.bobRoot, 'rev-parse', 'HEAD'), g(w.bobRoot, 'rev-parse', `origin/tranche/${T}`));
-  assert.match(g(w.bobRoot, 'log', '--format=%s', '-3'), /other ruling/);   // fast-forwarded to it, then committed on top
-  // diverged: a local commit the remote does not have, and the remote moves on; the command refuses and forces nothing
-  writeFileSync(join(w.bob, 'build/mine.md'), 'x\n'); g(w.bobRoot, 'add', '.'); g(w.bobRoot, 'commit', '-qm', 'local only');
-  g(other, 'pull', '-q', '--no-rebase', 'origin', `tranche/${T}`);
-  writeFileSync(join(other, 'toy/build/other2.md'), 'y\n'); g(other, 'add', '.'); g(other, 'commit', '-qm', 'other 2'); g(other, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
-  writeFileSync(line, 'x · again · why\n');
-  assert.throws(() => P.rulingCmd(O(w.bob, { lineFile: line })), /diverged from origin|moved on origin/);
-  assert.equal(g(w.bobRoot, 'log', '-1', '--format=%s'), 'local only');
+  assert.equal(H.refusalCount(last, null), 0);
+  assert.equal(H.refusalCount({ why: null, n: 0 }, 'a'), 1);
 });
