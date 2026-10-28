@@ -23,7 +23,7 @@
 //         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m> [--with <m2>[,<m3>]] [--context <pct>]
 //         layer close --layer <L>   job archived --module <m> --usage <json>   bob cleared --name --session (--reply|--unanswered)   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
-//         job complete --module <m> --report-file <f>
+//         job complete --module <m> [--with <m2>] --report-file <f>
 //   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   sizes (every document over its limit; a lane runs it before each commit)   footprint [--base <ref>]
 //         tests --modules <m1,m2> [--users] [--base <ref>] [--heap-mb <n>] [--cap-mb <n>] [--timeout-min <n>] (a pass's test run; lane R14)
 //         ruling --line-file <f> [--files <p1,p2>] (BOB's own ruling, numbered by the tool; lane R17)
@@ -709,7 +709,24 @@ export function jobComplete(o) {
   if (R.g(['status', '--porcelain', '--untracked-files=no'])) refuse('commit your module\'s changes first');
   R.fetch(trancheBranch(T));
   try { history(R, `origin/${trancheBranch(T)}`, 'HEAD'); R.g(['merge-base', '--is-ancestor', `origin/${trancheBranch(T)}`, 'HEAD']); } catch { refuse(`merge ${trancheBranch(T)} into your branch first: BOB has changed it`); }
-  const { tests, ck } = withArtifacts(R, () => ({ tests: runTests(R, m), ck: moduleChecks(R, m) }));
+  // `--with <m2>` (RD37's job side): a job that lands only together with another (`proc merge --with`) is tested on
+  // its branch merged with the other's, which must already read COMPLETE; the merge is made for the run and undone.
+  const partners = String(o.with || '').split(',').filter(Boolean).map((p) => {
+    if (p === m) refuse(`--with names ${m} itself`);
+    R.fetch(jobBranch(T, p));
+    const rec = parseRecord(R.remote(jobBranch(T, p), recordPath(T, p)));
+    if (rec?.state !== 'COMPLETE') refuse(`${p}: its record reads ${rec ? rec.state : 'no Status line'}, not COMPLETE: it completes first`);
+    return { module: p, head: R.g(['rev-parse', `origin/${jobBranch(T, p)}`]) };
+  });
+  const together = (fn) => {
+    if (!partners.length) return fn();
+    const mg = spawnSync('git', ['-C', R.root, 'merge', '-q', '--no-ff', '--no-commit', ...partners.map((p) => p.head)], { encoding: 'utf8' });
+    try {
+      if (mg.status !== 0) refuse(`merging ${partners.map((p) => p.module).join(', ')} for the run conflicts: ${lastLine(mg)}`);
+      return fn();
+    } finally { spawnSync('git', ['-C', R.root, 'merge', '--abort']); R.g(['reset', '-q', '--hard', 'HEAD']); }
+  };
+  const { tests, ck } = together(() => withArtifacts(R, () => ({ tests: runTests(R, m), ck: moduleChecks(R, m) })));
   if (!tests.tests && !tests.noResult.length) refuse(`tests: none ran (${tests.pass}/${tests.tests}); nothing marked complete`);
   // A red or NO RESULT the module already had on the tranche is inherited, named in the record and carried to the merge;
   // a new one refuses, with its cause.
@@ -728,7 +745,7 @@ export function jobComplete(o) {
   const mod = modules(R).find((x) => x.id === m);
   const lines = (mod.paths || []).flatMap((p) => R.g(['ls-files', '--', R.rel(p)]).split('\n')).filter(Boolean).reduce((n, f) => n + readFileSync(join(R.root, f), 'utf8').split('\n').length, 0);
   const runs = [...text.matchAll(new RegExp(`^Size \\(${st.session}\\): test runs (\\d+)`, 'gm'))].map((x) => Number(x[1])).pop() + 1 || 1;   // this session's runs so far
-  const body = `${text.replace(RSTATUS, `**Status** · ${st.session} · depth ${st.depth} · COMPLETE`).trimEnd()}\n\n## Completion (${today()})\n\n${report}\n\nTests: ${tests.pass}/${tests.tests}. Checks: ${cs.join(', ')}, ownership: no new finding.${reds(tests).length ? `\nInherited reds: ${JSON.stringify(reds(tests))}` : ''}${tests.heavy.length ? `\nHeavy tests: ${tests.heavy.join(', ')}` : ''}\nSize (${st.session}): test runs ${runs}, module lines ${lines}\n`;
+  const body = `${text.replace(RSTATUS, `**Status** · ${st.session} · depth ${st.depth} · COMPLETE`).trimEnd()}\n\n## Completion (${today()})\n\n${report}\n\nTests: ${tests.pass}/${tests.tests}. Checks: ${cs.join(', ')}, ownership: no new finding.${partners.length ? `\nTested with: ${partners.map((p) => `${p.module} @ ${p.head.slice(0, 10)}`).join(', ')} (it merges with them: proc merge --with)` : ''}${reds(tests).length ? `\nInherited reds: ${JSON.stringify(reds(tests))}` : ''}${tests.heavy.length ? `\nHeavy tests: ${tests.heavy.join(', ')}` : ''}\nSize (${st.session}): test runs ${runs}, module lines ${lines}\n`;
   R.write(path, body);
   const commit = commitPush(R, jobBranch(T, m), [path], `${m} ${T}: COMPLETE`);
   return { commit, tests, bob: addr({ product: o.product, tranche: T, bob: true }), message: `${m.toUpperCase()} (${T}): COMPLETE at ${commit}. Tests ${tests.pass}/${tests.tests}; checks 0. Met: ${report.match(/^\*\*Met\*\* · (.*)$/m)[1]}.` };

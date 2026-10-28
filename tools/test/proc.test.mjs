@@ -526,3 +526,39 @@ test('merge --with: two jobs each red alone are merged as one commit, gated each
   P.jobState(O(join(w.base, 'job-beta', 'toy'), { module: 'beta', set: 'WORKING' }));
   assert.throws(() => P.merge(O(w.bob, { module: 'alpha', with: 'beta' })), /beta: its record reads WORKING/);
 });
+
+test('job complete --with: a job red alone is tested on its branch merged with its partner, which completes first; the run leaves no trace (BOB #328, RD37)', () => {
+  const w = world();
+  writeFileSync(w.plan, '## Layer 1\n\n**alpha**\n- N1 · Add `alpha/src/pair.txt`.\n\n**beta**\n- N2 · A test that alpha holds its pair.\n');
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  P.layerStart(O(w.bob, { layer: 1 }));
+  const J2 = 'session_01CCCCCCCCCCCCCCCCCCCCCCCC';
+  P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  P.jobStarted(O(w.bob, { module: 'beta', name: 'BETA #1', session: J2 }));
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied.\n**Met** · none\n');
+  const clone = (m, s) => {
+    const d = join(w.base, `job-${m}`);
+    execFileSync('git', ['clone', '-q', '-b', `job/${T}/${m}`, w.origin, d], { stdio: 'ignore' }); ident(d, m);
+    P.jobStart(O(join(d, 'toy'), { module: m, session: s, depth: 2 }));
+    return { root: d, dir: join(d, 'toy') };
+  };
+  const b = clone('beta', J2);
+  writeFileSync(join(b.dir, 'beta/test/pair.test.mjs'), "import { test } from 'node:test'; import { existsSync } from 'node:fs';\ntest('alpha holds its pair', () => { if (!existsSync(new URL('../../alpha/src/pair.txt', import.meta.url))) throw new Error('no pair'); });\n");
+  g(b.root, 'add', '.'); g(b.root, 'commit', '-qm', 'beta: the pair test');
+  // its partner not yet COMPLETE: refused; alone: its new red refuses
+  assert.throws(() => P.jobComplete(O(b.dir, { module: 'beta', reportFile: rep, with: 'alpha' })), /alpha: its record reads .*, not COMPLETE: it completes first/);
+  assert.throws(() => P.jobComplete(O(b.dir, { module: 'beta', reportFile: rep })), /new reds: .*alpha holds its pair/);
+  const a = clone('alpha', J1);
+  writeFileSync(join(a.dir, 'alpha/src/pair.txt'), 'half\n'); g(a.root, 'add', '.'); g(a.root, 'commit', '-qm', 'alpha: its half');
+  P.jobComplete(O(a.dir, { module: 'alpha', reportFile: rep }));
+  const head = g(b.root, 'rev-parse', 'HEAD');
+  const done = P.jobComplete(O(b.dir, { module: 'beta', reportFile: rep, with: 'alpha' }));
+  assert.match(done.message, /COMPLETE at/);
+  assert.equal(g(b.root, 'rev-parse', 'HEAD~1'), head);   // only the record commit was added: alpha's work is not in beta's branch
+  assert.equal(existsSync(join(b.dir, 'alpha/src/pair.txt')), false);
+  assert.equal(g(b.root, 'status', '--porcelain'), '');
+  assert.match(g(b.root, 'show', `HEAD:toy/build/jobs/${T}/beta.md`), /^Tested with: alpha @ \w{10} \(it merges with them: proc merge --with\)$/m);
+  // and the two merge as one
+  assert.match(P.merge(O(w.bob, { module: 'alpha', with: 'beta' })).ruling, /^K\d+$/);
+});
