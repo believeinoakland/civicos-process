@@ -624,3 +624,48 @@ test('T53 job route after job archived: the successor is numbered one past the h
   P.jobArchived(O(w.bob, { module: 'alpha', usage: '{}' }));
   assert.equal(P.jobRoute(O(w.bob, { module: 'alpha' })).title, 'ALPHA #2');
 });
+
+// T53 idle guard (bio K5722, P19): BOB's Stop is refused while a layer is open and no job is live.
+function idleWorld() {
+  const w = world();
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  const plan = () => readFileSync(join(w.bob, P.PLAN), 'utf8');
+  return { w, plan, ctx: (text = plan()) => ({ tranche: T, product: 'toy', root: w.bobRoot, plan: text }) };
+}
+
+test('T53 idle guard: an open layer, no live job and no Waiting line refuses BOB\'s Stop', () => {
+  const { ctx } = idleWorld();
+  assert.match(stopReason('bob', ctx()), /a layer is open and no job is live: start the next layer now \(P19, bio K5722\), or record the one act only Bob can take with proc bob waiting/);
+});
+
+test('T53 idle guard: a Waiting line lets BOB\'s Stop through', () => {
+  const { w, ctx } = idleWorld();
+  P.bobWaiting(O(w.bob, { on: 'approve the deploy in the Cloudflare dashboard' }));
+  assert.equal(stopReason('bob', ctx()), null);
+});
+
+test('T53 idle guard: a live job lets BOB\'s Stop through', () => {
+  const { w, ctx } = idleWorld();
+  P.layerStart(O(w.bob, { layer: 1 }));
+  P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  assert.equal(stopReason('bob', ctx()), null);
+});
+
+test('T53 idle guard: every layer CLOSED lets BOB\'s Stop through', () => {
+  const { plan, ctx } = idleWorld();
+  assert.equal(stopReason('bob', ctx(plan().replace(/layer 1 OPEN/, 'layer 1 CLOSED'))), null);
+});
+
+test('T53 proc bob waiting writes and clears the line, and layer start clears it', () => {
+  const { w, plan } = idleWorld();
+  P.bobWaiting(O(w.bob, { on: 'sign the lease' }));
+  assert.match(plan(), /^\*\*Waiting\*\* · Bob: sign the lease · \d{4}-\d{2}-\d{2}$/m);
+  assert.equal(P.parsePlan(plan()).waiting, `Bob: sign the lease · ${new Date().toISOString().slice(0, 10)}`);
+  P.bobWaiting(O(w.bob, { clear: true }));
+  assert.doesNotMatch(plan(), /Waiting/);
+  assert.throws(() => P.bobWaiting(O(w.bob, {})), /--on/);
+  P.bobWaiting(O(w.bob, { on: 'sign the lease' }));
+  P.layerStart(O(w.bob, { layer: 1 }));
+  assert.doesNotMatch(plan(), /Waiting/);
+});

@@ -68,7 +68,11 @@ export function stopReason(role, ctx) {
     const rec = parseRecord(R.read(recordPath(ctx.tranche, ctx.module)));
     if (rec?.state === 'WORKING') why.push('your record reads WORKING: finish the step, or set the wait you end on (`proc job state --set "WAITING: …"`), or run `proc job complete`');
   } else {
-    why.push(...status({ product: join(ctx.root, ctx.product || '.'), tranche: ctx.tranche }).gate.filter((g) => g.startsWith('owed: ')));
+    const st = status({ product: join(ctx.root, ctx.product || '.'), tranche: ctx.tranche });
+    why.push(...st.gate.filter((g) => g.startsWith('owed: ')));
+    // P19, bio K5722: no job live and a layer of the open round still OPEN is work BOB must start, unless it records a wait only Bob can clear.
+    const p = parsePlan(ctx.plan);
+    if (!why.length && p.state === 'OPEN' && !p.jobs.length && !p.waiting && p.layers.some((l) => l.state === 'OPEN')) why.push('a layer is open and no job is live: start the next layer now (P19, bio K5722), or record the one act only Bob can take with proc bob waiting');
   }
   return why.length ? why.join('; ') : null;
 }
