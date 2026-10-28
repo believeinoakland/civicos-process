@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as P from '../proc.mjs';
-import { preReason, stopReason } from '../hooks.mjs';
+import { preReason, stopReason, stepsReason, lastAssistantText } from '../hooks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
 const T = 'P1', B1 = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', J1 = 'session_01AAAAAAAAAAAAAAAAAAAAAAAA';
@@ -118,7 +118,15 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   const rep = join(w.base, 'report.md');
   writeFileSync(rep, 'Applied N1.\n');
   assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /Met/);
+  // P20: a report with no Evidence section, or one listing nothing of an accepted form, is refused, naming what is missing
   writeFileSync(rep, 'Applied N1.\n**Met** · none\n');
+  assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /no `\*\*Evidence\*\*` section.*command you ran|no `\*\*Evidence\*\*` section[\s\S]*a command run with its result line[\s\S]*file:line[\s\S]*totals/);
+  writeFileSync(rep, 'Applied N1.\n**Evidence**\n- it works, trust me\n**Met** · none\n');
+  assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /lists no item of an accepted form/);
+  writeFileSync(rep, 'Applied N1.\n**Evidence**\n\n**Met** · none\n');
+  assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /lists no item of an accepted form \(P20; 0 line/);
+  // control: with an Evidence item the next refusal is the one that follows it
+  writeFileSync(rep, 'Applied N1.\n**Evidence**\n- `node --test` → tests 3, pass 3\n**Met** · none\n');
   assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /commit your module/);
   g(job.root, 'commit', '-qam', 'alpha: N1');
   const done = P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep }));
@@ -191,7 +199,7 @@ test('merge refuses a job that is not COMPLETE, and a job with a red test cannot
   const t = join(job.dir, 'alpha/test/alpha.test.mjs');
   writeFileSync(t, `${readFileSync(t, 'utf8')}\nimport { test as t2 } from 'node:test'; t2('R1 broken', () => { throw new Error('red'); });\n`);
   g(job.root, 'commit', '-qam', 'alpha: red');
-  const rep = join(w.base, 'report.md'); writeFileSync(rep, '**Met** · none\n');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, '**Evidence**\n- `node --test` → tests 3, pass 3\n**Met** · none\n');
   assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /tests: \d+\/\d+ pass; new reds: R1 broken; nothing marked complete/);
   assert.equal(P.parseRecord(readFileSync(join(job.dir, `build/jobs/${T}/alpha.md`), 'utf8')).state, 'WORKING');
 });
@@ -295,7 +303,7 @@ test('a merge whose artifacts fail to verify is undone whole: no merge state, no
   const src = join(job.dir, 'alpha/src/index.mjs');
   writeFileSync(src, `// R1: add returns a + b.\n${readFileSync(src, 'utf8')}`);
   g(job.root, 'commit', '-qam', 'alpha: N1');
-  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n**Met** · none\n');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n**Evidence**\n- `node --test` → tests 3, pass 3\n**Met** · none\n');
   P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep }));
   // the manifest's first verify now always fails
   const mf = join(w.bob, 'build/manifest.md');
@@ -321,7 +329,7 @@ test('old debt never blocks new work, and new work never adds to it: an inherite
   const job = jobClone(w);
   P.jobStart(O(job.dir, { module: 'alpha', session: J1, depth: 2 }));
   const jt = join(job.dir, 'alpha/test/alpha.test.mjs'), src = join(job.dir, 'alpha/src/index.mjs');
-  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n**Met** · none\n');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n**Evidence**\n- `node --test` → tests 3, pass 3\n**Met** · none\n');
   // a new red is refused, naming it; the old one is not this job's
   writeFileSync(jt, `${readFileSync(jt, 'utf8')}\nt2('new red', () => { throw new Error('red'); });\n`);
   g(job.root, 'commit', '-qam', 'alpha: a new red');
@@ -353,7 +361,7 @@ test('the layer close runs every check once, refusing only findings new since th
   const src = join(job.dir, 'alpha/src/index.mjs');
   writeFileSync(src, `// R1: add returns a + b.\n${readFileSync(src, 'utf8')}`);
   g(job.root, 'commit', '-qam', 'alpha: N1');
-  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n**Met** · none\n');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n**Evidence**\n- `node --test` → tests 3, pass 3\n**Met** · none\n');
   P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep }));
   P.merge(O(w.bob, { module: 'alpha' }));
   // a new gap on the tranche since it opened: the close refuses it, naming it
@@ -447,7 +455,7 @@ test('a job runs against its generated artifacts as its merge will make them; it
   writeFileSync(src, `// R1: add returns a + b.\n${readFileSync(src, 'utf8')}`);
   writeFileSync(join(job.dir, 'alpha/test/bundle.test.mjs'), "import { test } from 'node:test'; import assert from 'node:assert/strict'; import { readFileSync } from 'node:fs';\ntest('R1 the bundle carries the change', () => assert.match(readFileSync('beta/dist/bundle.txt', 'utf8'), /R1: add/));\n");
   g(job.root, 'add', '.'); g(job.root, 'commit', '-qm', 'alpha: N1 and a test reading the bundle');
-  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n**Met** · none\n');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n**Evidence**\n- `node --test` → tests 3, pass 3\n**Met** · none\n');
   const done = P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep }));
   assert.equal(done.tests.fail, 0);
   // the run's regeneration is put back: the tree is clean and the bundle is HEAD's
@@ -497,7 +505,7 @@ test('merge --with: two jobs each red alone are merged as one commit, gated each
   const J2 = 'session_01CCCCCCCCCCCCCCCCCCCCCCCC';
   P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
   P.jobStarted(O(w.bob, { module: 'beta', name: 'BETA #1', session: J2 }));
-  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied.\n**Met** · none\n');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied.\n**Evidence**\n- `node --test` → tests 3, pass 3\n**Met** · none\n');
   for (const [m, s] of [['alpha', J1], ['beta', J2]]) {
     const d = join(w.base, `job-${m}`);
     execFileSync('git', ['clone', '-q', '-b', `job/${T}/${m}`, w.origin, d], { stdio: 'ignore' }); ident(d, m);
@@ -536,7 +544,7 @@ test('job complete --with: a job red alone is tested on its branch merged with i
   const J2 = 'session_01CCCCCCCCCCCCCCCCCCCCCCCC';
   P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
   P.jobStarted(O(w.bob, { module: 'beta', name: 'BETA #1', session: J2 }));
-  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied.\n**Met** · none\n');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied.\n**Evidence**\n- `node --test` → tests 3, pass 3\n**Met** · none\n');
   const clone = (m, s) => {
     const d = join(w.base, `job-${m}`);
     execFileSync('git', ['clone', '-q', '-b', `job/${T}/${m}`, w.origin, d], { stdio: 'ignore' }); ident(d, m);
@@ -589,7 +597,7 @@ test('T53 Stop hook: a turn may end with the record COMPLETE (never replaced by 
   const src = join(job.dir, 'alpha/src/index.mjs');
   writeFileSync(src, `// R1: add returns a + b.\n${readFileSync(src, 'utf8')}`);
   g(job.root, 'commit', '-qam', 'alpha: change');
-  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n\n**Met** · R1\n');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n\n**Evidence**\n- `node --test` → tests 3, pass 3\n**Met** · R1\n');
   P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep }));
   const jctx = { ...P.readRole(job.root), root: job.root };
   assert.equal(P.parseRecord(readFileSync(join(job.dir, `build/jobs/${T}/alpha.md`), 'utf8')).state, 'COMPLETE');
@@ -682,7 +690,7 @@ function prepWorld(planText) {
   const J2 = 'session_01CCCCCCCCCCCCCCCCCCCCCCCC';
   const start = (m, s) => P.jobStarted(O(w.bob, { module: m, name: `${m.toUpperCase()} #1`, session: s }));
   const complete = (m, s) => {
-    const rep = join(w.base, `report-${m}.md`); writeFileSync(rep, 'Applied.\n**Met** · none\n');
+    const rep = join(w.base, `report-${m}.md`); writeFileSync(rep, 'Applied.\n**Evidence**\n- `node --test` → tests 3, pass 3\n**Met** · none\n');
     const d = join(w.base, `job-${m}`);
     execFileSync('git', ['clone', '-q', '-b', `job/${T}/${m}`, w.origin, d], { stdio: 'ignore' }); ident(d, m);
     P.jobStart(O(join(d, 'toy'), { module: m, session: s, depth: 2 }));
@@ -744,4 +752,104 @@ test('T53 prep guard: no owed mark, a started layer, or a CLOSED layer lets BOB\
   writeFileSync(join(closed.w.bob, P.PLAN), closed.plan().replace(/layer 2 OPEN/, 'layer 2 CLOSED'));
   g(closed.w.bobRoot, 'commit', '-qam', 'layer 2 closed'); g(closed.w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
   assert.equal(stopReason('bob', closed.ctx()), null);
+});
+
+// ---- P20: evidence in reports, and steps for Bob ----
+
+test('evidenceItems: a command with its result, a file:line and a test total each count; a bare claim or a missing section does not', () => {
+  const ok = (r) => (P.evidenceItems(r) || []).some((i) => P.EVIDENCE_ITEM.some((re) => re.test(i)));
+  assert.equal(P.evidenceItems('Applied.\n**Met** · none\n'), null);
+  assert.equal(ok('**Evidence**\n- `git status` → clean\n**Met** · none'), true);
+  assert.equal(ok('**Evidence**\n- src/a/index.mjs:12 adds the comment\n'), true);
+  assert.equal(ok('**Evidence** · pass 14 of 14 in tests/a.test.mjs\n'), true);
+  assert.equal(ok('**Evidence**\n* it works\n**Met** · none'), false);
+  assert.deepEqual(P.evidenceItems('**Evidence**\n1. `a` → b c d\n- x:1\n**Met** · none\nnot an item'), ['`a` → b c d', 'x:1']);
+});
+
+test('stepLabels and decodeEntities: bold and code labels are found, <<placeholders>> are exempt, entities decode', () => {
+  const t = 'Press **Save &amp; close** then `Settings`.\nName it **<<your name>>** and `<<x>>`; run `a **b** c`.\n';
+  assert.deepEqual(P.stepLabels(t).map((l) => [l.label, l.line, l.exempt]), [['Settings', 1, false], ['Save &amp; close', 1, false], ['<<x>>', 2, true], ['a **b** c', 2, false], ['<<your name>>', 2, true]]);
+  assert.equal(P.decodeEntities('Save &amp; close &#8212; &#x2014; &mdash; &bogus;'), 'Save & close — — — &bogus;');
+});
+
+function stepsWorld() {
+  const d = mkdtempSync(join(tmpdir(), 'steps-'));
+  execFileSync('git', ['init', '-q', d]);
+  writeFileSync(join(d, 'page.html'), '<button>Save &amp; close</button> <a id="x">Settings</a>');
+  writeFileSync(join(d, 'screen.js'), "const t = 'Invite a member';\n");
+  return d;
+}
+test('proc steps: a label not in the sources is refused, naming it and its line; found labels print the text, verified count, and the ok file', () => {
+  const d = stepsWorld(), f = join(d, 'steps.md'), src = `${join(d, 'page.html')},${join(d, 'screen.js')}`;
+  writeFileSync(f, '1. Click **Save & close** in `Settings`.\n2. Press **Invite a member**, then **Send invite** and `Retry`.\n3. Type **<<the member\'s name>>**.\n');
+  assert.throws(() => P.stepsCmd({ file: f, source: src, product: d }), (e) => /2 label\(s\)/.test(e.message) && /line 2: "Send invite"/.test(e.message) && /line 2: "Retry"/.test(e.message) && !/Settings/.test(e.message.split('\n').slice(1).join('')) && !/<<the/.test(e.message));
+  assert.equal(existsSync(join(d, '.git', P.STEPS_OK)), false, 'nothing recorded on a refusal');
+  writeFileSync(f, '1. Click **Save &amp; close** in `Settings`.\n2. Press **Invite a member**.\n3. Type **<<the member\'s name>>**.\n');
+  const out = P.stepsCmd({ file: f, source: src, product: d });
+  assert.match(out, /^1\. Click \*\*Save &amp; close\*\*/);
+  assert.match(out, /verified: 3 labels in .*page\.html.*screen\.js$/);
+  const ok = JSON.parse(readFileSync(join(d, '.git', P.STEPS_OK), 'utf8'));
+  assert.equal(ok.sha256, P.stepsHash(out), 'the printed text carries the same list hash');
+  assert.deepEqual(ok.sources, src.split(','));
+  assert.throws(() => P.stepsCmd({ file: f, source: join(d, 'nope.html'), product: d }), /no such source file/);
+  assert.throws(() => P.stepsCmd({ file: f, product: d }), /--source/);
+});
+
+test('numberedList and isStepsList: only numbered items and their indented lines, whitespace-normalised; bold needed', () => {
+  const m = 'Intro\n\n1.  Click   **Save**.\n   then wait\nprose\n2. Press `OK`.\n\nverified: 1 labels in x\n';
+  assert.equal(P.numberedList(m), '1. Click **Save**.\nthen wait\n2. Press `OK`.');
+  assert.equal(P.isStepsList(m), true);
+  assert.equal(P.isStepsList('1. one\n2. two **b**'), true);
+  assert.equal(P.isStepsList('1. one\n2. two'), false, 'no bold label');
+  assert.equal(P.isStepsList('1. only **one**'), false, 'one item');
+  assert.equal(P.isStepsList('2. a **b**\n3. c'), false, 'does not start at 1');
+});
+
+test('BOB stop hook: a numbered list with bold labels ends the turn only with fresh, matching proc steps proof (P20)', () => {
+  const d = stepsWorld(), f = join(d, 'steps.md'), src = join(d, 'page.html');
+  const msg = '1. Click **Save & close**.\n2. Open `Settings`.\n';
+  assert.equal(stepsReason('Nothing for Bob to do.', d), null, 'no list, no check');
+  assert.equal(stepsReason('1. one\n2. two', d), null, 'no bold label, no check');
+  // red on the old code (no steps check at all), green now
+  assert.match(stepsReason(msg, d), /no verified steps on record/);
+  writeFileSync(f, '1. Click **Save &amp; close**.\n2. Open `Settings`.\n');
+  const out = P.stepsCmd({ file: f, source: src, product: d });
+  assert.equal(stepsReason(out, d), null, 'the printed steps pass, with the verified line after them');
+  assert.equal(stepsReason(`Here you go.\n\n${out}\nNothing for Bob to do.`, d), null, 'prose around the list is not judged');
+  assert.match(stepsReason(out.replace('Open', 'Close'), d), /not the list `proc steps` verified/);
+  assert.match(stepsReason(out, d, Date.now() + 31 * 60e3), /over 30 minutes old/);
+  assert.equal(stepsReason(out, d, Date.now() + 29 * 60e3), null);
+});
+
+test('lastAssistantText: last_assistant_message first, else the transcript\'s assistant text after the last user entry', () => {
+  const d = mkdtempSync(join(tmpdir(), 'tr-')), tp = join(d, 't.jsonl');
+  const row = (o) => JSON.stringify(o);
+  writeFileSync(tp, [row({ type: 'user', message: { role: 'user', content: 'hi' } }), row({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'old' }] } }),
+    row({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result' }] } }), row({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'thinking', thinking: '' }] } }),
+    row({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: '1. a **b**' }] } }), row({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: '2. c' }] } }), 'not json'].join('\n'));
+  assert.equal(lastAssistantText({ transcript_path: tp }), '1. a **b**\n2. c');
+  assert.equal(lastAssistantText({ transcript_path: tp, last_assistant_message: 'direct' }), 'direct');
+  assert.equal(lastAssistantText({}), null);
+  assert.equal(lastAssistantText({ transcript_path: join(d, 'missing') }), null);
+});
+
+// ---- P20: a reading-set document is read whole ----
+
+test('partial-read hook: a Read with offset or limit, or a shell cut in the same pipeline, of a reading-set document is refused (P20)', () => {
+  const r = (tool, ti) => preReason('bob', { tool_name: tool, tool_input: ti }, {});
+  assert.match(r('Read', { file_path: '/home/user/bio/build/requirements/money.md', limit: 40 }), /build\/requirements\/money\.md is in a reading set.*P20/);
+  assert.match(r('Read', { file_path: '/home/user/civicos-process/roles/BOB.md', offset: 10 }), /roles\/BOB\.md/);
+  assert.match(preReason('job', { tool_name: 'Read', tool_input: { file_path: 'build/plan/starts-T53/money.txt', offset: 1, limit: 5 } }, {}), /starts-T53\/money\.txt/);
+  assert.match(r('Bash', { command: 'grep -n R30 build/requirements/local-facts.md | cut -c1-600' }), /local-facts\.md/);
+  assert.match(r('Bash', { command: 'head -5 /home/user/civicos-process/PROCESS-DESIGN.md' }), /PROCESS-DESIGN\.md/);
+  assert.match(r('Bash', { command: "sed -n '1,40p' build/handoff.md" }), /build\/handoff\.md/);
+  assert.match(r('Bash', { command: 'cat build/rulings-active.md | tail -20' }), /rulings-active\.md/);
+  // controls: whole reads, other files, a cut of another command in another pipeline, an in-place edit, a search
+  assert.equal(r('Read', { file_path: '/home/user/bio/build/requirements/money.md' }), null);
+  assert.equal(r('Read', { file_path: '/home/user/bio/build/plan/current.md', offset: 3, limit: 9 }), null);
+  assert.equal(r('Bash', { command: 'cat /home/user/civicos-process/roles/BOB.md' }), null);
+  assert.equal(r('Bash', { command: 'git log --oneline -3 | head; cat build/handoff.md' }), null);
+  assert.equal(r('Bash', { command: 'sed -i s/a/b/ build/requirements/money.md' }), null);
+  assert.equal(r('Bash', { command: 'grep -n R30 build/requirements/money.md' }), null);
+  assert.equal(r('Bash', { command: 'head -3 build/jobs/T53/money.md' }), null);
 });

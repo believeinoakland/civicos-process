@@ -9,6 +9,10 @@
 // (`build/plan/fix-round-*.md` that exist, so not the archived ones) and `build/handoff.md`, a line that defers work
 // ("next fix round", "next round", "a later round", "later tranche", "deferred to") fails unless it cites `next.md`:
 // work that waits is an entry of `next.md` only, and plan text names dependencies, never "later".
+// Also (P20; Bob, K5326): in each lane HANDOFF file (`build/plan/beta/*/HANDOFF.md`,
+// `docs/development/investigation-design/HANDOFF.md`) every line that starts a dated report (`**P-<n>`, `**H<n>`, `**R<n>`,
+// `**L<n>`, `**U<n>` or `**B<n>`) and holds a date of EVIDENCE_FROM or later has `Evidence:` within the entry (up to the
+// next line that starts a report, or a heading). Earlier entries are exempt.
 // Usage: node checks/format.mjs <product-root>
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -234,10 +238,32 @@ function rulingIds(root, exempt = RULING_DUPS_EXEMPT) {
   return failures;
 }
 
+// P20: a lane's dated report carries its evidence.
+export const EVIDENCE_FROM = '2026-10-29'; // the day after P20's adoption (bio K5763): earlier entries predate it
+const REPORT_START = /^\*\*(?:P-|H|R|L|U|B)\d+/;
+export function handoffFiles(root) {
+  const dir = join(root, 'build/plan/beta');
+  const lanes = existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => `build/plan/beta/${e.name}/HANDOFF.md`).sort() : [];
+  return [...lanes, 'docs/development/investigation-design/HANDOFF.md'].filter((f) => existsSync(join(root, f)));
+}
+function laneEvidence(root, from = EVIDENCE_FROM) {
+  const out = [];
+  for (const f of handoffFiles(root)) {
+    const lines = readFileSync(join(root, f), 'utf8').split('\n');
+    lines.forEach((line, i) => {
+      if (!REPORT_START.test(line) || !(line.match(/\b\d{4}-\d{2}-\d{2}\b/g) || []).some((d) => d >= from)) return;
+      let end = i + 1;
+      while (end < lines.length && !REPORT_START.test(lines[end]) && !/^#/.test(lines[end])) end++;
+      if (!lines.slice(i, end).some((l) => l.includes('Evidence:'))) out.push(`${f}:${i + 1}: the report "${line.slice(0, 40)}" dated ${from} or later has no "Evidence:" in its entry (a command run with its result, a file:line, or a test run with its totals; P20)`);
+    });
+  }
+  return out;
+}
+
 // N656 (K1763) is opt-in until certified by its dry run (P3; dryrun/CERTIFICATION.md TC1): CIVICOS_TERMS_CHECK=1.
 export function checkFormat(root, { approvalsLastExempt = APPROVALS_LAST_EXEMPT, terms: withTerms = process.env.CIVICOS_TERMS_CHECK === '1' } = {}) {
   const terms = withTerms ? termsClaims(root) : { failures: [], skipped: true };
-  const failures = [...conflictMarkers(root), ...rulingIds(root), ...approvalRulings(root, approvalsLastExempt), ...nextReasons(root), ...deferrals(root), ...terms.failures];
+  const failures = [...conflictMarkers(root), ...rulingIds(root), ...approvalRulings(root, approvalsLastExempt), ...nextReasons(root), ...deferrals(root), ...laneEvidence(root), ...terms.failures];
   let tracked = [];
   try { tracked = trackedFiles(root); } catch { /* not a git repository: the checkout alone is read */ }
   const exists = pathExists(root, tracked);

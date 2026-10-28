@@ -24,11 +24,13 @@
 //         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m> [--with <m2>[,<m3>]] [--context <pct>]
 //         bob waiting (--on "<act>" | --clear)   layer close --layer <L>   job archived --module <m> --usage <json>   bob cleared --name --session (--reply|--unanswered)   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
-//         job complete --module <m> [--with <m2>] --report-file <f>
+//         job complete --module <m> [--with <m2>] --report-file <f>   (the report needs a `**Evidence**` section, P20)
 //   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   sizes (every document over its limit; a lane runs it before each commit)   footprint [--base <ref>]
 //         tests --modules <m1,m2> [--users] [--base <ref>] [--heap-mb <n>] [--cap-mb <n>] [--timeout-min <n>] (a pass's test run; lane R14)
 //         ruling --line-file <f> [--files <p1,p2>] (BOB's own ruling, numbered by the tool; lane R17)
+//         steps --file <steps.md> --source <p1,p2,…> [--product <dir>] (P20: a step for Bob is sent only as this printed it; needs no --tranche)
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, openSync, closeSync } from 'node:fs';
 import { totalmem, availableParallelism } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
@@ -731,12 +733,33 @@ export function jobState(o) {
   R.write(path, text.replace(RSTATUS, `**Status** · ${st.session} · depth ${st.depth} · ${s}`));
   return commitPush(R, jobBranch(T, o.module), [path], `${o.module} ${T}: ${s.slice(0, 60)}`);
 }
+// P20: a report states what it read or ran. Its `**Evidence**` section (a line starting `**Evidence**`, optionally with the
+// first item after a `·` or `:`) runs to the next line that starts `**` or `#`; each line is an item (a bullet or number
+// marker is dropped). An item counts when it is a command run with its result (a `command` followed by text), a file:line,
+// or a test run with its totals (`3/3`, `pass 3`, `3 pass`, `tests 3`). Returns the items, or null with no section.
+export const EVIDENCE_FORMS = 'a command run with its result line (`cmd` → result), a file:line (src/x.mjs:12), or a test run with its totals (tests 3, pass 3)';
+export const EVIDENCE_ITEM = [/`[^`\n]+`.*\S{3,}/, /[\w./-]+\.\w+:\d+/, /\b\d+\s*\/\s*\d+\b|\bpass(?:ed)?\s*:?\s*\d+|\b\d+\s+pass|\btests?\s*:?\s*\d+/i];
+export function evidenceItems(report) {
+  const lines = String(report || '').split('\n'), i = lines.findIndex((l) => /^\*\*Evidence\*\*/.test(l));
+  if (i < 0) return null;
+  const items = [], first = lines[i].replace(/^\*\*Evidence\*\*\s*[·:]?\s*/, '').trim();
+  if (first) items.push(first);
+  for (const l of lines.slice(i + 1)) {
+    if (/^(\*\*|#)/.test(l)) break;
+    const t = l.replace(/^\s*(?:[-*]|\d+[.)])\s+/, '').trim();
+    if (t) items.push(t);
+  }
+  return items;
+}
 // mechanics §6 step 5 whole: tests, checks, the report, COMPLETE, pushed; then the message to send.
 export function jobComplete(o) {
   const R = repo(o.product), T = o.tranche, m = o.module, path = recordPath(T, m);
   on(R, jobBranch(T, m));
   const report = readFileSync(o.reportFile, 'utf8').trim();
   if (!/^\*\*Met\*\* · (none|R\d+(, R\d+)*)$/m.test(report)) refuse('the report names the requirement ids it meets: a line "**Met** · R1, R2" (or "**Met** · none")');
+  const ev = evidenceItems(report);
+  if (!ev) refuse(`the report has no \`**Evidence**\` section (P20): add a line "**Evidence**" and under it at least one item, each ${EVIDENCE_FORMS}`);
+  if (!ev.some((i) => EVIDENCE_ITEM.some((re) => re.test(i)))) refuse(`the report's \`**Evidence**\` section lists no item of an accepted form (P20; ${ev.length} line(s) read): each item is ${EVIDENCE_FORMS}`);
   if (R.g(['status', '--porcelain', '--untracked-files=no'])) refuse('commit your module\'s changes first');
   R.fetch(trancheBranch(T));
   try { history(R, `origin/${trancheBranch(T)}`, 'HEAD'); R.g(['merge-base', '--is-ancestor', `origin/${trancheBranch(T)}`, 'HEAD']); } catch { refuse(`merge ${trancheBranch(T)} into your branch first: BOB has changed it`); }
@@ -782,6 +805,71 @@ export function jobComplete(o) {
   return { commit, tests, bob: addr({ product: o.product, tranche: T, bob: true }), message: `${m.toUpperCase()} (${T}): COMPLETE at ${commit}. Tests ${tests.pass}/${tests.tests}; checks 0. Met: ${report.match(/^\*\*Met\*\* · (.*)$/m)[1]}.` };
 }
 
+// ---- steps for Bob (P20) ----
+
+// A step for Bob is written from the very thing he will use. Every label in the steps set in **bold** or in `backticks`
+// must occur verbatim in at least one source file, after HTML entity decoding (of the source and of the label). A label
+// the steps define themselves (a placeholder) is exempt only when wrapped as <<label>>: `**<<your name>>**`, `<<name>>`.
+// Code spans are read first and masked, so a bold label never contains one. On success the steps text is printed
+// followed by `verified: <n> labels in <sources>` (n = distinct labels checked, exempt ones not counted) and
+// `.git/civicos-steps-ok.json` {sha256, sources, at} is written; the BOB Stop hook (hooks.mjs) lets a numbered list
+// with bold labels end a turn only when that file is under 30 minutes old and its sha256 matches `stepsHash` of the list.
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0', mdash: '—', ndash: '–', hellip: '…', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', middot: '·', copy: '©', times: '×', rarr: '→', larr: '←', bull: '•' };
+export function decodeEntities(t) {
+  return String(t).replace(/&(?:#(\d+)|#[xX]([0-9a-fA-F]+)|([A-Za-z]+));/g, (m, d, h, n) => {
+    if (n) return ENTITIES[n] ?? m;
+    const c = d ? Number(d) : parseInt(h, 16);
+    try { return String.fromCodePoint(c); } catch { return m; }
+  });
+}
+// The labels of a steps text: [{ label, line, exempt }] in order of appearance.
+export function stepLabels(text) {
+  const out = [];
+  String(text).split('\n').forEach((raw, i) => {
+    const note = (label) => { const l = label.trim(); if (l) out.push({ label: l, line: i + 1, exempt: /^<<[\s\S]+>>$/.test(l) }); };
+    let line = raw;
+    for (const m of raw.matchAll(/(?<!`)`([^`\n]+)`(?!`)/g)) { note(m[1]); line = line.replace(m[0], ' '.repeat(m[0].length)); }
+    for (const m of line.matchAll(/\*\*([^*\n]+?)\*\*/g)) note(m[1]);
+  });
+  return out;
+}
+// The numbered list of a text, normalised: its item lines (`1.` or `1)` after optional indentation) and the indented
+// lines that follow them, each with runs of whitespace collapsed to one space and trimmed, blank lines dropped, joined
+// by "\n". Prose between items, and unindented lines, are not part of it. '' when there is no numbered item.
+export function numberedList(text) {
+  const out = []; let in_ = false;
+  for (const raw of String(text).replace(/\r/g, '').split('\n')) {
+    const item = /^\s*\d+[.)]\s+\S/.test(raw);
+    if (item) in_ = true; else if (!in_ || !/^\s+\S/.test(raw)) { in_ = false; continue; }
+    out.push(raw.replace(/\s+/g, ' ').trim());
+  }
+  return out.join('\n');
+}
+// A list is "steps for Bob" when it has at least two numbered items, the first numbered 1, and a **bold** label in it.
+export function isStepsList(text) {
+  const list = numberedList(text), items = list.split('\n').filter((l) => /^\d+[.)]\s/.test(l));
+  return items.length >= 2 && /^1[.)]\s/.test(items[0]) && /\*\*[^*\n]+\*\*/.test(list);
+}
+export const stepsHash = (text) => createHash('sha256').update(numberedList(text) || String(text).replace(/\s+/g, ' ').trim()).digest('hex');
+export const STEPS_OK = 'civicos-steps-ok.json';
+export function stepsCmd(o) {
+  if (typeof o.file !== 'string' || typeof o.source !== 'string') refuse('--file <steps.md> --source <path1,path2,…>');
+  const text = existsSync(o.file) ? readFileSync(o.file, 'utf8') : refuse(`${o.file}: no such steps file`);
+  const sources = o.source.split(',').map((x) => x.trim()).filter(Boolean);
+  if (!sources.length) refuse('--source names no file');
+  const hay = sources.map((f) => (existsSync(f) ? decodeEntities(readFileSync(f, 'utf8')) : refuse(`${f}: no such source file`))).join('\n');
+  const labels = stepLabels(text), missing = [], seen = new Set();
+  for (const l of labels) {
+    if (l.exempt) continue;
+    seen.add(l.label);
+    if (!hay.includes(decodeEntities(l.label))) missing.push(l);
+  }
+  if (missing.length) refuse(`${missing.length} label(s) in ${o.file} not found verbatim in ${sources.join(', ')}:\n${missing.map((l) => `  line ${l.line}: "${l.label}"`).join('\n')}\nwrite the step from the page's or screen's own words; a placeholder the steps define themselves is wrapped as <<label>>`);
+  const R = repo(o.product);
+  writeFileSync(join(R.root, '.git', STEPS_OK), JSON.stringify({ sha256: stepsHash(text), sources, at: new Date().toISOString() }));
+  return `${text.trimEnd()}\n\nverified: ${seen.size} labels in ${sources.join(', ')}`;
+}
+
 // ---- the role skills (DESIGN §3): written from this repository, never by hand ----
 
 export function shims(o) {
@@ -805,7 +893,7 @@ function args(argv) {
   return o;
 }
 const COMMANDS = {
-  takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd, tests: testsCmd, ruling: rulingCmd,
+  takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd, tests: testsCmd, ruling: rulingCmd, steps: stepsCmd,
   'round open': roundOpen, 'round close': roundClose, 'layer start': layerStart, 'layer close': layerClose,
   'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived, 'bob cleared': bobCleared, 'bob waiting': bobWaiting, sizes: (o) => ({ size: sizeLines(o.product) }),
   'job start': jobStart, 'job state': jobState, 'job complete': jobComplete,
@@ -815,7 +903,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const name = COMMANDS[`${o._[0]} ${o._[1]}`] ? `${o._[0]} ${o._[1]}` : o._[0];
   try {
     const fn = COMMANDS[name] ?? refuse(`unknown command "${o._.join(' ')}"; see the header of tools/proc.mjs`);
-    if (!o.tranche && name !== 'shims' && name !== 'sizes') refuse('--tranche <T>');
+    if (!o.tranche && name !== 'shims' && name !== 'sizes' && name !== 'steps') refuse('--tranche <T>');
     const r = fn(o);
     console.log(typeof r === 'string' ? r : JSON.stringify(r, null, 2));
     if (name === 'status' && o.gate && r.gate.length) process.exitCode = 1;
