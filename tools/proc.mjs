@@ -277,7 +277,8 @@ export function entriesOf(planText, layer, m) {
 // §5.3: job branches at the tranche's tip, the START texts, and the create_session calls owed (printed, hook-checked).
 export function layerStart(o) {
   const R = repo(o.product), T = o.tranche, L = Number(o.layer);
-  if (o.usage && o.usage !== 'allowed') refuse(`usage status is "${o.usage}": no new job starts; tell Bob (K5323)`);
+  // A weekly warning (allowed_warning) is no stop (bio K5722, Bob: "GO!"); only a status that refuses use stops new jobs.
+  if (o.usage && !['allowed', 'allowed_warning'].includes(o.usage)) refuse(`usage status is "${o.usage}": no new job starts; tell Bob (K5323)`);
   on(R, trancheBranch(T));
   const text = R.read(PLAN), p = parsePlan(text);
   if (!p.layers.find((l) => l.layer === L && l.state === 'OPEN')) refuse(`layer ${L} is not open in round R${p.round}`);

@@ -1,6 +1,6 @@
 # Situation: moving the work to Bob's next account (P13, P17; Bob, K5417, K4790)
 
-**When.** `get_session` (yours) shows `rate_limit_info` with `rateLimitType` `seven_day` and `status` not `allowed`, at a backstop check or before starting any session; or Bob says to move. Bob has three accounts; the next is the one after the current in the manifest's "Starting a session". A five-hour limit is never a move: wait it out.
+**When.** Bob says to move. A `seven_day` `allowed_warning` is no stop and no move (bio K5722, Bob: "GO!"): tell Bob in one line and carry on. Only a `seven_day` status that refuses use (`rejected`) stops new work, and then BOB tells Bob and waits for his word to move. Bob has three accounts; the next is the one after the current in the manifest's "Starting a session". A five-hour limit is never a move: wait it out.
 
 **At once, then at the next point where no step is half done** (no module job live: a running layer finishes or its jobs hand off first, K4790):
 
