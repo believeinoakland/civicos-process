@@ -9,7 +9,6 @@
 //                              **Round** · R<k> · layer <L> <OPEN|CLOSED>, …
 //                              **Jobs** · <module>: <NAME #k> <session>; …                   (each job's live session)
 //                              **Owed** · <act>; <act>                                       (platform acts printed, not yet done)
-//                              **Waiting** · Bob: <act> · <date>                              (optional: the one act only Bob can take; bob waiting; layer start clears it)
 //   build/jobs/<T>/<module>.md **Status** · <session> · depth <d> · <STATE>                 (the job's record)
 //                              STATE: WORKING · WAITING: <question> · BLOCKED: <cause> · NEEDS BOB: <act> · COMPLETE
 //   build/plan/starts-<T>/<module>.txt   the START text, the job's first message
@@ -22,7 +21,7 @@
 //   BOB   takeover --name "BOB #n" --session <id> --depth <d>   status [--gate]   round open --round R<k> --plan <file>
 //         layer start --layer <L> [--usage <status>] [--modules <m1,m2> (only these, in a started layer)]   job started --module <m> --name "<M> #k" --session <id>
 //         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m> [--with <m2>[,<m3>]] [--context <pct>]
-//         bob waiting (--on "<act>" | --clear)   layer close --layer <L>   job archived --module <m> --usage <json>   bob cleared --name --session (--reply|--unanswered)   bob archived --name --session --usage   round close   handoff
+//         layer close --layer <L>   job archived --module <m> --usage <json>   bob cleared --name --session (--reply|--unanswered)   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
 //         job complete --module <m> [--with <m2>] --report-file <f>   (the report needs a `**Evidence**` section, P20)
 //   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   sizes (every document over its limit; a lane runs it before each commit)   footprint [--base <ref>]
@@ -128,7 +127,7 @@ export function parsePlan(text) {
   const owed = line('Owed').split('; ').map((x) => x.trim()).filter((x) => x && x !== 'none');
   const r = line('Round').match(/^R(\d+)(.*)$/);
   const layers = r ? [...r[2].matchAll(/layer (\d+) (OPEN|CLOSED)/g)].map((x) => ({ layer: Number(x[1]), state: x[2] })) : [];
-  return { state: s?.[1] ?? null, bob: s ? { name: s[2], session: s[3], depth: Number(s[4]) } : null, round: r ? Number(r[1]) : 0, layers, jobs, owed, waiting: line('Waiting') || null };
+  return { state: s?.[1] ?? null, bob: s ? { name: s[2], session: s[3], depth: Number(s[4]) } : null, round: r ? Number(r[1]) : 0, layers, jobs, owed };
 }
 function setLine(text, key, value, after = '**Status**') {
   const re = new RegExp(`^\\*\\*${key}\\*\\* · .*$`, 'm'), line = `**${key}** · ${value}`;
@@ -151,7 +150,6 @@ function planEdit(R, T, edit, message) {
   return commitPush(R, trancheBranch(T), [PLAN], message);
 }
 const addOwed = (text, p, acts) => setLine(text, 'Owed', [...new Set([...p.owed, ...acts])].join('; ') || 'none');
-const clearWaiting = (text) => text.replace(/^\*\*Waiting\*\* · .*\n/m, '');
 const clearOwed = (text, p, act) => setLine(text, 'Owed', p.owed.filter((x) => x !== act).join('; ') || 'none');
 
 // ---- the job record ----
@@ -223,22 +221,6 @@ export function takeover(o) {
   for (const u of unplacedBobRulings(R)) acts.push(`give Bob's ruling a home (rulings-active.md, build/rulings-product/, build/situations/, or bob-rulings-placed.txt): ${u}`);
   return { commit, previous: before.bob, owed: before.owed, jobs: st.jobs, size: st.size, acts };
 }
-// The acts BOB can take now, from git state (Bob 2026-10-28, bio K5722: "always look for work"): merge a COMPLETE job whose
-// same-layer upstream (`uses`) is merged or has no job this tranche; write the line of each plan entry marked `[owed: BOB`
-// in an OPEN layer with no job started. A COMPLETE job still waiting on an unfinished upstream is not listed (the upstream is the work).
-function prepActs(R, p, jobs) {
-  const mods = modules(R), layerOf = (id) => mods.find((x) => x.id === id)?.layer;
-  const done = (k) => k.merged && k.state === 'COMPLETE';
-  const acts = jobs.filter((j) => j.needs.includes('MERGE') && !(mods.find((x) => x.id === j.module)?.uses || []).some((u) => layerOf(u) === layerOf(j.module) && jobs.some((k) => k.module === u && !done(k))))
-    .map((j) => `merge ${j.module} (proc merge --module ${j.module})`);
-  const text = R.read(PLAN) || '';
-  for (const l of p.layers) {
-    if (l.state !== 'OPEN' || jobs.some((j) => layerOf(j.module) === l.layer)) continue;
-    const sec = text.split(/^## /m).find((x) => new RegExp(`^Layer ${l.layer}\\b`).test(x)) || '';
-    for (const line of sec.split('\n')) if (line.includes('[owed: BOB')) acts.push(`write ${line.match(/^\s*[-*] (\S+)/)?.[1] || line.trim().slice(0, 20)}'s line (layer ${l.layer} is ahead)`);
-  }
-  return acts;
-}
 // Every job's state, read from git; quiet jobs; owed acts; documents over or near their limits (mechanics §17: listed for
 // BOB to prune, never a gate on anyone, bio K5123). `gate` adds the reasons this BOB may not end a turn.
 export function status(o) {
@@ -262,7 +244,7 @@ export function status(o) {
     return { ...j, state, merged, needs };
   });
   const gate = [...p.owed.map((x) => `owed: ${x}`), ...unpushed(R)];
-  return { state: p.state, round: p.round, layers: p.layers, jobs, owed: p.owed, acts: prepActs(R, p, jobs), size: sizeLines(R.dir), gate };
+  return { state: p.state, round: p.round, layers: p.layers, jobs, owed: p.owed, size: sizeLines(R.dir), gate };
 }
 // Every ruling of the last `days` that records Bob's own words has a home a session reads (bio K5311, K5323): it is cited
 // in rulings-active.md, a product rulings file, a product situation, or build/plan/bob-rulings-placed.txt (`K<n> · where`,
@@ -324,7 +306,7 @@ export function layerStart(o) {
     if (live) specs.push({ module: m.id, action: 'message', session: live.session, message: body });
     else specs.push({ module: m.id, action: 'create_session', source_url: sourceUrl(R), title: `${m.id.toUpperCase()} #${nextK(R, T, m.id)}`, source_revision: jobBranch(T, m.id), prompt: jobPrompt(m.id, T, { product: R.rel('.') }) });
   }
-  R.write(PLAN, addOwed(clearWaiting(text), p, specs.map((s) => `${s.action === 'message' ? 'message' : 'start'} ${s.module}`)));
+  R.write(PLAN, addOwed(text, p, specs.map((s) => `${s.action === 'message' ? 'message' : 'start'} ${s.module}`)));
   paths.push(PLAN);
   const commit = commitPush(R, trancheBranch(T), paths, `plan ${T}: round R${p.round} layer ${L} starts (${mods.map((m) => m.id).join(', ')})`);
   // The tranche tip now carries the STARTs; each new job branch is moved to it, so the job reads its START locally.
@@ -354,12 +336,6 @@ export function jobStarted(o) {
     const jobs = [...p.jobs.filter((j) => j.module !== o.module), { module: o.module, name: o.name, session: o.session }];
     return clearOwed(setLine(text, 'Jobs', fmtJobs(jobs)), p, `start ${o.module}`);
   }, `plan ${o.tranche}: ${o.name} ${o.session} for ${o.module}`);
-}
-// BOB records the one act only Bob can take (the Stop hook then lets an idle turn end), or clears it (bio K5722).
-export function bobWaiting(o) {
-  if (o.clear) return planEdit(repo(o.product), o.tranche, (text) => clearWaiting(text), `plan ${o.tranche}: BOB no longer waits on Bob`);
-  if (typeof o.on !== 'string' || !o.on.trim()) refuse('--on "<the one act Bob must take>" or --clear');
-  return planEdit(repo(o.product), o.tranche, (text) => setLine(text, 'Waiting', `Bob: ${o.on.trim()} · ${today()}`), `plan ${o.tranche}: BOB waits on Bob`);
 }
 // A message owed by layer start was sent (send_message answered "delivered").
 export function jobMessaged(o) {
@@ -939,7 +915,7 @@ export function withRunning(name, o, fn) {
 const COMMANDS = {
   takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd, tests: testsCmd, ruling: rulingCmd, steps: stepsCmd,
   'round open': roundOpen, 'round close': roundClose, 'layer start': layerStart, 'layer close': layerClose,
-  'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived, 'bob cleared': bobCleared, 'bob waiting': bobWaiting, sizes: (o) => ({ size: sizeLines(o.product) }),
+  'job started': jobStarted, 'job messaged': jobMessaged, 'job route': jobRoute, 'job archived': jobArchived, 'bob archived': bobArchived, 'bob cleared': bobCleared, sizes: (o) => ({ size: sizeLines(o.product) }),
   'job start': jobStart, 'job state': jobState, 'job complete': jobComplete,
 };
 if (import.meta.url === `file://${process.argv[1]}`) {
