@@ -126,8 +126,7 @@ figcaption { font-size: 14px; color: var(--muted); }
 
 <section class="status" aria-label="Status">
   <p><strong>What this page is.</strong> A rewrite of BOB #333's <a href="https://claude.ai/artifact/J8E73nE7Y4qNczAVPTB5Sn" target="_blank" rel="noopener">Civicsmith Rulebook</a>, in the order you asked for: mission first, then who decides, the priorities, the flow, how rules are kept, and only then what changes. Everything about one product (the audit, the product areas, the repository cleanup, resuming T53) moves to a companion page, <a href="https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E" target="_blank" rel="noopener">Civicsmith on neoProcess</a>.</p>
-  <p><strong>What it changes today.</strong> Nothing. Each statement is marked <span class="chip canon">canon</span> (in force now, with its principle) or <span class="chip draft">proposed</span>. A proposal takes effect only when you approve what is yours (§8) and the change is certified on a dry run (P3).</p>
-  <p><strong>Revised at your direction.</strong> The relationship between you and the AI is a priority in its own right (§3), with your definition of the project and BOB's responsibilities in §2; it amends P17, drafted for your approval in §8.</p>
+  <p><strong>What it is for.</strong> A working draft, changed as the discussion goes. Nothing on it is in force or asks for a decision now. Each statement is marked <span class="chip canon">canon</span> (in force today, with its principle) or <span class="chip draft">proposed</span>, so that when we are ready to commit, §8 lists in one place what differs from the old process; that is the point at which your approval is asked, and the change is then certified on a dry run (P3).</p>
 </section>
 
 <section id="mission">
@@ -144,22 +143,55 @@ figcaption { font-size: 14px; color: var(--muted); }
 
 <section id="who">
   <h2><span class="n">2</span>Who decides what</h2>
-  <p>The working relationship is a principle, followed at all times. You are human and the sessions are AI, and the process uses the strengths of each. You define the project; BOB does everything else, records it once and reports it done; between you is a middle ground where both sides offer opinions, explanations, options and recommendations. The roles below are the canon's, plus two the proposal adds; the Bob and BOB rows carry your words of today, which amend P17 (§8). <span class="pp">P17 P15</span></p>
+  <p>The working relationship is a principle, followed at all times. You are human and the sessions are AI, and the process uses the strengths of each. You define the project; BOB does everything else, records it once and reports it done; between you is a middle ground where both sides offer opinions, explanations, options and recommendations. The session architecture is ROOT → BOB → jobs and lanes: every job and every lane hangs off BOB, and they reach each other only through it. The roles below are the canon's plus two the proposal adds; the Bob, BOB, job and lane rows carry your words of today. <span class="pp">P17 P15 P13</span></p>
   <div class="tbl"><table>
     <thead><tr><th>Role</th><th>Decides</th><th>Does</th><th></th></tr></thead>
     <tbody>
       <tr><td class="k">Bob</td><td>The definition of the project: its values and policies; its mission and purposes; its audiences and use cases; its requirements; its principles; its high-level architecture (the layers, a module that carries product capability); its UX; its doctrine.</td><td>Defines the project and keeps its definition current. Reads rendered pages, each question with an explanation, options and a recommendation, and offers his own opinions, explanations, options and recommendations. Edits no file and types no command. When only he can act, takes the one act he is walked through.</td><td class="c"><span class="chip draft">P17 amended</span></td></tr>
       <tr><td class="k">BOB</td><td>Everything else: every technical, detailed or process decision, such as module boundaries and order, ownership, tooling, tests, branches, CI, the wording of a requirement, which work goes into a tranche and when it opens.</td><td>Keeps the record (the repositories); manages the development environment; makes the most of what the AI and its tools can do; takes Bob's input. Carries the build: opens rounds and layers, starts jobs, answers and routes, merges, closes. Records each decision once, reports it in plain words. Refreshes when its context passes 40 %.</td><td class="c"><span class="chip draft">P17 amended</span></td></tr>
-      <tr><td class="k">Module job</td><td>Its module's implementation.</td><td>The only role that changes product code: one module, one round. Applies every entry, proves every requirement at the interface, reports what it found elsewhere.</td><td class="c"><span class="chip canon">canon</span></td></tr>
+      <tr><td class="k">Module job</td><td>Its module's implementation.</td><td>The only role that changes product code: changes code, runs tests and does the other building tasks for one module only. Applies every entry, proves every requirement at the interface, reports what it found elsewhere. Its session is not retired until the work it has done is complete on the record.</td><td class="c"><span class="chip canon">canon</span></td></tr>
       <tr><td class="k">ROOT</td><td>Nothing.</td><td>Starts each BOB, so every BOB sits at depth 1 and every job at depth 2.</td><td class="c"><span class="chip canon">canon</span></td></tr>
-      <tr><td class="k">Lane</td><td>Mechanics within its charter.</td><td>A design question in one area, chartered by BOB on your direction. Delivers a design or a rule change, never product code, and ends with its report.</td><td class="c"><span class="chip draft">proposed</span></td></tr>
+      <tr><td class="k">Lane</td><td>Design decisions within its area.</td><td>Has one area of focus and responsibility, unique to it. Other sessions delegate tasks in that area to it through BOB; it answers with design decisions, through BOB. Delivers a design or a rule change, never product code.</td><td class="c"><span class="chip draft">proposed</span></td></tr>
       <tr><td class="k">Reviewer</td><td>Nothing.</td><td>A fresh session that checks a merge against the module's requirements and reports only gaps.</td><td class="c"><span class="chip draft">proposed</span></td></tr>
       <tr><td class="k">Code</td><td>Nothing.</td><td>What must happen every time: the gate, the hooks, the tool. No session has to remember it.</td><td class="c"><span class="chip canon">canon</span></td></tr>
     </tbody>
   </table></div>
+  <h3>How sessions talk: BOB translates</h3>
+  <figure>
+    <div class="diagram" role="img" aria-label="Bob above BOB; ROOT beside BOB, starting it. Below BOB, two jobs and two lanes, each joined to BOB alone. No line joins a job to a lane or a lane to a lane.">
+      <svg viewBox="0 0 760 232" xmlns="http://www.w3.org/2000/svg">
+        <rect class="found" x="324" y="8" width="112" height="40" rx="4"/>
+        <text class="t" x="380" y="33" text-anchor="middle">Bob</text>
+        <rect class="found" x="120" y="84" width="96" height="44" rx="4"/>
+        <text class="t" x="168" y="106" text-anchor="middle">ROOT</text>
+        <text class="p" x="168" y="120" text-anchor="middle">starts BOB</text>
+        <rect class="stage" x="316" y="80" width="128" height="52" rx="4"/>
+        <text class="t" x="380" y="102" text-anchor="middle">BOB</text>
+        <text class="p" x="380" y="120" text-anchor="middle">routes and translates</text>
+        <path class="arrow" d="M380 48 V76"/><path class="head" d="M380 80 l-4 -6 h8 z"/>
+        <path class="arrow" d="M216 106 H312"/><path class="head" d="M316 106 l-6 -4 v8 z"/>
+        <rect class="found" x="40" y="176" width="130" height="44" rx="4"/>
+        <text class="t" x="105" y="203" text-anchor="middle">Job: module A</text>
+        <rect class="found" x="220" y="176" width="130" height="44" rx="4"/>
+        <text class="t" x="285" y="203" text-anchor="middle">Job: module B</text>
+        <rect class="found" x="410" y="176" width="130" height="44" rx="4"/>
+        <text class="t" x="475" y="203" text-anchor="middle">Lane: area X</text>
+        <rect class="found" x="590" y="176" width="130" height="44" rx="4"/>
+        <text class="t" x="655" y="203" text-anchor="middle">Lane: area Y</text>
+        <path class="arrow" d="M340 132 L112 172"/><path class="head" d="M105 173 l6 -6 l2 7 z"/>
+        <path class="arrow" d="M360 132 L292 172"/><path class="head" d="M286 175 l5 -7 l3 7 z"/>
+        <path class="arrow" d="M400 132 L468 172"/><path class="head" d="M474 175 l-8 0 l5 -7 z"/>
+        <path class="arrow" d="M420 132 L648 172"/><path class="head" d="M655 173 l-8 1 l2 -7 z"/>
+        <text class="lab" x="4" y="156">EVERY REQUEST AND EVERY ANSWER PASSES THROUGH BOB, IN BOTH DIRECTIONS</text>
+      </svg>
+    </div>
+    <figcaption>Jobs and lanes are spokes; BOB is the hub. No spoke sees another.</figcaption>
+  </figure>
+  <p style="margin-top:12px">A job or a lane with a request sends it to BOB, and need not know what BOB will do with it: answer it itself, or turn it into a question for the lane whose area it is. BOB is not a forwarder. It translates what the job or lane needs into a question the lane can answer, and translates the lane's design decision back into terms the requester can understand and use. Lanes are abstracted from each other and from jobs in this way: each knows only its own area and BOB. <span class="chip draft">your words today</span> <span class="pp">P9 P17</span></p>
+  <p class="small">Today's canon has half of this: a job's flaw report goes through BOB, which confirms it and routes it (P9), and BOB resolves what it can itself (mechanics §7). What is new is the lane as a standing peer of the job under BOB, and translation as BOB's duty in both directions. Because BOB refreshes at 40 % of its window, a translation in flight has to be in the record (the request as sent, the question as asked, the answer as given), so a successor BOB can finish it; that is a mechanics point for later.</p>
   <h3>The middle ground</h3>
   <p>Between what you define and what BOB does, both sides have opinions, explanations, options and recommendations to offer, and each values the other's for the perspective it comes from, human or AI. Neither is dogmatic or closed-minded. The aim is that the truth rises to the top, and that the strengths of each are used. Your time is the scarcest resource in the process: BOB brings you only what is yours, rendered, with an explanation you can understand, options and a recommendation; everything else it decides, records once and reports done. <span class="chip draft">amends P17</span></p>
-  <p class="small" style="margin-top:10px">Lanes exist today (PROCESS-REDESIGN, PROCESS-REPAIR, UX-DESIGN, CAPABILITIES) but no principle names them; their rules sit in a product file and in rulings. The proposal gives them a stage (§4, Design) and a rule: one lane works for one area.</p>
+  <p class="small" style="margin-top:10px">Lanes exist today (PROCESS-REDESIGN, PROCESS-REPAIR, UX-DESIGN, CAPABILITIES) but no principle names them; their rules sit in a product file and in rulings. The proposal gives them a stage (§4, Design), a rule (one lane, one area) and the protocol above.</p>
 </section>
 
 <section id="priorities">
@@ -329,14 +361,14 @@ figcaption { font-size: 14px; color: var(--muted); }
 
 <section id="changes">
   <h2><span class="n">8</span>What changes from today, and what is yours</h2>
-  <p>BOB #333's page presents itself as a new way to store rules. It changes more than that. Each change below names where it stands today, whose decision it is by P17, and how it is proven. <span class="pp">P3 P16 P17</span></p>
+  <p>A running ledger, kept as the draft changes. Each difference from the old process names where it stands today, whose decision it is by P17, and how it is proven. Nothing here is asked now; when we commit, the rows marked yours are what you approve. <span class="pp">P3 P16 P17</span></p>
   <div class="tbl"><table>
     <thead><tr><th>Change</th><th>Today</th><th>Proposed</th><th>Whose</th><th>Proof</th></tr></thead>
     <tbody>
       <tr><td class="k">Where rules live</td><td>A ruling log read by search; an active-rulings file under 80 lines; situation files; the mechanics (§9, §17).</td><td>Principles plus one rulebook per area, loaded by code. The log is archived; no ruling is added.</td><td>Yours: it sets how you are asked and what you read.</td><td>Dry run</td></tr>
       <tr><td class="k">P17, the working relationship</td><td>Bob decides policy and doctrine, requirements, architecture and UX; BOB the rest. Questions come to Bob with options and a recommendation, one way only.</td><td>Bob defines the project (eight things named); BOB keeps the record and the environment, makes the most of the AI, takes Bob's input, decides everything technical. A middle ground where both sides offer, and value, opinions, options and recommendations. Bob's time named as the scarcest resource.</td><td>Yours: your words of today, drafted below for approval.</td><td>Text only</td></tr>
       <tr><td class="k">Three principles</td><td>Design, Release and Repository have none.</td><td>P21–P23, drafted below.</td><td>Yours (P16).</td><td>Text only; the rulebooks citing them are dry-run.</td></tr>
-      <tr><td class="k">Lanes</td><td>Chartered by BOB on your direction; rules in a product file and in rulings.</td><td>A stage, Design, with a rulebook; one lane per area; a lane's decision changes a rulebook or a canon design, recorded in its report.</td><td>Yours: doctrine.</td><td>Dry run</td></tr>
+      <tr><td class="k">Lanes and the protocol</td><td>Chartered by BOB on your direction; rules in a product file and in rulings; a lane reports to BOB in a handoff file; jobs and lanes do not delegate to each other.</td><td>A stage, Design, with a rulebook; one lane per area; a lane is a standing peer of a job under BOB; every request passes through BOB, which translates it both ways; spokes never see each other.</td><td>Yours: doctrine, in your words of today.</td><td>Dry run</td></tr>
       <tr><td class="k">Models</td><td>Mechanics §5.3: the cheapest able. Your ruling today: Opus for every job, Sonnet for mechanical work.</td><td>One rule in Sessions, picked by the start command.</td><td>Yours: already ruled; the text must match.</td><td>Code</td></tr>
       <tr><td class="k">Proof at the merge</td><td>The gate checks that a test names each requirement, not that it proves it.</td><td>A fresh reviewer on every merge; a check that refuses a test that cannot fail.</td><td>BOB's (tooling). New cost: reported to you under P14.</td><td>Dry run</td></tr>
       <tr><td class="k">Records and merging</td><td>A record per job in git; <code>proc merge</code> by BOB.</td><td>A pull request per job; the gate and the reviewer in CI; a merge queue.</td><td>BOB's (tooling).</td><td>Dry run</td></tr>
@@ -345,15 +377,15 @@ figcaption { font-size: 14px; color: var(--muted); }
   </table></div>
 
   <h3>Draft principles</h3>
-  <p>P17 is amended in your words of today; P21–P23 are new, each one or two sentences in the form of P1–P20. You approve, amend or decline each.</p>
+  <p>P17 is amended in your words of today; P21–P23 are new, each one or two sentences in the form of P1–P20. Working text, to be read once more when we commit.</p>
   <div class="principles">
     <div class="principle"><p><strong>P17 · Bob defines the project; BOB does everything else.</strong> Bob is human and BOB is an AI; the process uses the strengths of each. Bob defines the project: its values and policies, its mission and purposes, its audiences and use cases, its requirements, its principles, its high-level architecture, its UX and its doctrine. BOB's responsibilities are everything else: it keeps the record (the repositories), manages the development environment, makes the most of what the AI and its tools can do, takes Bob's input, and decides every technical and detailed matter (dependency edges, order within a layer, file ownership, helper and legacy modules, tooling, tests, branches, CI, the wording of a requirement, and every other matter of implementation or process detail), records it once (P15), and reports it to Bob in plain words as done. Between them is a middle ground: each offers opinions, explanations, options and recommendations, and each values the other's for the perspective it comes from, human or AI; neither is dogmatic or closed-minded; the aim is that the truth rises to the top. Bob's time is the scarcest resource in the process: BOB brings him only what is his, rendered, each with an explanation he can understand, options and a recommendation. A "with Bob" in any other principle or rule means only what is Bob's by this principle. Bob does not edit files and does not enter commands. When an act only Bob can take is needed, BOB names that one act and walks him through it in plain steps. When BOB is unsure whether a question is Bob's, it decides by this principle and says which way it read it. This working relationship is remembered and followed at all times, in all situations.</p></div>
-    <div class="principle"><p><strong>P21 · Design.</strong> A question becomes Bob's decision and a design before anything is built. A lane works for one area, reads that area whole, and delivers a design or a change to a rule, never product code; its accepted report ends it.</p></div>
+    <div class="principle"><p><strong>P21 · Design, and lanes.</strong> A question becomes Bob's decision and a design before anything is built. A lane has one area of focus and responsibility, unique to it; it reads that area whole and delivers design decisions, a design or a change to a rule, never product code. Jobs and lanes reach a lane only through BOB, which translates what they need into a question the lane can answer and the lane's answer into terms they can use; a requester need not know whether BOB answers or a lane does. Lanes are abstracted from each other in this way.</p></div>
     <div class="principle"><p><strong>P22 · Release.</strong> A release is cut from the open tranche, proven by the full regression, deployed and walked. What a walk finds becomes a round's entries, never edits to a running one; what a walk produces is kept only until it is analysed.</p></div>
     <div class="principle"><p><strong>P23 · Repository.</strong> The repository holds what a session must read or a merge must carry. Generated output, captures and finished records leave the working tree; history is kept, and is never required reading.</p></div>
   </div>
 
-  <h3>Decisions for you</h3>
+  <h3>What will need your approval when we commit</h3>
   <div class="decisions">
     <div class="decision">
       <h3>1 · The areas</h3>
