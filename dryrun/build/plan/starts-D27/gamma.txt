@@ -1,0 +1,5 @@
+Round R1, layer 1, module gamma, tranche D27. Your depth: 4. BOB: BOB #1 (session_018BhcegBQhMDe3ZuS4tV1VQ).
+The process tool: `node /home/user/civicos-process/tools/proc.mjs <command> --product dryrun --tranche D27 --module gamma`. Start with `<command>` = `job start --session <your session id> --depth 4`.
+
+Entries:
+- N2 · gamma is a new module (its row in `build/modules.json` names no paths or tests yet). Write `gamma/src/index.mjs` exporting `gamma(x)`, which returns `alpha`'s `add(x, 1)` (import it from `../../alpha/src/index.mjs`), and `gamma/test/index.test.mjs`, a `node:test` test that `gamma(1)` is 2. Complete with `--paths gamma/src/ --tests gamma/test/`.
