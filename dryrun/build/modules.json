@@ -45,7 +45,7 @@
         "alpha"
       ]
     },
-    {"id": "gamma", "layer": 1, "paths": [], "tests": [], "uses": ["alpha"]},
+    {"id": "gamma", "layer": 1, "paths": ["gamma/src/"], "tests": ["gamma/test/"], "uses": ["alpha"]},
     {"id": "delta", "layer": 1, "paths": [], "tests": [], "uses": []},
     {
       "id": "stats",
