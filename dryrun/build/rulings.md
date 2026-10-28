@@ -1,2 +1,3 @@
 # Rulings
 - K1 · 2026-10-28 · alpha · Merged alpha (job/D27/alpha): COMPLETE; ownership 2 files changed by alpha between 6e966ef2d5302826f8dcd26275cbff61376f69cd and origin/job/D27/alpha; 0 failures; tests 5/5; checks: no new finding (0 before); struck none; BOB's context 3 % · §5.5; P7, P12
+- K2 · 2026-10-28 · gamma · Merged gamma (job/D27/gamma): COMPLETE; ownership 4 files changed by gamma between 6e966ef2d5302826f8dcd26275cbff61376f69cd and origin/job/D27/gamma; 0 failures; tests 1/1; checks: no new finding (0 before); struck none; BOB's context 3 % · §5.5; P7, P12
