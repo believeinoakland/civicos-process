@@ -20,7 +20,7 @@
 // Usage: node tools/proc.mjs <command> --product <dir> --tranche <T> [options]
 //   BOB   takeover --name "BOB #n" --session <id> --depth <d>   status [--gate]   round open --round R<k> --plan <file>
 //         layer start --layer <L> [--usage <status>] [--modules <m1,m2> (only these, in a started layer)]   job started --module <m> --name "<M> #k" --session <id>
-//         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m> [--context <pct>]
+//         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m> [--with <m2>[,<m3>]] [--context <pct>]
 //         layer close --layer <L>   job archived --module <m> --usage <json>   bob cleared --name --session (--reply|--unanswered)   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
 //         job complete --module <m> --report-file <f>
@@ -335,52 +335,70 @@ export function jobRoute(o) {
   return { action: 'create_session', source_url: sourceUrl(R), title: `${o.module.toUpperCase()} #${nextK(R, o.tranche, o.module)}`, source_revision: jobBranch(o.tranche, o.module), prompt: jobPrompt(o.module, o.tranche, { product: R.rel('.') }), archive: j?.session ?? null };
 }
 // §5.5 whole: the gates, the merge, the tests, the checks, the marks struck, the ruling line; pushed and verified.
+// `--with <m2>[,<m3>]` merges several COMPLETE jobs as one merge commit (bio BOB #328, RD37): for jobs whose changes
+// are each red without the other (a new fleet member and the test that lists the fleet), so no tree between them is
+// ever committed. Each is gated as if merged alone (its record, its ownership, its own inherited reds and checks).
 export function merge(o) {
-  const R = repo(o.product), T = o.tranche, m = o.module, jb = jobBranch(T, m);
+  const R = repo(o.product), T = o.tranche, ms = [o.module, ...String(o.with || '').split(',').filter(Boolean)];
+  if (!o.module) refuse('--module <m>');
+  if (new Set(ms).size !== ms.length) refuse(`--with names ${o.module} or a module twice`);
+  const jbs = ms.map((m) => jobBranch(T, m));
   on(R, trancheBranch(T));
   if (unpushed(R).length) refuse(`the tranche checkout has ${unpushed(R).join(', ')}`);
-  R.fetch(trancheBranch(T), jb);
+  R.fetch(trancheBranch(T), ...jbs);
   try { R.g(['merge', '-q', '--ff-only', `origin/${trancheBranch(T)}`]); } catch { refuse(`${trancheBranch(T)} has diverged from origin`); }
-  const recText = R.remote(jb, recordPath(T, m)), rec = parseRecord(recText);
-  if (rec?.state !== 'COMPLETE') refuse(`${m}: its record reads ${rec ? rec.state : 'no Status line'}, not COMPLETE`);
-  const met = (recText.match(/^\*\*Met\*\* · (.*)$/m)?.[1] || '').split(/,\s*/).filter((x) => /^R\d+$/.test(x));
-  const base = history(R, 'HEAD', `origin/${jb}`) ?? refuse(`${m}: ${jb} shares no history with ${trancheBranch(T)}`);
-  const own = run('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, base, `origin/${jb}`]);
-  if (own.status !== 0) refuse(`${m}: ownership: ${lastLine(own)}`);
+  const jobs = ms.map((m, i) => {
+    const jb = jbs[i], recText = R.remote(jb, recordPath(T, m)), rec = parseRecord(recText);
+    if (rec?.state !== 'COMPLETE') refuse(`${m}: its record reads ${rec ? rec.state : 'no Status line'}, not COMPLETE`);
+    const met = (recText.match(/^\*\*Met\*\* · (.*)$/m)?.[1] || '').split(/,\s*/).filter((x) => /^R\d+$/.test(x));
+    const base = history(R, 'HEAD', `origin/${jb}`) ?? refuse(`${m}: ${jb} shares no history with ${trancheBranch(T)}`);
+    const own = run('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, base, `origin/${jb}`]);
+    if (own.status !== 0) refuse(`${m}: ownership: ${lastLine(own)}`);
+    return { m, jb, met, own, inherited: JSON.parse(recText.match(/^Inherited reds: (\[.*\])$/m)?.[1] || '[]'), before: moduleChecks(R, m) };
+  });
   const pre = R.g(['rev-parse', 'HEAD']);
-  const inherited = JSON.parse(recText.match(/^Inherited reds: (\[.*\])$/m)?.[1] || '[]');
-  const before = moduleChecks(R, m);
   // One commit per merge (lane HANDOFF R9: keep the repository a ledger): the merge, its regenerated artifacts, the
   // struck marks and the ruling line are made in the working tree and committed together once everything is green.
   // The checkout had no uncommitted tracked change when the merge began (refused above), so restoring every tracked
   // file to `pre` undoes exactly the merge and what regenerating wrote.
   const undo = () => { spawnSync('git', ['-C', R.root, 'merge', '--abort']); R.g(['reset', '-q', '--hard', pre]); };
-  const mg = spawnSync('git', ['-C', R.root, 'merge', '-q', '--no-ff', '--no-commit', `origin/${jb}`], { encoding: 'utf8' });
+  const mg = spawnSync('git', ['-C', R.root, 'merge', '-q', '--no-ff', '--no-commit', ...jbs.map((jb) => `origin/${jb}`)], { encoding: 'utf8' });
   if (mg.status !== 0) {
     // A conflict only in generated artifacts takes the tranche's copy; regenerating below makes it current (§14).
+    // A joint merge is git's octopus, which stops at any conflict: each job merges the tranche first.
     const gen = artifacts(R).flatMap((a) => a.paths), un = rawGit(R.dir, ['diff', '--name-only', '--diff-filter=U', '--relative']).split('\n').filter(Boolean);
-    if (!un.length || !un.every((f) => isGenerated(gen, f))) { undo(); refuse(`${m}: merge conflict${un.length ? ` in ${un.join(', ')}` : ''}; aborted, nothing changed`); }
+    if (ms.length > 1 || !un.length || !un.every((f) => isGenerated(gen, f))) { undo(); refuse(`${ms.join(', ')}: merge conflict${un.length ? ` in ${un.join(', ')}` : ''}${ms.length > 1 ? ' (a joint merge takes no conflict: each job merges the tranche first)' : ''}; aborted, nothing changed`); }
     R.g(['checkout', '-q', '--ours', '--', ...un.map(R.rel)]); R.g(['add', '--', ...un.map(R.rel)]);
   }
   // A merged change can make another module's generated artifact stale (D19 finding 1): every artifact the manifest
   // lists is regenerated and verified at each merge, in the manifest's order, and committed with it (mechanics §14).
-  const art = regenerate(R, `after merging ${m}`, false);
-  const tests = runTests(R, m);
-  const newReds = reds(tests).filter((n) => !inherited.includes(n)).map(why(tests));
-  const newFindings = fresh(moduleChecks(R, m).fails, before.fails);
-  if (art.stale.length || newReds.length || newFindings.length) {
-    undo();
-    refuse(`${m}: after the merge, ${art.stale.length ? `artifacts stale after regenerating: ${art.stale.join(', ')}; ` : ''}tests ${tests.pass}/${tests.tests}${newReds.length ? ` (new reds: ${newReds.join('; ')})` : ''}${newFindings.length ? `; new check findings: ${newFindings.join('; ')}` : ''}; the merge was undone`);
+  const art = regenerate(R, `after merging ${ms.join(', ')}`, false);
+  for (const j of jobs) {
+    j.tests = runTests(R, j.m);
+    j.newReds = reds(j.tests).filter((n) => !j.inherited.includes(n)).map(why(j.tests));
+    j.newFindings = fresh(moduleChecks(R, j.m).fails, j.before.fails);
   }
-  const reqPath = `build/requirements/${m}.md`, req = R.read(reqPath);
-  if (req && met.length) R.write(reqPath, req.split('\n').map((l) => (met.some((id) => l.includes(`**${id}**`)) ? l.replace(` *(not yet met: ${T})*`, '') : l)).join('\n'));
-  const k = ruling(R, m, `Merged ${m} (${jb}): COMPLETE; ownership ${lastLine(own).replace(/^ownership: /, '')}; tests ${tests.pass}/${tests.tests}${reds(tests).length ? ` (inherited reds ${reds(tests).length})` : ''}; checks: no new finding (${before.fails.size} before); struck ${met.join(', ') || 'none'}${o.context !== undefined ? `; BOB's context ${o.context} %` : ''}`, '§5.5; P7, P12');
-  R.g(['add', '--', ...[reqPath, 'build/rulings.md'].filter((p) => R.read(p) !== null).map(R.rel)]);
-  R.g(['commit', '-q', '--no-edit', '-m', `${k}: merged ${m} (${jb})${art.changed.length ? `; artifacts regenerated: ${art.changed.join(', ')}` : ''}`]);
-  const commit = commitPush(R, trancheBranch(T), ['build/rulings.md'], `${k}: merged ${m}`);
+  if (art.stale.length || jobs.some((j) => j.newReds.length || j.newFindings.length)) {
+    undo();
+    refuse(`${ms.join(', ')}: after the merge, ${art.stale.length ? `artifacts stale after regenerating: ${art.stale.join(', ')}; ` : ''}${jobs.map((j) => `${ms.length > 1 ? `${j.m} ` : ''}tests ${j.tests.pass}/${j.tests.tests}${j.newReds.length ? ` (new reds: ${j.newReds.join('; ')})` : ''}${j.newFindings.length ? `; new check findings: ${j.newFindings.join('; ')}` : ''}`).join('; ')}; the merge was undone`);
+  }
+  const reqPaths = [];
+  for (const j of jobs) {
+    const reqPath = `build/requirements/${j.m}.md`, req = R.read(reqPath);
+    if (req && j.met.length) R.write(reqPath, req.split('\n').map((l) => (j.met.some((id) => l.includes(`**${id}**`)) ? l.replace(` *(not yet met: ${T})*`, '') : l)).join('\n'));
+    if (req !== null) reqPaths.push(reqPath);
+  }
+  const what = jobs.map((j) => `${j.m} (${j.jb}): COMPLETE; ownership ${lastLine(j.own).replace(/^ownership: /, '')}; tests ${j.tests.pass}/${j.tests.tests}${reds(j.tests).length ? ` (inherited reds ${reds(j.tests).length})` : ''}; checks: no new finding (${j.before.fails.size} before); struck ${j.met.join(', ') || 'none'}`).join('; and ');
+  const k = ruling(R, ms.join(', '), `Merged ${ms.length > 1 ? 'jointly ' : ''}${what}${o.context !== undefined ? `; BOB's context ${o.context} %` : ''}`, '§5.5; P7, P12');
+  R.g(['add', '--', ...[...reqPaths, 'build/rulings.md'].filter((p) => R.read(p) !== null).map(R.rel)]);
+  R.g(['commit', '-q', '--no-edit', '-m', `${k}: merged ${ms.join(', ')} (${jbs.join(', ')})${art.changed.length ? `; artifacts regenerated: ${art.changed.join(', ')}` : ''}`]);
+  const commit = commitPush(R, trancheBranch(T), ['build/rulings.md'], `${k}: merged ${ms.join(', ')}`);
   R.fetch(trancheBranch(T));
   if (R.g(['rev-parse', 'HEAD']) !== R.g(['rev-parse', `origin/${trancheBranch(T)}`])) refuse('pushed, but origin does not show the merge: read it by hand');
-  return { commit, ruling: k, tests, met, regenerated: art.changed };
+  const one = jobs[0];
+  return ms.length > 1
+    ? { commit, ruling: k, jobs: jobs.map((j) => ({ module: j.m, tests: j.tests, met: j.met })), regenerated: art.changed }
+    : { commit, ruling: k, tests: one.tests, met: one.met, regenerated: art.changed };
 }
 // A ruling written by BOB, numbered by the tool from the file as it stands on the tranche (lane R17: a hand-numbered
 // K5349 repeated one `proc merge` had written). The line file holds `<module or layer> · <the ruling> · <why>` on one

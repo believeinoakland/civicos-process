@@ -481,3 +481,48 @@ test('layer start --modules starts only the named modules of a started layer; th
   assert.deepEqual(ls.specs.map((s) => [s.module, s.action]), [['beta', 'create_session']]);
   assert.deepEqual(P.status(O(w.bob)).owed, ['start beta']);
 });
+
+test('merge --with: two jobs each red alone are merged as one commit, gated each as if alone (BOB #328, RD37)', () => {
+  const w = world();
+  writeFileSync(w.plan, '## Layer 1\n\n**alpha**\n- N1 · Add `alpha/src/pair.txt`.\n\n**beta**\n- N2 · Add `beta/src/pair.txt`.\n');
+  // a generated artifact whose verify passes only when both modules' halves are present, or neither (a fleet member and
+  // the test listing the fleet)
+  const mf = join(w.bob, 'build/manifest.md');
+  const check = "node -e \"const f=require('fs').existsSync;process.exit(f('alpha/src/pair.txt')===f('beta/src/pair.txt')?0:1)\"";
+  writeFileSync(mf, readFileSync(mf, 'utf8').replace(/(\| `legacy\/dist\/legacy\.bundle\.txt` .*\|)\n/, `$1\n| \`beta/dist/pair.txt\` | beta | \`true\` | \`${check}\` |\n`));
+  g(w.bobRoot, 'commit', '-qam', 'manifest: the pair check'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  P.layerStart(O(w.bob, { layer: 1 }));
+  const J2 = 'session_01CCCCCCCCCCCCCCCCCCCCCCCC';
+  P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  P.jobStarted(O(w.bob, { module: 'beta', name: 'BETA #1', session: J2 }));
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied.\n**Met** · none\n');
+  for (const [m, s] of [['alpha', J1], ['beta', J2]]) {
+    const d = join(w.base, `job-${m}`);
+    execFileSync('git', ['clone', '-q', '-b', `job/${T}/${m}`, w.origin, d], { stdio: 'ignore' }); ident(d, m);
+    const dir = join(d, 'toy');
+    P.jobStart(O(dir, { module: m, session: s, depth: 2 }));
+    writeFileSync(join(dir, `${m}/src/pair.txt`), 'half\n');
+    g(d, 'add', '.'); g(d, 'commit', '-qm', `${m}: its half`);
+    P.jobComplete(O(dir, { module: m, reportFile: rep }));
+  }
+  assert.deepEqual(P.status(O(w.bob)).jobs.map((j) => j.needs), [['MERGE'], ['MERGE']]);
+  // alone, each is refused and undone
+  const pre = g(w.bobRoot, 'rev-parse', 'HEAD');
+  assert.throws(() => P.merge(O(w.bob, { module: 'alpha' })), /artifacts stale after regenerating: beta\/dist\/pair\.txt; .*the merge was undone/);
+  assert.equal(g(w.bobRoot, 'rev-parse', 'HEAD'), pre);
+  assert.throws(() => P.merge(O(w.bob, { module: 'alpha', with: 'alpha' })), /twice/);
+  // together: one merge commit with both jobs as parents, one ruling naming both, both jobs merged
+  const mg = P.merge(O(w.bob, { module: 'alpha', with: 'beta', context: 9 }));
+  assert.equal(g(w.bobRoot, 'rev-list', '--count', '--first-parent', `${pre}..HEAD`), '1');
+  assert.equal(g(w.bobRoot, 'rev-list', '--parents', '-n', '1', 'HEAD').split(' ').length, 4);
+  assert.deepEqual(mg.jobs.map((j) => j.module), ['alpha', 'beta']);
+  const line = readFileSync(join(w.bob, 'build/rulings.md'), 'utf8').trim().split('\n').pop();
+  assert.match(line, new RegExp(`^- ${mg.ruling} · .* · alpha, beta · Merged jointly alpha \\(job/${T}/alpha\\): COMPLETE; .*; and beta \\(job/${T}/beta\\): COMPLETE; .*; BOB's context 9 % · `));
+  assert.deepEqual(P.status(O(w.bob)).jobs.map((j) => [j.module, j.merged, j.needs]), [['alpha', true, []], ['beta', true, []]]);
+  assert.equal(g(w.bobRoot, 'rev-parse', 'HEAD'), g(w.bobRoot, 'rev-parse', `origin/tranche/${T}`));
+  // a job not COMPLETE refuses the joint merge before anything changes
+  P.jobState(O(join(w.base, 'job-beta', 'toy'), { module: 'beta', set: 'WORKING' }));
+  assert.throws(() => P.merge(O(w.bob, { module: 'alpha', with: 'beta' })), /beta: its record reads WORKING/);
+});
