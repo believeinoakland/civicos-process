@@ -2,6 +2,8 @@
 
 **Status** · Open. Chartered by BOB #314, 2026-10-26, on Bob's direction (bio K5334): "start a separate lane for the process update that is coming. Doing the update separate from BOB allows the development moving toward the alpha release the opportunity to proceed without delaying the process update. I think that there's a very high chance that the current process won't be able to do the release in it's current state."
 
+**Evidence (P21).** Every report entry this lane writes carries `Evidence:` (a command run with its result, a file:line, or a test run with its totals); state as fact only what you read or ran.
+
 ## The job
 Redesign how CivicOS is built so it stops failing (bio K5319, K5321, K5322), following Claude Code's best practices as Bob directed (K5326: "Step that must aways happen belong in code, not instructions! Follow all of these best practices."), build it, and certify it by a dry run (P3) so it is ready to replace today's process the moment T51 closes, or sooner if Bob so decides.
 

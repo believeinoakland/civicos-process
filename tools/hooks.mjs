@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { repo, readRole, unpushed, modules, parsePlan, parseRecord, status, jobPrompt, PLAN, recordPath, jobBranch, trancheBranch } from './proc.mjs';
+import { repo, readRole, isStepsList, stepsHash, STEPS_OK, unpushed, modules, parsePlan, parseRecord, status, jobPrompt, PLAN, recordPath, jobBranch, trancheBranch } from './proc.mjs';
 
 const REMOTE = 'mcp__claude-code-remote__';
 const FORCE = /\bgit\b[^|;&]*\bpush\b[^|;&]*(\s(-f|--force|--force-with-lease|--mirror|--delete|-d)\b|\s\+\S+|\s:\S)/;
@@ -59,6 +59,37 @@ export function preReason(role, input, ctx) {
   return null;
 }
 
+// BOB's last assistant message (P21). The Stop hook input carries `last_assistant_message` (Claude Code hooks docs, Stop)
+// and `transcript_path` (common field; the docs say the transcript "may lag the in-memory conversation"), so the message
+// is taken from the first when it is a string, else from the transcript: the text blocks of the assistant entries after
+// the last `user` entry. null when neither can be read.
+export function lastAssistantText(input) {
+  if (typeof input.last_assistant_message === 'string') return input.last_assistant_message;
+  if (typeof input.transcript_path !== 'string') return null;
+  let rows; try { rows = readFileSync(input.transcript_path, 'utf8').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch { return null; }
+  const text = [];
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i], m = r.message;
+    if (r.type === 'user' || m?.role === 'user') break;
+    if (r.type !== 'assistant' && m?.role !== 'assistant') continue;
+    const c = m?.content;
+    const t = typeof c === 'string' ? c : Array.isArray(c) ? c.filter((b) => b?.type === 'text').map((b) => b.text).join('\n') : '';
+    if (t) text.unshift(t);
+  }
+  return text.length ? text.join('\n') : null;
+}
+// P21: a numbered list with **bold** labels in BOB's last message is a step for Bob; the turn ends only when
+// `.git/civicos-steps-ok.json` (written by `proc steps`) is under 30 minutes old and its sha256 matches the list.
+export function stepsReason(message, root, now = Date.now()) {
+  if (!message || !isStepsList(message)) return null;
+  let ok = null; try { ok = JSON.parse(readFileSync(join(root, '.git', STEPS_OK), 'utf8')); } catch { /* none */ }
+  const how = 'steps for Bob are sent only as `node tools/proc.mjs steps --file <steps.md> --source <the page or screen code,…>` printed them (P21): run it and send its output unchanged';
+  if (!ok) return `your message has a numbered list with bold labels, but ${how} (no verified steps on record)`;
+  if (!(now - Date.parse(ok.at) < 30 * 60e3)) return `your message has a numbered list with bold labels, but the steps last verified are over 30 minutes old: ${how}`;
+  if (ok.sha256 !== stepsHash(message)) return `your message has a numbered list with bold labels that is not the list \`proc steps\` verified: ${how}`;
+  return null;
+}
+
 // The reason a turn may not end, or null.
 export function stopReason(role, ctx) {
   if (!ctx.tranche) return role === 'job' ? 'run `node tools/proc.mjs job start …` first (your START names the command)' : 'run `node tools/proc.mjs takeover …` first';
@@ -90,6 +121,7 @@ function main() {
   }
   if (ev === 'stop') {
     let why = null; try { why = stopReason(role, ctx); } catch (e) { why = `the stop check failed (${e.message}); fix the cause`; }
+    if (!why && role === 'bob') { try { why = stepsReason(lastAssistantText(input), root); } catch (e) { why = `the steps check failed (${e.message}); fix the cause`; } }
     // The same refusal three times in a row lets the turn end, so a cause the session cannot clear never loops.
     const f = join(root, '.git', 'civicos-stop.json');
     const last = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};
