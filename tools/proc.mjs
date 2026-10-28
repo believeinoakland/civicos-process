@@ -390,6 +390,7 @@ export function merge(o) {
   const by = supersededBy(R, T); if (by) refuse(supersededWhy(by, T));
   if (unpushed(R).length) refuse(`the tranche checkout has ${unpushed(R).join(', ')}`);
   R.fetch(trancheBranch(T), ...jbs);
+  trace(`${ms.join(', ')}: fetched`);
   try { R.g(['merge', '-q', '--ff-only', `origin/${trancheBranch(T)}`]); } catch { refuse(`${trancheBranch(T)} has diverged from origin`); }
   const jobs = ms.map((m, i) => {
     const jb = jbs[i], recText = R.remote(jb, recordPath(T, m)), rec = parseRecord(recText);
@@ -402,6 +403,7 @@ export function merge(o) {
   });
   // A job already merged and not re-opened since has nothing to merge (a list run, item a, may name one twice over).
   for (const j of jobs) if (isAncestor(R, `origin/${j.jb}`, 'HEAD')) refuse(`${j.m}: already merged (${j.jb} is in ${trancheBranch(T)})`);
+  trace(`${ms.join(', ')}: records, ownership and checks before, done`);
   const pre = R.g(['rev-parse', 'HEAD']);
   // One commit per merge (lane HANDOFF R9: keep the repository a ledger): the merge, its regenerated artifacts, the
   // struck marks and the ruling line are made in the working tree and committed together once everything is green.
@@ -428,7 +430,9 @@ export function merge(o) {
   }
   // A merged change can make another module's generated artifact stale (D19 finding 1): every artifact the manifest
   // lists is regenerated and verified at each merge, in the manifest's order, and committed with it (mechanics §14).
+  trace(`${ms.join(', ')}: merged in the tree; regenerating artifacts`);
   const art = regenerate(R, `after merging ${ms.join(', ')}`, false);
+  trace(`${ms.join(', ')}: artifacts done; tests and checks`);
   for (const j of jobs) {
     j.tests = runTests(R, j.m);
     j.newReds = reds(j.tests).filter((n) => !j.inherited.includes(n)).map(why(j.tests));
@@ -448,6 +452,7 @@ export function merge(o) {
   const k = ruling(R, ms.join(', '), `Merged ${ms.length > 1 ? 'jointly ' : ''}${what}${o.context !== undefined ? `; BOB's context ${o.context} %` : ''}`, '§5.5; P7, P12');
   R.g(['add', '--', ...[...reqPaths, 'build/rulings.md'].filter((p) => R.read(p) !== null).map(R.rel)]);
   R.g(['commit', '-q', '--no-edit', '-m', `${k}: merged ${ms.join(', ')} (${jbs.join(', ')})${art.changed.length ? `; artifacts regenerated: ${art.changed.join(', ')}` : ''}`]);
+  trace(`${ms.join(', ')}: committed; pushing`);
   const commit = commitPush(R, trancheBranch(T), ['build/rulings.md'], `${k}: merged ${ms.join(', ')}`);
   R.fetch(trancheBranch(T));
   if (R.g(['rev-parse', 'HEAD']) !== R.g(['rev-parse', `origin/${trancheBranch(T)}`])) refuse('pushed, but origin does not show the merge: read it by hand');
@@ -456,6 +461,9 @@ export function merge(o) {
     ? { commit, ruling: k, jobs: jobs.map((j) => ({ module: j.m, tests: j.tests, met: j.met })), regenerated: art.changed }
     : { commit, ruling: k, tests: one.tests, met: one.met, regenerated: art.changed };
 }
+// A long procedure's steps, each a timestamped line on stderr, so a slow run shows where its time went (D27: a merge
+// run's first merge landed 5 minutes after it started, against 3 s for the same run in another checkout).
+export const trace = (msg) => { if (process.env.CIVICOS_TRACE !== '0') process.stderr.write(`${new Date().toISOString()} proc: ${msg}\n`); };
 // A file of the product as `ref` holds it ('' when absent).
 const atRef = (R, ref, p = 'build/modules.json') => { try { return R.g(['show', `${ref}:${R.rel(p)}`]); } catch { return ''; } };
 // lane-process-repair item a: the COMPLETE jobs named (or every job `proc status` lists as MERGE, `ready`) merged one by
@@ -467,13 +475,17 @@ export function mergeList(o) {
   const R = repo(o.product), order = modules(R).map((m) => m.id);
   let list = String(o.modules === true ? '' : o.modules).split(',').map((x) => x.trim()).filter(Boolean);
   if (!list.length) refuse('--modules <m1,m2,…> or --modules ready');
+  trace('merge list: reading the jobs');
   if (list.length === 1 && list[0] === 'ready') list = status(o).jobs.filter((j) => j.needs.includes('MERGE')).map((j) => j.module);
+  trace(`merge list: ${list.join(', ') || 'none ready'}`);
   for (const m of list) if (!order.includes(m)) refuse(`no module ${m} in build/modules.json`);
   list = [...new Set(list)].sort((a, b) => order.indexOf(a) - order.indexOf(b));
   const merged = [], refused = [];
   for (const m of list) {
     try {
+      trace(`${m}: merge starts`);
       const r = merge({ ...o, modules: undefined, module: m });
+      trace(`${m}: merged, ${r.ruling}`);
       merged.push({ module: m, ruling: r.ruling, commit: r.commit, tests: `${r.tests.pass}/${r.tests.tests}`, regenerated: r.regenerated });
     } catch (e) {
       if (!(e instanceof Refused)) throw e;
