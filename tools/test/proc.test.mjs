@@ -669,3 +669,79 @@ test('T53 proc bob waiting writes and clears the line, and layer start clears it
   P.layerStart(O(w.bob, { layer: 1 }));
   assert.doesNotMatch(plan(), /Waiting/);
 });
+
+// T53 prep guard (Bob 2026-10-28: "always look for work", bio K5722): BOB's Stop is also refused while a job is ready to merge
+// or `[owed: BOB` entries wait in an OPEN layer that has not started. Both hold with a Waiting line (it silences only the idle reason).
+function prepWorld(planText) {
+  const w = world();
+  if (planText) writeFileSync(w.plan, planText);
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  const plan = () => readFileSync(join(w.bob, P.PLAN), 'utf8');
+  const ctx = () => ({ tranche: T, product: 'toy', root: w.bobRoot, plan: plan() });
+  const J2 = 'session_01CCCCCCCCCCCCCCCCCCCCCCCC';
+  const start = (m, s) => P.jobStarted(O(w.bob, { module: m, name: `${m.toUpperCase()} #1`, session: s }));
+  const complete = (m, s) => {
+    const rep = join(w.base, `report-${m}.md`); writeFileSync(rep, 'Applied.\n**Met** · none\n');
+    const d = join(w.base, `job-${m}`);
+    execFileSync('git', ['clone', '-q', '-b', `job/${T}/${m}`, w.origin, d], { stdio: 'ignore' }); ident(d, m);
+    P.jobStart(O(join(d, 'toy'), { module: m, session: s, depth: 2 }));
+    writeFileSync(join(d, 'toy', m, 'src', 'note.txt'), 'x\n');
+    g(d, 'add', '.'); g(d, 'commit', '-qm', `${m}: note`);
+    P.jobComplete(O(join(d, 'toy'), { module: m, reportFile: rep }));
+  };
+  return { w, plan, ctx, start, complete, J2 };
+}
+const BOTH = '## Layer 1\n\n**alpha**\n- N1 · Add a note.\n\n**beta**\n- N2 · Add a note.\n';
+
+test('T53 prep guard: a COMPLETE job not merged refuses BOB\'s Stop, naming it; merged, it lets it through', () => {
+  const { w, ctx, start, complete } = prepWorld();
+  P.layerStart(O(w.bob, { layer: 1 })); start('alpha', J1);
+  assert.equal(stopReason('bob', ctx()), null);
+  complete('alpha', J1);
+  assert.match(stopReason('bob', ctx()), /owed: merge alpha \(proc merge --module alpha\).*always look for work/);
+  P.bobWaiting(O(w.bob, { on: 'sign the lease' }));
+  assert.match(stopReason('bob', ctx()), /owed: merge alpha /);   // the Waiting line silences only the idle reason
+  P.merge(O(w.bob, { module: 'alpha' }));
+  assert.equal(stopReason('bob', ctx()), null);
+});
+
+test('T53 prep guard: a COMPLETE job whose same-layer upstream is not finished is not flagged; the upstream is', () => {
+  const { w, ctx, start, complete, J2 } = prepWorld(BOTH);
+  P.layerStart(O(w.bob, { layer: 1 })); start('alpha', J1); start('beta', J2);   // beta uses alpha
+  complete('beta', J2);                                                          // alpha still WORKING
+  assert.equal(stopReason('bob', ctx()), null);
+  complete('alpha', J1);
+  const why = stopReason('bob', ctx());
+  assert.match(why, /owed: merge alpha /);
+  assert.doesNotMatch(why, /beta/);
+  P.merge(O(w.bob, { module: 'alpha' }));
+  assert.match(stopReason('bob', ctx()), /owed: merge beta /);
+});
+
+const AHEAD = '## Layer 1\n\n**alpha**\n- N1 · Add a note.\n\n## Layer 2\n\n**stats**\n- N7 · Fold the ruling. [owed: BOB — rule on it]\n- N8 · Plain entry.\n- N9 · Another. [owed: BOB]\n';
+
+test('T53 prep guard: [owed: BOB entries in an OPEN layer not yet started refuse BOB\'s Stop, with the count and ids', () => {
+  const { w, ctx, start } = prepWorld(AHEAD);
+  P.layerStart(O(w.bob, { layer: 1 })); start('alpha', J1);
+  assert.match(stopReason('bob', ctx()), /owed: write N7's line.*owed: write N9's line.*always look for work/);
+  assert.deepEqual(P.status(O(w.bob)).acts.map((a) => a.split(' (')[0]), ["write N7's line", "write N9's line"]);
+  P.bobWaiting(O(w.bob, { on: 'sign the lease' }));
+  assert.match(stopReason('bob', ctx()), /owed: write N7's line/);
+});
+
+test('T53 prep guard: no owed mark, a started layer, or a CLOSED layer lets BOB\'s Stop through', () => {
+  const none = prepWorld(AHEAD.replace(/ \[owed: BOB[^\]]*\]/g, ''));
+  P.layerStart(O(none.w.bob, { layer: 1 })); none.start('alpha', J1);
+  assert.equal(stopReason('bob', none.ctx()), null);
+  // marks in the layer that is running are not "ahead"
+  const run = prepWorld('## Layer 1\n\n**alpha**\n- N1 · Add a note. [owed: BOB]\n');
+  P.layerStart(O(run.w.bob, { layer: 1 })); run.start('alpha', J1);
+  assert.equal(stopReason('bob', run.ctx()), null);
+  // a CLOSED layer is not open work
+  const closed = prepWorld(AHEAD);
+  P.layerStart(O(closed.w.bob, { layer: 1 })); closed.start('alpha', J1);
+  writeFileSync(join(closed.w.bob, P.PLAN), closed.plan().replace(/layer 2 OPEN/, 'layer 2 CLOSED'));
+  g(closed.w.bobRoot, 'commit', '-qam', 'layer 2 closed'); g(closed.w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  assert.equal(stopReason('bob', closed.ctx()), null);
+});
