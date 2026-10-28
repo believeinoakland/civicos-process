@@ -51,3 +51,25 @@ Evidence: `dryrun/RUNS.md` D27; tranche/D27 commits `3c68788`..`ea3f948` (D27 BO
 - **Finding, not explained:** the merge run took 5 min 27 s (launched 19:33:36.8Z, task done 19:39:06Z) while its three merge commits landed at 19:38:51, :57 and 19:39:03, and its `ready` list included gamma, COMPLETE at 19:33:43: the process stood about 5 minutes before its first merge. The same run on a local mirror of the pre-merge state takes 3.2 s (`time node tools/proc.mjs merge --modules ready …` → real 0m3.154s). The session ran nothing in that window (transcript: no tool call 19:34:18-19:39:06). Hypothesis "the machine stops background work when a turn ends" was tested in this session and is **refuted**: a background clock ticking every 10 s across two ended turns logged no gap above 10.011 s (34 ticks). Cause unknown. Since `434a9ef`, a merge run writes timestamped step lines to stderr, so the next live run names where the time goes.
 - **Held (BOB #333):** a, b, e, f stay on this branch, not offered for merge. Their findings carry into any design: a merge is serial and BOB-driven (a); the end-of-turn check needs one fetch, not one per job (b: 12.5 s → 0.45 s on bio); a new module's row must be fillable by its own first job (e: K5790's hand workaround); a superseded BOB must not write (f: K5788-K5790). In a merge-queue design, a and f disappear (no session merges), b becomes "status from pull requests", and e becomes "the job's pull request carries its own row".
 - **D27 cost** (`build/metrics/D27.csv` on tranche/D27): ALPHA 2.32 M, GAMMA 2.34 M, DELTA 2.61 M, D27 BOB #1 3.05 M tokens processed (cache read + write + input + output).
+
+## P3 · 2026-10-28 · Designs for Phase 2 and Phase 3; c, d and g carried
+
+Evidence: `DESIGN-PHASE2.md`, `DESIGN-PHASE3.md` here, each claim with its file:line or measurement; worker reports (sonnet, reading bio `tranche/T53` read-only, and GitHub's docs) checked against the lines they cite where this entry relies on them.
+
+- **Phase 2 design** (`DESIGN-PHASE2.md`), to INT-1..INT-8:
+  - **The flow:** a pull request per job, the gate in CI on `pull_request` and `merge_group`, the merge queue with merge commits, layer close from PR state, and no per-merge ruling line.
+  - **INT-2 has two arms.** The static arm refuses an empty test body: on bio it hits exactly the three money tests (R39-R41) and nothing else, of 21,284 titled tests. The sabotage arm stubs the module and lists named tests that still pass. On money it flagged 2 of 150, in 3.3 s, against 9.6 s for the normal run.
+  - **Money's gate parts:** checks 6.3 s, ownership 0.65 s, tests 10 s.
+  - **Reviewer:** a fresh Opus session per PR (R-a, recommended), or CI (R-b, pending a terms-register answer).
+  - **Bob's acts:** a ruleset with "Require merge queue", and the Actions workflow permissions. **Open and decisive:** GitHub says a merge queue "cannot be enabled with branch protection rules that use wildcard characters"; whether that binds a `tranche/*` ruleset is unstated, so test it first.
+- **Phase 3 design** (`DESIGN-PHASE3.md`):
+  - **Generated sources:** ten rebuild byte-identical from a clean checkout in 6.6 s. `newgroup/src/release.mjs` (9.2 MB) is missing from the manifest table.
+  - **Bundles:** all 8 rebuild byte-identical in 10.4 s, and newgroup in 1.8 s. `reader-container/dist` is missing from the manifest. `bio-plane/dist/SECRETS.txt` is hand-written and must not fall under a `dist/` ignore.
+  - **`release/` stays small on `main`,** because installs read it from `raw.githubusercontent.com/.../main/release` (`newgroup/src/steps/api.mjs:19`), and planes poll `main/release/NOTICE.json` (`bio-plane/src/setup.mjs:458`). Bundles become GitHub release files.
+  - **Walk shots:** an R2 bucket `bio-walks` with a 14-day lifecycle backstop, a `shots.json` index in git, and deletion by `walk-shots analysed`, which verifies the prefix is empty. The 337 MB already tracked (all from analysed T51-era walks) is removed from the tree, not uploaded.
+  - **Estimated checkout:** about 150 MB.
+  - **Unknowns:** whether the R2 token may write objects; whether tags v0.72-v0.87 exist on origin.
+  - **`deploy-plane-only.mjs`** exists only on `proto/levels-2-3` (`0f5ad81cab`). It hashes the file it is given, so a locally built bundle works unchanged.
+- **c, carried:** measured in P1 and proven in D27 (RP3). For a clean repository the same two values hold until a clone after Phase 3 is measured (DESIGN-PHASE3 §6).
+- **d, a plan only, nothing deleted:** `proc prune`'s list on bio has 253 refs (P1). The request path is bio's own `prune-branches.yml`, which re-checks every ref. In a clean repository (R4) the old repository is archived read-only and nothing need be pruned. In this one, the plan is BOB's one `proc prune --apply` at a tranche boundary. The 127 `land/*` branches, all held by the restore point, are BOB's call.
+- **g, carried:** the models rule is code on this branch (`16b53da`). The effort routes, with quotes, are in P1. The recommendation stands: a second environment with `CLAUDE_CODE_EFFORT_LEVEL=high` for BOB, ROOT and the lanes, which needs Bob's approval of one `create_environment` prompt.
