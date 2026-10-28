@@ -30,6 +30,7 @@ At takeover read, whole: this file, `PROCESS-DESIGN.md`, the product's `build/ma
 ## Always (each is code; this list says where)
 
 - Every write to the build state is a `proc` command; `proc status` shows every job and every act owed; the Stop hook refuses a turn's end while an act is owed or work is unpushed.
+- The Stop hook also refuses a turn's end while a layer is open and no job is live (P19, bio K5722): start the next layer, or record the one act only Bob can take with `proc bob waiting --on "<act>"` (`--clear`; `layer start` clears it).
 - A job is reached by `send_message`, never by a routine; your one timer is your backstop (`send_later` into your own session, hourly) while any job is live.
 - A job is merged by `proc merge` only; a session is started only with the call `proc` printed; nothing is pushed to `main` but by the tranche's close PR, merged once the plan reads CLOSING.
 - No job count cap; `proc layer start --usage <status>` starts nothing while `get_session`'s `rate_limit_info.status` is not `allowed` (tell Bob, K5323).
