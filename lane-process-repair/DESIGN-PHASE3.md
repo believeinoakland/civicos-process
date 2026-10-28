@@ -76,7 +76,33 @@ Most are imported by product code at runtime and by tests: `member-roster/index.
 - **Measured, a live defect:** `git ls-remote --tags origin` lists tags v0.5.0 to **v0.71.0** only. **None of v0.72.0 to v0.87.0 exists.** So every `RELEASE_TAGGED` URL for a release after 0.71 is a 404 today.
   - Sessions cannot push tags: the git proxy answers 403 (bio `rulings-active.md` §2).
   - The new path fixes this going forward, because the release workflow creates the tag with the GitHub release.
-  - The missing 16 tags are an entry for BOB: created by a workflow on the release commits, or by Bob's act.
+  - The missing 16 tags are part of Phase 3 (BOB #333, K5797), in two parts, both run by a workflow once it is on `main`:
+    - The release workflow creates each new release's tag `v<version>` with its GitHub release.
+    - A one-time backfill workflow creates the 16 tags below, each at the commit given, then verifies that `git show v<version>:release/RELEASE.json` names that version.
+    - Tag pushes from sessions stay refused and are never worked around by another route.
+  - BOB #333 confirmed 79 tags ending at v0.71.0, against `RELEASE.json` 0.87.0. The tagged fallback is used at `newgroup/src/index.mjs:167` (when `main`'s release is not the installer's own version), so such an install fails today.
+  - **The 16 version-to-commit pairs.** For each version found on `main`, the commit is the first commit of `main`'s history whose `release/RELEASE.json` names it (Evidence: `git log --reverse --format=%H origin/main -- release/RELEASE.json`, then each commit's `version`). 0.77.0 and 0.80.0 never reached `main`: they were cut and signed on their `dist/cut-*` branches, `main`'s pointer passed them, and their commits are not ancestors of `origin/main` (`git merge-base --is-ancestor` fails). Their tags go on their cut branch's tip, whose `release/RELEASE.json` names the version (Evidence: `git show origin/dist/cut-<v>:release/RELEASE.json`).
+
+    | version | commit | date | where |
+    | --- | --- | --- | --- |
+    | 0.72.0 | `b942d97308195a644f5c2ecb3ba79967ce7548ef` | 2026-09-23 | main |
+    | 0.73.0 | `d25684919e6748b92acbc080bca8dc2141273c44` | 2026-09-23 | main |
+    | 0.74.0 | `cacebb12b7b42f4825238348c4f1e834e9a2c168` | 2026-09-23 | main |
+    | 0.75.0 | `90bd64518626f0f146660a128738c24685a4a501` | 2026-09-23 | main |
+    | 0.76.0 | `4494f725e017b557336902012b263c49b29afe5e` | 2026-09-23 | main |
+    | 0.77.0 | `6b0beb8e7d321fe96d64de5e5b3aefa291b41599` | 2026-09-23 | `dist/cut-0.77.0` tip; its commit says "its POINTER IS HELD for BOB (migration)" |
+    | 0.78.0 | `dfe9858c89810a49422ee071c4f0bf92c0c2f297` | 2026-09-23 | main |
+    | 0.79.0 | `dd324152c9d999b9a0cc8cadc99947c15bebdd88` | 2026-09-24 | main |
+    | 0.80.0 | `ab619872c9efcac8546b84330ef8a039d08cfde7` | 2026-10-06 | `dist/cut-0.80.0` tip; the cut itself is `e34406635f` |
+    | 0.81.0 | `9d4c5c23fb9fa46da62cfdb066bb1517f6fb8b26` | 2026-10-07 | main |
+    | 0.82.0 | `347fb4b192a3158f8c0c033826f5693ffadbad9f` | 2026-10-12 | main |
+    | 0.83.0 | `68814d57d6eccfaa9246de7fd77c31324e6726e9` | 2026-10-12 | main |
+    | 0.84.0 | `334facfb776ecfd741be05f6add72963f90e1462` | 2026-10-14 | main |
+    | 0.85.0 | `d530192fe543a58be5a141a61199d47fb2bb06a8` | 2026-10-15 | main |
+    | 0.86.0 | `27a7b94224cc822c7ed2743cf50b4e46e74ad3e8` | 2026-10-20 | main |
+    | 0.87.0 | `0f952c7a52e253bf6dac2ac5b6816b71ec2a0ae1` | 2026-10-27 | main |
+
+  - **Open for BOB:** the two branch-only releases. Whether 0.77.0 and 0.80.0 were ever installed is unknown. Tagging them costs nothing, and makes every signed release reachable by its tag.
 - **Kept on `main`:** `release/RELEASE.json`, `NOTICE.json` and `notes/`. Everything else in `release/` becomes a release file of `v<version>`.
 
 ## 5. Walk screenshots: R2, indexed in git, deleted by code once the walk is analysed
