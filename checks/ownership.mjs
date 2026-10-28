@@ -1,5 +1,5 @@
 // Check 3, ownership (PROCESS-MECHANICS §8.3, §6; P7): a module job's diff touches only its module's
-// paths and tests and its own job record. The one exception (mechanics §12.2): a module extracted
+// paths and tests and its own job record; a generated artifact the manifest lists (mechanics §14) is not judged. The one exception (mechanics §12.2): a module extracted
 // from a legacy module may remove the moved code from that legacy module's files, and may rewire the
 // legacy code that called it: an added line there is either part of an import (or re-export) from the
 // job's own paths, or in a block of added lines that uses a name so imported. The legacy module's net
@@ -8,7 +8,7 @@
 // removal, not an addition (bio K140): it is listed as EDITED, neither judged nor counted as added.
 // Usage: node checks/ownership.mjs <product-root> <module> <base-ref> [head-ref]
 import { posix } from 'node:path';
-import { readModules, git, pathMatches, report } from './lib.mjs';
+import { readModules, git, pathMatches, report, generatedPaths, isGenerated } from './lib.mjs';
 
 // Static imports and re-exports (`import … from`, `export … from`, `import '…'`).
 const STATEMENT = /(^|\n)([ \t]*)(import|export)(\s*[\w$*{}\s,]*?\s*from\s*|\s*)(['"])([^'"\n]+)\5/g;
@@ -136,6 +136,9 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   const own = [...(m.paths || []), ...(m.tests || [])];
   const record = new RegExp(`^build/jobs/[A-Z]+\\d+[a-z]?/${moduleId.replace(/[-]/g, '\\-')}\\.md$`);
   const failures = [], added = [], edited = [];
+  // A generated artifact (mechanics §14) is no module's hand-written code: its committed copy is always the one the
+  // merge regenerates, so a job's copy of it is never judged (bio K5583's revert of the word rows, BOB #327).
+  const gen = generatedPaths(root);
   const tally = new Map(legacies.map((l) => [l.id, { added: 0, removed: 0 }]));
   // A job's checkout often has only the remote-tracking branch (found in the D1 dry run): fall back to origin/<base>.
   let ref = base;
@@ -143,7 +146,7 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   const lines = git(root, ['diff', '--numstat', '--no-renames', '--relative', `${ref}...${head}`]).split('\n').filter(Boolean);
   for (const line of lines) {
     const [a, r, file] = line.split('\t');
-    if (own.some((p) => pathMatches(p, file)) || record.test(file)) continue;
+    if (own.some((p) => pathMatches(p, file)) || record.test(file) || isGenerated(gen, file)) continue;
     const legacy = legacies.find((l) => (l.paths || []).some((p) => pathMatches(p, file)));
     if (legacy) {
       const t = tally.get(legacy.id);
