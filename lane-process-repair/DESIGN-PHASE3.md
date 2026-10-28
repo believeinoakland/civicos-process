@@ -102,7 +102,7 @@ Most are imported by product code at runtime and by tests: `member-roster/index.
     | 0.86.0 | `27a7b94224cc822c7ed2743cf50b4e46e74ad3e8` | 2026-10-20 | main |
     | 0.87.0 | `0f952c7a52e253bf6dac2ac5b6816b71ec2a0ae1` | 2026-10-27 | main |
 
-  - **Open for BOB:** the two branch-only releases. Whether 0.77.0 and 0.80.0 were ever installed is unknown. Tagging them costs nothing, and makes every signed release reachable by its tag.
+  - **Decided (BOB #333, P17):** all 16 are tagged, 0.77.0 and 0.80.0 on their `dist/cut` tips. It costs nothing, and any install of them works.
 - **Kept on `main`:** `release/RELEASE.json`, `NOTICE.json` and `notes/`. Everything else in `release/` becomes a release file of `v<version>`.
 
 ## 5. Walk screenshots: R2, indexed in git, deleted by code once the walk is analysed
