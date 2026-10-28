@@ -214,6 +214,22 @@ export function takeover(o) {
   for (const u of unplacedBobRulings(R)) acts.push(`give Bob's ruling a home (rulings-active.md, build/rulings-product/, build/situations/, or bob-rulings-placed.txt): ${u}`);
   return { commit, previous: before.bob, owed: before.owed, jobs: st.jobs, size: st.size, acts };
 }
+// The acts BOB can take now, from git state (Bob 2026-10-28, bio K5722: "always look for work"): merge a COMPLETE job whose
+// same-layer upstream (`uses`) is merged or has no job this tranche; write the line of each plan entry marked `[owed: BOB`
+// in an OPEN layer with no job started. A COMPLETE job still waiting on an unfinished upstream is not listed (the upstream is the work).
+function prepActs(R, p, jobs) {
+  const mods = modules(R), layerOf = (id) => mods.find((x) => x.id === id)?.layer;
+  const done = (k) => k.merged && k.state === 'COMPLETE';
+  const acts = jobs.filter((j) => j.needs.includes('MERGE') && !(mods.find((x) => x.id === j.module)?.uses || []).some((u) => layerOf(u) === layerOf(j.module) && jobs.some((k) => k.module === u && !done(k))))
+    .map((j) => `merge ${j.module} (proc merge --module ${j.module})`);
+  const text = R.read(PLAN) || '';
+  for (const l of p.layers) {
+    if (l.state !== 'OPEN' || jobs.some((j) => layerOf(j.module) === l.layer)) continue;
+    const sec = text.split(/^## /m).find((x) => new RegExp(`^Layer ${l.layer}\\b`).test(x)) || '';
+    for (const line of sec.split('\n')) if (line.includes('[owed: BOB')) acts.push(`write ${line.match(/^\s*[-*] (\S+)/)?.[1] || line.trim().slice(0, 20)}'s line (layer ${l.layer} is ahead)`);
+  }
+  return acts;
+}
 // Every job's state, read from git; quiet jobs; owed acts; documents over or near their limits (mechanics §17: listed for
 // BOB to prune, never a gate on anyone, bio K5123). `gate` adds the reasons this BOB may not end a turn.
 export function status(o) {
@@ -237,7 +253,7 @@ export function status(o) {
     return { ...j, state, merged, needs };
   });
   const gate = [...p.owed.map((x) => `owed: ${x}`), ...unpushed(R)];
-  return { state: p.state, round: p.round, layers: p.layers, jobs, owed: p.owed, size: sizeLines(R.dir), gate };
+  return { state: p.state, round: p.round, layers: p.layers, jobs, owed: p.owed, acts: prepActs(R, p, jobs), size: sizeLines(R.dir), gate };
 }
 // Every ruling of the last `days` that records Bob's own words has a home a session reads (bio K5311, K5323): it is cited
 // in rulings-active.md, a product rulings file, a product situation, or build/plan/bob-rulings-placed.txt (`K<n> · where`,

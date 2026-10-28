@@ -109,6 +109,22 @@ test('coverage: an id named only by another module\'s test does not count', () =
   assert.deepEqual(checkCoverage(root, ['a']).failures, ['a: 1 of 2 live ids named by no test: R2']);
 });
 
+const AHEAD = { 'build/plan/current.md': '# Plan T9\n\n**Status** · OPEN\n', 'build/requirements/a.md': REQ('- **R1** one\n- **R3** two *(not yet met: T8)*\n- **R4** four') };
+
+test('coverage: an id marked not yet met for this tranche, its module\'s job not started, is ahead: counted, never a failure (P18)', () => {
+  const { root } = repo(base({ ...AHEAD, 'build/requirements/a.md': REQ('- **R1** one\n- **R3** two *(not yet met: T9)*') }));
+  const r = checkCoverage(root, ['a']);
+  assert.deepEqual(r.failures, []);
+  assert.match(r.summary, /1 written ahead/);
+});
+
+test('coverage: the same id fails once the module\'s job record exists; an unmarked or other-tranche id fails while ahead', () => {
+  const started = repo(base({ ...AHEAD, 'build/requirements/a.md': REQ('- **R1** one\n- **R3** two *(not yet met: T9)*'), 'build/jobs/T9/a.md': '**Status** · session_01AAAAAAAAAAAAAAAAAAAAAAAA · depth 1 · WORKING\n' }));
+  assert.deepEqual(checkCoverage(started.root, ['a']).failures, ['a: 1 of 2 live ids named by no test: R3']);
+  const unmarked = repo(base(AHEAD));
+  assert.deepEqual(checkCoverage(unmarked.root, ['a']).failures, ['a: 2 of 3 live ids named by no test: R3 R4']);
+});
+
 test('ownership: own paths, own tests and own job record pass; another module\'s file fails', () => {
   const r = repo(base());
   r.commit({ 'src/b/more.mjs': 'x', 'test/b/more.test.mjs': 'x', 'build/jobs/T1/b.md': 'x', 'build/jobs/D1/b.md': 'x', 'build/jobs/T51b/b.md': 'x' });
