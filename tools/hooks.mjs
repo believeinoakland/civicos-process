@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { repo, readRole, isStepsList, stepsHash, STEPS_OK, unpushed, modules, parsePlan, parseRecord, status, jobPrompt, PLAN, recordPath, jobBranch, trancheBranch } from './proc.mjs';
+import { repo, readRunning, readRole, isStepsList, stepsHash, STEPS_OK, unpushed, modules, parsePlan, parseRecord, status, jobPrompt, PLAN, recordPath, jobBranch, trancheBranch } from './proc.mjs';
 
 const REMOTE = 'mcp__claude-code-remote__';
 const FORCE = /\bgit\b[^|;&]*\bpush\b[^|;&]*(\s(-f|--force|--force-with-lease|--mirror|--delete|-d)\b|\s\+\S+|\s:\S)/;
@@ -14,6 +14,8 @@ const PUSH = /\bgit\b[^|;&]*\bpush\b([^|;&]*)/;
 // Shell redirections (`2>&1`, `&>f`, `>f`, `>>f`, `2>f`, `<f`) are not refs: removed before the push is read.
 const REDIRECT = /(\d*>>?&\d+-?|&>>?\s*[^\s|;&]+|\d*>>?\s*[^\s|;&]+|<+\s*[^\s|;&]+)/g;
 
+// P13, bio K4207: these procedures run for minutes; in the foreground the session cannot answer a message meanwhile.
+const LONG_PROC = /(?:^|[\s;&|(])node\s+(?:\S+\/)?proc\.mjs\s+(merge|layer\s+close|job\s+complete|tests)\b/; // a run of it, not a mention (pgrep, grep)
 // A session titled "<WORD> #n" is a job's only when the word names a module; a lane's successor (PROCESS-REDESIGN #3)
 // is not (lane R12). When the module list cannot be read or is empty, every such title is judged a job's: the hook fails closed.
 function isModule(m, ctx) {
@@ -43,6 +45,8 @@ export function preReason(role, input, ctx) {
   if (tool === 'Bash') {
     const c = String(ti.command || '').replace(REDIRECT, ' ');
     if (FORCE.test(c)) return 'a force push, mirror or remote delete is never done (standing safety rule)';
+    const lp = c.match(LONG_PROC);
+    if (lp && ti.run_in_background !== true) return `\`proc ${lp[1].replace(/\s+/g, ' ')}\` runs for minutes and a message reaches you only between tool calls (P13; bio K4207): run it with run_in_background true, then end your turn or do other work until the task's completion notice arrives`;
     const push = c.match(PUSH);
     if (push && /(^|\s|:)(refs\/heads\/)?main(\s|$)/.test(push[1])) return 'nothing is pushed to main: the tranche reaches main only by its close PR (mechanics §4, §5.7)';
     if (role === 'job' && push && ctx.tranche) {
@@ -105,6 +109,10 @@ export function stepsReason(message, root, now = Date.now()) {
 // The reason a turn may not end, or null.
 export function stopReason(role, ctx) {
   if (!ctx.tranche) return role === 'job' ? 'run `node tools/proc.mjs job start …` first (your START names the command)' : 'run `node tools/proc.mjs takeover …` first';
+  // A live background `proc` command ends the turn whatever else stands: it owns the uncommitted changes, a MERGE or owed act,
+  // and its completion wakes the session (P13; bio K4207). A marker whose pid is dead is stale: it blocks nothing, but names itself below.
+  const run = readRunning(ctx.root);
+  if (run?.alive) return null;
   const R = repo(join(ctx.root, ctx.product || '.'));
   const why = unpushed(R);
   if (role === 'job') {
@@ -113,8 +121,12 @@ export function stopReason(role, ctx) {
   } else {
     why.push(...status({ product: join(ctx.root, ctx.product || '.'), tranche: ctx.tranche }).gate.filter((g) => g.startsWith('owed: ')));
   }
+  if (why.length && run) why.push(`a stale run is on record (${run.cmd || 'unknown'}${run.pid ? `, pid ${run.pid}` : ''}${run.at ? `, started ${run.at}` : ''}) and its process is gone: inspect what it left (git status, git log), then remove ${run.file}`);
   return why.length ? why.join('; ') : null;
 }
+
+// The Stop hook's loop breaker: consecutive refusals are counted whatever their text (a merge changes the reason as it goes).
+export function refusalCount(last, why) { return why ? (last?.why ? (last.n || 0) + 1 : 1) : 0; }
 
 function main() {
   const [role, ev] = process.argv.slice(2);
@@ -133,7 +145,7 @@ function main() {
     // The same refusal three times in a row lets the turn end, so a cause the session cannot clear never loops.
     const f = join(root, '.git', 'civicos-stop.json');
     const last = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};
-    const n = why && last.why === why ? last.n + 1 : 1;
+    const n = refusalCount(last, why);
     try { writeFileSync(f, JSON.stringify({ why, n })); } catch { /* not a git checkout */ }
     if (why && n <= 3) console.log(JSON.stringify({ decision: 'block', reason: `PROCESS: ${why}` }));
   }

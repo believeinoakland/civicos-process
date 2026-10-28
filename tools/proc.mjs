@@ -30,7 +30,7 @@
 //         steps --file <steps.md> --source <p1,p2,…> [--product <dir>] (P20: a step for Bob is sent only as this printed it; needs no --tranche)
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, openSync, closeSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, openSync, closeSync, rmSync, linkSync } from 'node:fs';
 import { totalmem, availableParallelism } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -868,6 +868,41 @@ function args(argv) {
   }
   return o;
 }
+// P13, bio K4207: a long procedure runs as a session-tracked background task. While one runs, `civicos-running.json`
+// `{pid, cmd, at}` in `.git` of the product repository lets the Stop hook end the
+// turn (the task's completion wakes the session) and makes every other writing command refuse until it ends.
+export const BACKGROUND = ['merge', 'layer close', 'job complete', 'tests'];
+export const READ_ONLY = ['status', 'addr', 'sizes', 'footprint', 'history', 'steps'];
+export const RUNNING = 'civicos-running.json';
+export const runningPath = (root) => join(root, '.git', RUNNING);
+// null when there is no marker; else the record plus `alive` (its pid exists) and `file`. An unreadable marker is dead.
+export function readRunning(root) {
+  const file = runningPath(root);
+  if (!existsSync(file)) return null;
+  let m = {}; try { m = JSON.parse(readFileSync(file, 'utf8')) || {}; } catch { /* corrupt */ }
+  let alive = false; if (Number.isInteger(m.pid) && m.pid > 0) { try { process.kill(m.pid, 0); alive = true; } catch (e) { alive = e.code === 'EPERM'; } }
+  return { ...m, alive, file };
+}
+// Create the marker exclusively and whole: written to a temporary file and hard-linked into place, so a second create
+// fails (EEXIST) and a reader never sees a half-written marker (an open with 'wx' would show an empty file for a moment).
+export function createRunning(root, rec) {
+  const file = runningPath(root), tmp = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}`;
+  writeFileSync(tmp, JSON.stringify(rec));
+  try { linkSync(tmp, file); return true; } catch (e) { if (e.code === 'EEXIST') return false; throw e; } finally { rmSync(tmp, { force: true }); }
+}
+export function withRunning(name, o, fn) {
+  if (READ_ONLY.includes(name)) return fn(o);
+  let root; try { root = repo(o.product).root; } catch { return fn(o); }
+  for (let tries = 0; ; tries++) {
+    const cur = readRunning(root);
+    if (cur?.alive) refuse(`a procedure is running (${cur.cmd}, pid ${cur.pid}): wait for its completion notice`);
+    if (cur) rmSync(cur.file, { force: true });   // a stale marker (dead pid) does not block
+    if (!BACKGROUND.includes(name)) return fn(o);
+    if (createRunning(root, { pid: process.pid, cmd: name, at: new Date().toISOString() })) break;
+    if (tries >= 2) refuse('a procedure is starting: try again once it ends');
+  }
+  try { return fn(o); } finally { rmSync(runningPath(root), { force: true }); }
+}
 const COMMANDS = {
   takeover, status, addr, handoff, merge, shims, footprint, history: historyCmd, tests: testsCmd, ruling: rulingCmd, steps: stepsCmd,
   'round open': roundOpen, 'round close': roundClose, 'layer start': layerStart, 'layer close': layerClose,
@@ -880,7 +915,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     const fn = COMMANDS[name] ?? refuse(`unknown command "${o._.join(' ')}"; see the header of tools/proc.mjs`);
     if (!o.tranche && name !== 'shims' && name !== 'sizes' && name !== 'steps') refuse('--tranche <T>');
-    const r = fn(o);
+    const r = withRunning(name, o, fn);
     console.log(typeof r === 'string' ? r : JSON.stringify(r, null, 2));
     if (name === 'status' && o.gate && r.gate.length) process.exitCode = 1;
   } catch (e) { console.error(`proc: ${e instanceof Refused ? 'refused: ' : ''}${e.message}`); process.exitCode = 1; }

@@ -3,12 +3,13 @@
 // refusal the design names (lane-process-redesign/DESIGN.md §2.4, §2.5).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as P from '../proc.mjs';
+import * as H from '../hooks.mjs';
 import { preReason, stopReason, stepsReason, lastAssistantText } from '../hooks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
@@ -731,4 +732,123 @@ test('partial-read hook: a Read with offset or limit, or a shell cut in the same
   assert.equal(r('Bash', { command: 'sed -i s/a/b/ build/requirements/money.md' }), null);
   assert.equal(r('Bash', { command: 'grep -n R30 build/requirements/money.md' }), null);
   assert.equal(r('Bash', { command: 'head -3 build/jobs/T53/money.md' }), null);
+});
+
+// ---- P13, bio K4207: a long procedure runs as a background task ----
+
+test('background hook: proc merge, layer close, job complete and tests are refused in the foreground; controls pass (P13; bio K4207)', () => {
+  const bash = (role, command, ti = {}) => preReason(role, { tool_name: 'Bash', tool_input: { command, ...ti } }, { tranche: T, module: 'alpha' });
+  for (const role of ['bob', 'job'])
+    for (const c of ['merge --module alpha', 'layer close --layer 1', 'job complete --report-file r.md', 'tests --module alpha']) {
+      const cmd = `node /home/user/civicos-process/tools/proc.mjs ${c} --product bio --tranche ${T}`;
+      assert.match(bash(role, cmd), /P13; bio K4207.*run_in_background true/, `${role} ${c}`);
+      assert.match(bash(role, cmd, { run_in_background: false }), /run_in_background true/);
+      assert.match(bash(role, `cd x && ${cmd} 2>&1 | tail -5`), /run_in_background true/);
+      assert.equal(bash(role, cmd, { run_in_background: true }), null, `${role} ${c} in the background`);
+    }
+  // controls: other commands, and a name that is only a part of another command
+  for (const c of ['status --gate', 'job state --set "WAITING: x"', 'layer start --layer 1', 'job started --module a', 'steps --file s.md', 'shims'])
+    assert.equal(bash('bob', `node tools/proc.mjs ${c} --tranche ${T}`), null, c);
+  assert.equal(bash('bob', 'cat roles/BOB.md'), null);
+  assert.equal(bash('job', 'node --test tools/test/proc.test.mjs'), null);
+  // a mention of the command is not a run of it
+  assert.equal(bash('bob', 'pgrep -f "proc.mjs merge" || echo none'), null);
+  assert.equal(bash('bob', 'grep -n "proc.mjs merge" roles/BOB.md'), null);
+});
+
+test('background marker: written while a long command runs, removed after it ends, also after a refusal; not written for other commands', () => {
+  const w = world(), f = join(w.bobRoot, '.git', P.RUNNING);
+  assert.deepEqual(P.BACKGROUND, ['merge', 'layer close', 'job complete', 'tests']);
+  let seen = null;
+  const r = P.withRunning('tests', { product: w.bob }, () => { seen = JSON.parse(readFileSync(f, 'utf8')); return 'done'; });
+  assert.equal(r, 'done');
+  assert.equal(seen.pid, process.pid); assert.equal(seen.cmd, 'tests'); assert.ok(!Number.isNaN(Date.parse(seen.at)));
+  assert.equal(existsSync(f), false);
+  assert.throws(() => P.withRunning('merge', { product: w.bob }, () => { assert.ok(existsSync(f)); P.merge({ product: w.bob, tranche: T, module: 'nope' }); }), /refused|nope|module|job/i);
+  assert.equal(existsSync(f), false);
+  P.withRunning('status', { product: w.bob }, () => { assert.equal(existsSync(f), false); });
+  // the command line: a refusal ends the command and leaves no marker
+  const cli = spawnSync('node', [join(HERE, '..', 'proc.mjs'), 'job', 'complete', '--product', w.bob, '--tranche', T], { encoding: 'utf8' });
+  assert.notEqual(cli.status, 0);
+  assert.equal(existsSync(f), false);
+});
+
+test('background stop: a live pid in .git/civicos-running.json lets the turn end; a dead pid is ignored', () => {
+  const w = world();
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  P.layerStart(O(w.bob, { layer: 1, usage: 'allowed_warning' }));
+  const ctx = () => ({ ...P.readRole(w.bobRoot), root: w.bobRoot, plan: readFileSync(join(w.bob, P.PLAN), 'utf8') });
+  const f = join(w.bobRoot, '.git', P.RUNNING);
+  assert.match(stopReason('bob', ctx()), /owed: start alpha/);
+  writeFileSync(f, JSON.stringify({ pid: process.pid, cmd: 'merge', at: new Date().toISOString() }));
+  assert.equal(stopReason('bob', ctx()), null);
+  const dead = spawnSync('node', ['-e', '0']).pid;   // a process that has exited
+  writeFileSync(f, JSON.stringify({ pid: dead, cmd: 'merge', at: new Date().toISOString() }));
+  assert.match(stopReason('bob', ctx()), /owed: start alpha/);
+  writeFileSync(f, 'not json');
+  assert.match(stopReason('bob', ctx()), /owed: start alpha/);
+  rmSync(f);
+  assert.match(stopReason('bob', ctx()), /owed: start alpha/);
+});
+
+// ---- P13: exclusion, both Stop cases, the loop breaker ----
+
+test('background exclusion: a live marker refuses every other writing command and a second long one; a stale marker is cleared; reads pass', () => {
+  const w = world(), f = P.runningPath(w.bobRoot);
+  const cli = (...a) => spawnSync('node', [join(HERE, '..', 'proc.mjs'), ...a, '--product', w.bob, '--tranche', T], { encoding: 'utf8' });
+  const line = join(w.base, 'line.txt'); writeFileSync(line, 'x · ruling · why\n');
+  writeFileSync(f, JSON.stringify({ pid: process.pid, cmd: 'merge', at: new Date().toISOString() }));
+  for (const c of [['ruling', '--line-file', line], ['merge', '--module', 'alpha'], ['tests', '--modules', 'alpha'], ['round', 'close']]) {
+    const r = cli(...c);
+    assert.notEqual(r.status, 0, c.join(' '));
+    assert.match(r.stderr, new RegExp(`a procedure is running \\(merge, pid ${process.pid}\\): wait for its completion notice`), c.join(' '));
+  }
+  assert.throws(() => P.withRunning('layer close', { product: w.bob }, () => 'x'), /a procedure is running \(merge/);
+  for (const c of [['status'], ['sizes'], ['addr', '--bob']]) assert.doesNotMatch(cli(...c).stderr, /procedure is running/, c.join(' '));
+  assert.ok(existsSync(f), 'the live marker is untouched by a refusal');
+  rmSync(f);
+  assert.doesNotMatch(cli('ruling', '--line-file', line).stderr, /procedure is running/);   // allowed after
+  const dead = spawnSync('node', ['-e', '0']).pid;
+  writeFileSync(f, JSON.stringify({ pid: dead, cmd: 'merge', at: 'x' }));
+  assert.equal(P.withRunning('tests', { product: w.bob }, () => { assert.equal(JSON.parse(readFileSync(f, 'utf8')).pid, process.pid); return 1; }), 1);
+  assert.equal(existsSync(f), false);
+  writeFileSync(f, 'garbage');
+  assert.equal(P.withRunning('ruling', { product: w.bob }, () => 2), 2);   // an unreadable marker is stale
+  assert.equal(existsSync(f), false);
+});
+
+test("background marker create is exclusive: a second create fails and leaves the first whole", () => {
+  const w = world();
+  assert.equal(P.createRunning(w.bobRoot, { pid: process.pid, cmd: 'merge', at: 'a' }), true);
+  assert.equal(P.createRunning(w.bobRoot, { pid: 1, cmd: 'tests', at: 'b' }), false);
+  assert.equal(JSON.parse(readFileSync(P.runningPath(w.bobRoot), 'utf8')).cmd, 'merge');
+  assert.deepEqual(P.readRunning(w.bobRoot).alive, true);
+});
+
+test('background stop: a live marker ends the turn with uncommitted changes; a dead one with uncommitted changes is refused naming the stale run', () => {
+  const w = world();
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  const ctx = () => ({ ...P.readRole(w.bobRoot), root: w.bobRoot, plan: readFileSync(join(w.bob, P.PLAN), 'utf8') });
+  writeFileSync(join(w.bob, P.PLAN), readFileSync(join(w.bob, P.PLAN), 'utf8') + '\nedit\n');
+  assert.match(stopReason('bob', ctx()), /uncommitted/);
+  const f = P.runningPath(w.bobRoot);
+  writeFileSync(f, JSON.stringify({ pid: process.pid, cmd: 'merge', at: 'now' }));
+  assert.equal(stopReason('bob', ctx()), null);
+  const dead = spawnSync('node', ['-e', '0']).pid;
+  writeFileSync(f, JSON.stringify({ pid: dead, cmd: 'merge', at: '2026-10-28T10:00:00Z' }));
+  const why = stopReason('bob', ctx());
+  assert.match(why, /uncommitted/);
+  assert.match(why, new RegExp(`a stale run is on record \\(merge, pid ${dead}, started 2026-10-28T10:00:00Z\\).*inspect`));
+  g(w.bobRoot, 'checkout', '-q', '--', '.');
+  assert.doesNotMatch(String(stopReason('bob', ctx())), /stale run/);   // nothing else wrong: the stale file is ignored
+});
+
+test('stop loop breaker counts consecutive refusals whatever their text', () => {
+  let last = {};
+  const seq = ['uncommitted changes', '2 commit(s) not pushed', 'owed: merge x', 'owed: merge y'];
+  const ns = seq.map((why) => { const n = H.refusalCount(last, why); last = { why, n }; return n; });
+  assert.deepEqual(ns, [1, 2, 3, 4]);
+  assert.equal(H.refusalCount(last, null), 0);
+  assert.equal(H.refusalCount({ why: null, n: 0 }, 'a'), 1);
 });
