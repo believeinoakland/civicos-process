@@ -333,3 +333,17 @@ Its seed pointed `origin/main` at the run's base, which the layer close would ha
 | RD31 | `proc layer close` at its first attempt, 3.6 s, with R98 (old) present; `origin/main` the pinned base | PROVEN (D25 finding 1 fixed) |
 
 Noted: BOB ran a plain `git fetch origin` of its own, which moved the dry run's pinned `origin/main` (in a product `origin/main` is the real `main`); it restored it before the close and said so.
+
+## D27 · 2026-10-28 · the process repair's Phase 1 (PROCESS-REPAIR #1)
+
+`tranche/D27` from `dryrun-main/D27` (`a5c7976`: `64025b7` plus a seed of alpha and two new modules, gamma and delta, on adjacent empty one-line rows of `modules.json`). D27 BOB #1 (`session_018BhcegBQhMDe3ZuS4tV1VQ`, sonnet, depth 3), ALPHA #1, GAMMA #1, DELTA #1 (haiku); the lane played ROOT and, at the end, BOB #2.
+
+| path | evidence | result |
+| --- | --- | --- |
+| RP1 one background run merges every COMPLETE job, in modules.json order | `proc merge --modules ready` (background): K1 alpha `9278bf5` 5/5, K2 gamma `972ecb1` 1/1, K3 delta `215a126` 1/1; refused none | PROVEN; finding 1 |
+| RP2 the Stop check: one fetch, no deepening | the hook's own command, 0.63 s; it refused one turn end while three archives were owed | PROVEN (bio: 12.5 s → 0.45 s, lane HANDOFF P1) |
+| RP3 sessions on whole history, large files left out | `get_session` of all four sessions: `clone_options {depth: 1000000, blob_limit_kb: 100}` | PROVEN |
+| RP5 a new module's first job fills its own row; two such rows meet at merge | `4082d16` (gamma), `c3aae34` (delta); both rows on the tranche after K2, K3 | PROVEN |
+| RP6 a superseded BOB writes nothing | after `3d17767` (the lane as BOB #2): BOB #1's `proc ruling` exit 1, "BOB #2 (session_018Bhced86RzzxLW63fnTCmx) has taken over tranche D27 …"; `status.superseded` named BOB #2 | PROVEN |
+
+**Finding 1 (open):** the merge run's process stood about 5 minutes before its first merge (launched 19:33:37, merges 19:38:51-19:39:03); locally the same run is 3.2 s. Not a machine pause (refuted in the lane's session, HANDOFF P2). Merge runs now trace their steps (`434a9ef`). RP4 (prune) and RP7 (models) are by fixture only. Cost: 10.3 M tokens processed. Wall time 19:31 to 19:45 UTC.
