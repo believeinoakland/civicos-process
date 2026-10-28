@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -561,4 +561,66 @@ test('job complete --with: a job red alone is tested on its branch merged with i
   assert.match(g(b.root, 'show', `HEAD:toy/build/jobs/${T}/beta.md`), /^Tested with: alpha @ \w{10} \(it merges with them: proc merge --with\)$/m);
   // and the two merge as one
   assert.match(P.merge(O(w.bob, { module: 'alpha', with: 'beta' })).ruling, /^K\d+$/);
+});
+
+test('T53 PUSH rule: a shell redirection after the push is not a ref; a forbidden ref is still refused with one', () => {
+  const ctx = { role: 'job', tranche: T, module: 'alpha' };
+  const jb = `job/${T}/alpha`, bash = (role, command) => preReason(role, { tool_name: 'Bash', tool_input: { command } }, ctx);
+  for (const r of ['2>&1 | tail', '2>&1', '> out.txt', '>> out.txt', '2> err.txt', '2>/dev/null', '&> all.txt', '< in.txt', '>out.txt 2>&1'])
+    assert.equal(bash('job', `git push origin ${jb} ${r}`), null, r);
+  assert.equal(bash('job', `git push origin ${jb}/x 2>&1 | tail`), null);
+  for (const r of ['2>&1', '> out.txt', '2>/dev/null', '&> all.txt']) {
+    assert.match(bash('job', `git push origin tranche/${T} ${r}`), /only its own branch/, r);
+    assert.match(bash('job', `git push origin job/${T}/beta ${r}`), /only its own branch/, r);
+    assert.match(bash('job', `git push origin HEAD:main ${r}`), /main/, r);
+    assert.match(bash('bob', `git push origin main ${r}`), /main/, r);
+    assert.match(bash('job', `git push --force origin ${jb} ${r}`), /force/, r);
+  }
+});
+
+test('T53 Stop hook: a turn may end with the record COMPLETE (never replaced by WAITING)', () => {
+  const w = world();
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  P.layerStart(O(w.bob, { layer: 1 }));
+  P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  const job = jobClone(w);
+  P.jobStart(O(job.dir, { module: 'alpha', session: J1, depth: 2 }));
+  const src = join(job.dir, 'alpha/src/index.mjs');
+  writeFileSync(src, `// R1: add returns a + b.\n${readFileSync(src, 'utf8')}`);
+  g(job.root, 'commit', '-qam', 'alpha: change');
+  const rep = join(w.base, 'report.md'); writeFileSync(rep, 'Applied N1.\n\n**Met** · R1\n');
+  P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep }));
+  const jctx = { ...P.readRole(job.root), root: job.root };
+  assert.equal(P.parseRecord(readFileSync(join(job.dir, `build/jobs/${T}/alpha.md`), 'utf8')).state, 'COMPLETE');
+  assert.equal(stopReason('job', jctx), null);
+});
+
+test('T53 proc ruling --files: a path removed with git rm is committed as a deletion', () => {
+  const w = world();
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  writeFileSync(join(w.bob, 'build/gone.md'), 'x\n');
+  g(w.bobRoot, 'add', '.'); g(w.bobRoot, 'commit', '-qm', 'add gone'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  g(w.bobRoot, 'rm', '-q', 'toy/build/gone.md');
+  writeFileSync(join(w.base, 'line.txt'), 'alpha · a ruling that removes a file · P15\n');
+  P.rulingCmd(O(w.bob, { lineFile: join(w.base, 'line.txt'), files: 'build/gone.md' }));
+  assert.deepEqual(g(w.bobRoot, 'show', '--name-status', '--format=', 'HEAD').split('\n').map((l) => l.replace(/^[AM]/, '*')).sort(), ['*\ttoy/build/rulings.md', 'D\ttoy/build/gone.md']);
+  // a file deleted in the working tree only (not staged) is committed the same way
+  writeFileSync(join(w.bob, 'build/gone2.md'), 'x\n');
+  g(w.bobRoot, 'add', '.'); g(w.bobRoot, 'commit', '-qm', 'add gone2'); g(w.bobRoot, 'push', '-q', 'origin', `HEAD:refs/heads/tranche/${T}`);
+  rmSync(join(w.bob, 'build/gone2.md'));
+  P.rulingCmd(O(w.bob, { lineFile: join(w.base, 'line.txt'), files: 'build/gone2.md' }));
+  assert.match(g(w.bobRoot, 'show', '--name-status', '--format=', 'HEAD'), /D\ttoy\/build\/gone2\.md/);
+});
+
+test('T53 job route after job archived: the successor is numbered one past the highest used', () => {
+  const w = world();
+  P.takeover(O(w.bob, { name: 'BOB #2', session: B1, depth: 1 }));
+  P.roundOpen(O(w.bob, { round: 'R1', plan: w.plan }));
+  P.layerStart(O(w.bob, { layer: 1 }));
+  P.jobStarted(O(w.bob, { module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  const job = jobClone(w);
+  P.jobStart(O(job.dir, { module: 'alpha', session: J1, depth: 2 }));
+  P.jobArchived(O(w.bob, { module: 'alpha', usage: '{}' }));
+  assert.equal(P.jobRoute(O(w.bob, { module: 'alpha' })).title, 'ALPHA #2');
 });

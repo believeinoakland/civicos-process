@@ -11,6 +11,8 @@ import { repo, readRole, unpushed, modules, parsePlan, parseRecord, status, jobP
 const REMOTE = 'mcp__claude-code-remote__';
 const FORCE = /\bgit\b[^|;&]*\bpush\b[^|;&]*(\s(-f|--force|--force-with-lease|--mirror|--delete|-d)\b|\s\+\S+|\s:\S)/;
 const PUSH = /\bgit\b[^|;&]*\bpush\b([^|;&]*)/;
+// Shell redirections (`2>&1`, `&>f`, `>f`, `>>f`, `2>f`, `<f`) are not refs: removed before the push is read.
+const REDIRECT = /(\d*>>?&\d+-?|&>>?\s*[^\s|;&]+|\d*>>?\s*[^\s|;&]+|<+\s*[^\s|;&]+)/g;
 
 // A session titled "<WORD> #n" is a job's only when the word names a module; a lane's successor (PROCESS-REDESIGN #3)
 // is not (lane R12). When the module list cannot be read or is empty, every such title is judged a job's: the hook fails closed.
@@ -27,7 +29,7 @@ function productRepo(ctx) {
 export function preReason(role, input, ctx) {
   const tool = input.tool_name || '', ti = input.tool_input || {};
   if (tool === 'Bash') {
-    const c = String(ti.command || '');
+    const c = String(ti.command || '').replace(REDIRECT, ' ');
     if (FORCE.test(c)) return 'a force push, mirror or remote delete is never done (standing safety rule)';
     const push = c.match(PUSH);
     if (push && /(^|\s|:)(refs\/heads\/)?main(\s|$)/.test(push[1])) return 'nothing is pushed to main: the tranche reaches main only by its close PR (mechanics §4, §5.7)';
