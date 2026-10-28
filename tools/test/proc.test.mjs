@@ -118,13 +118,13 @@ test('one round end to end: takeover, round, layer, a job by its tool, merge, cl
   const rep = join(w.base, 'report.md');
   writeFileSync(rep, 'Applied N1.\n');
   assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /Met/);
-  // P21: a report with no Evidence section, or one listing nothing of an accepted form, is refused, naming what is missing
+  // P20: a report with no Evidence section, or one listing nothing of an accepted form, is refused, naming what is missing
   writeFileSync(rep, 'Applied N1.\n**Met** · none\n');
   assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /no `\*\*Evidence\*\*` section.*command you ran|no `\*\*Evidence\*\*` section[\s\S]*a command run with its result line[\s\S]*file:line[\s\S]*totals/);
   writeFileSync(rep, 'Applied N1.\n**Evidence**\n- it works, trust me\n**Met** · none\n');
   assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /lists no item of an accepted form/);
   writeFileSync(rep, 'Applied N1.\n**Evidence**\n\n**Met** · none\n');
-  assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /lists no item of an accepted form \(P21; 0 line/);
+  assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /lists no item of an accepted form \(P20; 0 line/);
   // control: with an Evidence item the next refusal is the one that follows it
   writeFileSync(rep, 'Applied N1.\n**Evidence**\n- `node --test` → tests 3, pass 3\n**Met** · none\n');
   assert.throws(() => P.jobComplete(O(job.dir, { module: 'alpha', reportFile: rep })), /commit your module/);
@@ -754,7 +754,7 @@ test('T53 prep guard: no owed mark, a started layer, or a CLOSED layer lets BOB\
   assert.equal(stopReason('bob', closed.ctx()), null);
 });
 
-// ---- P21: evidence in reports, and steps for Bob ----
+// ---- P20: evidence in reports, and steps for Bob ----
 
 test('evidenceItems: a command with its result, a file:line and a test total each count; a bare claim or a missing section does not', () => {
   const ok = (r) => (P.evidenceItems(r) || []).some((i) => P.EVIDENCE_ITEM.some((re) => re.test(i)));
@@ -805,7 +805,7 @@ test('numberedList and isStepsList: only numbered items and their indented lines
   assert.equal(P.isStepsList('2. a **b**\n3. c'), false, 'does not start at 1');
 });
 
-test('BOB stop hook: a numbered list with bold labels ends the turn only with fresh, matching proc steps proof (P21)', () => {
+test('BOB stop hook: a numbered list with bold labels ends the turn only with fresh, matching proc steps proof (P20)', () => {
   const d = stepsWorld(), f = join(d, 'steps.md'), src = join(d, 'page.html');
   const msg = '1. Click **Save & close**.\n2. Open `Settings`.\n';
   assert.equal(stepsReason('Nothing for Bob to do.', d), null, 'no list, no check');
@@ -831,4 +831,25 @@ test('lastAssistantText: last_assistant_message first, else the transcript\'s as
   assert.equal(lastAssistantText({ transcript_path: tp, last_assistant_message: 'direct' }), 'direct');
   assert.equal(lastAssistantText({}), null);
   assert.equal(lastAssistantText({ transcript_path: join(d, 'missing') }), null);
+});
+
+// ---- P20: a reading-set document is read whole ----
+
+test('partial-read hook: a Read with offset or limit, or a shell cut in the same pipeline, of a reading-set document is refused (P20)', () => {
+  const r = (tool, ti) => preReason('bob', { tool_name: tool, tool_input: ti }, {});
+  assert.match(r('Read', { file_path: '/home/user/bio/build/requirements/money.md', limit: 40 }), /build\/requirements\/money\.md is in a reading set.*P20/);
+  assert.match(r('Read', { file_path: '/home/user/civicos-process/roles/BOB.md', offset: 10 }), /roles\/BOB\.md/);
+  assert.match(preReason('job', { tool_name: 'Read', tool_input: { file_path: 'build/plan/starts-T53/money.txt', offset: 1, limit: 5 } }, {}), /starts-T53\/money\.txt/);
+  assert.match(r('Bash', { command: 'grep -n R30 build/requirements/local-facts.md | cut -c1-600' }), /local-facts\.md/);
+  assert.match(r('Bash', { command: 'head -5 /home/user/civicos-process/PROCESS-DESIGN.md' }), /PROCESS-DESIGN\.md/);
+  assert.match(r('Bash', { command: "sed -n '1,40p' build/handoff.md" }), /build\/handoff\.md/);
+  assert.match(r('Bash', { command: 'cat build/rulings-active.md | tail -20' }), /rulings-active\.md/);
+  // controls: whole reads, other files, a cut of another command in another pipeline, an in-place edit, a search
+  assert.equal(r('Read', { file_path: '/home/user/bio/build/requirements/money.md' }), null);
+  assert.equal(r('Read', { file_path: '/home/user/bio/build/plan/current.md', offset: 3, limit: 9 }), null);
+  assert.equal(r('Bash', { command: 'cat /home/user/civicos-process/roles/BOB.md' }), null);
+  assert.equal(r('Bash', { command: 'git log --oneline -3 | head; cat build/handoff.md' }), null);
+  assert.equal(r('Bash', { command: 'sed -i s/a/b/ build/requirements/money.md' }), null);
+  assert.equal(r('Bash', { command: 'grep -n R30 build/requirements/money.md' }), null);
+  assert.equal(r('Bash', { command: 'head -3 build/jobs/T53/money.md' }), null);
 });

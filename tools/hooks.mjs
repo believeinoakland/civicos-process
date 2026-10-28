@@ -25,9 +25,21 @@ function productRepo(ctx) {
   try { return execFileSync('git', ['-C', join(ctx.root, ctx.product || '.'), 'remote', 'get-url', 'origin'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim().replace(/\.git$/, '').split(/[/:]/).slice(-2).join('/').toLowerCase(); } catch { return null; }
 }
 
+// P20: a document of a fixed reading set (mechanics §17) is read whole: a Read with an offset or a limit, or a shell cut
+// (`head`, `tail`, `sed -n`, `cut -c`) in the same pipeline as one, stops before its end and is refused. A search is not judged here.
+export const SET_DOC = /(?:^|[\s/'"=])(PROCESS-DESIGN\.md|roles\/[\w-]+\.md|situations\/[\w-]+\.md|build\/(?:manifest|handoff|rulings-active)\.md|build\/situations\/[\w-]+\.md|build\/requirements\/[\w.-]+\.md|build\/plan\/starts-[\w-]+\/[\w.-]+\.txt)(?=$|[\s'"|;&)])/;
+const CUT = /(?:^|[\s|;&(])(?:head|tail)\b|\bsed\s+(?:-\w*\s+)*-n\b|\bcut\s+(?:-\w+\s+)*-c/;
+export function partialReadReason(tool, ti) {
+  const why = (f) => `${f} is in a reading set and is read whole (P20: a read that stops before the end is a scan): read it with no offset or limit, or \`cat\` it; a document too large to read whole is \`BLOCKED: reading\` (mechanics §17)`;
+  if (tool === 'Read' && (ti.offset != null || ti.limit != null)) { const m = String(ti.file_path || '').match(SET_DOC); if (m) return why(m[1]); }
+  if (tool === 'Bash') for (const pipe of String(ti.command || '').split(/;|&&|\|\||\n/)) { if (CUT.test(pipe)) { const m = pipe.match(SET_DOC); if (m) return why(m[1]); } }
+  return null;
+}
+
 // The reason a tool call is refused, or null. `ctx` = { role, tranche, module, session, plan (text), root }.
 export function preReason(role, input, ctx) {
   const tool = input.tool_name || '', ti = input.tool_input || {};
+  const partial = partialReadReason(tool, ti); if (partial) return partial;
   if (tool === 'Bash') {
     const c = String(ti.command || '').replace(REDIRECT, ' ');
     if (FORCE.test(c)) return 'a force push, mirror or remote delete is never done (standing safety rule)';
@@ -59,7 +71,7 @@ export function preReason(role, input, ctx) {
   return null;
 }
 
-// BOB's last assistant message (P21). The Stop hook input carries `last_assistant_message` (Claude Code hooks docs, Stop)
+// BOB's last assistant message (P20). The Stop hook input carries `last_assistant_message` (Claude Code hooks docs, Stop)
 // and `transcript_path` (common field; the docs say the transcript "may lag the in-memory conversation"), so the message
 // is taken from the first when it is a string, else from the transcript: the text blocks of the assistant entries after
 // the last `user` entry. null when neither can be read.
@@ -78,12 +90,12 @@ export function lastAssistantText(input) {
   }
   return text.length ? text.join('\n') : null;
 }
-// P21: a numbered list with **bold** labels in BOB's last message is a step for Bob; the turn ends only when
+// P20: a numbered list with **bold** labels in BOB's last message is a step for Bob; the turn ends only when
 // `.git/civicos-steps-ok.json` (written by `proc steps`) is under 30 minutes old and its sha256 matches the list.
 export function stepsReason(message, root, now = Date.now()) {
   if (!message || !isStepsList(message)) return null;
   let ok = null; try { ok = JSON.parse(readFileSync(join(root, '.git', STEPS_OK), 'utf8')); } catch { /* none */ }
-  const how = 'steps for Bob are sent only as `node tools/proc.mjs steps --file <steps.md> --source <the page or screen code,…>` printed them (P21): run it and send its output unchanged';
+  const how = 'steps for Bob are sent only as `node tools/proc.mjs steps --file <steps.md> --source <the page or screen code,…>` printed them (P20): run it and send its output unchanged';
   if (!ok) return `your message has a numbered list with bold labels, but ${how} (no verified steps on record)`;
   if (!(now - Date.parse(ok.at) < 30 * 60e3)) return `your message has a numbered list with bold labels, but the steps last verified are over 30 minutes old: ${how}`;
   if (ok.sha256 !== stepsHash(message)) return `your message has a numbered list with bold labels that is not the list \`proc steps\` verified: ${how}`;

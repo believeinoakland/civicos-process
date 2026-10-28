@@ -9,7 +9,7 @@
 // (`build/plan/fix-round-*.md` that exist, so not the archived ones) and `build/handoff.md`, a line that defers work
 // ("next fix round", "next round", "a later round", "later tranche", "deferred to") fails unless it cites `next.md`:
 // work that waits is an entry of `next.md` only, and plan text names dependencies, never "later".
-// Also (P21; Bob, K5326): in each lane HANDOFF file (`build/plan/beta/*/HANDOFF.md`,
+// Also (P20; Bob, K5326): in each lane HANDOFF file (`build/plan/beta/*/HANDOFF.md`,
 // `docs/development/investigation-design/HANDOFF.md`) every line that starts a dated report (`**P-<n>`, `**H<n>`, `**R<n>`,
 // `**L<n>`, `**U<n>` or `**B<n>`) and holds a date of EVIDENCE_FROM or later has `Evidence:` within the entry (up to the
 // next line that starts a report, or a heading). Earlier entries are exempt.
@@ -238,8 +238,8 @@ function rulingIds(root, exempt = RULING_DUPS_EXEMPT) {
   return failures;
 }
 
-// P21: a lane's dated report carries its evidence.
-export const EVIDENCE_FROM = '2026-10-28';
+// P20: a lane's dated report carries its evidence.
+export const EVIDENCE_FROM = '2026-10-29'; // the day after P20's adoption (bio K5763): earlier entries predate it
 const REPORT_START = /^\*\*(?:P-|H|R|L|U|B)\d+/;
 export function handoffFiles(root) {
   const dir = join(root, 'build/plan/beta');
@@ -254,7 +254,7 @@ function laneEvidence(root, from = EVIDENCE_FROM) {
       if (!REPORT_START.test(line) || !(line.match(/\b\d{4}-\d{2}-\d{2}\b/g) || []).some((d) => d >= from)) return;
       let end = i + 1;
       while (end < lines.length && !REPORT_START.test(lines[end]) && !/^#/.test(lines[end])) end++;
-      if (!lines.slice(i, end).some((l) => l.includes('Evidence:'))) out.push(`${f}:${i + 1}: the report "${line.slice(0, 40)}" dated ${from} or later has no "Evidence:" in its entry (a command run with its result, a file:line, or a test run with its totals; P21)`);
+      if (!lines.slice(i, end).some((l) => l.includes('Evidence:'))) out.push(`${f}:${i + 1}: the report "${line.slice(0, 40)}" dated ${from} or later has no "Evidence:" in its entry (a command run with its result, a file:line, or a test run with its totals; P20)`);
     });
   }
   return out;

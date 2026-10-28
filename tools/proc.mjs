@@ -24,11 +24,11 @@
 //         job messaged --module <m>   job route --module <m> [--context-pct <n>] [--session-status <s>]   merge --module <m> [--with <m2>[,<m3>]] [--context <pct>]
 //         bob waiting (--on "<act>" | --clear)   layer close --layer <L>   job archived --module <m> --usage <json>   bob cleared --name --session (--reply|--unanswered)   bob archived --name --session --usage   round close   handoff
 //   job   job start --module <m> --session <id> --depth <d>   job state --module <m> --set <STATE>
-//         job complete --module <m> [--with <m2>] --report-file <f>   (the report needs a `**Evidence**` section, P21)
+//         job complete --module <m> [--with <m2>] --report-file <f>   (the report needs a `**Evidence**` section, P20)
 //   any   addr (--bob | --module <m>)   shims --out <dir> --process <path>   history --ref <ref> (before a merge made by hand)   sizes (every document over its limit; a lane runs it before each commit)   footprint [--base <ref>]
 //         tests --modules <m1,m2> [--users] [--base <ref>] [--heap-mb <n>] [--cap-mb <n>] [--timeout-min <n>] (a pass's test run; lane R14)
 //         ruling --line-file <f> [--files <p1,p2>] (BOB's own ruling, numbered by the tool; lane R17)
-//         steps --file <steps.md> --source <p1,p2,…> [--product <dir>] (P21: a step for Bob is sent only as this printed it; needs no --tranche)
+//         steps --file <steps.md> --source <p1,p2,…> [--product <dir>] (P20: a step for Bob is sent only as this printed it; needs no --tranche)
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, openSync, closeSync } from 'node:fs';
@@ -733,7 +733,7 @@ export function jobState(o) {
   R.write(path, text.replace(RSTATUS, `**Status** · ${st.session} · depth ${st.depth} · ${s}`));
   return commitPush(R, jobBranch(T, o.module), [path], `${o.module} ${T}: ${s.slice(0, 60)}`);
 }
-// P21: a report states what it read or ran. Its `**Evidence**` section (a line starting `**Evidence**`, optionally with the
+// P20: a report states what it read or ran. Its `**Evidence**` section (a line starting `**Evidence**`, optionally with the
 // first item after a `·` or `:`) runs to the next line that starts `**` or `#`; each line is an item (a bullet or number
 // marker is dropped). An item counts when it is a command run with its result (a `command` followed by text), a file:line,
 // or a test run with its totals (`3/3`, `pass 3`, `3 pass`, `tests 3`). Returns the items, or null with no section.
@@ -758,8 +758,8 @@ export function jobComplete(o) {
   const report = readFileSync(o.reportFile, 'utf8').trim();
   if (!/^\*\*Met\*\* · (none|R\d+(, R\d+)*)$/m.test(report)) refuse('the report names the requirement ids it meets: a line "**Met** · R1, R2" (or "**Met** · none")');
   const ev = evidenceItems(report);
-  if (!ev) refuse(`the report has no \`**Evidence**\` section (P21): add a line "**Evidence**" and under it at least one item, each ${EVIDENCE_FORMS}`);
-  if (!ev.some((i) => EVIDENCE_ITEM.some((re) => re.test(i)))) refuse(`the report's \`**Evidence**\` section lists no item of an accepted form (P21; ${ev.length} line(s) read): each item is ${EVIDENCE_FORMS}`);
+  if (!ev) refuse(`the report has no \`**Evidence**\` section (P20): add a line "**Evidence**" and under it at least one item, each ${EVIDENCE_FORMS}`);
+  if (!ev.some((i) => EVIDENCE_ITEM.some((re) => re.test(i)))) refuse(`the report's \`**Evidence**\` section lists no item of an accepted form (P20; ${ev.length} line(s) read): each item is ${EVIDENCE_FORMS}`);
   if (R.g(['status', '--porcelain', '--untracked-files=no'])) refuse('commit your module\'s changes first');
   R.fetch(trancheBranch(T));
   try { history(R, `origin/${trancheBranch(T)}`, 'HEAD'); R.g(['merge-base', '--is-ancestor', `origin/${trancheBranch(T)}`, 'HEAD']); } catch { refuse(`merge ${trancheBranch(T)} into your branch first: BOB has changed it`); }
@@ -805,7 +805,7 @@ export function jobComplete(o) {
   return { commit, tests, bob: addr({ product: o.product, tranche: T, bob: true }), message: `${m.toUpperCase()} (${T}): COMPLETE at ${commit}. Tests ${tests.pass}/${tests.tests}; checks 0. Met: ${report.match(/^\*\*Met\*\* · (.*)$/m)[1]}.` };
 }
 
-// ---- steps for Bob (P21) ----
+// ---- steps for Bob (P20) ----
 
 // A step for Bob is written from the very thing he will use. Every label in the steps set in **bold** or in `backticks`
 // must occur verbatim in at least one source file, after HTML entity decoding (of the source and of the label). A label

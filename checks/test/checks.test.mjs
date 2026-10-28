@@ -462,20 +462,20 @@ test('format: a deferring line in current.md, the named fix-round plan or the ha
   assert.deepEqual(failures({ 'build/handoff.md': '# Handoff\n\nDeferred to next.md N3.\n' }), []);
 });
 
-// P21 (Bob, K5326): a lane's report dated 2026-10-28 or later carries `Evidence:` within its entry; older entries are exempt.
-test('format: a dated lane report from 2026-10-28 on without Evidence: fails, naming file and line; older, headings and other files are exempt (P21)', () => {
+// P20 (Bob, K5326): a lane's report dated 2026-10-29 or later carries `Evidence:` within its entry; older entries are exempt.
+test('format: a dated lane report from 2026-10-29 on without Evidence: fails, naming file and line; older, headings and other files are exempt (P20)', () => {
   const failures = (files) => checkFormat(repo(base(files)).root).failures;
   const H = (...l) => `# PLATFORM: handoff\n\n## Entries\n\n${l.join('\n')}\n`;
   const P = 'build/plan/beta/platform/HANDOFF.md';
-  const bad = H('**P-27 · 2026-10-27** · old, no evidence.', '**P-28 · 2026-10-28** · new, none.', 'second line of it.', '**P-29 · 2026-10-29** · fine. Evidence: `node --test` → pass 3', '**H3 · 2026-11-02** · multi-line', 'detail', 'Evidence: s1-results.md:44', '**P-30 · 2026-10-30** · none either');
+  const bad = H('**P-27 · 2026-10-28** · old, no evidence.', '**P-28 · 2026-10-29** · new, none.', 'second line of it.', '**P-29 · 2026-10-30** · fine. Evidence: `node --test` → pass 3', '**H3 · 2026-11-02** · multi-line', 'detail', 'Evidence: s1-results.md:44', '**P-30 · 2026-10-31** · none either');
   assert.deepEqual(failures({ [P]: bad }).map((f) => f.replace(/ \(a command.*$/, '')), [
-    `${P}:6: the report "**P-28 · 2026-10-28** · new, none." dated 2026-10-28 or later has no "Evidence:" in its entry`,
-    `${P}:12: the report "**P-30 · 2026-10-30** · none either" dated 2026-10-28 or later has no "Evidence:" in its entry`]);
+    `${P}:6: the report "**P-28 · 2026-10-29** · new, none." dated 2026-10-29 or later has no "Evidence:" in its entry`,
+    `${P}:12: the report "**P-30 · 2026-10-31** · none either" dated 2026-10-29 or later has no "Evidence:" in its entry`]);
   // control: the same file with Evidence on each, an older entry, and a heading-ended entry
-  assert.deepEqual(failures({ [P]: H('**P-27 · 2026-10-27** · old.', '**P-28 · 2026-10-28** · new. Evidence: a.mjs:3') }), []);
-  assert.deepEqual(failures({ [P]: H('**P-28 · 2026-10-28** · new.', '## Next', 'Evidence: stray under another heading') }).length, 1, 'a heading ends the entry');
-  assert.deepEqual(failures({ 'build/plan/beta/files/HANDOFF.md': H('**U7 · 2026-10-28** · none'), 'docs/development/investigation-design/HANDOFF.md': H('**B2 · 2026-10-28** · none') }).length, 2, 'every lane file and the investigation-design file');
-  assert.deepEqual(failures({ 'build/plan/other/HANDOFF.md': H('**P-28 · 2026-10-28** · none'), 'build/plan/beta/platform/NOTES.md': H('**P-28 · 2026-10-28** · none') }), [], 'no other file is judged');
+  assert.deepEqual(failures({ [P]: H('**P-27 · 2026-10-28** · old.', '**P-28 · 2026-10-29** · new. Evidence: a.mjs:3') }), []);
+  assert.deepEqual(failures({ [P]: H('**P-28 · 2026-10-29** · new.', '## Next', 'Evidence: stray under another heading') }).length, 1, 'a heading ends the entry');
+  assert.deepEqual(failures({ 'build/plan/beta/files/HANDOFF.md': H('**U7 · 2026-10-29** · none'), 'docs/development/investigation-design/HANDOFF.md': H('**B2 · 2026-10-29** · none') }).length, 2, 'every lane file and the investigation-design file');
+  assert.deepEqual(failures({ 'build/plan/other/HANDOFF.md': H('**P-28 · 2026-10-29** · none'), 'build/plan/beta/platform/NOTES.md': H('**P-28 · 2026-10-29** · none') }), [], 'no other file is judged');
 });
 
 // §8.6 (bio K3923): run.mjs runs the words check where the product has a word table.
