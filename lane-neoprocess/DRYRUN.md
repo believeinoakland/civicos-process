@@ -32,6 +32,7 @@ The tool's merge on `tranche` (JOB-LIFE §6): the gate on a pull request, a bran
 10. **A lane id equal to a module's name** (BOB #1, R-BOB-1-4: lane `STATS` against module `stats`): session names `<ID> #k` are one namespace for jobs and lanes, and the hook read the job `STATS #1` as the lane's. Fix: `neo lane open` refuses such an id; the seed's lane is `STATISTICS` (BOB #1 closed STATS and opened STATISTICS); `--dormant` opens a lane with no start owed.
 11. **A dormant lane's start was not owed by `ask ask`** (BOB #1, R-BOB-1-5), so the hook refused the printed create_session. Fix: `ask ask` owes `start lane <ID>` when it prints the start; `lane route` is the recovery for an ask already ASKED.
 12. **A closed lane's id still named a lane in the tool** (BOB #2, R-BOB-2-1: `ask close` routed the reply for STATS #1 to the closed lane STATS). Fix: only an OPEN lane's id is a lane, in `ask route`, `ask close` and `lane open`'s session text; the hook already read it so.
+13. **A job's clone started on a detached HEAD** at its branch's tip (STATS #2, R-STATS-2-1): `job start` refused, and the hook refuses a checkout before a role is recorded. Fix: the start commands (`job start`, `lane start`, `takeover`) make the branch at a detached tip themselves.
 
 ## 5. The run's log (29 Oct 2026, UTC)
 

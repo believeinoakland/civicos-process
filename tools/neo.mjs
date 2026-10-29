@@ -81,6 +81,15 @@ export function unpushed(R) {
   return out;
 }
 function on(R, want) { const b = R.branch(); if (b !== want) refuse(`check out ${want} first (on ${b})`); }
+// A session's clone may start on a detached HEAD at its branch's tip (STATS #2, 29 Oct: R-STATS-2-1); the start command
+// makes the branch there itself, since the hook refuses a checkout before a role is recorded.
+function onto(R, want) {
+  if (R.branch() !== 'HEAD') return on(R, want);
+  R.fetch(want);
+  let tip = null; try { tip = R.g(['rev-parse', `origin/${want}`]); } catch { /* absent */ }
+  if (tip !== R.g(['rev-parse', 'HEAD'])) refuse(`detached at ${R.g(['rev-parse', '--short', 'HEAD'])}, not at origin/${want}'s tip: check out ${want} first`);
+  R.g(['checkout', '-q', '-B', want, '--track', `origin/${want}`]);
+}
 // Commit the named files on the current branch and push; a lost race merges the remote once (never a rebase, never a force).
 export function commitPush(R, branch, paths, message) {
   const gone = (p) => !existsSync(join(R.root, R.rel(p)));
@@ -210,6 +219,7 @@ export function addr(o) {
 export function takeover(o) {
   if (!NAME.test(o.name || '') || !/^BOB /.test(o.name) || !SESSION.test(o.session || '')) refuse('--name "BOB #<n>" --session <id>');
   const R = repo(o.product), e = needEpoch(R);
+  onto(R, TRANCHE);
   const before = parsePlan(stateRead(R, 'plan.md', e) || '');
   const commit = planEdit(R, (p) => ({ ...p, state: p.state || 'OPEN', bob: { name: o.name, session: o.session } }), `${o.name} ${o.session} takes over`);
   writeRole(R, { role: 'bob', product: R.rel('.'), session: o.session, name: o.name, epoch: e });
@@ -436,6 +446,7 @@ export function laneStart(o) {
   const R = repo(o.product), e = needEpoch(R);
   const l = parseLane(stateRead(R, `lanes/${o.id}.md`, e) || '');
   if (l.session !== o.session) refuse(`the state branch names ${l.session ?? 'no session'} for ${o.id}, not ${o.session}: BOB records the session (neo lane started) before it starts`);
+  onto(R, TRANCHE);
   writeRole(R, { role: 'lane', product: R.rel('.'), session: o.session, name: l.name, lane: o.id, epoch: e });
   const row = lanes(R).find((x) => x.id === o.id);
   return { charter: R.read(row.charter), canon: row.canon, asks: asks(R, e).filter((a) => a.lane === o.id && a.status === 'ASKED').map((a) => ({ id: a.id, question: a.Asked.body })), check: selfcheck(R, TRANCHE) };
@@ -780,7 +791,7 @@ export function jobStart(o) {
   const e = needEpoch(R), j = loadJob(R, m);
   if (j.session !== o.session) refuse(`the state branch names ${j.session ?? 'no session'} for ${m}, not ${o.session}: BOB records the session (neo job started) before it starts`);
   if (!LIVE_JOB.test(j.state) || j.state === 'MERGED') refuse(`${m} reads ${j.state}: nothing to start`);
-  on(R, jobBranch(m));
+  onto(R, jobBranch(m));
   R.fetch(TRANCHE); history(R, `origin/${TRANCHE}`, 'HEAD');
   try { R.g(['merge', '-q', '--no-edit', `origin/${TRANCHE}`]); } catch { spawnSync('git', ['-C', R.root, 'merge', '--abort']); refuse(`merging ${TRANCHE} into ${jobBranch(m)} conflicts: resolve it, then start again`); }
   if (unpushed(R).length) R.g(['push', '-q', 'origin', `HEAD:refs/heads/${jobBranch(m)}`]);

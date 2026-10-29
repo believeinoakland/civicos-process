@@ -332,10 +332,11 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   assert.equal(N.addr(o({ module: 'alpha' })), J1);
 
   // the job's turn, from its own clone on job/alpha: start (the session must be recorded), a wait, the change
-  const alpha = w.clone('alpha'); g(alpha.root, 'checkout', '-q', 'job/alpha');
+  const alpha = w.clone('alpha'); g(alpha.root, 'checkout', '-q', '--detach', 'origin/job/alpha');   // a cloud clone may start detached at the tip (R-STATS-2-1)
   const jo = (x) => ({ product: alpha.dir, module: 'alpha', ...x });
   assert.throws(() => N.jobStart(jo({ session: J2 })), /names session_01AAAAAAAAAAAAAAAAAAAAAAAA for alpha, not/);
   const js = N.jobStart(jo({ session: J1 }));
+  assert.equal(g(alpha.root, 'rev-parse', '--abbrev-ref', 'HEAD'), 'job/alpha');   // the start made the branch there
   assert.match(js.start, /^START ALPHA #1/); assert.deepEqual([js.pr, js.state, js.size], [11, 'WORKING', null]);
   assert.deepEqual([N.readRole(alpha.root).role, N.readRole(alpha.root).module], ['job', 'alpha']);
   assert.equal(N.jobState(jo({})).line, 'WORKING');
