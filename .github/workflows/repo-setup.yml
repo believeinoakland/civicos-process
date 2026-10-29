@@ -18,18 +18,29 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
+      - name: the secret of the target repository's owner (PERMISSIONS §9.9; Bob, 29 Oct: one secret per owner)
+        id: secret
+        env:
+          REPO: ${{ inputs.repo }}
+        run: |
+          owner="${REPO%%/*}"
+          if [ "$owner" = "$GITHUB_REPOSITORY_OWNER" ]; then name=NEOPROCESS_GITHUB_TOKEN
+          else name="NEOPROCESS_GITHUB_TOKEN_$(printf '%s' "$owner" | tr 'a-z-' 'A-Z_')"; fi
+          echo "the secret for $owner: $name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: the repository and its two rulesets, read back active (PERMISSIONS §9)
         env:
-          NEOPROCESS_GITHUB_TOKEN: ${{ secrets.NEOPROCESS_GITHUB_TOKEN }}
+          NEOPROCESS_GITHUB_TOKEN: ${{ secrets[steps.secret.outputs.name] }}
+          SECRET_NAME: ${{ steps.secret.outputs.name }}
           REPO: ${{ inputs.repo }}
           PRIVATE: ${{ inputs.private }}
         run: |
           if [ -z "$NEOPROCESS_GITHUB_TOKEN" ]; then
-            echo "the repository secret NEOPROCESS_GITHUB_TOKEN is not set: Bob's one act (PERMISSIONS §9; the steps are in SETUP-STEPS.md)"
+            echo "the repository secret $SECRET_NAME is not set: Bob's one act for that owner (PERMISSIONS §9; the steps are in SETUP-STEPS.md)"
             exit 1
           fi
           flag=""

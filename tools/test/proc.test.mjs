@@ -712,8 +712,28 @@ test('repo setup makes a development repository and its two rulesets, idempotent
   await assert.rejects(N.repoSetup({ repo: 'bob/toy', fetch: proxy, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } }), /with the process's token: POST \/user\/repos 403/);
   // the workflow that runs it on GitHub's runner is in the process repository: dispatchable, the secret by name, the command
   const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', N.REPO_SETUP_WORKFLOW), 'utf8');
-  assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\.NEOPROCESS_GITHUB_TOKEN \}\}/); assert.match(wf, /node tools\/proc\.mjs repo setup --repo "\$REPO"/);
-  assert.doesNotMatch(wf, /run:[\s\S]*\$\{\{ inputs\./);   // inputs reach the script through env, never spliced into it
+  assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\[steps\.secret\.outputs\.name\] \}\}/); assert.match(wf, /node tools\/proc\.mjs repo setup --repo "\$REPO"/);
+  assert.ok(!wf.split(/\n(?=      - )/).flatMap((st) => st.split(/\n        run: \|\n/).slice(1)).some((b) => b.includes('${{ inputs.')), 'an input spliced into a script');   // inputs reach the script through env, never spliced into it
+});
+
+test('one secret per owner: the process\'s owner keeps NEOPROCESS_GITHUB_TOKEN, another owner\'s is named by its login, and every runner workflow picks it the same way (PERMISSIONS §9.9)', () => {
+  assert.equal(N.ownerSecret('neobobkrause', 'neobobkrause'), 'NEOPROCESS_GITHUB_TOKEN');
+  assert.equal(N.ownerSecret('NeoBobKrause', 'neobobkrause'), 'NEOPROCESS_GITHUB_TOKEN');
+  assert.equal(N.ownerSecret('civicsmith', 'neobobkrause'), 'NEOPROCESS_GITHUB_TOKEN_CIVICSMITH');
+  assert.equal(N.ownerSecret('my-org', 'neobobkrause'), 'NEOPROCESS_GITHUB_TOKEN_MY_ORG');
+  assert.throws(() => N.ownerSecret('a/b', 'x'), /not an account login/);
+  for (const f of [N.REPO_SETUP_WORKFLOW, N.REPO_RENAME_WORKFLOW, N.REPO_TRANSFER_WORKFLOW, N.REPO_SHIMS_WORKFLOW]) {
+    const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', f), 'utf8');
+    assert.match(wf, /id: secret\n[\s\S]*if \[ "\$owner" = "\$GITHUB_REPOSITORY_OWNER" \]; then name=NEOPROCESS_GITHUB_TOKEN\n[\s\S]*name="NEOPROCESS_GITHUB_TOKEN_\$\(printf '%s' "\$owner" \| tr 'a-z-' 'A-Z_'\)"/, f);
+    assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\[steps\.secret\.outputs\.name\] \}\}/, f);
+    assert.doesNotMatch(wf, /secrets\.NEOPROCESS_GITHUB_TOKEN\b/, f);
+    assert.ok(wf.indexOf('id: secret') < wf.indexOf('actions/checkout'), f);
+    // the shell rule and the tool's rule agree
+    for (const [owner, proc] of [['civicsmith', 'neobobkrause'], ['my-org', 'neobobkrause'], ['neobobkrause', 'neobobkrause']]) {
+      const out = execFileSync('bash', ['-c', `REPO=${owner}/x; GITHUB_REPOSITORY_OWNER=${proc}; owner="\${REPO%%/*}"; if [ "$owner" = "$GITHUB_REPOSITORY_OWNER" ]; then name=NEOPROCESS_GITHUB_TOKEN; else name="NEOPROCESS_GITHUB_TOKEN_$(printf '%s' "$owner" | tr 'a-z-' 'A-Z_')"; fi; printf '%s' "$name"`], { encoding: 'utf8' });
+      assert.equal(out, N.ownerSecret(owner, proc), `${f}: ${owner}`);
+    }
+  }
 });
 
 test('repo rename renames a repository on the runner with the process\'s token and reads it back; from a session the dispatch is printed (PERMISSIONS §9)', async () => {
@@ -745,8 +765,8 @@ test('repo rename renames a repository on the runner with the process\'s token a
   name = 'other';
   await assert.rejects(N.repoRename({ repo: 'bob/civicos-process', name: 'neoprocess', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } }), /with the process's token: GET \/repos\/bob\/civicos-process 404/);
   const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', N.REPO_RENAME_WORKFLOW), 'utf8');
-  assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\.NEOPROCESS_GITHUB_TOKEN \}\}/); assert.match(wf, /node tools\/proc\.mjs repo rename --repo "\$REPO" --name "\$NAME"/);
-  assert.doesNotMatch(wf, /run:[\s\S]*\$\{\{ inputs\./);
+  assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\[steps\.secret\.outputs\.name\] \}\}/); assert.match(wf, /node tools\/proc\.mjs repo rename --repo "\$REPO" --name "\$NAME"/);
+  assert.ok(!wf.split(/\n(?=      - )/).flatMap((st) => st.split(/\n        run: \|\n/).slice(1)).some((b) => b.includes('${{ inputs.')), 'an input spliced into a script');
 });
 
 test('repo transfer moves a repository to another account on the runner with the process\'s token; the new owner accepts; from a session the dispatch is printed (PERMISSIONS §9)', async () => {
@@ -787,8 +807,8 @@ test('repo transfer moves a repository to another account on the runner with the
   owner = 'other';
   await assert.rejects(N.repoTransfer({ repo: 'bob/neoprocess', to: 'robert', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } }), /with the process's token: GET \/repos\/bob\/neoprocess 404/);
   const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', N.REPO_TRANSFER_WORKFLOW), 'utf8');
-  assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\.NEOPROCESS_GITHUB_TOKEN \}\}/); assert.match(wf, /node tools\/proc\.mjs repo transfer --repo "\$REPO" --to "\$TO"/);
-  assert.doesNotMatch(wf, /run:[\s\S]*\$\{\{ inputs\./);
+  assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\[steps\.secret\.outputs\.name\] \}\}/); assert.match(wf, /node tools\/proc\.mjs repo transfer --repo "\$REPO" --to "\$TO"/);
+  assert.ok(!wf.split(/\n(?=      - )/).flatMap((st) => st.split(/\n        run: \|\n/).slice(1)).some((b) => b.includes('${{ inputs.')), 'an input spliced into a script');
 });
 
 test('repo shims regenerates a product\'s shims on the runner with the process\'s token: pushed to its branch shims, the pull request to its main merged and read back; from a session the dispatch is printed (PERMISSIONS §9)', async () => {
@@ -829,8 +849,8 @@ test('repo shims regenerates a product\'s shims on the runner with the process\'
   writeFileSync(join(w.origin, 'hooks', 'pre-receive'), '#!/bin/sh\necho "no: the test refuses the push"; exit 1\n', { mode: 0o755 });
   await assert.rejects(N.repoShims({ repo: 'bob/toy', checkout: other.root, process: '/home/user/neoprocess', ref: 'main', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } }), /the push to shims was refused: .*no: the test refuses the push/);
   const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', N.REPO_SHIMS_WORKFLOW), 'utf8');
-  assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\.NEOPROCESS_GITHUB_TOKEN \}\}/); assert.match(wf, /node tools\/proc\.mjs repo shims --repo "\$REPO" --checkout product/);
-  assert.doesNotMatch(wf, /run:[\s\S]*\$\{\{ inputs\./);
+  assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\[steps\.secret\.outputs\.name\] \}\}/); assert.match(wf, /node tools\/proc\.mjs repo shims --repo "\$REPO" --checkout product/);
+  assert.ok(!wf.split(/\n(?=      - )/).flatMap((st) => st.split(/\n        run: \|\n/).slice(1)).some((b) => b.includes('${{ inputs.')), 'an input spliced into a script');
 });
 
 test('onboarding: a new project seeded from nothing, an existing one converted, and where each stands (ONBOARDING §2, §3)', () => {
