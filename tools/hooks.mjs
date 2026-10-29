@@ -93,10 +93,15 @@ export function preReason(role, input, ctx) {
   if (tool === `${REMOTE}create_trigger` && ti.persistent_session_id !== ctx.session) return 'BOB arms only its own backstop; a job or a lane is reached by send_message, never by a routine (PROTOCOL §7)';
   if (tool === `${GH}merge_pull_request`) {
     const R = R_of(ctx); let state = null; try { state = parsePlan(stateRead(R, 'plan.md') || '').state; } catch { /* unread */ }
-    if (state === 'CLOSING' && ti.base === 'main') return null;
+    // the close PR (rulebook INT 9): the merge tool's input names no base, so the one merge at CLOSING is the one whose
+    // expected head is the tranche's tip, as `tranche close` printed it; a job branch's head is never that tip (DRYRUN §4.20)
+    if (state === 'CLOSING') {
+      R.fetch(TRANCHE); let tip = null; try { tip = R.g(['rev-parse', `origin/${TRANCHE}`]); } catch { /* none */ }
+      if (tip && ti.merge_method === 'merge' && /^[0-9a-f]{7,40}$/.test(String(ti.expectedHeadSha || '')) && tip.startsWith(String(ti.expectedHeadSha))) return null;
+    }
     let job = null; try { job = jobFiles(R).map((p) => parseJob(stateRead(R, p) || '')).find((j) => j && j.pr === Number(ti.pullNumber)); } catch { /* unread */ }
     if (job && /^merging /.test(job.merge || '') && ti.merge_method === 'merge') return null;
-    return 'a job\'s PR is merged only as `proc merge` printed it (the gate green on its tip, the tip holding the tranche; JOB-LIFE §6); the one other merge BOB makes is the close PR to main, once the plan reads CLOSING (rulebook INT 9)';
+    return 'a job\'s PR is merged only as `proc merge` printed it (the gate green on its tip, the tip holding the tranche; JOB-LIFE §6); the one other merge BOB makes is the close PR to main, once the plan reads CLOSING, as `tranche close` printed it with expectedHeadSha the tranche\'s tip (rulebook INT 9)';
   }
   if (tool === `${REMOTE}create_session`) {
     const title = String(ti.title || '');

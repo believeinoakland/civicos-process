@@ -610,12 +610,17 @@ test('a tranche opened from main, a round opened and closed, the tranche closed 
   N.stateWrite(R, { 'plan.md': `# Plan (transient)\n\n**Status** · OPEN · BOB #1 · ${B1}\n**Owed** · none\n**Layers** · 1 CLOSED\n` }, 'round 2 run');
   assert.deepEqual([N.roundClose(o()).round, existsSync(join(w.bob.dir, 'build/plan/current.md'))], [2, false]);
   assert.throws(() => N.roundOpen(o({ planFile: f(w.base, 'p3.md', '# Plan: test T3\n\n## Layer 1\n\n**alpha**\n- N3 · x\n') })), /opens with a new tranche/);
+  // after the last round no plan runs: a refusal is still routed and counted under the tranche (DRYRUN §4.19)
+  const rf = N.refused(o({ act: 'archive_session(child)', kind: 'classifier', reason: 'Interfere With Workloads', by: 'NEOPROCESS #6' }));
+  assert.equal(N.refusedRouted(o({ id: rf.refusal, route: 'Bob archives it' })).refusal, 'R-NEOPROCESS-6-1');
+  assert.match(readFileSync(join(w.bob.dir, 'build/metrics/T2.csv'), 'utf8'), /^,refusal,NEOPROCESS #6,neoprocess,.*archive_session\(child\) · predicted · Bob archives it$/m);
   const fp = N.footprint(o());
   assert.ok(fp.commits > 0); assert.equal(fp.kinds.product, 0);   // only build state moved: bookkeeping
   const tc = N.trancheClose(o());
   assert.deepEqual([tc.tranche, tc.pr.head, tc.pr.base, tc.pr.title, tc.pr.draft], ['T2', 'tranche', 'main', 'T2: close', false]);
   assert.equal(N.status(o()).bob.session, B1); assert.deepEqual(N.status(o()).owed, ['merge tranche']);
   assert.equal(N.parsePlan(N.stateRead(R, 'plan.md')).state, 'CLOSING');
+  assert.deepEqual([tc.merge.tool, tc.merge.merge_method, tc.merge.expectedHeadSha], ['merge_pull_request', 'merge', g2('rev-parse', 'origin/tranche')]);
   assert.throws(() => N.trancheClose(o()), /acts still owed/);
   assert.throws(() => N.trancheMerged(o({ sha: g2('rev-parse', 'origin/main') })), /is not in/);   // main's tip does not hold the tranche yet
   // the close PR merged (here: the merge made on main by hand) and recorded; the branch is gone; the epoch can close
