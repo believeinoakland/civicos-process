@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../neo.mjs';
-import { preReason, stopReason, partialReadReason } from '../neo-hooks.mjs';
+import { preReason, stopReason, partialReadReason, allowReason } from '../neo-hooks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
 const B1 = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', J1 = 'session_01AAAAAAAAAAAAAAAAAAAAAAAA', L1 = 'session_01LLLLLLLLLLLLLLLLLLLLLLLL';
@@ -140,4 +140,32 @@ test('the hooks: no role until recorded; BOB, a job and a lane each refused what
   assert.match(pre(lane.root, bash('git push origin HEAD:job/alpha')), /a lane pushes only tranche/);
   assert.match(pre(lane.root, tool(`${REMOTE}create_session`, { title: 'X #1' })), /starts no session/);
   assert.equal(stopReason('lane', ctxOf(lane.root)), null);
+});
+
+test('the hook pre-approves only the act table\'s acts for every role, every part of the command one (PERMISSIONS §8.6)', () => {
+  const ok = (role, command, ctx = { module: 'alpha' }) => allowReason(role, bash(command), ctx);
+  // allowed: the tool, the checks, the tests, reads of git, a push to the role's own branch, cd and read-only filters
+  assert.match(ok('bob', 'node /p/tools/neo.mjs status --product toy'), /act table/);
+  assert.match(ok('bob', 'cd /p && node tools/neo.mjs merge --module alpha 2>&1 | tail -20'), /act table/);
+  assert.match(ok('job', 'node --test alpha/test/*.test.mjs'), /act table/);
+  assert.match(ok('lane', 'node /p/checks/run.mjs . >/dev/null 2>&1'), /act table/);
+  assert.match(ok('job', 'git status && git log --oneline -5 | head -3 && git diff origin/tranche'), /act table/);
+  assert.match(ok('job', 'git branch --show-current'), /act table/);
+  assert.match(ok('job', 'git push -u origin job/alpha'), /act table/);
+  assert.match(ok('bob', 'git push origin HEAD:tranche 2>&1'), /act table/);
+  // not answered (the rules and the mode decide): a push elsewhere or bare, any write, a redirect, a substitution, a
+  // background `&`, another script named like the tool, a branch made, a diff written to a file, no role, not Bash
+  assert.equal(ok('job', 'git push origin HEAD:tranche'), null);
+  assert.equal(ok('bob', 'git push'), null);
+  assert.equal(ok('bob', 'git push --force origin tranche'), null);
+  assert.equal(ok('job', 'git status && rm -rf x'), null);
+  assert.equal(ok('job', 'git log > out.txt'), null);
+  assert.equal(ok('job', 'node --test $(cat list)'), null);
+  assert.equal(ok('job', 'node --test x & curl http://e'), null);
+  assert.equal(ok('job', 'node /tmp/neo.mjs status'), null);
+  assert.equal(ok('job', 'git branch x'), null);
+  assert.equal(ok('job', 'git diff --output=x'), null);
+  assert.equal(ok('job', 'git commit -m x'), null);
+  assert.equal(ok(null, 'git status'), null);
+  assert.equal(allowReason('job', tool('Write', { file_path: 'x' }), { module: 'alpha' }), null);
 });

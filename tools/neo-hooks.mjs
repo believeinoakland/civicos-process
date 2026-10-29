@@ -2,7 +2,8 @@
 // `neoprocess`, whose argument is the role; the hooks read the role from `.git/neo-role.json`, written by the start
 // commands (`neo takeover`, `neo job start`, `neo lane start`), and refuse every act until one is recorded, so the role
 // is set by the record and never by which skill was invoked. Claude Code passes the event as JSON on stdin; this script
-// always exits 0 and answers in JSON: a PreToolUse refusal as `permissionDecision: "deny"`, a Stop refusal as
+// always exits 0 and answers in JSON: a PreToolUse refusal as `permissionDecision: "deny"` (a pre-approved act of the
+// act table as `"allow"`, PERMISSIONS §8.6), a Stop refusal as
 // `decision: "block"`. What it refuses is what must never happen (code, P16); what a goal sends a session back for is text.
 //   node tools/neo-hooks.mjs <pre|stop>
 // Pushes: a job pushes only `job/<m>`, a lane only `tranche`, BOB `tranche` (its prepared files, P18); nobody pushes
@@ -113,6 +114,37 @@ export function preReason(role, input, ctx) {
   return null;
 }
 
+// The reason a tool call is pre-approved, or null (PERMISSIONS §8.6): a PreToolUse `allow` skips the permission prompt,
+// never past a deny or ask rule, so only what the act table gives every role is answered here, and only when every part
+// of the command is one: the tool's own commands, the checks, the tests, a read of git, a push to the role's own branch
+// (preReason has already refused every other push), with `cd` and read-only filters between them. A substitution, a
+// redirect to a file or anything else falls through to the rules and the mode. Asked only once preReason found nothing.
+const QUIET = /\s+(?:\d?>&\d|\d?>\s*\/dev\/null)(?=$|[\s;&|])/g;
+const ALLOW_PART = [
+  /^node\s+(?:\S+\/)?(?:tools\/neo|checks\/run)\.mjs(?:\s|$)/,
+  /^node\s+--test(?:\s|$)/,
+  /^git\s+(?:-C\s+\S+\s+)?(?:status|log|diff|show|fetch|rev-parse|ls-files|ls-remote|cat-file|merge-base|blame|describe|shortlog)(?:\s|$)/,
+  /^git\s+(?:-C\s+\S+\s+)?branch(?:\s+(?:-a|-r|-v|-vv|--list|--show-current|--contains\s+\S+|--merged(?:\s+\S+)?))*$/,
+  /^git\s+(?:-C\s+\S+\s+)?remote(?:\s+-v)?$/,
+  /^cd\s+\S+$/,
+  /^(?:head|tail|grep|wc)(?:\s+[^\s]+)*$/,
+];
+export function allowReason(role, input, ctx) {
+  if (!role || input.tool_name !== 'Bash') return null;
+  const c = String(input.tool_input?.command || '').replace(QUIET, '');
+  if (/[`<>]|\$\(|\n|(?<!&)&(?!&)|--output\b/.test(c)) return null;
+  const parts = c.split(/&&|\|\||;|\|/).map((x) => x.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  const own = role === 'job' ? jobBranch(ctx.module) : TRANCHE;
+  for (const part of parts) {
+    if (ALLOW_PART.some((re) => re.test(part))) continue;
+    const push = part.match(/^git\s+(?:-C\s+\S+\s+)?push((?:\s+(?:-u|--set-upstream|-q|--quiet))*\s+origin\s+\S+)$/);
+    if (push && !FORCE.test(part) && refs(push).length && refs(push).every((r) => r === own)) continue;
+    return null;
+  }
+  return `the act table gives every ${role === 'bob' ? 'BOB' : role} this act (PERMISSIONS §8.6)`;
+}
+
 // The reason a turn may not end, or null: no role yet; a job's record WORKING; anything `neo status` gates for the role.
 export function stopReason(role, ctx) {
   if (!role) return 'run your start command first (`neo takeover`, `neo job start` or `neo lane start`): the role is recorded by it (SESSIONS §1a)';
@@ -133,7 +165,9 @@ function main() {
   const r = readRole(root) || {}, role = r.role || null, ctx = { ...r, root };
   if (ev === 'pre') {
     let why = null; try { why = preReason(role, input, ctx); } catch (e) { why = `the check failed (${e.message}); fix the cause`; }
-    if (why) console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: `PROCESS: ${why}` } }));
+    if (why) { console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: `PROCESS: ${why}` } })); return; }
+    let ok = null; try { ok = allowReason(role, input, ctx); } catch { /* falls through to the rules */ }
+    if (ok) console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `PROCESS: ${ok}` } }));
     return;
   }
   if (ev === 'stop') {
