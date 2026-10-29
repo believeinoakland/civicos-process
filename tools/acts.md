@@ -7,7 +7,7 @@ Every act the process takes, per role: the route the tool uses, the relation it 
 | `git push(own branch)` | job, lane, BOB | `neo` commands and the session's own `git push` | its own branch only (`job/<m>`; `tranche`); the hooks refuse any other | N1 |
 | `git push(state branch)` | every role | `neo …` by plumbing (`stateWrite`), never by hand | the one state branch of the epoch | N1 |
 | `git push(delete state branch)` | BOB | `neo epoch close` | the git proxy must allow the delete (REP 2 says it refuses hand deletes) | — (X3) |
-| `git push(delete job branch)` | BOB | `neo merged`, after the queue's merge | the branch is merged | N1 |
+| `git push(delete job branch)` | BOB | `neo merged`, after the tool's merge | the branch is merged; `tranche` itself is never deleted (its ruleset refuses it) | N1 |
 | `git merge --ff-only / checkout -B` (a stale local branch) | every role | the tool and the session | none; `git reset --hard` was refused by the classifier on 29 Oct (#4) and is never used | 2026-10-29 #4 |
 | `create_session(job)` | BOB | the call `neo layer start` or `neo job route` printed, unchanged | BOB is the parent | N1 |
 | `create_session(lane)` | BOB | the call `neo lane open`, `lane route` or `ask ask` printed | BOB is the parent | N1 |
@@ -21,8 +21,10 @@ Every act the process takes, per role: the route the tool uses, the relation it 
 | `add_issue_comment(own PR report)` | job | the call `neo job complete` printed | its own PR, while the comment is owed | N1 |
 | `update_pull_request(own PR ready)` | job, BOB | the call `neo job complete` or `neo merged` printed | its own PR, while the act is owed | N1 |
 | `pull_request_review_write` | BOB | the call `neo review result` printed | none measured | N1 |
-| `enable_pr_auto_merge` | BOB | `neo merge` | **Allow auto-merge** on in the repository (refused otherwise, measured 29 Oct #2) | N1 |
-| `merge_pull_request(close PR to main)` | BOB | the GitHub merge tool, once the plan reads CLOSING | the hook allows it then only | N1 |
+| `update_pull_request_branch(job PR behind tranche)` | BOB | `neo merge` | none measured; GitHub merges the tranche into the job's branch | — (N1) |
+| `merge_pull_request(job PR)` | BOB | the call `neo merge` printed (the gate green on the tip, the tip holding the tranche) | the hook allows it while the job's Merge line reads `merging` | — (N1) |
+| `git push(tranche, direct)` | BOB, lane | `commitPush` | no required check and no pull-request rule on `tranche`: either refuses every direct push, the branch's creation included (measured 29 Oct #5 on the toy: "Required status check gate is expected") | 2026-10-29 #5 |
+| `merge_pull_request(close PR to main)` | BOB | the GitHub merge tool, once the plan reads CLOSING | the hook allows it then only; the `main` ruleset (a pull request required, zero approvals) lets Bob's token merge it | 2026-10-29 #5 (the seed's PR believeinoakland/neoprocess-dryrun#1, merged through the proxy) |
 | `create_repository(organization)` | — | none: an act of Bob's | refused by scope on 29 Oct (#4: 404 on the organization endpoint) | 2026-10-29 #4 |
 | `write(.claude/settings.json)` | the seed | `neo shims` from `permissions.json` | K1702: a session's edit of the settings file was refused | — (X4) |
 | `Agent(background worker)` | BOB, a lane | `neo ask dispatch`, `review decide` | `run_in_background: true` (the hook refuses the foreground) | 2026-10-29 #2 |

@@ -36,14 +36,14 @@ One row per path PROTOCOL §10, JOB-LIFE §13 and DESIGN-STAGE §5 name. A row i
 | J3 | the gate red on a branch and green after the fix | alpha N3 | the PR's check runs: one failure, then success | PLANNED |
 | J4 | a review decided "no review" with its reason | BOB on alpha or beta | the job's Review line `no review · …` | PLANNED |
 | J5 | a review decided "review" whose worker reports a gap, fixed and approved | stats N10 | the PR review REQUEST_CHANGES then APPROVE; the CHANGE; the second completion | PLANNED |
-| J6 | a merge by the queue waking BOB and recorded | every merge | the `pull_request.closed` event; the job's Merge line | PLANNED |
+| J6 | a merge by the tool's printed call, its `pull_request.closed` event waking BOB and recorded | every merge | the job's Merge line `merging` then `merged`; the event | PLANNED |
 | J7 | a CHANGE after the merge re-opening the job on a fresh branch and PR | alpha N1's answer, timed after its merge | two PRs for alpha; the REOPENED line; the second merge | PLANNED |
-| J8 | a queue run failing on the merged result (a user's test) and the job fixing it | beta N8 against alpha N2 | the merge_group check failure; the CHANGE to beta; beta's fix (class only) and second merge | PLANNED |
+| J8 | a branch behind `tranche` updated by `update_pull_request_branch`, the gate failing on the updated tip (a user's test against the merged result), the job fixing it | beta N8 against alpha N2 | the Merge line `updating`; the check run on the updated tip, failed; the CHANGE to beta; beta's fix and merge | PLANNED |
 | J9 | a job retired early by `neo job retire` and one at the layer's close | alpha early, beta at the close | the plan's owed lines; two metrics rows | PLANNED |
 | J10 | a tranche closed by the one PR to `main` | the close | the PR `N1: close`, merged by BOB; `tranche` gone | PLANNED |
 | J11 | a job that ends a turn with its record WORKING sent back by its goal without a message from BOB | beta N9 | beta's transcript: the Stop hook's refusals, then the goal's send-back | PLANNED |
 | J12 | whether a message whose first words are `/goal` sets the goal again after a wait | PROBE-J12 #1, 29 Oct | `get_session`: the first condition unchanged (`iterations: 1, met: true`); the message read as data by `ReadNotifications`; no `Goal set:` reply | MEASURED before the run: it does not (SESSIONS §1b); no dry-run row |
-| J13 | the merge queue on `tranche`, the required checks, auto-merge queuing, the `merge_group` run (JOB-LIFE §12) | every merge | GitHub's queue page; the check runs on `merge_group` | PLANNED |
+| J13 | the tool's merge (JOB-LIFE §6, §12): the gate on every pull request to `tranche`, a green current tip merged by the printed call, the hook refusing any other merge | every merge | the check runs on the PRs; the merge commits; one refused hand merge | PLANNED |
 
 ## The Design stage (DESIGN-STAGE §5)
 

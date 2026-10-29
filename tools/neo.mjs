@@ -30,7 +30,7 @@
 //   job pr --module <m> --number <n>      job started --module <m> --name "<M> #k" --session <id>      job route --module <m> [--session-status <s>] [--context-pct <n>]
 //   job start --module <m> --session <id>      job state --module <m> [--set <state>]      job complete --module <m> --report-file <f>
 //   job posted --module <m> [--comment <id>] [--ready]      review decide --module <m> (--review | --no-review) --reason "<…>"
-//   review result --module <m> --result-file <f>      merge --module <m>      merged --module <m> --sha <commit>
+//   review result --module <m> --result-file <f>      merge --module <m> --head <sha> --gate <conclusion>      merged --module <m> --sha <commit>
 //   job reopen --module <m> --change-file <f>      job retire --module <m>      job archived --module <m> --session <id> --usage <json>
 //   defect --module <m> --what "<…>"      bob archived --name "BOB #n" --session <id> --usage <json>
 //   reading --role <bob|job|lane|root>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--check]
@@ -164,6 +164,7 @@ export function epochClose(o) {
   R.g(['push', '-q', 'origin', `:refs/heads/${stateBranch(e)}`]);
   try { R.g(['update-ref', '-d', `refs/remotes/origin/${stateBranch(e)}`]); } catch { /* none */ }
   const log = R.read('build/epochs.md') || '';
+  // Mid-tranche (an account move, a stop) the closed line is written now; at a tranche's close it is already in the close PR.
   R.write('build/epochs.md', log.replace(new RegExp(`^- ${e} · opened (\\S+)$`, 'm'), `- ${e} · opened $1 · closed ${today()}`));
   return { epoch: e, commit: commitPush(R, TRANCHE, ['build/epochs.md'], `epoch ${e} closes`) };
 }
@@ -590,7 +591,7 @@ export function ghRepo(R) {
 }
 const mod = (R, m) => modules(R).find((x) => x.id === m) ?? refuse(`no module ${m} in build/modules.json`);
 const jobPath = (m) => `jobs/${m}.md`;
-const jobFiles = (R, e) => stateList(R, 'jobs', e).filter((p) => /^jobs\/[^/]+\.md$/.test(p));
+export const jobFiles = (R, e) => stateList(R, 'jobs', e).filter((p) => /^jobs\/[^/]+\.md$/.test(p));
 const jobOf = (R, m) => parseJob(stateRead(R, jobPath(m)) || '');
 const loadJob = (R, m) => jobOf(R, m) ?? refuse(`no job for ${m} on the state branch`);
 const saveJob = (R, m, j, msg) => stateWrite(R, { [jobPath(m)]: fmtJob(m, j) }, msg);
@@ -842,27 +843,41 @@ export function reviewResult(o) {
   return out;
 }
 // JOB-LIFE §6: refuses unless COMPLETE with nothing owed, the review decided (and approved if one ran) and the plan's
-// order met; then auto-merge ("merge when ready") is printed and owed. The queue merges; its event brings `merged`.
+// order met; then, from the check event BOB received (`--head`, `--gate`): the gate must have succeeded on the PR's tip
+// (never an older commit), and the tip must hold everything on the tranche; a branch behind it is updated (GitHub merges
+// the tranche in, the gate runs again, the next success event brings BOB back here); a green, current tip is merged by the
+// printed call, owed until `merged` records it. Measured 29 Oct (#5): a required check on `tranche` refuses every direct
+// push, so the ruleset carries no check and this command is the gate's enforcement (code, P16).
 export function merge(o) {
-  const R = repo(o.product), m = o.module; if (!m) refuse('--module <m>');
+  const R = repo(o.product), m = o.module; if (!m) refuse('--module <m> --head <sha> --gate <conclusion> (both from the check event)');
   const j = loadJob(R, m);
   if (j.state !== 'COMPLETE') refuse(`${m} reads ${j.state}: a merge follows COMPLETE`);
   if (j.owed.length) refuse(`${m} still owes: ${j.owed.join('; ')}`);
   if (!j.review) refuse(`decide the review first (neo review decide --module ${m})`);
   if (/^review · /.test(j.review) && !/ · approved · /.test(j.review)) refuse(`${m}'s review is not approved: ${j.review}`);
-  if (j.merge) refuse(`${m} is already ${j.merge}`);
+  if (/^(merging|merged)/.test(j.merge || '')) refuse(`${m} is already ${j.merge}`);
   const waits = j.after.filter((a) => !done(R, a));
   if (waits.length) refuse(`${m} merges after ${waits.join(', ')} (the plan's order)`);
-  const commit = saveJob(R, m, { ...j, merge: `queued ${now()}` }, `${m}: merge queued`);
+  if (!/^[0-9a-f]{7,40}$/.test(String(o.head || '')) || !o.gate) refuse('--head <sha the check ran on> --gate <its conclusion>, from the check event (JOB-LIFE §6)');
+  R.fetch(TRANCHE, jobBranch(m));
+  let head; try { head = R.g(['rev-parse', `origin/${jobBranch(m)}`]); } catch { refuse(`${jobBranch(m)} is not on origin`); }
+  if (!head.startsWith(String(o.head))) refuse(`${jobBranch(m)} is at ${head.slice(0, 7)}, not ${String(o.head).slice(0, 7)}: that result is for an older commit; wait for the run on the tip`);
+  if (o.gate !== 'success') refuse(`the gate concluded "${o.gate}" on ${head.slice(0, 7)}: nothing merges red; send the job a CHANGE naming the failing check (JOB-LIFE §6)`);
+  let behind = false; try { R.g(['merge-base', '--is-ancestor', `origin/${TRANCHE}`, head]); } catch { behind = true; }
+  if (behind) {
+    const commit = saveJob(R, m, { ...j, merge: `updating ${now()}` }, `${m}: behind ${TRANCHE}, branch updated`);
+    return { commit, update: { tool: 'update_pull_request_branch', ...ghRepo(R), pullNumber: j.pr }, then: `the gate runs on the updated tip; on its success event, neo merge --module ${m} again with the new head` };
+  }
+  const commit = saveJob(R, m, { ...j, merge: `merging ${head.slice(0, 7)} ${now()}` }, `${m}: merging ${head.slice(0, 7)}`);
   planEdit(R, (p) => owe(p, [`merge ${m}`]), `owed: merge ${m}`);
-  return { commit, enable: { tool: 'enable_pr_auto_merge', ...ghRepo(R), pullNumber: j.pr, merge_method: 'merge' }, then: `neo merged --module ${m} --sha <merge commit> (on the pull_request.closed event)` };
+  return { commit, merge: { tool: 'merge_pull_request', ...ghRepo(R), pullNumber: j.pr, merge_method: 'merge' }, then: `neo merged --module ${m} --sha <merge commit> (on the pull_request.closed event)` };
 }
 // The merge recorded from its event: the commit is on the tranche and holds the job's tip; MERGED; the branch deleted
 // (JOB-LIFE §1); the job told; the PRs waiting on this module marked ready.
 export function merged(o) {
   const R = repo(o.product), m = o.module, sha = String(o.sha || ''); if (!m || !/^[0-9a-f]{7,40}$/.test(sha)) refuse('--module <m> --sha <merge commit>');
   const j = loadJob(R, m);
-  if (!/^queued/.test(j.merge || '')) refuse(`${m} is not queued (${j.merge ?? 'no merge'}): run neo merge first`);
+  if (!/^merging/.test(j.merge || '')) refuse(`${m} is not merging (${j.merge ?? 'no merge'}): run neo merge first`);
   R.fetch(TRANCHE, jobBranch(m));
   let full; try { full = R.g(['rev-parse', '--verify', `${sha}^{commit}`]); } catch { refuse(`${sha}: not a commit this clone sees after fetching ${TRANCHE}`); }
   try { R.g(['merge-base', '--is-ancestor', full, `origin/${TRANCHE}`]); } catch { refuse(`${sha} is not on ${TRANCHE}`); }
@@ -1069,7 +1084,8 @@ export function gateCmd(o) {
 // PRODUCT-SUPPLIES: the few files that sit in the product repository, written from here and never by hand; `--check`
 // lists the ones that differ (the gate fails on drift). `--process` is the process checkout's path in a session and
 // `--repo` the process repository's GitHub name: the workflow carries both, so CI's check regenerates the same text.
-// The process repository is public (BOB, 29 Oct), so its checkout needs no key or secret (JOB-LIFE §4).
+// The process repository is public (BOB, 29 Oct), so its checkout needs no key or secret (JOB-LIFE §4). No merge queue:
+// the tool merges a green, current pull request (JOB-LIFE §6), so the workflow runs on pull requests only.
 export function shims(o) {
   const R = repo(o.product), proc = o.process || '/home/user/neoProcess', name = o.repo || 'believeinoakland/neoProcess', rel = R.rel('.');
   const hook = (ev) => `node "${proc}/tools/neo-hooks.mjs" ${ev}`;
@@ -1107,7 +1123,6 @@ hooks:
 on:
   pull_request:
     branches: [${TRANCHE}]
-  merge_group:
 jobs:
   gate:
     runs-on: ubuntu-latest
@@ -1123,7 +1138,7 @@ jobs:
         with:
           node-version: 22
       - name: the gate (artifacts, ownership, the module's tests and its users', the checks, the sizes, the shims)
-        run: node .neoprocess/tools/neo.mjs gate --product "${rel}" --process "${proc}" --repo "${name}" --base "\${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}"
+        run: node .neoprocess/tools/neo.mjs gate --product "${rel}" --process "${proc}" --repo "${name}" --base "\${{ github.event.pull_request.base.sha }}"
 `,
   };
   const at_ = (p) => join(R.root, p), drift = [];
@@ -1153,7 +1168,7 @@ export function roundOpen(o) {
   const cur = R.read(PLAN);
   if (cur) { const open = planSections(cur).filter((l) => plan.layers[l] !== 'CLOSED'); if (open.length) refuse(`a round is running: layer(s) ${open.join(', ')} of the current plan not closed (close the round first)`); }
   const T = tranche({ read: () => text }).id, curT = cur ? tranche(R).id : archivedTranche(R);   // between rounds the archive names the tranche
-  if (curT && curT !== T) refuse(`the current plan is ${curT}'s; a plan for ${T} opens with a new tranche`);
+  if (curT && curT !== T && !o.newTranche) refuse(`the current plan is ${curT}'s; a plan for ${T} opens with a new tranche`);
   R.write(PLAN, text);
   const commit = commitPush(R, TRANCHE, [PLAN], `plan ${T}: round R${roundNumber(R, T)} opens`);
   if (epoch(R)) planEdit(R, (p) => ({ ...p, layers: {} }), 'round opens');
@@ -1178,18 +1193,20 @@ export function roundClose(o) {
   planEdit(R, (p) => ({ ...p, layers: {} }), `round R${n} closed`);
   return { tranche: T, round: n, archived: arch, next: !!next, commit };
 }
-// A tranche opens from main's tip on the fixed branch `tranche` (JOB-LIFE §1), with its first round's plan.
+// A tranche opens from main's tip on the fixed branch `tranche` (JOB-LIFE §1), with its first round's plan. The branch
+// is never deleted (the ruleset refuses it; measured 29 Oct, #5): when it exists it is fast-forwarded to main, which holds
+// it whole once the close PR has merged; a tip not on main is a running tranche.
 export function trancheOpen(o) {
   const R = repo(o.product), text = planFile(o), T = tranche({ read: () => text }).id;
-  if (R.heads(`refs/heads/${TRANCHE}`).length) refuse(`${TRANCHE} exists on origin: the running tranche closes first (its close PR merged, the branch deleted by \`neo tranche merged\`)`);
-  R.fetch('main');
+  R.fetch('main', TRANCHE);
+  const tip = R.g(['rev-parse', 'origin/main']);
+  if (R.heads(`refs/heads/${TRANCHE}`).length) { try { R.g(['merge-base', '--is-ancestor', `origin/${TRANCHE}`, tip]); } catch { refuse(`${TRANCHE} holds work not on main: the running tranche closes first (its close PR merged, recorded by \`neo tranche merged\`)`); } }
   const closing = R.g(['ls-tree', '-r', '--name-only', 'origin/main', '--', R.rel('build/plan/archive')]).split('\n').filter(Boolean).filter((f) => /\*\*Status\*\* · CLOSING/.test(R.g(['show', `origin/main:${f}`])));
   if (closing.length) refuse(`an archived plan still reads CLOSING on main: ${closing.join(', ')}`);
-  const tip = R.g(['rev-parse', 'origin/main']);
-  R.g(['push', '-q', 'origin', `${tip}:refs/heads/${TRANCHE}`]);
+  R.g(['push', '-q', 'origin', `${tip}:refs/heads/${TRANCHE}`]);   // a fast-forward, or the branch made
   R.fetch(TRANCHE);
   try { R.g(['checkout', '-q', '-B', TRANCHE, `origin/${TRANCHE}`]); } catch { refuse(`could not check out ${TRANCHE}: commit or stash the checkout first`); }
-  const r = roundOpen({ ...o });
+  const r = roundOpen({ ...o, newTranche: true });
   return { tranche: T, from: tip.slice(0, 7), ...r };
 }
 // JOB-LIFE §1, §10; P12: every round closed, no ask open, nothing owed, every session archived; main merged in (never a
@@ -1214,12 +1231,20 @@ export function trancheClose(o) {
     const old = at(R, start, () => allChecks(R)).fails, added = [...found.fails].filter((x) => !old.has(x));
     if (added.length) refuse(`checks: ${added.length} finding(s) new since the tranche opened: ${added.slice(0, 10).join('; ')}`);
   }
-  R.g(['push', '-q', 'origin', `HEAD:refs/heads/${TRANCHE}`]);
   const T = archivedTranche(R) ?? 'the tranche';
+  // The epoch ends with the tranche (PROTOCOL §7d): its closed line goes into the close PR, since nothing is pushed to
+  // the tranche once main holds it whole (§1); `epoch close` then only deletes the state branch.
+  const e = epoch(R), elog = R.read('build/epochs.md');
+  if (e && elog && new RegExp(`^- ${e} · opened \\S+$`, 'm').test(elog)) {
+    R.write('build/epochs.md', elog.replace(new RegExp(`^- ${e} · opened (\\S+)$`, 'm'), `- ${e} · opened $1 · closed ${today()} with ${T}`));
+    R.g(['add', '--', R.rel('build/epochs.md')]); R.g(['commit', '-q', '-m', `epoch ${e} closes with ${T}`]);
+  }
+  R.g(['push', '-q', 'origin', `HEAD:refs/heads/${TRANCHE}`]);
   const commit = planEdit(R, (p) => ({ ...owe(p, [`merge ${TRANCHE}`]), state: 'CLOSING' }), `${T}: CLOSING`);
   return { tranche: T, head: R.g(['rev-parse', '--short', 'HEAD']), commit, pr: { ...ghRepo(R), title: `${T}: close`, head: TRANCHE, base: 'main', body: `The tranche ${T} closes: every round archived under build/plan/archive/, every job merged and archived, the checks green over the whole product.`, draft: false }, then: `create the PR, merge it with the GitHub merge tool once its checks are green (the one merge BOB makes), then neo tranche merged --sha <merge commit>` };
 }
-// The close PR's merge recorded: the commit is on main and holds the tranche's tip; the branch deleted by the tool; the plan CLOSED.
+// The close PR's merge recorded: the commit is on main and holds the tranche's tip; the plan CLOSED. The branch stays
+// (the ruleset refuses its deletion) and the next `tranche open` fast-forwards it.
 export function trancheMerged(o) {
   const R = repo(o.product), sha = String(o.sha || ''); if (!/^[0-9a-f]{7,40}$/.test(sha)) refuse('--sha <merge commit>');
   const plan = parsePlan(stateRead(R, 'plan.md') || '');
@@ -1230,8 +1255,7 @@ export function trancheMerged(o) {
   let head = null; try { head = R.g(['rev-parse', `origin/${TRANCHE}`]); } catch { /* gone */ }
   if (head) { try { R.g(['merge-base', '--is-ancestor', head, full]); } catch { refuse(`${TRANCHE}'s tip ${head.slice(0, 7)} is not in ${sha}`); } }
   const commit = planEdit(R, (p) => ({ ...clear(p, `merge ${TRANCHE}`), state: 'CLOSED' }), `tranche merged ${full.slice(0, 7)}`);
-  if (head) { R.g(['push', '-q', 'origin', `:refs/heads/${TRANCHE}`]); try { R.g(['update-ref', '-d', `refs/remotes/origin/${TRANCHE}`]); } catch { /* none */ } }
-  return { commit, merged: full.slice(0, 7), then: 'neo epoch close (after the archives), then the next tranche opens from main' };
+  return { commit, merged: full.slice(0, 7), then: 'neo epoch close (after the archives), then the next tranche opens from main (the branch is fast-forwarded)' };
 }
 // The tranche's footprint in history since its base (P14; lane PROCESS-REDESIGN R8): product commits against bookkeeping.
 export function footprint(o) {

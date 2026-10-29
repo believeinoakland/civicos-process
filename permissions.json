@@ -32,7 +32,7 @@
     "mcp__github__update_pull_request",
     "mcp__github__add_issue_comment",
     "mcp__github__pull_request_review_write",
-    "mcp__github__enable_pr_auto_merge",
+    "mcp__github__update_pull_request_branch",
     "mcp__github__merge_pull_request",
     "mcp__github__pull_request_read",
     "mcp__github__get_job_logs"

@@ -68,7 +68,7 @@ test('the hooks: no role until recorded; BOB, a job and a lane each refused what
   assert.equal(pre(root, bash('pgrep -f "neo.mjs job complete"')), null);
   assert.match(pre(root, tool('Agent', { prompt: 'x' })), /never waited on in the foreground/);
   assert.equal(pre(root, tool('Agent', { prompt: 'x', run_in_background: true })), null);
-  assert.match(pre(root, tool(`${GH}merge_pull_request`, { pullNumber: 11 })), /once the plan reads CLOSING/);
+  assert.match(pre(root, tool(`${GH}merge_pull_request`, { pullNumber: 11 })), /only as `neo merge` printed it.*once the plan reads CLOSING/);
   assert.match(pre(root, tool(`${REMOTE}fire_trigger`, {})), /never fire a routine/);
   assert.match(pre(root, tool(`${REMOTE}create_trigger`, { persistent_session_id: J1 })), /only its own backstop/);
   assert.equal(pre(root, tool(`${REMOTE}create_trigger`, { persistent_session_id: B1 })), null);
@@ -84,6 +84,12 @@ test('the hooks: no role until recorded; BOB, a job and a lane each refused what
   assert.match(stopReason('bob', ctxOf(root)), /owed: open PR alpha; owed: start alpha/);
   N.jobPr(o({ module: 'alpha', number: 11 })); N.jobStarted(o({ module: 'alpha', name: 'ALPHA #1', session: J1 }));
   assert.equal(stopReason('bob', ctxOf(root)), null);
+  // a job's PR is merged only as `neo merge` printed it: its Merge line reads `merging`, the number and method as printed
+  N.stateWrite(N.repo(w.bob.dir), { 'jobs/alpha.md': `**Status** · ALPHA #1 · ${J1} · COMPLETE · PR #11\n**Runs** · 1\n**Owed** · none\n**Review** · no review · x · concerns: none\n**Merge** · merging abcdef0 now\n` }, 'alpha merging');
+  assert.equal(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 11, merge_method: 'merge' })), null);
+  assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 11, merge_method: 'squash' })), /only as `neo merge` printed it/);
+  assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 12, merge_method: 'merge' })), /only as `neo merge` printed it/);
+  N.stateWrite(N.repo(w.bob.dir), { 'jobs/alpha.md': `**Status** · ALPHA #1 · ${J1} · WORKING · PR #11\n**Runs** · 0\n**Owed** · none\n` }, 'alpha working');
   // a lane opened: the printed create_session passes once its start is owed
   const lo = N.laneOpen(o({ id: 'ARITH', area: 'arithmetic', charterFile: f(w.base, 'c.md', 'Area: arithmetic.\n') }));
   assert.equal(pre(root, tool(`${REMOTE}create_session`, { title: 'ARITH #1', prompt: lo.start.prompt, source_revision: 'tranche' })), null);

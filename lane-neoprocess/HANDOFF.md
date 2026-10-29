@@ -14,11 +14,11 @@ The design is here and on the page (https://claude.ai/artifact/7Jghdu6JV3beK58dk
 
 ## What remains, in order
 
-1. **Bob's setup act** (`SETUP-STEPS.md`, ten steps, verified by `neo steps`), plus one for the second account: the Claude GitHub app given `neoprocess-dryrun` (github.com/apps/claude/installations/select_target). 29 Oct, #5: the toy absent, the process repository private (`list_repos`); Bob walked through the steps; waiting on his word. Once the toy exists, `add_repo` it and seed (`n1/SEED.md`). Done: `allowReason` in the hooks (PERMISSIONS §8.6), tested; the settings list keeps its acts until row X7.
+1. **Bob's setup act** (`SETUP-STEPS.md`). Done by Bob 29 Oct; the toy attached and seeded to `main` by #5 (SEED 1–5). Measured there: a required check refuses every direct push to `tranche`, so the tool merges and the ruleset keeps no check (JOB-LIFE §1, §6, §12; `neo merge --head --gate`; tests green). Waiting on Bob's one edit (SETUP-STEPS), then SEED step 6 on. Done: `allowReason` in the hooks (PERMISSIONS §8.6), tested; the settings list keeps its acts until row X7.
 2. **The dry run** (`DRYRUN.md`; seed, plan, charters and rows in `n1/`, rehearsed by #4 on a scratch copy, green) on the toy, once Bob's act exists; the queue measured there (JOB-LIFE §12).
 3. **Permissions** (`PERMISSIONS.md`; Bob, 29 Oct: robust, best of breed for every project; his standing approval in §6): built by #4: `tools/acts.md`, `neo refused` / `refused routed` (queue item, metrics row), `permissions.json` applied by `neo shims`, the start self-check; rows X1–X5. §8 (Claude Code's documentation) written by #4, its §8.6 built by #5. Left: rows X1–X8 on the dry run; REP 9–10 and GOV 9 rewritten at the commit point.
 4. **The commit point**: `neo` takes the `proc` name; the old tool, skills and mechanics rewritten from these files; the rulebooks moved to `rulebooks/` at the root; the page final.
 
 ## Acts that are Bob's, when the time comes
 
-Archive neoProcess #2–#4 (first account). The `neoProcess`, `civicsmith` and `neoprocess-dryrun` repositories; on each product repository, once: the ruleset (merge queue and the check `gate` required on `tranche`, one rule on `main`), **Allow auto-merge**; the process repository made public (no secret); a ROOT on a new account at a move. Probe branches `probe/N2-*` to delete by BOB.
+Archive neoProcess #2–#4 (first account). The `neoProcess`, `civicsmith` and `neoprocess-dryrun` repositories; on each product repository, once: the two rulesets (SETUP-STEPS), nothing else (no queue, no auto-merge, no secret); a ROOT on a new account at a move. Probe branches `probe/N2-*` to delete by BOB.

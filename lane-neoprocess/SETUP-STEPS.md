@@ -1,22 +1,17 @@
-# Bob's one setup act, step by step (verified against GitHub's documentation, 2026-10-29; steps 10–14 on a deploy key and a secret dropped by #4: the process repository goes public instead, BOB's decision)
+# Bob's setup act (done 29 Oct 2026; read back from GitHub's API by #5)
 
-Do these on github.com, signed in as yourself. <<org>> means the organization believeinoakland; <<tranche>> means tranche; <<main>> means main; <<gate>> means gate; <<repo>> means neoprocess-dryrun.
+**What exists.** `believeinoakland/neoprocess-dryrun`, public, owned by Bob's personal account (GitHub's API: owner type `User`; so no merge queue, which GitHub offers only on a repository owned by an organization, and no bypass actors). Two rulesets, both Active: `tranche` (target `tranche`: restrict deletions, block force pushes, and the required check `gate`, which must go, below) and `main` (target `main`: restrict deletions, block force pushes, a pull request required with zero approvals). `civicos-process` is public (its visibility read 29 Oct). **Allow auto-merge** is off and stays off: the process does not use it (JOB-LIFE §12). The Claude GitHub app reaches the toy (this session attached it).
 
-1. At the top right of any page, click the plus icon, then click **New repository**.
-2. In the **Owner** box pick <<org>>, type <<repo>> as the name, choose Public (GitHub offers a merge queue only on a public repository owned by an organization, or on Enterprise Cloud), and click **Create repository**.
-3. On the new repository's main page click **Settings**. If you cannot see it, open the "…" menu next to the tabs and click it there.
-4. On the left click **General**. Near the bottom, under "Pull Requests", tick **Allow auto-merge**.
-5. On the left, under "Code, planning, and automation", click **Rulesets**, then click **Rulesets** again, then click **New ruleset**, then click **New branch ruleset**.
-6. Under "Ruleset name" type <<tranche>>. Click **Disabled** and choose **Active**.
-7. In the "Target branches" section click **Add a target**, choose "Include by pattern" (the label Bob saw on the screen, 29 Oct; GitHub's page names no labels here), and type <<tranche>>: a pattern with no `*` matches that one branch only.
-8. Under "Rules", "Branch rules", tick **Require status checks to pass** (the label on Bob's screen, 29 Oct) and add <<gate>> as the required check; then save the ruleset. The screen offers **no merge queue rule** (Bob's PDF of the page, 29 Oct): `believeinoakland` is a personal account (GitHub's API: owner `type: User`), and GitHub offers the queue only on a public repository owned by an organization. Open: a free organization owning the toy (Bob's act), or the design without a queue (BOB's).
-9. Make a second ruleset the same way (step 5), named <<main>>, **Active**, targeting <<main>> ("Include by pattern", typed <<main>>). In "Branch protections" tick **Require a pull request before merging**, then save.
-10. Open the page github.com/believeinoakland/civicos-process (this process repository, under its present name) and click **Settings**. In the "Danger Zone" section, to the right of "Change repository visibility", click **Change visibility**, select Public, click to confirm that you are changing the visibility of the correct repository, click **I have read and understand these effects**, then click **Make this repository public**. (BOB's decision, 29 Oct: the toy's gate reads the process repository with no key or secret; nothing in it is confidential.)
+**The one edit left (Bob).** Open github.com/believeinoakland/neoprocess-dryrun/settings/rules, click **tranche**, untick **Require status checks to pass**, and save; nothing else. Why: a required check refuses every direct push to the branch, its creation included (measured 29 Oct, #5: `Required status check "gate" is expected`), and BOB and the lanes push `tranche` for what is no job's; the gate is enforced by `neo merge` instead (JOB-LIFE §6).
 
-Documentation used (all fetched 2026-10-29):
-- docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository
-- docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-auto-merge-for-pull-requests-in-your-repository
-- docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/creating-rulesets-for-a-repository
-- docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets
-- docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue
-- docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility
+**For the next product repository** (`civicsmith`), the same, from the screens Bob saw on 29 Oct (<<org>> means believeinoakland, <<repo>> the repository's name):
+
+1. At the top right of any page click the plus icon, then **New repository**; set **Owner** to <<org>>, type <<repo>>, choose **Public**, click **Create repository**.
+2. On the repository's page click **Settings** (under the "…" menu next to the tabs if hidden), then on the left **Rulesets**, **Rulesets** again, **New ruleset**, **New branch ruleset**.
+3. Type `tranche` as the name; change **Enforcement status** from Disabled to **Active**; under "Target branches" click **Add target**, choose **Include by pattern**, type `tranche`. Under "Rules" leave the defaults (**Restrict deletions**, **Block force pushes**) and tick nothing else; click **Create**.
+4. A second ruleset the same way, named `main`, Active, target `main` by pattern; under "Rules" tick **Require a pull request before merging** (zero approvals); click **Create**.
+5. At github.com/apps/claude/installations/select_target, pick <<org>> and give the Claude app access to <<repo>>.
+
+A session can do none of it: repository settings writes are refused by the proxy (measured 29 Oct, #5: `Repository settings writes are not permitted through this proxy`, HTTP 403 on a PATCH of the repository), and creating a repository was refused on 29 Oct (#4). A session can read all of it back (`gh api repos/<org>/<repo>/rulesets`), which is how BOB verifies the act.
+
+Documentation used (fetched 2026-10-29): docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/{creating-rulesets-for-a-repository,available-rules-for-rulesets,about-rulesets}; …/configuring-pull-request-merges/managing-a-merge-queue; …/managing-protected-branches/about-protected-branches; docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/automatically-merging-a-pull-request.

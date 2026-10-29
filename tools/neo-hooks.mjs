@@ -9,10 +9,10 @@
 // Pushes: a job pushes only `job/<m>`, a lane only `tranche`, BOB `tranche` (its prepared files, P18); nobody pushes
 // `main` or a `state/*` branch by hand (the tool writes the state branch by plumbing). JOB-LIFE §4's "any push to the
 // tranche branch" is read as: a job's work reaches `tranche` only through the queue; BOB's hand merge of a job branch,
-// `gh pr merge` and the merge tool are refused, so no push of BOB's can carry a job around the gate.
+// `gh pr merge` and the merge tool are refused but for the call `neo merge` printed, so no push of BOB's can carry a job around the gate.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, jobBranch, lanes, TRANCHE } from './neo.mjs';
+import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, jobBranch, jobFiles, lanes, TRANCHE } from './neo.mjs';
 import { stepsReason, lastAssistantText } from './hooks.mjs';   // P20: steps for Bob verified against their source (`neo steps`)
 
 const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__';
@@ -92,8 +92,11 @@ export function preReason(role, input, ctx) {
   if (tool === `${REMOTE}fire_trigger`) return 'never fire a routine to reach a session: send a message (PROTOCOL §6)';
   if (tool === `${REMOTE}create_trigger` && ti.persistent_session_id !== ctx.session) return 'BOB arms only its own backstop; a job or a lane is reached by send_message, never by a routine (PROTOCOL §7)';
   if (tool === `${GH}merge_pull_request`) {
-    let state = null; try { state = parsePlan(stateRead(R_of(ctx), 'plan.md') || '').state; } catch { /* unread */ }
-    if (state !== 'CLOSING' || ti.base !== 'main') return 'a job merges only by the queue after `neo merge`; the one merge BOB makes is the close PR to main, once the plan reads CLOSING (JOB-LIFE §1, §6; rulebook INT 9)';
+    const R = R_of(ctx); let state = null; try { state = parsePlan(stateRead(R, 'plan.md') || '').state; } catch { /* unread */ }
+    if (state === 'CLOSING' && ti.base === 'main') return null;
+    let job = null; try { job = jobFiles(R).map((p) => parseJob(stateRead(R, p) || '')).find((j) => j && j.pr === Number(ti.pullNumber)); } catch { /* unread */ }
+    if (job && /^merging /.test(job.merge || '') && ti.merge_method === 'merge') return null;
+    return 'a job\'s PR is merged only as `neo merge` printed it (the gate green on its tip, the tip holding the tranche; JOB-LIFE §6); the one other merge BOB makes is the close PR to main, once the plan reads CLOSING (rulebook INT 9)';
   }
   if (tool === `${REMOTE}create_session`) {
     const title = String(ti.title || '');

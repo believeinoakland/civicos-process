@@ -350,12 +350,17 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   assert.deepEqual(rd.concerns, ['provided service changed (1 export line(s) differ)']);
   assert.throws(() => N.reviewDecide(o({ module: 'alpha', review: true, reason: 'x' })), /is decided/);
   assert.match(N.status(o()).queue.map((q) => q.item).join(';'), /^MERGE alpha$/);
-  const mg = N.merge(o({ module: 'alpha' }));
-  assert.deepEqual([mg.enable.tool, mg.enable.pullNumber, mg.enable.merge_method], ['enable_pr_auto_merge', 11, 'merge']);
+  const ahead = g2('rev-parse', 'origin/job/alpha');
+  assert.throws(() => N.merge(o({ module: 'alpha' })), /--head <sha the check ran on> --gate/);
+  assert.throws(() => N.merge(o({ module: 'alpha', head: 'deadbeef', gate: 'success' })), /that result is for an older commit/);
+  assert.throws(() => N.merge(o({ module: 'alpha', head: ahead, gate: 'failure' })), /nothing merges red/);
+  assert.throws(() => N.merged(o({ module: 'alpha', sha: g2('rev-parse', 'HEAD') })), /is not merging/);
+  const mg = N.merge(o({ module: 'alpha', head: ahead, gate: 'success' }));
+  assert.deepEqual([mg.merge.tool, mg.merge.pullNumber, mg.merge.merge_method], ['merge_pull_request', 11, 'merge']);
   assert.deepEqual(N.status(o()).owed, ['merge alpha']); assert.deepEqual(N.status(o()).queue, []);
-  assert.throws(() => N.merge(o({ module: 'alpha' })), /already queued/);
+  assert.throws(() => N.merge(o({ module: 'alpha', head: ahead, gate: 'success' })), /already merging/);
   assert.throws(() => N.merged(o({ module: 'alpha', sha: g2('rev-parse', 'HEAD') })), /tip [0-9a-f]{7} is not in/);
-  g2('fetch', '-q', 'origin'); g2('merge', '-q', '--no-ff', '-m', 'alpha T1 (#11)', 'origin/job/alpha'); g2('push', '-q', 'origin', 'HEAD:tranche');   // the queue
+  g2('fetch', '-q', 'origin'); g2('merge', '-q', '--no-ff', '-m', 'alpha T1 (#11)', 'origin/job/alpha'); g2('push', '-q', 'origin', 'HEAD:tranche');   // GitHub's merge of the PR
   const md = N.merged(o({ module: 'alpha', sha: g2('rev-parse', 'HEAD') }));
   assert.equal(md.send.session_id, J1); assert.match(md.send.message, /^MERGED: alpha is on tranche at [0-9a-f]{7} \(PR #11\)/);
   assert.deepEqual(md.ready.map((r) => [r.module, r.mark.pullNumber, r.mark.draft]), [['beta', 12, false]]);
@@ -387,7 +392,7 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   N.jobPosted(bo({ comment: 779, ready: true }));
   assert.deepEqual([N.jobState(bo({})).runs, N.jobState(bo({})).review], [2, null]);
   N.reviewDecide(o({ module: 'beta', noReview: true, reason: 'the gap is closed; re-reviewed for it only' }));
-  N.merge(o({ module: 'beta' }));
+  N.merge(o({ module: 'beta', head: g(beta.root, 'rev-parse', 'HEAD'), gate: 'success' }));
   g2('fetch', '-q', 'origin'); g2('merge', '-q', '--no-ff', '-m', 'beta T1 (#12)', 'origin/job/beta'); g2('push', '-q', 'origin', 'HEAD:tranche');
   N.merged(o({ module: 'beta', sha: g2('rev-parse', 'HEAD') }));
   // a job's session replaced (JOB-LIFE §9): routed to a fresh one, recorded under the next number
@@ -416,7 +421,17 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   assert.equal(jc2.acts[0].issue_number, 13);
   N.jobPosted(jo({ comment: 780, ready: true }));
   N.reviewDecide(o({ module: 'alpha', noReview: true, reason: 'a test line' }));
-  N.merge(o({ module: 'alpha' }));
+  g2('fetch', '-q', 'origin'); g2('merge', '-q', '--ff-only', 'origin/tranche');
+  writeFileSync(join(w.bob.dir, 'build/layers.md'), `${readFileSync(join(w.bob.dir, 'build/layers.md'), 'utf8')}\nPrepared ahead (P18): nothing yet.\n`);
+  N.commitPush(R, N.TRANCHE, ['build/layers.md'], 'prepared ahead (P18)');   // the tranche moved: alpha's tip is behind it
+  const up = N.merge(o({ module: 'alpha', head: g(alpha.root, 'rev-parse', 'HEAD'), gate: 'success' }));
+  assert.deepEqual([up.update.tool, up.update.pullNumber, up.merge], ['update_pull_request_branch', 13, undefined]);
+  assert.match(N.jobState(o({ module: 'alpha' })).merge, /^updating /);
+  assert.deepEqual(N.status(o()).owed, []);
+  g(alpha.root, 'fetch', '-q', 'origin'); g(alpha.root, 'merge', '-q', '--no-edit', 'origin/tranche'); g(alpha.root, 'push', '-q', 'origin', 'HEAD:job/alpha');   // GitHub's update of the branch
+  assert.throws(() => N.merge(o({ module: 'alpha', head: 'deadbeef', gate: 'success' })), /older commit/);
+  const mg2 = N.merge(o({ module: 'alpha', head: g(alpha.root, 'rev-parse', 'HEAD'), gate: 'success' }));
+  assert.equal(mg2.merge.pullNumber, 13);
   g2('fetch', '-q', 'origin'); g2('merge', '-q', '--no-ff', '-m', 'alpha T1 (#13)', 'origin/job/alpha'); g2('push', '-q', 'origin', 'HEAD:tranche');
   N.merged(o({ module: 'alpha', sha: g2('rev-parse', 'HEAD') }));
 
@@ -478,9 +493,9 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   const claude = readFileSync(join(w.bob.root, 'CLAUDE.md'), 'utf8');
   assert.ok(claude.split('\n').length <= 30); assert.match(claude, /`o\/neoProcess`, attached at `\/p\/neoProcess`/);
   const yml = readFileSync(join(w.bob.root, '.github/workflows/gate.yml'), 'utf8');
-  assert.match(yml, /^name: gate\non:\n  pull_request:\n    branches: \[tranche\]\n  merge_group:\n/);
+  assert.match(yml, /^name: gate\non:\n  pull_request:\n    branches: \[tranche\]\njobs:\n/);   // no merge queue: the tool merges (JOB-LIFE §6)
   assert.match(yml, /repository: o\/neoProcess\n          path: \.neoprocess\n      - uses: actions\/setup-node/);   // public: no key, no secret
-  assert.match(yml, /run: node \.neoprocess\/tools\/neo\.mjs gate --product "toy" --process "\/p\/neoProcess" --repo "o\/neoProcess" --base "\$\{\{ github\.event\.pull_request\.base\.sha \|\| github\.event\.merge_group\.base_sha \}\}"/);   // the same inputs in CI: no drift
+  assert.match(yml, /run: node \.neoprocess\/tools\/neo\.mjs gate --product "toy" --process "\/p\/neoProcess" --repo "o\/neoProcess" --base "\$\{\{ github\.event\.pull_request\.base\.sha \}\}"/);   // the same inputs in CI: no drift
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', check: true }).drift, []);
   writeFileSync(join(w.bob.root, 'CLAUDE.md'), `${claude}\nMy own rule.\n`);
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', check: true }).drift, ['CLAUDE.md: differs']);
@@ -518,7 +533,7 @@ test('a tranche opened from main, a round opened and closed, the tranche closed 
   assert.deepEqual([to.tranche, to.round, to.layers, R.branch()], ['T2', 1, [1], 'tranche']);
   assert.equal(g2('rev-parse', 'origin/tranche'), g2('rev-parse', 'HEAD'));
   assert.match(readFileSync(join(w.bob.dir, 'build/plan/current.md'), 'utf8'), /^# Plan: test T2/);
-  assert.throws(() => N.trancheOpen(o({ planFile: plan })), /tranche exists on origin/);
+  assert.throws(() => N.trancheOpen(o({ planFile: plan })), /holds work not on main/);
   N.epochOpen(o()); N.takeover(o({ name: 'BOB #1', session: B1 }));
   assert.throws(() => N.roundOpen(o({ planFile: plan })), /a round is running: layer\(s\) 1/);
   assert.throws(() => N.trancheClose(o()), /a round is open/);
@@ -550,9 +565,16 @@ test('a tranche opened from main, a round opened and closed, the tranche closed 
   g2('checkout', '-q', 'tranche');
   const tm = N.trancheMerged(o({ sha: g2('rev-parse', 'origin/main') }));
   assert.equal(tm.merged, g2('rev-parse', '--short', 'origin/main'));
-  assert.deepEqual(R.heads('refs/heads/tranche'), []);
+  assert.deepEqual(R.heads('refs/heads/tranche'), ['tranche']);   // the branch stays (the ruleset refuses its deletion)
   assert.equal(N.parsePlan(N.stateRead(R, 'plan.md')).state, 'CLOSED');
   assert.deepEqual(N.status(o()).owed, []);
   assert.equal(N.epochClose(o()).epoch, 'E1');
   assert.throws(() => N.trancheMerged(o({ sha: g2('rev-parse', 'origin/main') })), /no epoch is open/);
+  assert.equal(g2('rev-parse', 'origin/tranche'), g2('rev-parse', 'origin/main^2'));   // nothing pushed to the tranche after its merge: the epoch's end rode the close PR
+  assert.match(g2('show', 'origin/main:toy/build/epochs.md'), /^- E1 · opened \S+ · closed \S+ with T2$/m);
+  // the next tranche: the branch fast-forwarded to main (a merged tranche is on main whole), the new plan current
+  const t3 = N.trancheOpen(o({ planFile: f(w.base, 'p3.md', '# Plan: test T3\n\n**Status** · OPEN.\n\n## Layer 1\n\n**alpha**\n- N3 · x\n') }));
+  assert.deepEqual([t3.tranche, t3.round, t3.from], ['T3', 1, g2('rev-parse', '--short', 'origin/main')]);
+  assert.equal(g2('rev-parse', 'origin/tranche~1'), g2('rev-parse', 'origin/main'));
+  assert.match(readFileSync(join(w.bob.dir, 'build/plan/current.md'), 'utf8'), /^# Plan: test T3/);
 });
