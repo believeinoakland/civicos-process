@@ -34,6 +34,7 @@
 //   job reopen --module <m> --change-file <f>      job retire --module <m>      job archived --module <m> --session <id> --usage <json>
 //   defect --module <m> --what "<…>"      bob archived --name "BOB #n" --session <id> --usage <json>
 //   reading --role <bob|job|lane|root>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--check]
+//   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -527,7 +528,7 @@ export const MODULE_SET = 40 * 1024;              // a module's own reading set 
 const LIVE_JOB = /^(STARTING|WORKING|WAITING: |BLOCKED: |NEEDS BOB: |COMPLETE|REOPENED|MERGED)/;
 // The tranche's id lives in the plan's title (`# Plan: … D3`), never in a branch name (JOB-LIFE §1).
 export function tranche(R) {
-  const text = R.read(PLAN) ?? refuse(`${PLAN}: no running plan on this checkout`);
+  const text = R.read(PLAN) ?? refuse(`${PLAN}: no running plan on this checkout`);   // R, or any { read } (a plan file about to open)
   return { id: text.match(/^# Plan: .*?\b([A-Z]+\d+[a-z]?)\s*$/m)?.[1] ?? refuse(`${PLAN}: the title names no tranche id (\`# Plan: … T<n>\`)`), text };
 }
 export function ghRepo(R) {
@@ -1078,6 +1079,121 @@ jobs:
   return { files: Object.keys(files), drift, written: o.check ? [] : drift.map((d) => d.split(':')[0]) };
 }
 
+// ---- rounds and the tranche (JOB-LIFE §10; P10, P12): the plan on the tranche branch, its state on the state branch ----
+
+const planSections = (text) => [...new Set([...text.matchAll(/^## Layer (\d+)/gm)].map((x) => Number(x[1])))].sort((a, b) => a - b);
+function planFile(o) {
+  const text = fileText(o.planFile, '--plan-file');
+  if (!/^# Plan: .*?\b[A-Z]+\d+[a-z]?\s*$/m.test(text)) refuse('the plan\'s title names the tranche: `# Plan: … T<n>`');
+  if (!planSections(text).length) refuse('the plan has no `## Layer <n>` section');
+  return text;
+}
+// A round's plan becomes current whole; refused while a round runs (a layer started and not closed, or entries not yet run).
+export function roundOpen(o) {
+  const R = repo(o.product); on(R, TRANCHE);
+  const text = planFile(o), plan = epoch(R) ? parsePlan(stateRead(R, 'plan.md') || '') : { layers: {} };   // a tranche opens before its epoch
+  const cur = R.read(PLAN);
+  if (cur) { const open = planSections(cur).filter((l) => plan.layers[l] !== 'CLOSED'); if (open.length) refuse(`a round is running: layer(s) ${open.join(', ')} of the current plan not closed (close the round first)`); }
+  const T = tranche({ read: () => text }).id, curT = cur ? tranche(R).id : archivedTranche(R);   // between rounds the archive names the tranche
+  if (curT && curT !== T) refuse(`the current plan is ${curT}'s; a plan for ${T} opens with a new tranche`);
+  R.write(PLAN, text);
+  const commit = commitPush(R, TRANCHE, [PLAN], `plan ${T}: round R${roundNumber(R, T)} opens`);
+  if (epoch(R)) planEdit(R, (p) => ({ ...p, layers: {} }), 'round opens');
+  return { tranche: T, round: roundNumber(R, T), commit, layers: planSections(text) };
+}
+const archivedTranche = (R) => R.g(['ls-files', '--', R.rel('build/plan/archive')]).split('\n').filter(Boolean).pop()?.match(/([A-Z]+\d+[a-z]?)-R\d+\.md$/)?.[1] ?? null;
+const roundNumber = (R, T) => (R.g(['ls-files', '--', R.rel('build/plan/archive')]).split('\n').filter((f) => new RegExp(`/${T}-R\\d+\\.md$`).test(f)).length) + 1;
+// Every layer closed, nothing owed, every job archived: the plan is archived whole; `next.md` becomes current if it exists.
+export function roundClose(o) {
+  const R = repo(o.product); on(R, TRANCHE);
+  const { id: T, text } = tranche(R), plan = parsePlan(stateRead(R, 'plan.md') || '');
+  const open = planSections(text).filter((l) => plan.layers[l] !== 'CLOSED');
+  if (open.length) refuse(`layer(s) ${open.join(', ')} not closed`);
+  if (plan.owed.length) refuse(`acts still owed: ${plan.owed.join('; ')}`);
+  const live = jobFiles(R).map((p) => [p.slice(5, -3), parseJob(stateRead(R, p) || '')]).filter(([, j]) => j && j.state !== 'ARCHIVED');
+  if (live.length) refuse(`jobs not archived: ${live.map(([m, j]) => `${m} ${j.state}`).join('; ')}`);
+  const n = roundNumber(R, T), arch = `build/plan/archive/${T}-R${n}.md`;
+  R.write(arch, text);
+  const next = R.read('build/plan/next.md'), paths = [arch, PLAN];
+  if (next) { R.write(PLAN, next); rmSync(join(R.dir, 'build/plan/next.md')); paths.push('build/plan/next.md'); } else rmSync(join(R.dir, PLAN));
+  const commit = commitPush(R, TRANCHE, paths, `plan ${T}: round R${n} closes${next ? '; the next plan is current' : ''}`);
+  planEdit(R, (p) => ({ ...p, layers: {} }), `round R${n} closed`);
+  return { tranche: T, round: n, archived: arch, next: !!next, commit };
+}
+// A tranche opens from main's tip on the fixed branch `tranche` (JOB-LIFE §1), with its first round's plan.
+export function trancheOpen(o) {
+  const R = repo(o.product), text = planFile(o), T = tranche({ read: () => text }).id;
+  if (R.heads(`refs/heads/${TRANCHE}`).length) refuse(`${TRANCHE} exists on origin: the running tranche closes first (its close PR merged, the branch deleted by \`neo tranche merged\`)`);
+  R.fetch('main');
+  const closing = R.g(['ls-tree', '-r', '--name-only', 'origin/main', '--', R.rel('build/plan/archive')]).split('\n').filter(Boolean).filter((f) => /\*\*Status\*\* · CLOSING/.test(R.g(['show', `origin/main:${f}`])));
+  if (closing.length) refuse(`an archived plan still reads CLOSING on main: ${closing.join(', ')}`);
+  const tip = R.g(['rev-parse', 'origin/main']);
+  R.g(['push', '-q', 'origin', `${tip}:refs/heads/${TRANCHE}`]);
+  R.fetch(TRANCHE);
+  try { R.g(['checkout', '-q', '-B', TRANCHE, `origin/${TRANCHE}`]); } catch { refuse(`could not check out ${TRANCHE}: commit or stash the checkout first`); }
+  const r = roundOpen({ ...o });
+  return { tranche: T, from: tip.slice(0, 7), ...r };
+}
+// JOB-LIFE §1, §10; P12: every round closed, no ask open, nothing owed, every session archived; main merged in (never a
+// rebase); the checks and the artifacts once more; the plan CLOSING; the close PR printed and owed.
+export function trancheClose(o) {
+  const R = repo(o.product); on(R, TRANCHE);
+  const plan = parsePlan(stateRead(R, 'plan.md') || '');
+  if (R.read(PLAN)) refuse(`a round is open (${PLAN} exists): close it first`);
+  if (plan.owed.length) refuse(`acts still owed: ${plan.owed.join('; ')}`);
+  const open = asks(R).filter((a) => a.status !== 'CLOSED'); if (open.length) refuse(`asks still open: ${open.map((a) => a.id).join(', ')}`);
+  const live = [...jobFiles(R), ...stateList(R, 'lanes')].filter((p) => /· LIVE |· (STARTING|WORKING|WAITING|BLOCKED|NEEDS BOB|COMPLETE|REOPENED|MERGED)/.test(stateRead(R, p) || ''));
+  if (live.length) refuse(`sessions still live: ${live.join(', ')} (retire and archive them first)`);
+  if (unpushed(R).length) refuse(`the tranche checkout is not pushed: ${unpushed(R).join('; ')}`);
+  R.fetch('main'); history(R, 'origin/main', 'HEAD');
+  try { R.g(['merge', '-q', '--no-edit', 'origin/main']); } catch { spawnSync('git', ['-C', R.root, 'merge', '--abort']); refuse('merging main into the tranche conflicts: resolve it by hand on the tranche, then close again'); }
+  const art = regenerate(R);
+  if (art.stale.length) refuse(`artifacts stale after regenerating: ${art.stale.join(', ')}`);
+  if (art.changed.length) { R.g(['add', '--', ...art.changed.map(R.rel)]); R.g(['commit', '-q', '-m', `artifacts regenerated at the tranche's close: ${art.changed.join(', ')}`]); }
+  const found = allChecks(R);
+  if (found.fails.size) {
+    const start = history(R, 'origin/main', 'HEAD') ?? refuse('no common history with main');
+    const old = at(R, start, () => allChecks(R)).fails, added = [...found.fails].filter((x) => !old.has(x));
+    if (added.length) refuse(`checks: ${added.length} finding(s) new since the tranche opened: ${added.slice(0, 10).join('; ')}`);
+  }
+  R.g(['push', '-q', 'origin', `HEAD:refs/heads/${TRANCHE}`]);
+  const T = archivedTranche(R) ?? 'the tranche';
+  const commit = planEdit(R, (p) => ({ ...owe(p, [`merge ${TRANCHE}`]), state: 'CLOSING' }), `${T}: CLOSING`);
+  return { tranche: T, head: R.g(['rev-parse', '--short', 'HEAD']), commit, pr: { ...ghRepo(R), title: `${T}: close`, head: TRANCHE, base: 'main', body: `The tranche ${T} closes: every round archived under build/plan/archive/, every job merged and archived, the checks green over the whole product.`, draft: false }, then: `create the PR, merge it with the GitHub merge tool once its checks are green (the one merge BOB makes), then neo tranche merged --sha <merge commit>` };
+}
+// The close PR's merge recorded: the commit is on main and holds the tranche's tip; the branch deleted by the tool; the plan CLOSED.
+export function trancheMerged(o) {
+  const R = repo(o.product), sha = String(o.sha || ''); if (!/^[0-9a-f]{7,40}$/.test(sha)) refuse('--sha <merge commit>');
+  const plan = parsePlan(stateRead(R, 'plan.md') || '');
+  if (plan.state !== 'CLOSING') refuse(`the plan reads ${plan.state ?? 'nothing'}, not CLOSING: run neo tranche close first`);
+  R.fetch('main', TRANCHE);
+  let full; try { full = R.g(['rev-parse', '--verify', `${sha}^{commit}`]); } catch { refuse(`${sha}: not a commit this clone sees after fetching main`); }
+  try { R.g(['merge-base', '--is-ancestor', full, 'origin/main']); } catch { refuse(`${sha} is not on main`); }
+  let head = null; try { head = R.g(['rev-parse', `origin/${TRANCHE}`]); } catch { /* gone */ }
+  if (head) { try { R.g(['merge-base', '--is-ancestor', head, full]); } catch { refuse(`${TRANCHE}'s tip ${head.slice(0, 7)} is not in ${sha}`); } }
+  const commit = planEdit(R, (p) => ({ ...clear(p, `merge ${TRANCHE}`), state: 'CLOSED' }), `tranche merged ${full.slice(0, 7)}`);
+  if (head) { R.g(['push', '-q', 'origin', `:refs/heads/${TRANCHE}`]); try { R.g(['update-ref', '-d', `refs/remotes/origin/${TRANCHE}`]); } catch { /* none */ } }
+  return { commit, merged: full.slice(0, 7), then: 'neo epoch close (after the archives), then the next tranche opens from main' };
+}
+// The tranche's footprint in history since its base (P14; lane PROCESS-REDESIGN R8): product commits against bookkeeping.
+export function footprint(o) {
+  const R = repo(o.product), ref = o.base || 'origin/main';
+  if (ref.startsWith('origin/')) R.fetch(ref.slice(7));
+  const base = history(R, ref, 'HEAD') ?? refuse(`${ref} shares no history with HEAD`);
+  const pre = R.rel('.') === '.' ? '' : `${R.rel('.')}/`;
+  const kinds = { product: 0, 'build state': 0, docs: 0 };
+  let merges = 0;
+  for (const block of R.g(['log', '--format=@@%P', '--name-only', `${base}..HEAD`]).split('@@').slice(1)) {
+    const [parents, ...files] = block.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (parents.split(' ').length > 1) { merges++; continue; }
+    const rel = files.map((f) => (f.startsWith(pre) ? f.slice(pre.length) : `../${f}`));
+    if (!rel.length) continue;
+    kinds[rel.every((f) => f.startsWith('build/')) ? 'build state' : rel.every((f) => f.startsWith('build/') || f.startsWith('docs/')) ? 'docs' : 'product']++;
+  }
+  const commits = Object.values(kinds).reduce((a, b) => a + b, 0);
+  return { base: base.slice(0, 7), commits, merges, kinds, bookkeeping: commits ? `${Math.round((100 * (commits - kinds.product)) / commits)} %` : '0 %' };
+}
+
 // ---- command line ----
 
 export function args(argv) {
@@ -1098,6 +1214,7 @@ export const COMMANDS = {
   'job complete': jobComplete, 'job posted': jobPosted, 'review decide': reviewDecide, 'review result': reviewResult, merge, merged,
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
   reading, gate: gateCmd, shims,
+  'tranche open': trancheOpen, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
 };
 function main() {
   const o = args(process.argv.slice(2));

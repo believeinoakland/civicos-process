@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, cpSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, cpSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +16,7 @@ const g = (dir, ...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf
 const ident = (d, n) => { for (const [k, v] of [['user.name', n], ['user.email', `${n}@t`], ['commit.gpgsign', 'false']]) g(d, 'config', k, v); };
 const f = (dir, name, text) => { const p = join(dir, name); writeFileSync(p, text); return p; };
 
-function world() {
+function world(opts = {}) {
   const base = mkdtempSync(join(tmpdir(), 'neo-'));
   const origin = join(base, 'origin.git');
   execFileSync('git', ['init', '-q', '--bare', origin]);
@@ -24,8 +24,8 @@ function world() {
   execFileSync('git', ['clone', '-q', origin, seed], { stdio: 'ignore' }); ident(seed, 'seed');
   cpSync(TOY, join(seed, 'toy'), { recursive: true });
   g(seed, 'add', '.'); g(seed, 'commit', '-q', '-m', 'seed'); g(seed, 'branch', '-M', 'main'); g(seed, 'push', '-q', 'origin', 'main');
-  g(seed, 'push', '-q', 'origin', `main:refs/heads/${N.TRANCHE}`);
-  const clone = (name) => { const d = join(base, name); execFileSync('git', ['clone', '-q', '-b', N.TRANCHE, origin, d], { stdio: 'ignore' }); ident(d, name); return { dir: join(d, 'toy'), root: d }; };
+  if (!opts.noTranche) g(seed, 'push', '-q', 'origin', `main:refs/heads/${N.TRANCHE}`);
+  const clone = (name) => { const d = join(base, name); execFileSync('git', ['clone', '-q', '-b', opts.noTranche ? 'main' : N.TRANCHE, origin, d], { stdio: 'ignore' }); ident(d, name); return { dir: join(d, 'toy'), root: d }; };
   return { base, origin, bob: clone('bob'), clone };
 }
 const O = (w, extra = {}) => ({ product: w.bob.dir, ...extra });
@@ -478,4 +478,52 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   const g3 = N.gateCmd({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', base, module: 'alpha' });
   assert.deepEqual(g3.fails.filter((x) => x.startsWith('shims')), ['shims: CLAUDE.md: differs']);
   assert.throws(() => N.gateCmd({ product: w.bob.dir, base: 'nope' }), /not a commit/);
+});
+
+test('a tranche opened from main, a round opened and closed, the tranche closed by its one PR and its branch gone (JOB-LIFE §1, §10)', () => {
+  const w = world({ noTranche: true }), R = N.repo(w.bob.dir), o = (x) => ({ product: w.bob.dir, ...x }), g2 = (...a) => g(w.bob.root, ...a);
+  g2('rm', '-q', '-r', 'toy/build/plan'); g2('commit', '-q', '-m', 'no plan'); g2('push', '-q', 'origin', 'HEAD:main');   // the toy's old plans are not this test's
+  const plan = f(w.base, 'plan.md', '# Plan: test T2\n\n**Status** · OPEN.\n\n## Layer 1\n\n**alpha**\n- N1 · A line.\n');
+  assert.throws(() => N.trancheOpen(o({ planFile: f(w.base, 'bad.md', '# Plan: no id\n\n## Layer 1\n') })), /names the tranche/);
+  const to = N.trancheOpen(o({ planFile: plan }));
+  assert.deepEqual([to.tranche, to.round, to.layers, R.branch()], ['T2', 1, [1], 'tranche']);
+  assert.equal(g2('rev-parse', 'origin/tranche'), g2('rev-parse', 'HEAD'));
+  assert.match(readFileSync(join(w.bob.dir, 'build/plan/current.md'), 'utf8'), /^# Plan: test T2/);
+  assert.throws(() => N.trancheOpen(o({ planFile: plan })), /tranche exists on origin/);
+  N.epochOpen(o()); N.takeover(o({ name: 'BOB #1', session: B1 }));
+  assert.throws(() => N.roundOpen(o({ planFile: plan })), /a round is running: layer\(s\) 1/);
+  assert.throws(() => N.trancheClose(o()), /a round is open/);
+  // the layer run (its jobs' lives are the other test's): the state written as the commands leave it
+  N.layerStart(o({ layer: 1 }));
+  assert.throws(() => N.roundClose(o()), /layer\(s\) 1 not closed/);
+  N.stateWrite(R, { 'jobs/alpha.md': `**Status** · ALPHA #1 · ${J1} · ARCHIVED\n`, 'plan.md': `# Plan (transient)\n\n**Status** · OPEN · BOB #1 · ${B1}\n**Owed** · none\n**Layers** · 1 CLOSED\n` }, 'layer 1 run');
+  writeFileSync(join(w.bob.dir, 'build/plan/next.md'), '# Plan: test T2\n\n**Status** · OPEN.\n\n## Layer 1\n\n**alpha**\n- N2 · Another line.\n');
+  N.commitPush(R, N.TRANCHE, ['build/plan/next.md'], 'the next plan');
+  const rc = N.roundClose(o());
+  assert.deepEqual([rc.round, rc.archived, rc.next], [1, 'build/plan/archive/T2-R1.md', true]);
+  assert.match(readFileSync(join(w.bob.dir, 'build/plan/current.md'), 'utf8'), /N2 · Another line/);
+  assert.equal(existsSync(join(w.bob.dir, 'build/plan/next.md')), false);
+  assert.deepEqual(N.status(o()).owed, []);
+  // the second round, closed with no next plan; then the tranche closes: main merged in, CLOSING, the PR printed and owed
+  N.stateWrite(R, { 'plan.md': `# Plan (transient)\n\n**Status** · OPEN · BOB #1 · ${B1}\n**Owed** · none\n**Layers** · 1 CLOSED\n` }, 'round 2 run');
+  assert.deepEqual([N.roundClose(o()).round, existsSync(join(w.bob.dir, 'build/plan/current.md'))], [2, false]);
+  assert.throws(() => N.roundOpen(o({ planFile: f(w.base, 'p3.md', '# Plan: test T3\n\n## Layer 1\n\n**alpha**\n- N3 · x\n') })), /opens with a new tranche/);
+  const fp = N.footprint(o());
+  assert.ok(fp.commits > 0); assert.equal(fp.kinds.product, 0);   // only build state moved: bookkeeping
+  const tc = N.trancheClose(o());
+  assert.deepEqual([tc.tranche, tc.pr.head, tc.pr.base, tc.pr.title, tc.pr.draft], ['T2', 'tranche', 'main', 'T2: close', false]);
+  assert.equal(N.status(o()).bob.session, B1); assert.deepEqual(N.status(o()).owed, ['merge tranche']);
+  assert.equal(N.parsePlan(N.stateRead(R, 'plan.md')).state, 'CLOSING');
+  assert.throws(() => N.trancheClose(o()), /acts still owed/);
+  assert.throws(() => N.trancheMerged(o({ sha: g2('rev-parse', 'origin/main') })), /is not in/);   // main's tip does not hold the tranche yet
+  // the close PR merged (here: the merge made on main by hand) and recorded; the branch is gone; the epoch can close
+  g2('checkout', '-q', 'main'); g2('merge', '-q', '--no-ff', '-m', 'T2: close (#1)', 'origin/tranche'); g2('push', '-q', 'origin', 'HEAD:main');
+  g2('checkout', '-q', 'tranche');
+  const tm = N.trancheMerged(o({ sha: g2('rev-parse', 'origin/main') }));
+  assert.equal(tm.merged, g2('rev-parse', '--short', 'origin/main'));
+  assert.deepEqual(R.heads('refs/heads/tranche'), []);
+  assert.equal(N.parsePlan(N.stateRead(R, 'plan.md')).state, 'CLOSED');
+  assert.deepEqual(N.status(o()).owed, []);
+  assert.equal(N.epochClose(o()).epoch, 'E1');
+  assert.throws(() => N.trancheMerged(o({ sha: g2('rev-parse', 'origin/main') })), /no epoch is open/);
 });
