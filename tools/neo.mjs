@@ -20,7 +20,7 @@
 //   takeover --name "BOB #n" --session <id>          status          handoff
 //   ask open --from "<MODULE|LANE> #k" --session <id> --number <n> --message-file <f>   (the sender's session name)
 //   ask route --ask A<n> (--answer | --lane <id> | --bob) --reason "<…>"
-//   ask dispatch --ask A<n> --stage <question|reply> --brief-file <f> --due <minutes> [--by <name>]
+//   ask dispatch --ask A<n> --stage <question|reply> --brief-file <f> --due <minutes> [--by <name>] [--again [--why "<…>"]]
 //   ask ask --ask A<n> --question-file <f>        ask decided --ask A<n> --answer-file <f> [--bob]
 //   ask close --ask A<n> --reply-file <f> [--files <p1,p2>] [--decision "<one sentence>"]
 //   lane open --id <ID> --area "<…>" --charter-file <f> --canon <p1,p2>      lane started --id <ID> --name "<ID> #k" --session <id>
@@ -283,18 +283,23 @@ export function askRoute(o) {
   return { ask: a.id, route: which[0], commit: saveAsk(R, a, `${a.id}: ${which[0]}`) };
 }
 // A worker dispatched: the brief (≤ 4 KB, SESSIONS §4) and the Working line are written before the Agent call is printed.
+// `--again` re-dispatches work that is out (a worker killed or failed, a line past its due: PROTOCOL §7): the same brief
+// unless a new one is given, a new since and due, and the replaced line kept under the new one (the row's evidence).
 export function askDispatch(o) {
   const R = repo(o.product), a = loadAsk(R, o.ask);
   if (!['question', 'reply'].includes(o.stage)) refuse('--stage question | reply');
-  if (a.working) refuse(`${a.id} already has work out: ${a.Working.head}`);
+  if (a.working && !o.again) refuse(`${a.id} already has work out: ${a.Working.head} (a re-dispatch after a kill, a failure or a LATE listing: --again [--why "<…>"])`);
+  if (o.again && !a.working) refuse(`${a.id} has no work out to re-dispatch`);
+  if (o.again && a.working.stage !== o.stage) refuse(`${a.id}'s work out is its ${a.working.stage}, not its ${o.stage}`);
   if (a.status === 'CLOSED') refuse(`${a.id} is closed`);
   if (o.stage === 'question' && !a.lane) refuse(`${a.id} is not routed to a lane: nothing to ask`);
   if (o.stage === 'reply' && !(a.Decided || a.route === 'answered by BOB')) refuse(`${a.id} has no decision to reply from`);
-  const brief = sized(fileText(o.briefFile, '--brief-file'), 'the brief');
+  const brief = o.briefFile || !o.again ? sized(fileText(o.briefFile, '--brief-file'), 'the brief') : (stateRead(R, `asks/${a.id}/brief-${o.stage}.md`) ?? refuse(`no brief recorded for ${a.id}'s ${o.stage}: --brief-file <f>`));
   if (!/^Brief /.test(brief) || !/^Write your result to: /m.test(brief) || !/^End with the line: DONE /m.test(brief)) refuse('the brief follows the template (SESSIONS §4): "Brief <id> …", "Write your result to: <path>", "End with the line: DONE <id> · <sections>"');
   const min = Number(o.due) || 60, since = now(), due = new Date(Date.now() + min * 60e3).toISOString();
   const by = o.by || readRole(R.root)?.name || 'worker';
-  a.Working = { head: `${by} · ${o.stage} · since ${since} · due ${due}`, body: '' };
+  const replaced = a.working ? `${a.Working.body ? `${a.Working.body}\n` : ''}replaced · ${a.Working.head}${o.why ? ` · ${String(o.why).replace(/\n/g, ' ')}` : ''}` : '';
+  a.Working = { head: `${by} · ${o.stage} · since ${since} · due ${due}`, body: replaced };
   const commit = stateWrite(R, { [askPath(a.id)]: fmtAsk(a), [`asks/${a.id}/brief-${o.stage}.md`]: brief }, `${a.id}: ${o.stage} dispatched`);
   return { ask: a.id, commit, agent: { description: `${a.id} ${o.stage}`, prompt: brief, run_in_background: true } };
 }
@@ -1218,8 +1223,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: the gate (artifacts, ownership, the module's tests and its users', the checks, the sizes, the shims)
-        run: node .neoprocess/tools/neo.mjs gate --product "${rel}" --process "${proc}" --repo "${name}" --ref "${ref}" --base "\${{ github.event.pull_request.base.sha }}"
+      - name: the gate (artifacts, ownership, the module's tests and its users', the checks, the sizes, the shims), against the merge ref's own base
+        run: node .neoprocess/tools/neo.mjs gate --product "${rel}" --process "${proc}" --repo "${name}" --ref "${ref}" --base HEAD^1
 `,
   };
   const at_ = (p) => join(R.root, p), drift = [];

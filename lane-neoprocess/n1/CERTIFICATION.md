@@ -15,7 +15,7 @@ One row per path PROTOCOL §10, JOB-LIFE §13 and DESIGN-STAGE §5 name. A row i
 | P7 | a lane re-chartered by `neo lane charter` | BOB's act | the charter file and the `re-chartered` decision line | PLANNED |
 | P8 | two requests in one BOB turn, both found by `neo status`, handled in order | alpha N5 | one BOB turn's events; both asks' From lines; the order of their Route lines | PLANNED |
 | P9 | a worker's result recorded by the wake its completion sends, BOB's turn ended meanwhile | any dispatch | BOB's transcript: turn end, completion wake, `neo ask …` with the result | PLANNED |
-| P10 | a worker killed mid-task, seen by the failure notice, re-dispatched from the same brief | BOB's act | the Working line's two `since` times; one brief file | PLANNED |
+| P10 | a worker killed mid-task, seen by the failure notice, re-dispatched from the same brief (`neo ask dispatch --again`) | BOB's act | the ask's Working line with its `replaced · <first line>` under it; one brief file | PLANNED |
 | P11 | a Working line past its due listed LATE and re-dispatched | BOB's act (`--due 1`) | `neo status` listing LATE; the re-dispatch | PLANNED |
 | P12 | a duplicate `neo ask decided` refused | BOB's act | the refusal; the ask unchanged | PLANNED |
 | P13 | a lane refreshed mid-ask, its successor finishing the ask from git | BOB's act (`lane route --context-pct 60`) | the lane's Status line with the new session; the decision by it | PLANNED |
@@ -38,7 +38,7 @@ One row per path PROTOCOL §10, JOB-LIFE §13 and DESIGN-STAGE §5 name. A row i
 | J5 | a review decided "review" whose worker reports a gap, fixed and approved | stats N10 | the PR review REQUEST_CHANGES then APPROVE; the CHANGE; the second completion | PLANNED |
 | J6 | a merge by the tool's printed call, its `pull_request.closed` event waking BOB and recorded | every merge | the job's Merge line `merging` then `merged`; the event | PLANNED |
 | J7 | a CHANGE after the merge re-opening the job on a fresh branch and PR | alpha N1's answer, timed after its merge | two PRs for alpha; the REOPENED line; the second merge | PLANNED |
-| J8 | a branch behind `tranche` updated by `update_pull_request_branch`, the gate failing on the updated tip (a user's test against the merged result), the job fixing it | beta N8 against alpha N2 | the Merge line `updating`; the check run on the updated tip, failed; the CHANGE to beta; beta's fix and merge | PLANNED |
+| J8 | a branch behind `tranche` updated by `update_pull_request_branch` at `neo merge`, the gate run again on the updated tip (the merged result), and the merge made only from that run's head (BLD 5 forbids the test that would have made this run red, BOB #1's A3; a red here is J3's path) | beta's PR, behind after alpha merges | the Merge line `updating` then `merging <updated tip>`; the check runs on the two tips; the merge commit | PLANNED |
 | J9 | a job retired early by `neo job retire` and one at the layer's close | alpha early, beta at the close | the plan's owed lines; two metrics rows | PLANNED |
 | J10 | a tranche closed by the one PR to `main` | the close | the PR `N1: close`, merged by BOB; `tranche` gone | PLANNED |
 | J11 | a job that ends a turn with its record WORKING sent back by its goal without a message from BOB | beta N9 | beta's transcript: the Stop hook's refusals, then the goal's send-back | PLANNED |

@@ -109,9 +109,16 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   const brief = f(w.base, 'b1.md', 'Brief A1 · for BOB #1 · today\nTask: write the question in the area\'s terms.\nRead whole, and nothing else: build/requirements/alpha.md\nWrite your result to: asks/A1/question.md\nForm of the result: one question\nIf you need something not listed above, stop and write what it is in the result; do not search for it.\nEnd with the line: DONE A1 · question\nModel: Sonnet · Effort: medium · Due: 30\n');
   const d1 = N.askDispatch(o({ ask: 'A1', stage: 'question', briefFile: brief, due: 30, by: 'BOB #1' }));
   assert.equal(d1.agent.run_in_background, true);
-  assert.throws(() => N.askDispatch(o({ ask: 'A1', stage: 'question', briefFile: brief, due: 30 })), /already has work out/);
+  assert.throws(() => N.askDispatch(o({ ask: 'A1', stage: 'question', briefFile: brief, due: 30 })), /already has work out.*--again/);
   const R = N.repo(w.bob.dir);
   assert.match(N.stateRead(R, 'asks/A1/brief-question.md'), /^Brief A1/);
+  // re-dispatched from the same brief (a worker killed): the replaced line kept under the new one (PROTOCOL §7, row P10)
+  const first = N.parseAsk(N.stateRead(R, 'asks/A1.md')).Working.head;
+  assert.throws(() => N.askDispatch(o({ ask: 'A1', stage: 'reply', again: true })), /work out is its question/);
+  const d2 = N.askDispatch(o({ ask: 'A1', stage: 'question', again: true, why: 'the worker was killed', due: 30, by: 'BOB #1' }));
+  assert.equal(d2.agent.prompt, d1.agent.prompt);
+  const w1 = N.parseAsk(N.stateRead(R, 'asks/A1.md')).Working;
+  assert.notEqual(w1.head, first); assert.equal(w1.body, `replaced · ${first} · the worker was killed`);
   let st = N.status(o());
   assert.equal(st.working.length, 1); assert.equal(st.working[0].late, false);
   assert.match(st.queue.map((q) => q.item).join(';'), /RECEIVED A1 WORKING/);
@@ -521,7 +528,7 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   const yml = readFileSync(join(w.bob.root, '.github/workflows/gate.yml'), 'utf8');
   assert.match(yml, /^name: gate\non:\n  pull_request:\n    branches: \[tranche\]\njobs:\n/);   // no merge queue: the tool merges (JOB-LIFE §6)
   assert.match(yml, /repository: o\/neoProcess\n          ref: lane\n          path: \.neoprocess\n      - uses: actions\/setup-node/);   // public: no key, no secret; the process branch the product follows
-  assert.match(yml, /run: node \.neoprocess\/tools\/neo\.mjs gate --product "toy" --process "\/p\/neoProcess" --repo "o\/neoProcess" --ref "lane" --base "\$\{\{ github\.event\.pull_request\.base\.sha \}\}"/);   // the same inputs in CI: no drift
+  assert.match(yml, /run: node \.neoprocess\/tools\/neo\.mjs gate --product "toy" --process "\/p\/neoProcess" --repo "o\/neoProcess" --ref "lane" --base HEAD\^1/);   // the merge ref's own base, never the event's sha (stale once the base moved)   // the same inputs in CI: no drift
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift, []);
   writeFileSync(join(w.bob.root, 'CLAUDE.md'), `${claude}\nMy own rule.\n`);
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift, ['CLAUDE.md: differs']);
