@@ -1,6 +1,6 @@
 name: repo rename
 # PERMISSIONS §9: a repository renamed by `proc repo rename` on GitHub's runner with the process's own token, the
-# repository secret NEOPROCESS_GITHUB_TOKEN (Bob's one act, set once). A cloud session cannot write repository settings
+# repository secret of the target repository's owner (PERMISSIONS §9.9: NEOPROCESS_GITHUB_TOKEN for the process's own owner, NEOPROCESS_GITHUB_TOKEN_<OWNER> for another). A cloud session cannot write repository settings
 # (measured 29 Oct #5), so `proc repo rename` from a session prints this workflow's dispatch, as `repo setup` prints
 # repo-setup.yml's. The inputs reach the command through the environment, never spliced into the script.
 on:
@@ -16,18 +16,29 @@ jobs:
   rename:
     runs-on: ubuntu-latest
     steps:
+      - name: the secret of the target repository's owner (PERMISSIONS §9.9; Bob, 29 Oct: one secret per owner)
+        id: secret
+        env:
+          REPO: ${{ inputs.repo }}
+        run: |
+          owner="${REPO%%/*}"
+          if [ "$owner" = "$GITHUB_REPOSITORY_OWNER" ]; then name=NEOPROCESS_GITHUB_TOKEN
+          else name="NEOPROCESS_GITHUB_TOKEN_$(printf '%s' "$owner" | tr 'a-z-' 'A-Z_')"; fi
+          echo "the secret for $owner: $name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: the repository renamed, read back under the new name (PERMISSIONS §9)
         env:
-          NEOPROCESS_GITHUB_TOKEN: ${{ secrets.NEOPROCESS_GITHUB_TOKEN }}
+          NEOPROCESS_GITHUB_TOKEN: ${{ secrets[steps.secret.outputs.name] }}
+          SECRET_NAME: ${{ steps.secret.outputs.name }}
           REPO: ${{ inputs.repo }}
           NAME: ${{ inputs.name }}
         run: |
           if [ -z "$NEOPROCESS_GITHUB_TOKEN" ]; then
-            echo "the repository secret NEOPROCESS_GITHUB_TOKEN is not set: Bob's one act (PERMISSIONS §9; the steps are in SETUP-STEPS.md)"
+            echo "the repository secret $SECRET_NAME is not set: Bob's one act for that owner (PERMISSIONS §9; the steps are in SETUP-STEPS.md)"
             exit 1
           fi
           node tools/proc.mjs repo rename --repo "$REPO" --name "$NAME" --product .

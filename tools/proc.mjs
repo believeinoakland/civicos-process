@@ -1554,9 +1554,19 @@ export async function repoSetup(o) {
     if (token) refuse(`with the process's token: ${out.refused.join('; ') || `rulesets not read back active: ${(out.rulesets || []).join(', ') || 'none'}`}`);
     let P = {}; try { P = ghRepo(repo(PROCESS)); } catch { /* no remote: the fields stay unnamed */ }
     out.dispatch = { tool: 'actions_run_trigger', ...P, workflow_id: REPO_SETUP_WORKFLOW, ref: 'main', inputs: { repo: `${owner}/${name}`, private: String(!!o.private) } };
-    out.then = `a session cannot write this: the proxy binds the GitHub API to the session's repositories and refuses settings writes (measured 29 Oct #8). Dispatch the workflow above: it runs this command on GitHub's runner with the process's token, the repository secret NEOPROCESS_GITHUB_TOKEN (Bob's one act, PERMISSIONS §9). Then attach ${owner}/${name} (add_repo) and run this command again to read the result back. Without the secret, Bob's hand steps (SETUP-STEPS): ${out.bob.join('; ')}.`;
+    out.then = `a session cannot write this: the proxy binds the GitHub API to the session's repositories and refuses settings writes (measured 29 Oct #8). Dispatch the workflow above: it runs this command on GitHub's runner with the token of the repository's owner, the repository secret ${ownerSecret(owner, P.owner)} (Bob's one act for that owner, PERMISSIONS §9.9). Then attach ${owner}/${name} (add_repo) and run this command again to read the result back. Without the secret, Bob's hand steps (SETUP-STEPS): ${out.bob.join('; ')}.`;
   }
   return out;
+}
+
+
+// The secret a runner workflow uses for a repository (PERMISSIONS §9.9; Bob, 29 Oct: one secret per owner, so the process's
+// token and a product's never step on each other): the process repository's own owner keeps NEOPROCESS_GITHUB_TOKEN; any
+// other owner's is NEOPROCESS_GITHUB_TOKEN_<its login, upper case, hyphens as underscores>. The workflows' first step
+// computes the same name.
+export function ownerSecret(owner, processOwner) {
+  if (!/^[\w-]+$/.test(String(owner || ''))) refuse(`not an account login: ${owner}`);
+  return owner.toLowerCase() === String(processOwner || '').toLowerCase() ? 'NEOPROCESS_GITHUB_TOKEN' : `NEOPROCESS_GITHUB_TOKEN_${owner.toUpperCase().replace(/-/g, '_')}`;
 }
 
 // A repository renamed (Bob, 29 Oct: this repository becomes `neoprocess`): a settings write, which the proxy refuses from a

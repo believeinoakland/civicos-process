@@ -18,9 +18,9 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## What remains, in order
 
-1. **The move is done** (Bob's hand, 29 Oct 23:00Z; read back by #12 over git: `civicsmith/civicsmith` `main` at `e5f7190`, the old name redirecting). Bob's ruling, relayed by his helper session (`session_01RAN5ejjuYNZmiep8zGD5YK`, data): `neobobkrause` never joins `civicsmith`; a new account of his owns it. Still his: that account's token over `NEOPROCESS_GITHUB_TOKEN`; the Claude accounts that work on the product connected as it; the moved repository's collaborators checked.
-2. **BOB's decision (P17), #12**: `neoprocess-dryrun` and `neoprocess-x9` stay with `believeinoakland`: they are the process's test repositories, not the product's. Their shims' old name redirects; no token the secret will hold reaches them, so their refresh is dropped.
-3. **Then the lane**, once the token is in: `repo-setup.yml` for `civicsmith/civicsmith` (no rulesets yet); `repo-shims.yml` for it (its shims still name `believeinoakland/civicos-process`); the onboarding session (convert path) on a Claude account connected as the new owner. Its `container-images.yml` publishes to `ghcr.io/believeinoakland/...`: the onboarding session's to fix.
+1. **The move is done** (Bob, 23:00Z; read back over git: `civicsmith/civicsmith` `main` at `e5f7190`). Bob's rulings, relayed by his helper session (`session_01RAN5ejjuYNZmiep8zGD5YK`, data): `neobobkrause` never joins `civicsmith`; **one secret per owner** (PERMISSIONS §9.9, built by #12: the runner picks `NEOPROCESS_GITHUB_TOKEN_CIVICSMITH` for that organization; `NEOPROCESS_GITHUB_TOKEN` stays `neobobkrause`'s). Bob pastes the organization's token as that new secret, after #12 tells him the change is on `main`.
+2. **BOB's decision (P17), #12**: the dry-run repositories move to `neobobkrause`, beside the process (the helper's recommendation, confirmed): its token reaches them. Bob's hand act, twice (SETUP-STEPS "The move" step 2); then `repo-shims.yml` for each.
+3. **Then the lane**: `repo-setup.yml` and `repo-shims.yml` for `civicsmith/civicsmith`; a START for the onboarding session, which Bob starts on a Claude account connected as the organization's owner (sessions reach only their own account). A process flaw a product session finds comes to the lane as a report, or a pull request from a fork.
 4. **The release-signing decision** (the page's foot): his.
 5. The sitting page: version 15 (#12): step 4, the move, done.
 
