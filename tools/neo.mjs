@@ -600,7 +600,7 @@ export function refusedRouted(o) {
   const r = refusalsOf(R).find((x) => x.id === o.id) ?? refuse(`no refusal ${o.id} on the state branch`);
   if (r.status !== 'OPEN') refuse(`${o.id} is already routed: ${r.route}`);
   on(R, TRANCHE);
-  const { id: T } = tranche(R), csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
+  const T = trancheId(R), csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
   const one = (s) => String(s).replace(/[,\n]/g, ' ');
   R.write(csv, `${cur}${['', 'refusal', r.by, r.by.split(' #')[0].toLowerCase(), '', '', '', '', '', '', r.kind, `${one(r.act)} · ${r.predicted ? 'predicted' : 'unpredicted'} · ${one(o.route)}`].join(',')}\n`);
   const commit = commitPush(R, TRANCHE, [csv], `metrics ${T}: ${r.id} routed (${r.kind}, ${r.predicted ? 'predicted' : 'UNPREDICTED'})`);
@@ -648,6 +648,9 @@ export function tranche(R) {
   const text = R.read(PLAN) ?? refuse(`${PLAN}: no running plan on this checkout`);   // R, or any { read } (a plan file about to open)
   return { id: text.match(/^# Plan: .*?\b([A-Z]+\d+[a-z]?)\s*$/m)?.[1] ?? refuse(`${PLAN}: the title names no tranche id (\`# Plan: … T<n>\`)`), text };
 }
+// The tranche's id for a metrics row: the running plan's, or between rounds and after the last one the archived plan's
+// (BOB #3, 29 Oct: `refused routed` after the last round's close found no running plan; DRYRUN §4.19).
+export const trancheId = (R) => (R.read(PLAN) ? tranche(R).id : archivedTranche(R) ?? refuse(`${PLAN}: no running plan and no archived one: --tranche <T>`));
 export function ghRepo(R) {
   const m = R.g(['remote', 'get-url', 'origin']).match(/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/);
   return { owner: m?.[1] ?? '?', repo: m?.[2] ?? '?' };
@@ -1053,7 +1056,7 @@ export function layerClose(o) {
 export function defect(o) {
   const R = repo(o.product), m = o.module; if (!m || !o.what) refuse('--module <m> --what "<the defect, one line>"');
   on(R, TRANCHE);
-  const { id: T } = tranche(R), csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
+  const T = trancheId(R), csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
   const last = cur.split('\n').map((l) => l.split(',')).filter((c) => c[1] === 'job' && c[3] === m).pop();
   const reviewed = last?.[10] || 'unknown';
   R.write(csv, `${cur}${['', 'defect', last?.[2] || '', m, '', '', '', '', '', '', reviewed, String(o.what).replace(/[,\n]/g, ' ')].join(',')}\n`);
@@ -1089,7 +1092,7 @@ export function bobArchived(o) {
     if (closed) refuse(`${TRANCHE} is closed (on main whole): nothing is pushed to it until the next tranche opens; its BOB writes this row then, with --tranche <the closed tranche's id>`);
   }
   if (o.tranche !== undefined && !/^[A-Z]+\d+[a-z]?$/.test(String(o.tranche))) refuse('--tranche <T>, a tranche id such as N1');
-  const T = o.tranche || (R.read(PLAN) ? tranche(R).id : archivedTranche(R) ?? refuse('no running plan and no archived one: --tranche <T>')), csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
+  const T = o.tranche || trancheId(R), csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
   if (cur.split('\n').some((l) => l.startsWith(`${o.session},`))) refuse(`${o.session} already has its row in ${csv}`);
   R.write(csv, `${cur}${[o.session, 'BOB-final', o.name, '', u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', '', '', '', ''].join(',')}\n`);
   return { commit: commitPush(R, TRANCHE, [csv], `metrics ${T}: ${o.name} archived`) };
