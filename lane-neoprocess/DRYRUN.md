@@ -42,5 +42,6 @@ The tool's merge on `tranche` (JOB-LIFE §6): the gate on a pull request, a bran
 - 07:00 BOB #1 handed over at 23 rows, with A6's worker out and A5 ASKED (rows P5, P14); BOB #2 (`session_01RAN5emQV3q3LnPm2Ft8oMN`) started by #5 from START-BOB.md; BOB #1 archived by #5 at 47 % of its window after 66 min (its row written by BOB #2).
 - 07:19 layer 2 CLOSED by BOB #2: stats merged (R10; R11's even length to the completion round, alpha N13 then stats N14); STATS #1 archived by BOB #2 though BOB #1 created it, no refusal (X2); the completion round opens.
 - 07:29 completion round R2, layer 1 CLOSED by BOB #2: alpha's midpoint (R10, R11) merged after an approving review (J5), ALPHA #2 archived; layer 2 started (STATS #2, PR #9, N14).
+- 08:08 completion round layer 2: stats N14 merged (R11 on alpha.midpoint; STATS #3 replaced the stuck STATS #2); 32 rows PROVEN; the layer stays open for A4's answer, then the layer close, the epoch close and the close PR to main.
 - A4 (mean([]), rows P4/D3) asked of Bob by #5 at 06:50; awaiting his a/b, to reach stats' completion-round job.
 
