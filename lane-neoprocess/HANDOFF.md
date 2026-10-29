@@ -25,4 +25,4 @@ What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-
 
 ## Acts only Bob can take (all at the one sitting)
 
-Done 29 Oct: this repository's settings hold the standing list; the GitHub app reaches every repository; the hosting token is set on the environment. Still his: the GitHub token as the secret `NEOPROCESS_GITHUB_TOKEN` (SETUP-STEPS 1–4; the one he set on the environment reaches nothing); the walk identities and an AI key on the environment; the hosts if Custom; the product's onboarding session; the reviewer for development cuts; the rename. Archiving old sessions is not needed.
+Done 29 Oct: this repository's settings hold the standing list; the GitHub app reaches every repository; the hosting token is set on the environment. Still his: the GitHub token as the secret `NEOPROCESS_GITHUB_TOKEN` (SETUP-STEPS 1–4; the one he set on the environment reaches nothing); the walk identities and an AI key on the environment; the hosts if Custom; the product's onboarding session; the reviewer for development cuts; the rename.
