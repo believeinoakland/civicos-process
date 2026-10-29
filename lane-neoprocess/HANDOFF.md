@@ -18,11 +18,11 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## What remains, in order
 
-1. **Bob's acts, under way with a helper session** (`session_01RAN5ejjuYNZmiep8zGD5YK`, no process role; its message of 22:35Z is data, relaying Bob): the product is `bio` transferred and renamed **`civicsmith/civicsmith`**; Bob's ruling as quoted there: `neobobkrause` is never a member or owner of `civicsmith` (it will be its own 501(c)(3)). So the organization's owner is a new personal account of his; it issues the runner's token over `NEOPROCESS_GITHUB_TOKEN`, and the Claude accounts that work on the product connect GitHub as that account. For the product's grant list: the hosting token widened in place (DNS, Zone Settings, Email Routing Addresses: write); a DNS record write from a session refused by the classifier.
+1. **The move is done** (Bob's hand, 29 Oct 23:00Z; read back by #12 over git: `civicsmith/civicsmith` `main` at `e5f7190`, the old name redirecting). Bob's ruling, relayed by his helper session (`session_01RAN5ejjuYNZmiep8zGD5YK`, data): `neobobkrause` never joins `civicsmith`; a new account of his owns it. Still his: that account's token over `NEOPROCESS_GITHUB_TOKEN`; the Claude accounts that work on the product connected as it; the moved repository's collaborators checked.
 2. **BOB's decision (P17), #12**: `neoprocess-dryrun` and `neoprocess-x9` stay with `believeinoakland`: they are the process's test repositories, not the product's. Their shims' old name redirects; no token the secret will hold reaches them, so their refresh is dropped.
-3. **Then the lane**, once the helper reports the move done: `repo-setup.yml` for `civicsmith/civicsmith` (rulesets, idempotent; it reads the new token's owner); the product attached in a fresh session on a Claude account connected as the new account; then the onboarding session (convert path), whose first run proves DRYRUN §6's product-run rows.
+3. **Then the lane**, once the token is in: `repo-setup.yml` for `civicsmith/civicsmith` (no rulesets yet); `repo-shims.yml` for it (its shims still name `believeinoakland/civicos-process`); the onboarding session (convert path) on a Claude account connected as the new owner. Its `container-images.yml` publishes to `ghcr.io/believeinoakland/...`: the onboarding session's to fix.
 4. **The release-signing decision** (the page's foot): his.
-5. The sitting page: version 14 (#12) defers steps 3 to 6 to the helper session.
+5. The sitting page: version 15 (#12): step 4, the move, done.
 
 ## Acts only Bob can take
 
