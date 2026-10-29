@@ -91,7 +91,12 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   assert.deepEqual(N.status(o()).owed, ['start lane ARITH']);
   assert.equal(N.status(o()).lanes.find((l) => l.id === 'STATISTICS').live, false);
   N.laneClose(o({ id: 'STATISTICS', why: 'the test is done with it' }));
-  assert.deepEqual(N.lanes(N.repo(w.bob.dir)).map((l) => [l.id, l.status]), [['ARITH', 'OPEN'], ['STATISTICS', 'CLOSED']]);
+  // a lane closed with its start still owed: the owed line goes with it (and a stale one is dropped at any plan write)
+  const lx = N.laneOpen(o({ id: 'EXTRA', area: 'extra', charterFile: charter }));
+  assert.ok(lx.start); assert.deepEqual(N.status(o()).owed, ['start lane ARITH', 'start lane EXTRA']);
+  N.laneClose(o({ id: 'EXTRA', why: 'never started' }));
+  assert.deepEqual(N.status(o()).owed, ['start lane ARITH']);
+  assert.deepEqual(N.lanes(N.repo(w.bob.dir)).map((l) => [l.id, l.status]), [['ARITH', 'OPEN'], ['STATISTICS', 'CLOSED'], ['EXTRA', 'CLOSED']]);
   assert.deepEqual(N.status(o()).owed, ['start lane ARITH']);
   assert.match(N.status(o()).gate.join(';'), /owed: start lane ARITH/);
   // a charter over 4 KB is refused (SESSIONS §6)
@@ -233,7 +238,7 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   assert.match(readFileSync(join(w.bob.dir, 'build/metrics/lanes.csv'), 'utf8'), /,lane,ARITH,10,2,1,3$/m);
   assert.equal(N.status(o()).lanes[0].live, false);
   N.laneClose(o({ id: 'ARITH', why: 'the area folded into the product\'s' }));
-  assert.deepEqual(N.lanes(R).map((l) => l.status), ['CLOSED', 'CLOSED']);
+  assert.deepEqual(N.lanes(R).map((l) => l.status), ['CLOSED', 'CLOSED', 'CLOSED']);
   // nothing open, nothing live, nothing owed: the epoch closes and the branch is gone
   assert.throws(() => N.epochClose(o()), /sessions still live on the state branch: jobs\/alpha\.md/);
   N.stateWrite(R, { 'jobs/alpha.md': `**Status** · ALPHA #1 · ${J1} · ARCHIVED\n` }, 'alpha archived');

@@ -191,6 +191,9 @@ const fmtPlan = (p) => `# Plan (transient)\n\n**Status** · ${p.state} · ${p.bo
 function planEdit(R, edit, message) {
   const p = parsePlan(stateRead(R, 'plan.md') || '');
   const next = edit(p);
+  // an owed start for a lane no longer open is stale (a lane closed before its first session, R-BOB-1-4): dropped here
+  const open = new Set(lanes(R).filter((l) => l.status === 'OPEN').map((l) => l.id));
+  next.owed = (next.owed || []).filter((x) => { const m = x.match(/^start lane (\S+)$/); return !m || open.has(m[1]); });
   return stateWrite(R, { 'plan.md': fmtPlan(next) }, message);
 }
 const owe = (p, acts) => ({ ...p, owed: [...new Set([...p.owed, ...acts])] });
@@ -477,7 +480,9 @@ export function laneClose(o) {
   writeLanes(R, rows.map((l) => (l.id === o.id ? { ...l, status: 'CLOSED' } : l)));
   const dp = `build/lanes/${o.id}/decisions.md`, cur = R.read(dp) || '';
   R.write(dp, `${cur.trimEnd()}\n- closed · ${today()} · ${String(o.why).replace(/\n/g, ' ')}\n`);
-  return { commit: commitPush(R, TRANCHE, ['build/lanes.md', dp], `lane ${o.id} closes`) };
+  const commit = commitPush(R, TRANCHE, ['build/lanes.md', dp], `lane ${o.id} closes`);
+  planEdit(R, (p) => clear(p, `start lane ${o.id}`), `lane ${o.id} closed`);   // a start owed and never taken is owed no more
+  return { commit };
 }
 
 // ---- jobs' transient status (JOB-LIFE §2; the PR commands come with the job's life) ----
