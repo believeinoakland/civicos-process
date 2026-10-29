@@ -1,6 +1,6 @@
 # GOV · Governance · who decides what; how a rule is made, changed and retired
 
-Area rulebook, trial draft (neoProcess #3, 2026-10-29). At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
+In force from 2026-10-29, certified on N1. At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
 
 1. Bob decides only policy and doctrine, the high-level architecture (layers; modules that carry product capability), UX, and a requirement by DES 1's test. Every lower-level matter, a module's or an area's edge case included, is BOB's: decided without asking, recorded once, reported to Bob as done. (P17; K2055, K1257; Bob, 29 Oct) YOURS · TEXT.
 2. Nothing stops for Bob: a session told to keep going keeps going until there is no way to; a question reaches him only by DES 1's test, through the record, with an explanation, options and a recommendation, and never as a turn that ends waiting on him; a doubtful case is BOB's, decided and reported with which way it read it. (P17, P19; Bob, 29 Oct: the process overcomes the habit of stopping to involve him, strongly and consistently) YOURS · CODE: `proc ask route --bob` refuses without `--users` and `--canon-silent`; BOB's and a lane's Stop hook refuses a turn that ends on words waiting for Bob.

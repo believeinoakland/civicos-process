@@ -1,6 +1,6 @@
 # REQ · Requirements & architecture · the design BOB owns, written so a module can be built and proven from it
 
-Area rulebook, trial draft (neoProcess #3, 2026-10-29). At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
+In force from 2026-10-29, certified on N1. At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
 
 1. Modules stand in one total order in `build/modules.json`, each in exactly one layer, a layer's modules adjacent and lower layers first; a module uses only earlier modules, each declared in `uses`, and every import matches. (P4) BOB'S · CODE: the architecture check (imports, one owner per file); TEXT for the layer order.
 2. Bob decides adding, removing or reordering layers and capability modules, and what a requirement means; BOB decides every other part of the architecture (boundaries, splits, `uses` edges, order within a layer, file ownership, helper and legacy modules) and reports it done. (P4, P5, P17; K1257, K2008) YOURS · TEXT.

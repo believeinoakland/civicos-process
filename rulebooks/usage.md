@@ -1,6 +1,6 @@
 # USE · Usage · what sessions cost, what Bob's meter says, and moving between accounts
 
-Area rulebook, trial draft (neoProcess #3, 2026-10-29). At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
+In force from 2026-10-29, certified on N1. At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
 
 1. A session's usage is its tokens processed (cache reads, cache writes, input, output) as `archive_session` returns them, tagged by tranche; no dollar estimate and no session's own count is used. (P14) BOB'S · CODE: `proc job archived`, `proc bob archived` take the archive's four counts and write the row.
 2. Every archived session, a failed one included, gets one row keyed by its cloud session id, a BOB's written by its successor under the tranche it worked in; a session that cannot be read (left on another account) gets none and is named unmeasured, never estimated. (P14, P20; K742) BOB'S · CODE: `proc bob archived`, `proc job archived`; the rest TEXT.

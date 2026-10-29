@@ -1,6 +1,6 @@
 # BLD · Building · a job's round on one module: read whole, change, prove at the interface, report
 
-Area rulebook, trial draft (neoProcess #3, 2026-10-29). At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
+In force from 2026-10-29, certified on N1. At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
 
 1. A job reads its set whole: its START, its module's requirements (both parts), its entries, its layer's contract, its code, of each used module the services its entries touch, and the tests naming a requirement its entries change; its other tests are run, not read. A read that stops short, or a set document over its limit, stops the job at `BLOCKED: reading`. (P20, P6; Bob K3271, K3588, K3678) YOURS · CODE: the PreToolUse hook; `proc layer start` and `job start` measure the set against 40 KB.
 2. An ambiguity, or a flaw in another module or in the requirements, goes to BOB as a `QUESTION` or `REPORT` in the requirement's terms, with the job's evidence; the job writes `WAITING:` in its record, pushes, then sends, and carries on against its best reading unless the answer decides what it builds next. (P9, P20) BOB'S · CODE: the hook allows `send_message` only to BOB's address and only with the record pushed.

@@ -1,6 +1,6 @@
 # INT · Integration · work counts only when it is merged and proven
 
-Area rulebook, trial draft (neoProcess #1, 2026-10-29). At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
+In force from 2026-10-29, certified on N1. At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
 
 1. Done means merged: a job when its pull request is merged into the tranche branch, a tranche when its branch is merged to `main`. (P12) BOB'S · CODE: `proc` reads the merge from GitHub, never from a report.
 2. Each requirement of a module is proven by a test at its interface that checks full compliance; a test that cannot fail does not count, and a check refuses it. (P7, P11) YOURS · CODE: the coverage check; the cannot-fail check (planned, JOB-LIFE §4).

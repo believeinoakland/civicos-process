@@ -1,6 +1,6 @@
 # REL · Release · a closed tranche reaches main, and a release is cut from it
 
-Area rulebook, trial draft (neoProcess #3, 2026-10-29). At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
+In force from 2026-10-29, certified on N1. At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
 
 1. `main` reaches the tranche's commit only by the one close pull request, merged with the GitHub merge tool once the plan reads CLOSING; no other push or merge touches `main` while a tranche runs. (P12) BOB'S · CODE: BOB's hook allows the merge only at CLOSING and refuses any push to `main`.
 2. The close first merges `main` into the tranche branch (never a rebase), merging in the design stream's pull request if it asked, and archives the plan with each entry's outcome and the tranche's measured usage. (P12, P14) BOB'S · CODE: `proc` writes the archive; the hook in rule 1.

@@ -1,6 +1,6 @@
 # PLN · Planning · plans written from the work that remains, placed at once, prepared ahead
 
-Area rulebook, trial draft (neoProcess #3, 2026-10-29). At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
+In force from 2026-10-29, certified on N1. At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
 
 1. A plan is written from the work that remains, not from the work that is queued: it carries every entry that can safely be done in the tranche, with no cap on jobs, and names the hard reason for each entry it leaves out. (P19; Bob, K642, K889) YOURS · CODE: the format check fails a deferring phrase in `current.md` or the handoff that does not cite `next.md`; TEXT otherwise.
 2. An entry is left out for one of three reasons only: a decision of Bob's not yet made; a deployment or measurement that cannot happen inside the tranche; something outside the product that does not yet exist. Never the order, a closed layer, the tranche's size, a job's smallness or no change in behaviour. (P19; Bob, K3915) YOURS · CODE: the format check fails a `next.md` entry added while a tranche runs with any other reason.

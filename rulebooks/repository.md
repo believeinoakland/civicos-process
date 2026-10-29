@@ -1,6 +1,6 @@
 # REP · Repository & tooling · what lives in git, what leaves it, and what guards it
 
-Area rulebook, trial draft (neoProcess #3, 2026-10-29). At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
+In force from 2026-10-29, certified on N1. At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
 
 1. The branches are `main`, `tranche` (made from `main` once, never deleted, fast-forwarded to `main` at each tranche's open) and `job/<module>` (made at the tranche tip, deleted by the tool once merged, remade by a re-open); `main` never moves while a tranche runs. (P10, P12; JOB-LIFE §1) BOB'S · CODE: `proc` makes, moves and deletes them; the ruleset refuses a force push or a deletion of `tranche`; BOB's hook refuses any push to `main`.
 2. No session force-pushes, rewrites history, deletes a remote ref by hand, pushes a tag or touches `snapshot/*`; the tool alone deletes a merged job branch and a closed epoch's state branch, whose every object is elsewhere; the standing list never loosens this. (P12, P16; Bob, K1261, K2254; PROTOCOL §7d) YOURS · CODE: every role's PreToolUse hook; the git proxy refuses hand deletes and tags.

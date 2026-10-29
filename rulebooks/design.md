@@ -1,6 +1,6 @@
 # DES · Design · a question that needs Bob's decision, and how a lane's decision becomes canon, a rule or a requirement
 
-Area rulebook, trial draft (neoProcess #3, 2026-10-29). At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
+In force from 2026-10-29, certified on N1. At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
 
 1. Bob decides only policy and doctrine, the high-level architecture and UX, and a requirement only where it changes what the product does for its users and no canon section answers it; every other decision, an edge case of a module or an area included, is BOB's or its lane's, made without asking him, recorded once and reported as done. (P17, P5; Bob K2055, K5036; Bob, 29 Oct: "you should not be stopping to involve me in these details") YOURS · TEXT.
 2. BOB routes each request in this order and writes the route with its reason: answer it (BOB's by mechanics §7), ask the lane that owns the area, or bring it to Bob. A question a ruling already answers is not asked again. (P17, P15; K1437, K2009) BOB'S · CODE: `proc ask route`; the already-answered part is TEXT.

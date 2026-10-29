@@ -1,6 +1,6 @@
 # SES · Sessions · the right session, reading the right things, for one step at a time
 
-Area rulebook, trial draft (neoProcess #1, 2026-10-29). At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
+In force from 2026-10-29, certified on N1. At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
 
 1. ROOT (depth 0) starts every BOB; BOB (depth 1) starts every job and every lane (depth 2); nothing else starts a session. (P13) BOB'S · CODE: the hooks refuse `create_session` anywhere else.
 2. Every job, lane, BOB and reviewer runs on a model and effort sufficient for quality, from the table in SESSIONS §1, picked by the start command; a purely mechanical job runs on Sonnet. (Bob, 28 Oct; P14) YOURS · CODE: `proc layer start`, `proc lane open`, `proc ask dispatch`.
