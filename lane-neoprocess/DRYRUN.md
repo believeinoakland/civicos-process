@@ -1,0 +1,19 @@
+# The dry run that certifies neoProcess (P3)
+
+**Status** · Draft, neoProcess #3, 2026-10-29. The rows it proves are in `PROTOCOL.md` §10, `JOB-LIFE.md` §13 and `DESIGN-STAGE.md` §5; each becomes a row of the toy's `CERTIFICATION.md`. This file says what the run needs and in what order it goes.
+
+## 1. What it needs that does not exist yet (Bob's acts, P17)
+
+A toy product repository of its own, `neoprocess-dryrun`, under Bob's account (the toy lives in `dryrun/` here, but a product's `CLAUDE.md`, skill and workflow sit at a repository root, and a merge queue targets a repository's branch). On it, once: the ruleset (a merge queue and the required check `gate` on the fixed branch `tranche`; one rule on `main` requiring a pull request), **Allow auto-merge**, and the secret `NEOPROCESS_DEPLOY_KEY` holding a read-only deploy key of the process repository, unless Bob makes the process repository public, in which case no secret is needed. BOB writes the steps for each from the settings pages themselves (P20) when Bob is ready, and nothing else of the run waits on them: everything below the ruleset can be rehearsed on fixture tests first (`tools/test/neo*.test.mjs` already run the whole life against a real git remote).
+
+## 2. The order
+
+1. **Seed.** BOB clones the toy repository, copies `dryrun/` into its root (the product root is `.`), runs `neo shims --product .`, commits, pushes `main`, and creates `tranche` from it. `build/plan/current.md` names the dry run's tranche (`N1`) and its layers' entries, written to drive every row: a QUESTION BOB answers itself; one asked of a lane; one that needs Bob; a REPORT; an entry `*(after <m>)*`; a flaw found after a merge (the re-open); a user's test that fails on the merged result.
+2. **Open.** From the toy's BOB session (`/neoprocess bob`): `neo epoch open`, `neo takeover`, `neo lane open ARITH` (the toy's one lane), `neo layer start --layer 1`; the printed PR and session calls, one by one, each recorded by its `neo` command.
+3. **Run the rows.** Each row is driven by an entry or by an act of BOB's (a refresh with a `Working` line out, a lane past half its window, a killed worker, a message before its push, a duplicate number), and proved by what git and GitHub show, never by a session's report (P20): the ask file's stages, the PR's comments and checks, the state branch's lines, the metrics rows. The account move row is recorded as §15 allows, between Bob's two real accounts only.
+4. **Close.** `neo layer close`, the archives, `neo epoch close` (the state branch gone, every durable file on `tranche`), the close PR to `main` merged by BOB with the plan reading CLOSING; `CERTIFICATION.md` with one row per proof, each naming its evidence.
+5. **The commit point.** Only when every row holds: `neo` takes the `proc` name, the old tool, skills and mechanics are rewritten from the lane's files, and the rulebooks move to `rulebooks/`.
+
+## 3. What is measured only here (JOB-LIFE §12)
+
+The queue on `tranche`, the required checks, auto-merge queuing a pull request, the `merge_group` run on the merged result, and whether a message beginning `/goal` sets a session's goal again after a wait (SESSIONS §1b).
