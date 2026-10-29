@@ -1,6 +1,6 @@
 # Statistics: the area's canon
 
-Owned by lane STATS. Cited by `build/requirements/stats.md` by section (P5). A section is added or changed only by the lane's decision (`build/lanes/STATS/decisions.md`).
+Owned by lane STATISTICS. Cited by `build/requirements/stats.md` by section (P5). A section is added or changed only by the lane's decision (`build/lanes/STATISTICS/decisions.md`).
 
 ## §1 Statistics of a list
 

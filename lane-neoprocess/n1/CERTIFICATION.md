@@ -8,7 +8,7 @@ One row per path PROTOCOL §10, JOB-LIFE §13 and DESIGN-STAGE §5 name. A row i
 | --- | --- | --- | --- | --- |
 | P1 | a job's QUESTION answered by BOB alone | alpha N6 | the ask: Route `answered by BOB`, Replied, CLOSED | PLANNED |
 | P2 | a job's QUESTION asked of a lane, decided, folded into a requirement, replied as a CHANGE the job merges | alpha N1 → ARITH | the ask's four stages; `requirements/arithmetic.md` §3 and alpha R8 in one commit with the close; the job's merge of `tranche` | PLANNED |
-| P3 | a lane's QUESTION to another lane through BOB | stats N12 → STATS → ARITH | STATS's ask with its own `QUESTION #n` From line; ARITH's decision; STATS's decision | PLANNED |
+| P3 | a lane's QUESTION to another lane through BOB | stats N12 → STATISTICS → ARITH | STATISTICS's ask with its own `QUESTION #n` From line; ARITH's decision; STATISTICS's decision | PLANNED |
 | P4 | an ask that needs Bob, held NEEDS BOB, closed citing his decision | stats N11 | the ask: Route `needs Bob`, Status NEEDS BOB, Decided `Bob`, Replied | PLANNED |
 | P5 | a successor BOB continuing an ASKED ask from its file | BOB handover with an ask ASKED | the ask's Asked line by BOB #1, Replied by BOB #2 | PLANNED |
 | P6 | a job's send_message to a lane refused by its hook | alpha N7 | the refusal text in alpha's report; no message in the lane's transcript | PLANNED |
@@ -24,7 +24,7 @@ One row per path PROTOCOL §10, JOB-LIFE §13 and DESIGN-STAGE §5 name. A row i
 | P16 | a request whose message arrives before its record (RESEND, not acted on) | alpha N5 (`QUESTION #2`) | BOB's one-line RESEND; no ask for it | PLANNED |
 | P17 | a job's send_message refused by its hook while its record is unpushed | alpha N4 | the refusal text in alpha's report | PLANNED |
 | P18 | a message numbered the same as one already recorded, refused by `neo ask open` | alpha N5 (`QUESTION #1` again) | the refusal; one ask A<n> for the number | PLANNED |
-| P19 | a dormant lane started by `neo ask ask` from the register, the ask answered by the new session | stats N12 (STATS dormant) | STATS's Status line DORMANT then LIVE; the create_session printed by `ask ask` | PLANNED |
+| P19 | a dormant lane started by `neo ask ask` from the register, the ask answered by the new session | stats N12 (STATISTICS dormant) | STATISTICS's Status line DORMANT then LIVE; the create_session printed by `ask ask` | PLANNED |
 | P20 | an epoch closed (state branch gone) and the next opened, every durable file on `tranche` | the close | `git ls-remote` without `state/E1`; `build/epochs.md`; the asks' text copied where cited | PLANNED |
 
 ## The job's life (JOB-LIFE §13)

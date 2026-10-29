@@ -84,6 +84,13 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   assert.match(lo.start.prompt, /^\/goal Every ask routed to you reads DECIDED \(none open counts as met\)/);
   assert.equal(lo.start.model, 'claude-opus-5-5');
   assert.throws(() => N.laneOpen(o({ id: 'ARITH2', area: 'arithmetic', charterFile: charter })), /one lane, one area/);
+  assert.throws(() => N.laneOpen(o({ id: 'STATS', area: 'statistics', charterFile: charter })), /module stats's name/);   // one namespace of session names
+  // a lane opened dormant owes no start: its first ask starts it (PROTOCOL §7c)
+  const ld = N.laneOpen(o({ id: 'STATISTICS', area: 'statistics', charterFile: charter, dormant: true }));
+  assert.equal(ld.dormant, true);
+  assert.deepEqual(N.status(o()).owed, ['start lane ARITH']);
+  assert.equal(N.status(o()).lanes.find((l) => l.id === 'STATISTICS').live, false);
+  N.laneClose(o({ id: 'STATISTICS', why: 'the test is done with it' }));
   assert.deepEqual(N.lanes(N.repo(w.bob.dir)).map((l) => [l.id, l.status]), [['ARITH', 'OPEN']]);
   assert.deepEqual(N.status(o()).owed, ['start lane ARITH']);
   assert.match(N.status(o()).gate.join(';'), /owed: start lane ARITH/);

@@ -23,7 +23,7 @@
 //   ask dispatch --ask A<n> --stage <question|reply> --brief-file <f> --due <minutes> [--by <name>] [--again [--why "<…>"]]
 //   ask ask --ask A<n> --question-file <f>        ask decided --ask A<n> --answer-file <f> [--bob]
 //   ask close --ask A<n> --reply-file <f> [--files <p1,p2>] [--decision "<one sentence>"]
-//   lane open --id <ID> --area "<…>" --charter-file <f> --canon <p1,p2>      lane started --id <ID> --name "<ID> #k" --session <id>
+//   lane open --id <ID> --area "<…>" --charter-file <f> --canon <p1,p2> [--dormant]      lane started --id <ID> --name "<ID> #k" --session <id>
 //   lane state --id <ID> [--set <WORKING | "WAITING: …" | "BLOCKED: …" | "NEEDS BOB: …">]      lane charter --id <ID> --charter-file <f> --why "<…>"      lane route --id <ID> [--session-status <s>] [--context-pct <n>]
 //   lane close --id <ID> --why "<…>"      lane archived --id <ID> --session <id> --usage <json>
 //   layer start --layer <n> [--modules a,b] [--mechanical a,b]      layer close --layer <n>
@@ -396,6 +396,9 @@ export function laneOpen(o) {
   if (!/^[A-Z][A-Z0-9-]*$/.test(o.id || '') || !o.area || !o.charterFile) refuse('--id <ID> --area "<one line>" --charter-file <f> [--canon <p1,p2>]');
   const R = repo(o.product), rows = lanes(R);
   if (rows.some((l) => l.id === o.id)) refuse(`lane ${o.id} exists (${rows.find((l) => l.id === o.id).status})`);
+  // Session names `<ID> #k` are one namespace for jobs and lanes (the hooks, `ask open --from`, the From lines route by the
+  // id), so a lane's id is never a module's upper-cased id (BOB #1's R-BOB-1-4, 29 Oct: lane STATS against module stats).
+  if (modules(R).some((m) => m.id.toUpperCase() === o.id)) refuse(`${o.id} is module ${o.id.toLowerCase()}'s name: a lane's id never equals a module's (one namespace of session names); pick another, e.g. ${o.id}-AREA or the area's full name`);
   if (rows.some((l) => l.status === 'OPEN' && l.area === o.area)) refuse(`the area "${o.area}" already has a lane: one lane, one area`);
   on(R, TRANCHE);
   const charter = sized(fileText(o.charterFile, '--charter-file'), 'the charter');
@@ -407,6 +410,7 @@ export function laneOpen(o) {
   writeLanes(R, [...rows, { id: o.id, area: o.area, charter: cp, canon, status: 'OPEN' }]);
   const commit = commitPush(R, TRANCHE, ['build/lanes.md', cp, dp], `lane ${o.id} opens: ${o.area}`);
   stateWrite(R, { [`lanes/${o.id}.md`]: fmtLane(o.id, { live: false }) }, `lane ${o.id}: dormant`);
+  if (o.dormant) return { commit, dormant: true, then: `its first ask starts it (neo ask ask prints the create_session; PROTOCOL §7c)` };   // nothing owed
   planEdit(R, (p) => owe(p, [`start lane ${o.id}`]), `owed: start lane ${o.id}`);
   return { commit, start: laneSession(R, o.id, 1) };
 }

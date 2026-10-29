@@ -5,4 +5,4 @@ Every module is in exactly one area; each area has one lane, the canon it owns a
 | area | canon | modules | rulebook | lane |
 | --- | --- | --- | --- | --- |
 | Arithmetic | `requirements/arithmetic.md` | catalog, alpha, beta | `.claude/rules/arithmetic.md` | ARITH |
-| Statistics | `requirements/statistics.md` | stats, legacy | `.claude/rules/statistics.md` | STATS |
+| Statistics | `requirements/statistics.md` | stats, legacy | `.claude/rules/statistics.md` | STATISTICS |
