@@ -53,3 +53,13 @@ One row per path PROTOCOL §10, JOB-LIFE §13 and DESIGN-STAGE §5 name. A row i
 | D2 | a lane decision that changes a rule: BOB rewrites the rulebook; before-and-after rendered where the rule is Bob's | ARITH's rule for empty lists | `.claude/rules/arithmetic.md` rule 2 rewritten by BOB; the decision line | PLANNED |
 | D3 | a decision that changes a requirement's meaning, held NEEDS BOB, folded after his decision, an entry sent to each user module | stats N11 | the ask; stats R1 as Bob decided; the CHANGE to stats (and to legacy's census if any) | PLANNED |
 | D4 | a decision line cited from a rulebook with the ask file gone | after the epoch closes | the rulebook's `L-ARITH-<n>`; no `asks/` anywhere | PLANNED |
+
+## Permissions (PERMISSIONS.md §4)
+
+| # | path | driven by | evidence | status |
+| --- | --- | --- | --- | --- |
+| X1 | every row of the act table (`tools/acts.md`) tried in its role and relation, passing | the whole run | the table's measured column, each row naming its event | PLANNED |
+| X2 | a classifier refusal recorded by `neo refused`, listed by `neo status`, routed to the party whose relation passes | BOB archives a session it did not create (induced) | the state-branch line; the metrics row; the archive by the parent | PLANNED |
+| X3 | the state-branch delete through the git proxy | `neo epoch close` | the branch gone, or the proxy's refusal and the design settled | PLANNED |
+| X4 | the toy's `.claude/settings.json` written by `neo shims` at seeding | the seed | the commit, or the classifier's refusal and Bob's commit | PLANNED |
+| X5 | a standing-list rule honoured where a permission prompt would otherwise stop a session | a job's act the list names | the act taken with no prompt | PLANNED |

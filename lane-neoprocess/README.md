@@ -9,6 +9,7 @@
 | `JOB-LIFE.md` | the job's life as a pull request (Building and Integration): technical, decided by the lane (P17), reported to Bob on the page | — |
 | `SESSIONS.md` | models and effort, reading sets, the worker brief: technical, decided by the lane | — |
 | `DESIGN-STAGE.md` | how a lane's decision becomes a canon section, a rule or a requirement | — |
+| `PERMISSIONS.md` | how a refused act is predicted, routed and counted (Bob, 29 Oct: robust permissions); the act table, the standing list applied by the tool, archive by relation | — |
 | `PRODUCT-SUPPLIES.md` | the checklist a product fills in; the dry run's toy product is the first second project | — |
 | `rulebooks/sessions.md`, `rulebooks/integration.md` | two area rulebooks written in full as the trial of "ten rules on one screen" | — |
 | `HANDOFF.md` | the lane's state and next steps for its successor | — |
