@@ -451,8 +451,29 @@ figcaption { font-size: 14px; color: var(--muted); }
   <p style="margin-top:14px"><strong>Not yours by P17.</strong> The delegation protocol, when a reviewer is worth its cost, when a job's session is retired, and the merge queue are technical: BOB decides them and reports them, with their cost, to you. The order of work for Civicsmith (build the process and clean the repository together, then resume T53) is in the companion page; the stop on product work is yours, and so is lifting it.</p>
 </section>
 
+<section id="remains">
+  <h2><span class="n">9</span>What remains, and how confidence is earned</h2>
+  <p>Confidence that this works for long-term, large-scale development across many projects comes from four things, in order: every rule that must always hold is in code; every assumption about the platform is measured; a dry run exercises every path; and real use with the loop closed, where a problem rewrites a rule and the measure shows the problem stop. The design alone gives none of it. This list is kept current as the lane works.</p>
+  <h3>Still to draft (BOB's)</h3>
+  <ol class="steps">
+    <li>The job's life as a pull request: start, branch, gate, when review is worth its cost, the merge queue, retirement; whether layers and the tranche branch survive a merge queue, and how Planning's rounds map onto it.</li>
+    <li>The ten rulebooks written in full, every ruling accounted for: kept, folded, coded, superseded or retired. The largest piece, mostly worker-sized.</li>
+    <li>The Sessions rules: the model-and-effort table, what each role reads, the standard brief for a worker.</li>
+    <li>The tool rebuilt to this protocol: asks, lanes, epochs, the state branch, captures to storage, the hooks, CI and branch protection.</li>
+    <li>The Design stage's loop: how a lane's decision becomes a requirement (P5, with you where meaning changes).</li>
+    <li>What a second project must supply, as a checklist, and a trial of a tiny second project on the process.</li>
+    <li>The transition from today's process: the stop, the migration, T53 (the companion page).</li>
+  </ol>
+  <h3>Measured, and still assumed</h3>
+  <p><strong>Measured</strong> (28 Oct, four probes): messages are queued and delivered whole, in order, as one turn, whether the session is idle or busy, for 2 and for 10; a worker's completion wakes its session; a session cannot wait by sleeping; a message from another session is data unless the standing instruction binds it. <strong>Still assumed</strong>, each a cheap probe before the dry run relies on it: path-scoped rules loading in cloud sessions; <code>/goal</code> and Stop hooks in cloud sessions; GitHub's merge queue with sessions as the merger; a child session's failure waking its parent (measured once by the earlier lane); archive figures usable for metrics (seen once today).</p>
+  <h3>Then the proof</h3>
+  <p>A dry run on the toy product covering every path listed in the protocol and the job's life; one real tranche on Civicsmith with defects and cost measured; then the second-project trial. Each will send the design back once or twice; that is the mechanism working.</p>
+  <h3>Risks kept in view</h3>
+  <p>BOB is the one hub, and its context is the scarcest thing in the design. A worker must follow its brief exactly, which the model-and-effort policy addresses. The platform changes under us, which is why every measured fact carries its date.</p>
+</section>
+
 <section id="sources">
-  <h2><span class="n">9</span>Sources, and what is not verified</h2>
+  <h2><span class="n">10</span>Sources, and what is not verified</h2>
   <ol class="sources">
     <li>Read whole today in <code>believeinoakland/civicos-process</code> at <code>b3b20fc</code>: <code>PROCESS-DESIGN.md</code> (P1–P20), <code>PROCESS-MECHANICS.md</code> (§1–§17), <code>roles/BOB.md</code>, <code>roles/JOB.md</code>, <code>roles/ROOT.md</code>, <code>HISTORY.md</code>, and the PROCESS-REDESIGN lane's charter, design and disposition. Every <span class="pp">P</span> and § above is to those files.</li>
     <li>BOB #333's page, read whole. Its figures (5,782 rulings; 17 of 21 jobs on another model; 19 defects in 20 jobs; the mail-door defect) are its measurements on <code>believeinoakland/bio</code>. I did not open that repository, so they are reported here as BOB #333's, not verified.</li>
