@@ -21,7 +21,7 @@ What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-
 ## What remains, in order
 
 1. **The next change here**: open and merge the lane's own pull request to `main` after it (as #42 was).
-2. **The rest of Bob's sitting** (PERMISSIONS §10): https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (steps 1–4 done; 5–7 his: step 5 is one variable, `INSTANCE_AI_TOKEN`, the four `JOURNEY_*` measured present by name in this environment 29 Oct 19:10Z; the page updated by #9). The product's grant list is written by the onboarding session into the product. X10 PROVEN (#8: the hosting token reads its own scope; PERMISSIONS §9).
+2. **The rest of Bob's sitting** (PERMISSIONS §10): https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (steps 1–5 done: the four `JOURNEY_*` measured present by name 29 Oct 19:10Z, and **no AI key, ever**: development only under Bob's subscriptions, his words 19:30Z, PERMISSIONS §9.3; 6 if Custom, 7 and the signing decision his; the page updated by #9). The product's grant list is written by the onboarding session into the product. X10 PROVEN (#8: the hosting token reads its own scope; PERMISSIONS §9).
 3. **Owed to certification** (DRYRUN §6), all provable only in a product run: a handover through ROOT to an open epoch, the `tranche open` refusal live, the words check.
 4. **The product**, by ONBOARDING's convert path, in the onboarding session Bob starts (step 7 of the page).
 5. `dryrun/` refreshed from the toy, in a session with the toy attached (not this one: a second repository costs the standing list, PERMISSIONS §10.7; #8's decision).
@@ -29,4 +29,4 @@ What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-
 
 ## Acts only Bob can take (all at the one sitting)
 
-Done 29 Oct: this repository's settings hold the standing list; the GitHub app reaches every repository; the hosting token is set on the environment. Done 18:40Z: the GitHub token as the secret `NEOPROCESS_GITHUB_TOKEN`. Still his: an AI key `INSTANCE_AI_TOKEN` on the environment (the walk identities are there); the hosts if Custom; the product's onboarding session; the reviewer for development cuts; the rename.
+Done 29 Oct: this repository's settings hold the standing list; the GitHub app reaches every repository; the hosting token is set on the environment. Done 18:40Z: the GitHub token as the secret `NEOPROCESS_GITHUB_TOKEN`. No AI key, ever (Bob, 19:30Z). Still his: the hosts if Custom; the product's onboarding session; the reviewer for development cuts; the rename.
