@@ -33,7 +33,7 @@
 //   review result --module <m> --result-file <f>      merge --module <m> --head <sha> --gate <conclusion>      merged --module <m> --sha <commit>
 //   job reopen --module <m> --change-file <f>      job retire --module <m>      job archived --module <m> --session <id> --usage <json>
 //   defect --module <m> --what "<…>"      bob archived --name "BOB #n" --session <id> --usage <json>
-//   reading --role <bob|job|lane|root>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--check]
+//   reading --role <bob|job|lane|root>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
 //   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
 //   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (the old tool's, P20)
 //   refused --act "<act or act-table id>" --kind hook|classifier|scope|platform --reason "<…>" [--by "<ROLE #k>"]      refused routed --id R-<role>-<n> --route "<…>"
@@ -1084,10 +1084,13 @@ export function gateCmd(o) {
 // PRODUCT-SUPPLIES: the few files that sit in the product repository, written from here and never by hand; `--check`
 // lists the ones that differ (the gate fails on drift). `--process` is the process checkout's path in a session and
 // `--repo` the process repository's GitHub name: the workflow carries both, so CI's check regenerates the same text.
+// `--ref` is the process branch the product follows (the lane's branch until the commit point, then main): the workflow
+// checks it out and CLAUDE.md names it; by default the process checkout's own branch.
 // The process repository is public (BOB, 29 Oct), so its checkout needs no key or secret (JOB-LIFE §4). No merge queue:
 // the tool merges a green, current pull request (JOB-LIFE §6), so the workflow runs on pull requests only.
 export function shims(o) {
   const R = repo(o.product), proc = o.process || '/home/user/neoProcess', name = o.repo || 'believeinoakland/neoProcess', rel = R.rel('.');
+  const ref = o.ref || (() => { try { const b = execFileSync('git', ['-C', PROCESS, 'rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); return b === 'HEAD' ? 'main' : b; } catch { return 'main'; } })();
   const hook = (ev) => `node "${proc}/tools/neo-hooks.mjs" ${ev}`;
   // PERMISSIONS §2.4, §6: the standing list, Bob's, applied to every product; K1702's refusal of a session's edit of the
   // settings file is row X4 of the dry run (then Bob commits it once and this only checks drift).
@@ -1096,7 +1099,7 @@ export function shims(o) {
     '.claude/settings.json': `${JSON.stringify({ permissions: { allow: standing.allow, deny: standing.deny || [] } }, null, 2)}\n`,
     'CLAUDE.md': `# Built by neoProcess
 
-The process is \`${name}\`, attached at \`${proc}\` (if it is missing, attach it with add_repo and clone it there). Nothing about the process is decided in this repository: it supplies what \`${proc}/PRODUCT-SUPPLIES.md\` lists, and nothing else.
+The process is \`${name}\`, attached at \`${proc}\` on its branch \`${ref}\` (if it is missing, attach it with add_repo, clone it there and check that branch out). Nothing about the process is decided in this repository: it supplies what \`${proc}/PRODUCT-SUPPLIES.md\` lists, and nothing else.
 
 At the start of every session, before anything else, invoke the skill \`neoprocess\` with your role as its argument: \`/neoprocess bob\`, \`/neoprocess job\` or \`/neoprocess lane\`. It prints your process text, which you read whole and never scan (P20), and the start command that records your role; the hooks refuse every act until it is recorded.
 
@@ -1133,12 +1136,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: ${name}
+          ref: ${ref}
           path: .neoprocess
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: the gate (artifacts, ownership, the module's tests and its users', the checks, the sizes, the shims)
-        run: node .neoprocess/tools/neo.mjs gate --product "${rel}" --process "${proc}" --repo "${name}" --base "\${{ github.event.pull_request.base.sha }}"
+        run: node .neoprocess/tools/neo.mjs gate --product "${rel}" --process "${proc}" --repo "${name}" --ref "${ref}" --base "\${{ github.event.pull_request.base.sha }}"
 `,
   };
   const at_ = (p) => join(R.root, p), drift = [];
