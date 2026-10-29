@@ -22,7 +22,7 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 2. **BOB's decisions (P17), #12**: the dry-run repositories move to `neobobkrause` (Bob's hand act, twice), then `repo-shims.yml` for each. **No `repo-shims.yml` on `civicsmith/civicsmith`**: the convert path moves its old `CLAUDE.md` into `build/onboarding/` before writing the shims (ONBOARDING §2), which a refresh first would overwrite.
 3. **Next, Bob's**: the onboarding session (the page's step 7), started by him on a Claude account connected as the organization's owner, with `neobobkrause/neoprocess` (public) and `civicsmith/civicsmith`. Whether that account's session reaches the public process repository is measured at its start. A process flaw a product session finds reaches the lane as a report or a pull request from a fork.
 4. **The release-signing decision** (the page's foot): his.
-5. The sitting page: version 17 (#12): step 7 next.
+5. The sitting page: version 18 (#12): step 7 next; step 8 the dry-run transfers.
 
 ## Acts only Bob can take
 
