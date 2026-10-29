@@ -10,7 +10,7 @@
 
 ## Where things stand
 
-The design is here and on the page (https://claude.ai/artifact/7Jghdu6JV3beK58dkZKPsd, v25; companion https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E). The tool is built beside the old one, in force until the commit point (P3): `tools/neo.mjs`, `tools/neo-hooks.mjs`, fixture tests on a real remote (~2 min). The ten rulebooks are drafted in `rulebooks/` (each under 4 KB; the accounting in `rulebooks/work/`). #3 decided: the tool alone deletes a merged job branch and a closed epoch's state branch; a move starts only on Bob's word; `rulings-active.md` retires at the commit point.
+The design is here and on the page (https://claude.ai/artifact/7Jghdu6JV3beK58dkZKPsd, v25; companion https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E). The tool is built beside the old one, in force until the commit point (P3): `tools/neo.mjs`, `tools/neo-hooks.mjs`, fixture tests on a real remote (~2 min). The ten rulebooks are drafted in `rulebooks/` (each under 4 KB; the accounting in `rulebooks/work/`). #3 decided: a move starts only on Bob's word; `rulings-active.md` retires at the commit point. No session deletes a branch (DRYRUN §4.3).
 
 ## What remains, in order
 
