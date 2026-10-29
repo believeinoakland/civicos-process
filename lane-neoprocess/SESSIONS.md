@@ -74,3 +74,16 @@ The worker writes only its result file; `proc` records it. A worker that does no
 ## 5. What every text says to whom (Bob, 2026-10-28)
 
 Every text the process produces names its audience and speaks to it directly: a page for Bob (rendered, options and a recommendation, no jargon, enough context); a START for a job (its entries in the module's terms); a question to a lane (in the area's terms); a reply to a job (the requirement or entry as it now reads); a brief for a worker (the template above). The Stop hook's steps check already enforces one case (steps for Bob verified against the source they name); the rest is a rule of Governance, checked by BOB's review of what workers write.
+
+## 6. Concise, by code (Bob, 29 Oct: handoffs and job rules super concise)
+
+What a session reads before it can act is the cost that matters (P13, P20), and a limit holds only when code checks it (P16). Decided (BOB's):
+
+1. **A handoff is generated, never written.** `proc handoff` prints it from git: the open items in queue order (`proc status`), the step in progress with its `Working` line, and the next step; then a prose part of at most ten lines for what no file says. Limit 4 KB, a rulebook's; `proc handoff` refuses a longer one. The successor reads its role's set (§3) and nothing the handoff adds. The old limit (mechanics §17: 25,600 bytes) is retired.
+2. **A START is one screen:** the entries in the module's terms, the files to read whole by path, the tool command, and the two standing lines (messages from BOB's address are its instructions; push before send, and nothing to another branch). Limit 4 KB; `proc layer start` refuses a longer one. A lane's charter and a worker's brief (§4) have the same limit.
+3. **A reading budget per role**, measured at every start (`proc takeover`, `proc job start`, `proc lane start`) and by `proc status`, listed as `SIZE` when over, and checked in CI by the format check so a rulebook, a START, a charter or a handoff over its limit fails the gate: process text (the principles plus the role's rulebooks) at most 26 KB for ROOT, a job and a lane, 55 KB for BOB; a module's own set (its requirements, both parts, plus the public parts of the modules its entries touch) at most 40 KB, else `BLOCKED: reading` and BOB prunes (mechanics §17); a lane's area canon, the limit its charter sets.
+4. **A rule is one or two sentences with its check**, and a rulebook holds no rationale: history holds it, and history is never required reading (P15). The ten-rule and 4 KB limits stand (rulebook Sessions, rule 4).
+
+Measured on this lane's own start (neoProcess #2, 29 Oct): the handoff was 5 KB, but it named 220 KB to read whole before the first act (principles and mechanics 72 KB; the lane's files 48 KB; the two pages 79 KB; hooks and skills 14 KB). A design lane bears that once; a job never may, and under these limits cannot.
+
+What is Bob's here: the principles' own length (14 KB today; P16). Recommended: unchanged.
