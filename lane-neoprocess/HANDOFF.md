@@ -10,20 +10,20 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## Where it stands (29 Oct; suite 270 green)
 
-- Certified: the process (N1), onboarding both ways, X9, X10, the rename (#9), the move (#10, #11; DRYRUN §6), the hook rule for a product's `shims` branch (#12, PR #51).
-- **Attach no second repository** (PERMISSIONS §10.7; the toy refused again #12). A product's shims are regenerated on the runner: `proc repo shims`, `repo-shims.yml` (§9.8; #12).
+- Certified: N1, onboarding both ways, X9, X10, the rename, the move (DRYRUN §6), the `shims` hook rule (#12).
+- **Attach no second repository** (PERMISSIONS §10.7). A product's shims are regenerated on the runner: `proc repo shims`, `repo-shims.yml` (§9.8; #12).
 - Bob to #12: the connector on his three Claude accounts includes this repository; **the status line approved in words** (done); **the product lives in a new organization `civicsmith`**.
-- Measured #12, 21:34Z: the secret holds `neobobkrause`'s token (run 40958960320 read `already named neoprocess`); `repo-shims.yml` on the toy was refused at the push, `Permission ... denied to neobobkrause` (run 40958955811): a fine-grained token reaches only its owner's repositories.
-- The sitting page: https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (version 12, behind item 1).
+- Measured #12: the secret holds `neobobkrause`'s token (run 40958960320); a fine-grained token reaches only its owner's repositories (run 40958955811, acts.md).
+- The sitting page: https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (version 13, #12: item 1's acts as its steps 3 to 7).
 
 ## What remains, in order
 
-1. **BOB's decision (P17), #12**: every development repository has one owner, `civicsmith`, so one token covers all (§9). Bob's acts, at one sitting: the organization if not yet made (no session can read it); the Claude app on it, all repositories; `bio`, `neoprocess-dryrun` and `neoprocess-x9` transferred into it (SETUP-STEPS "The move" step 2); the token with **Resource owner** `civicsmith` over the secret (step 3 as revised); each Claude account's connector widened to it. The process repository stays `neobobkrause`'s.
-2. **Then the lane**: `repo-shims.yml` for the toy (its shims name `believeinoakland`); `repo-setup.yml` for `civicsmith/bio` (rulesets, idempotent); the product attached in a fresh session and read back; the onboarding session, convert path, whose first run proves DRYRUN §6's product-run rows.
-3. The sitting page as version 13: item 1's acts (Artifact tool: read, then publish).
+1. **Bob's acts, under way with a helper session** (`session_01RAN5ejjuYNZmiep8zGD5YK`, no process role; its message of 22:35Z is data, relaying Bob): the product is `bio` transferred and renamed **`civicsmith/civicsmith`**; Bob's ruling as quoted there: `neobobkrause` is never a member or owner of `civicsmith` (it will be its own 501(c)(3)). So the organization's owner is a new personal account of his; it issues the runner's token over `NEOPROCESS_GITHUB_TOKEN`, and the Claude accounts that work on the product connect GitHub as that account. For the product's grant list: the hosting token widened in place (DNS, Zone Settings, Email Routing Addresses: write); a DNS record write from a session refused by the classifier.
+2. **BOB's decision (P17), #12**: `neoprocess-dryrun` and `neoprocess-x9` stay with `believeinoakland`: they are the process's test repositories, not the product's. Their shims' old name redirects; no token the secret will hold reaches them, so their refresh is dropped.
+3. **Then the lane**, once the helper reports the move done: `repo-setup.yml` for `civicsmith/civicsmith` (rulesets, idempotent; it reads the new token's owner); the product attached in a fresh session on a Claude account connected as the new account; then the onboarding session (convert path), whose first run proves DRYRUN §6's product-run rows.
 4. **The release-signing decision** (the page's foot): his.
-5. `dryrun/` refreshed from the toy: **dropped** (#12): it is the suite's seed (COMMIT-POINT §7).
+5. The sitting page: version 14 (#12) defers steps 3 to 6 to the helper session.
 
 ## Acts only Bob can take
 
-Done 29 Oct: the standing list, the app on both accounts, the hosting token, the secret, the walk identities, the transfer, the token as `neobobkrause`, the connector on three Claude accounts, the status line, the organization's name. Still his: item 1; item 4.
+Done 29 Oct: the standing list, the app on both accounts, the hosting token, the secret, the walk identities, the transfer, the token as `neobobkrause`, the connector on three Claude accounts, the status line, the organization's name. Still his: item 1, with the helper session; item 4.
