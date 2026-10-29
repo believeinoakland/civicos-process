@@ -1092,6 +1092,7 @@ export function shims(o) {
   const R = repo(o.product), proc = o.process || '/home/user/neoProcess', name = o.repo || 'believeinoakland/neoProcess', rel = R.rel('.');
   const ref = o.ref || (() => { try { const b = execFileSync('git', ['-C', PROCESS, 'rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); return b === 'HEAD' ? 'main' : b; } catch { return 'main'; } })();
   const hook = (ev) => `node "${proc}/tools/neo-hooks.mjs" ${ev}`;
+  const supplies = existsSync(join(PROCESS, 'PRODUCT-SUPPLIES.md')) ? 'PRODUCT-SUPPLIES.md' : 'lane-neoprocess/PRODUCT-SUPPLIES.md';   // at the root from the commit point
   // PERMISSIONS §2.4, §6: the standing list, Bob's, applied to every product; K1702's refusal of a session's edit of the
   // settings file is row X4 of the dry run (then Bob commits it once and this only checks drift).
   const standing = JSON.parse(readFileSync(join(PROCESS, 'permissions.json'), 'utf8'));
@@ -1099,7 +1100,7 @@ export function shims(o) {
     '.claude/settings.json': `${JSON.stringify({ permissions: { allow: standing.allow, deny: standing.deny || [] } }, null, 2)}\n`,
     'CLAUDE.md': `# Built by neoProcess
 
-The process is \`${name}\`, attached at \`${proc}\` on its branch \`${ref}\` (if it is missing, attach it with add_repo, clone it there and check that branch out). Nothing about the process is decided in this repository: it supplies what \`${proc}/PRODUCT-SUPPLIES.md\` lists, and nothing else.
+The process is \`${name}\`, attached at \`${proc}\` on its branch \`${ref}\` (if it is missing, attach it with add_repo, clone it there and check that branch out). Nothing about the process is decided in this repository: it supplies what \`${proc}/${supplies}\` lists, and nothing else.
 
 At the start of every session, before anything else, invoke the skill \`neoprocess\` with your role as its argument: \`/neoprocess bob\`, \`/neoprocess job\` or \`/neoprocess lane\`. It prints your process text, which you read whole and never scan (P20), and the start command that records your role; the hooks refuse every act until it is recorded.
 
