@@ -1,8 +1,8 @@
 {
   "status": "The standing list (PERMISSIONS.md \u00a76, \u00a78; Bob, 29 Oct 2026: everything related to development, testing and walker deployments, approved once, on record). neo shims writes each product's .claude/settings.json from it (allow and deny); Bob may set the same lists server-managed in the admin console (\u00a78.7). The hooks pre-approve the tool's own acts (\u00a78.6); allow covers the prompt for the session tools; deny restates the standing safety rules (deny beats allow, and a hook cannot pass a deny). The auto-mode classifier is not read from here. Broad Bash rules are dropped in Auto, so each rule is narrow.",
   "allow": [
-    "Bash(node */tools/neo.mjs *)",
-    "Bash(node tools/neo.mjs *)",
+    "Bash(node */tools/proc.mjs *)",
+    "Bash(node tools/proc.mjs *)",
     "Bash(node */checks/run.mjs *)",
     "Bash(node --test *)",
     "Bash(git fetch *)",
