@@ -728,6 +728,8 @@ test('one secret per owner: the process\'s owner keeps NEOPROCESS_GITHUB_TOKEN, 
     assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\[steps\.secret\.outputs\.name\] \}\}/, f);
     assert.doesNotMatch(wf, /secrets\.NEOPROCESS_GITHUB_TOKEN\b/, f);
     assert.ok(wf.indexOf('id: secret') < wf.indexOf('actions/checkout'), f);
+    // an unquoted value holding ': ' is a YAML mapping, and GitHub then drops the workflow's dispatch (#12, PR #57)
+    for (const l of wf.split('\n')) assert.doesNotMatch(l, /^\s*(?:- )?[\w-]+: (?!["'|>])[^#]*: /, `${f}: ${l}`);
     // the shell rule and the tool's rule agree
     for (const [owner, proc] of [['civicsmith', 'neobobkrause'], ['my-org', 'neobobkrause'], ['neobobkrause', 'neobobkrause']]) {
       const out = execFileSync('bash', ['-c', `REPO=${owner}/x; GITHUB_REPOSITORY_OWNER=${proc}; owner="\${REPO%%/*}"; if [ "$owner" = "$GITHUB_REPOSITORY_OWNER" ]; then name=NEOPROCESS_GITHUB_TOKEN; else name="NEOPROCESS_GITHUB_TOKEN_$(printf '%s' "$owner" | tr 'a-z-' 'A-Z_')"; fi; printf '%s' "$name"`], { encoding: 'utf8' });
