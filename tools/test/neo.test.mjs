@@ -111,7 +111,7 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   assert.throws(() => N.askOpen(o({ from: 'ALPHA #1', session: J1, number: 2, messageFile: f(w.base, 'bad.md', 'hello\n') })), /begins QUESTION or REPORT/);
   // an unrouted RECEIVED ask stops the turn
   assert.match(N.status(o()).gate.join(';'), /A1 reads RECEIVED with nothing dispatched/);
-  assert.throws(() => N.askRoute(o({ ask: 'A1', lane: 'NOPE', reason: 'x' })), /no lane NOPE/);
+  assert.throws(() => N.askRoute(o({ ask: 'A1', lane: 'NOPE', reason: 'x' })), /no open lane NOPE/);
   assert.throws(() => N.askRoute(o({ ask: 'A1', lane: 'ARITH', answer: true, reason: 'x' })), /exactly one/);
   N.askRoute(o({ ask: 'A1', lane: 'ARITH', reason: 'what sum means is the area\'s design' }));
   assert.throws(() => N.askRoute(o({ ask: 'A1', answer: true, reason: 'x' })), /already routed/);
