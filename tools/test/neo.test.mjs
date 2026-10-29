@@ -155,6 +155,11 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   N.askDecided(o({ ask: 'A3', bob: true, answerFile: f(w.base, 'd3b.md', 'Bob, 29 Oct: no limit; a list is a list.\n') }));
   assert.equal(N.askClose(o({ ask: 'A3', replyFile: f(w.base, 'r3.md', 'ANSWER: Bob decided: no limit (his, P5).\n') })).send.session_id, L1);
 
+  // a ruling of BOB's: one numbered line in the product's log, committed with the files it owes
+  assert.throws(() => N.ruling(o({ text: 'x', why: 'y', files: 'no/such.md' })), /no such file/);
+  assert.equal(N.ruling(o({ text: 'sum([]) is 0, per ARITH', why: 'the identity of addition', module: 'alpha' })).ruling, 'K1');
+  assert.match(readFileSync(join(w.bob.dir, 'build/rulings.md'), 'utf8'), /^- K1 · \d{4}-\d{2}-\d{2} · alpha · sum\(\[\]\) is 0, per ARITH · the identity of addition$/m);
+  assert.equal(N.ruling(o({ text: 'second', why: 'z' })).ruling, 'K2');
   // the handoff is generated, under 4 KB, and refuses at an unclean point
   const h = N.handoff(o({ next: 'close the lane' }));
   assert.match(h.text, /^HANDOFF for BOB #2 · /); assert.match(h.text, /Lanes: ARITH ARITH #1/);

@@ -12,6 +12,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, jobBranch, lanes, TRANCHE } from './neo.mjs';
+import { stepsReason, lastAssistantText } from './hooks.mjs';   // P20: steps for Bob verified against their source (`neo steps`)
 
 const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__';
 const FORCE = /\bgit\b[^|;&]*\bpush\b[^|;&]*(\s(-f|--force|--force-with-lease|--mirror|--delete|-d)\b|\s\+\S+|\s:\S)/;
@@ -137,6 +138,7 @@ function main() {
   }
   if (ev === 'stop') {
     let why = null; try { why = stopReason(role, ctx); } catch (e) { why = `the stop check failed (${e.message}); fix the cause`; }
+    if (!why && role === 'bob') { try { why = stepsReason(lastAssistantText(input), join(root, r.product || '.')); } catch (e) { why = `the steps check failed (${e.message}); fix the cause`; } }
     // The same refusal three times in a row lets the turn end, so a cause the session cannot clear never loops.
     const f = join(root, '.git', 'neo-stop.json');
     const last = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};

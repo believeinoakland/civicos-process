@@ -35,13 +35,14 @@
 //   defect --module <m> --what "<…>"      bob archived --name "BOB #n" --session <id> --usage <json>
 //   reading --role <bob|job|lane|root>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--check]
 //   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
+//   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (the old tool's, P20)
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // The gate and the plan's entries come from the old tool, in force until the commit point (P3).
-import { entriesOf, runTests, moduleChecks, withArtifacts, evidenceItems, history, modules, artifacts, allChecks, reds, EVIDENCE_FORMS, EVIDENCE_ITEM } from './proc.mjs';
+import { entriesOf, runTests, moduleChecks, withArtifacts, evidenceItems, history, modules, artifacts, allChecks, reds, EVIDENCE_FORMS, EVIDENCE_ITEM, stepsCmd } from './proc.mjs';
 
 export const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const TRANCHE = 'tranche';                 // fixed: a merge queue cannot target a wildcard (JOB-LIFE §1)
@@ -1194,6 +1195,20 @@ export function footprint(o) {
   return { base: base.slice(0, 7), commits, merges, kinds, bookkeeping: commits ? `${Math.round((100 * (commits - kinds.product)) / commits)} %` : '0 %' };
 }
 
+// A ruling of BOB's or Bob's (rulebook GOV 7): one line `K<n> · date · area · ruling · why` in the product's log, committed with
+// the files it owes. A lane's decision is an `L-<ID>-<n>` line instead (DESIGN-STAGE §3).
+export function ruling(o) {
+  const R = repo(o.product); if (!o.text || !o.why) refuse('--text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]');
+  on(R, TRANCHE);
+  const files = String(o.files || '').split(',').filter(Boolean);
+  for (const f of files) if (R.read(f) === null) refuse(`${f}: no such file`);
+  const log = 'build/rulings.md', cur = R.read(log) ?? '# Rulings\n';
+  const k = Math.max(0, ...[...cur.matchAll(/^- K(\d+) · /gm)].map((x) => Number(x[1]))) + 1;
+  const one = (s) => String(s).replace(/\s*\n\s*/g, ' ').trim();
+  R.write(log, `${cur.trimEnd()}\n- K${k} · ${today()} · ${o.module || 'process'} · ${one(o.text)} · ${one(o.why)}\n`);
+  return { ruling: `K${k}`, commit: commitPush(R, TRANCHE, [log, ...files], `K${k}: ${one(o.text).slice(0, 60)}`) };
+}
+
 // ---- command line ----
 
 export function args(argv) {
@@ -1215,6 +1230,7 @@ export const COMMANDS = {
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
+  ruling, steps: stepsCmd,
 };
 function main() {
   const o = args(process.argv.slice(2));
