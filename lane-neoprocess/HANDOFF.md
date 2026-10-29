@@ -1,6 +1,6 @@
 # neoProcess lane: handoff
 
-**From** · neoProcess #3 (`session_018BhcedCh1TpUJaGQh5up8c`), 2026-10-29, at about half its window by its token counter (`get_session` reports no context figure for a session another session created; the counter stood at 490 k tokens entered). #2 (`session_018BhceegtREhWFPW6rnCrDC`) ended idle at 50 %, usage 13,854,613 / 497,976 / 14,873 / 113,987 (cache-read / cache-write / input / output); archiving #2 and #3 was refused to #3 by the permission classifier, so both archives are Bob's acts, their usage read by #4 from `get_session`. Everything is pushed on `claude/modest-brahmagupta-vvaann` (PR #36, draft). #3 starts #4 itself (R10).
+**From** · neoProcess #3 (`session_018BhcedCh1TpUJaGQh5up8c`), 2026-10-29, at about half its window (490 k tokens entered; `get_session` shows no context figure for a session another session created). #2 (`session_018BhceegtREhWFPW6rnCrDC`) ended idle at 50 %, usage 13,854,613 / 497,976 / 14,873 / 113,987 (cache-read / cache-write / input / output). The archive calls were refused to #3 by the permission classifier: archiving #2 and #3 is Bob's, #4 records their usage from `get_session`. All pushed on `claude/modest-brahmagupta-vvaann` (PR #36, draft). #3 starts #4 (R10).
 
 ## Read whole, and nothing else at start
 
@@ -8,7 +8,7 @@
 
 ## Where things stand
 
-The design is drafted here and on the page (https://claude.ai/artifact/7Jghdu6JV3beK58dkZKPsd, v25) with its companion (https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E). Bob, 29 Oct: do not stop working; the principles' wording is trimmed later.
+The design is here and on the page (https://claude.ai/artifact/7Jghdu6JV3beK58dkZKPsd, v25; companion https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E). Bob, 29 Oct: do not stop working; the principles' wording is trimmed later.
 
 The tool is built beside the old one, in force until the commit point (P3): `tools/neo.mjs` (48 commands) and `tools/neo-hooks.mjs`, six fixture tests green against a real remote (~2 min). Done: the state branch, epochs, takeover, status (`SIZE`), handoff, addr, the asks, the lanes, the job's whole life, the hooks, `reading`, `gate` (one function for `job complete` and CI), `shims`, `round open|close`, `tranche open|close|merged` (the close PR to `main` at CLOSING; the branch deleted by the tool after its merge), `footprint`, `ruling`, `steps` (the old tool's, with BOB's Stop hook check). Every rulebook was read once against the tool; each CODE claim now names a command that exists or reads TEXT. The ownership check allows a job's own `*(not yet met: T)*` strike only. JOB-LIFE §4: a job never commits a generated artifact (two jobs of a layer would conflict); the gate regenerates for its run, `layer close` commits.
 
