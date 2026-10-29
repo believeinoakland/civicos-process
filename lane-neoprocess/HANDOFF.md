@@ -1,8 +1,8 @@
 # neoProcess lane: handoff
 
-**From** · neoProcess #4 (`session_018BhcefACF9wymZAZpDS2Pz`), 2026-10-29 ~03:40Z, handed off at 47 % of its window for an account move (Bob's word); usage at the handoff 31,261,550 / 560,848 / 151,378 / 130,284 (cache-read / cache-write / input / output; the archive's final figures are Bob's to read). #3 (`session_018BhcedCh1TpUJaGQh5up8c`): 49 %, 49,144,573 / 1,464,445 / 45,593 / 335,704. #2 (`session_018BhceegtREhWFPW6rnCrDC`): 50 %, 13,854,613 / 497,976 / 14,873 / 113,987. All three unarchived, Bob's (a session cannot archive a parent). #5 is started by Bob from `START-5.md`. All pushed on `claude/modest-brahmagupta-vvaann` (PR #36, draft).
+**From** · neoProcess #5 (on Bob's second account), started 2026-10-29 from `START-5.md`; holds the lane now. #4 (`session_018BhcefACF9wymZAZpDS2Pz`): 47 % at its handoff (~03:40Z, the account move), 31,261,550 / 560,848 / 151,378 / 130,284 (cache-read / cache-write / input / output, from its handoff line; the archive's final figures are Bob's to read). #3 (`session_018BhcedCh1TpUJaGQh5up8c`): 49 %, 49,144,573 / 1,464,445 / 45,593 / 335,704. #2 (`session_018BhceegtREhWFPW6rnCrDC`): 50 %, 13,854,613 / 497,976 / 14,873 / 113,987. #2, #3 and #4 unarchived on the first account, Bob's (a session cannot archive a parent, nor reach another account). All pushed on `claude/modest-brahmagupta-vvaann` (PR #36, draft).
 
-**Meter** · Bob, 29 Oct ~02:50Z: the weekly meter at 97 % (resets 2026-10-30 ~19:00Z by `rate_limit_info`); his words: keep working. So: no new session or probe until the reset; text and tool work only (rulebook USE 5, 6, 8).
+**Meter** · The first account's weekly meter read 97 % at ~02:50Z on 29 Oct (resets 2026-10-30 ~19:00Z); that limit no longer binds the lane. The second account's meter is unknown until Bob reads it (P14) or a `rate_limit_info` shows it; until then new sessions and probes are started only when the work needs one (rulebook USE 5, 6, 8). Bob's words stand: keep working.
 
 ## Read whole, and nothing else at start
 
