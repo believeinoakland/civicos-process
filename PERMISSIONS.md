@@ -30,9 +30,15 @@ Derived from P3 (correct before used), P16 (what must hold every time is code) a
 
 The process's hooks are the first line: they refuse, with the route named, everything that must never happen (REP 2, 3, 5; SES 1, 6, 8; INT 3, 9; a job's acts on its PR), so a session rarely reaches the classifier with an act it should not take. What then reaches the classifier is, by construction, an act the table says passes, or an unpredicted refusal (§2.1).
 
-## 4. What the dry run proves (certification rows X1–X5)
+## 4. What the dry run proved (certification rows X1–X8; `dryrun/N1/CERTIFICATION.md`, 29 Oct 2026)
 
-X1, every row of the act table tried in its role and relation on the toy, passing; X2, an induced classifier refusal (BOB archives a session it did not create) recorded by `neo refused`, listed by `neo status`, routed to the parent and cleared there; X3, the state-branch delete through the git proxy, allowed or refused and the design settled by what is seen; X4, the toy's `.claude/settings.json` written by `neo shims` at seeding, or refused and committed by Bob; X5, a standing-list rule honoured where a permission prompt would otherwise stop a session.
+- **X1, every row of the act table tried in its role and relation**: PROVEN; the measured column of `tools/acts.md` names each act's evidence. Three acts were refused as the table predicts (the remote deletes of a job branch and of the state branch, by the proxy; the delete is the prune workflow's) and one unpredicted hook refusal was met at the close (R-BOB-3-1: the hook required a `base` the merge tool's input lacks; flaw 20, fixed with a test).
+- **X2, a classifier refusal recorded, listed and routed**: PROVEN. Seven refusals in the run, each recorded by `neo refused`, listed by `neo status`, routed and counted (six unpredicted: all process flaws, each fixed with a test, DRYRUN §4). The induced case did not refuse: BOB #2 archived STATS #1, created by BOB #1, so the classifier lets a role's successor archive its predecessor's children. The classifier did refuse the lane's archive and interrupt of BOB #2, created by the lane's predecessor (R-NEOPROCESS-6-1, predicted, routed to Bob). So §2.3 stands as the safe route: a session archives its own children; a successor BOB archives its predecessor's jobs and lanes; the lane's own predecessors and the BOBs they started are Bob's.
+- **X3, the state-branch delete through the proxy**: PROVEN, the design settled: the proxy refuses the delete (`the remote end hung up unexpectedly`), the product's `prune.yml` deletes on the dispatch `neo epoch close` prints (run 40893679821, 16 s).
+- **X4, `.claude/settings.json` written at seeding**: PROVEN, committed by the seeding session with no refusal (K1702's refusal did not recur).
+- **X5, X7 (a standing-list rule, and the hook's `allow`, clearing a prompt)**: provable only in a product run with a session in Accept edits; every session of N1 ran in Auto, where no prompt is shown. Seen all the same: the deny rule `Bash(git rebase *)` refused BOB #2's rebase in Auto, so the list is read and applied in a cloud session.
+- **X6 (`autoMode.allow`)**: provable only once the standing list carries the key (a lane decision, §8.5); every routine act of N1 passed in Auto without a classifier block.
+- **X8 (server-managed rules)**: provable only once Bob sets them (§7, §8.7).
 
 ## 5. Rules, as they will read
 
