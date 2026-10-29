@@ -492,14 +492,14 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   // the next layer starts now (a mechanical job on Sonnet); a defect is a row naming its merge's review; BOB's own row
   const l2 = N.layerStart(o({ layer: 2, mechanical: 'stats' }));
   assert.deepEqual(l2.jobs.map((j) => [j.module, j.session.model, j.session.effort]), [['stats', 'claude-sonnet-5-5', 'medium']]);
-  assert.equal(N.defect(o({ module: 'beta', what: 'total([]) documented wrong' })).reviewed, 'no');
+  assert.equal(N.defect(o({ module: 'beta', what: 'total([]) documented wrong' })).reviewed, '1/1');   // beta's one merge followed a review (gaps, fixed)
   N.bobArchived(o({ name: 'BOB #0', session: B2, usage: JSON.stringify({ cache_read_tokens: 1, cache_write_tokens: 1, input_tokens: 1, output_tokens: 1 }) }));
   const csv = readFileSync(join(w.bob.dir, 'build/metrics/T1.csv'), 'utf8');
   assert.match(csv, /^session,role,name,module,cache-read,cache-write,input,output,test runs,module lines,reviewed,note\n/);
-  assert.match(csv, new RegExp(`^${J1},job,ALPHA #1,alpha,100,20,3,9,2,\\d+,no,$`, 'm'));
-  assert.match(csv, new RegExp(`^${J3},job,BETA #2,beta,50,5,1,2,2,\\d+,no,$`, 'm'));
-  assert.match(csv, new RegExp(`^${J2},job,BETA #1,beta,40,4,1,1,2,\\d+,no,replaced$`, 'm'));
-  assert.match(csv, /^,defect,BETA #1,beta,,,,,,,no,total\(\[\]\) documented wrong$/m);
+  assert.match(csv, new RegExp(`^${J1},job,ALPHA #1,alpha,100,20,3,9,2,\\d+,0/2,$`, 'm'));   // two merges (one re-open), neither reviewed
+  assert.match(csv, new RegExp(`^${J3},job,BETA #2,beta,50,5,1,2,2,\\d+,1/1,$`, 'm'));
+  assert.match(csv, new RegExp(`^${J2},job,BETA #1,beta,40,4,1,1,2,\\d+,1/1,replaced$`, 'm'));
+  assert.match(csv, /^,defect,BETA #1,beta,,,,,,,1\/1,total\(\[\]\) documented wrong$/m);
   assert.match(csv, new RegExp(`^${B2},BOB-final,BOB #0,,1,1,1,1,,,,$`, 'm'));
   assert.throws(() => N.handoff(o()), /owed: open PR stats/);
 });

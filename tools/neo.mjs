@@ -482,7 +482,7 @@ const JOB = /^\*\*Status\*\* · ([A-Z][A-Z0-9-]* #\d+) · (session_[0-9A-Za-z]+|
 export function parseJob(text) {
   const t = text || '', m = t.match(JOB); if (!m) return null;
   const line = (k) => t.match(new RegExp(`^\\*\\*${k}\\*\\* · (.*)$`, 'm'))?.[1] ?? null;
-  return { name: m[1], session: m[2] === '-' ? null : m[2], state: m[3], pr: m[4] ? Number(m[4]) : null, runs: Number(line('Runs') || 0), owed: (line('Owed') || '').split('; ').map((x) => x.trim()).filter((x) => x && x !== 'none'), after: (line('After') || '').split(/,\s*/).filter(Boolean), model: line('Model'), review: line('Review'), merge: line('Merge') };
+  return { name: m[1], session: m[2] === '-' ? null : m[2], state: m[3], pr: m[4] ? Number(m[4]) : null, runs: Number(line('Runs') || 0), owed: (line('Owed') || '').split('; ').map((x) => x.trim()).filter((x) => x && x !== 'none'), after: (line('After') || '').split(/,\s*/).filter(Boolean), model: line('Model'), review: line('Review'), merge: line('Merge'), reviews: Number(line('Reviews') || 0), merges: (line('Merges') || '').split('; ').filter(Boolean) };
 }
 function fmtJob(m, j) {
   let t = `# ${m} (transient)\n\n**Status** · ${j.name} · ${j.session || '-'} · ${j.state}${j.pr ? ` · PR #${j.pr}` : ''}\n**Runs** · ${j.runs || 0}\n**Owed** · ${j.owed?.length ? j.owed.join('; ') : 'none'}\n`;
@@ -490,6 +490,8 @@ function fmtJob(m, j) {
   if (j.model) t += `**Model** · ${j.model}\n`;
   if (j.review) t += `**Review** · ${j.review}\n`;
   if (j.merge) t += `**Merge** · ${j.merge}\n`;
+  if (j.reviews) t += `**Reviews** · ${j.reviews}\n`;   // reviews run on the job across its runs and re-opens
+  if (j.merges?.length) t += `**Merges** · ${j.merges.join('; ')}\n`;   // each merge: sha, date, the review count then (BOB #1's finding, 29 Oct)
   return t;
 }
 
@@ -880,7 +882,7 @@ If you need something not listed above, stop and write what it is in the result;
 End with the line: DONE review-${m} · verdict
 Model: ${model === 'opus' ? 'Opus' : 'Sonnet'} · Effort: high · Due: 60
 `, 'the review brief');
-  const commit = stateWrite(R, { [jobPath(m)]: fmtJob(m, { ...j, review: `review · ${o.reason} · ${note} · working since ${now()}` }), [`jobs/${m}/review-brief.md`]: brief }, `${m}: review dispatched`);
+  const commit = stateWrite(R, { [jobPath(m)]: fmtJob(m, { ...j, reviews: (j.reviews || 0) + 1, review: `review · ${o.reason} · ${note} · working since ${now()}` }), [`jobs/${m}/review-brief.md`]: brief }, `${m}: review dispatched`);
   return { commit, concerns, agent: { description: `review ${m}`, prompt: brief, run_in_background: true, model: MODEL[model], effort: 'high' }, then: `neo review result --module ${m} --result-file ${result}` };
 }
 // The worker's verdict recorded; the PR review printed; on gaps, the CHANGE to the job.
@@ -942,7 +944,7 @@ export function merged(o) {
   try { R.g(['merge-base', '--is-ancestor', full, `origin/${TRANCHE}`]); } catch { refuse(`${sha} is not on ${TRANCHE}`); }
   let head = null; try { head = R.g(['rev-parse', `origin/${jobBranch(m)}`]); } catch { /* already gone */ }
   if (head) { try { R.g(['merge-base', '--is-ancestor', head, full]); } catch { refuse(`${jobBranch(m)}'s tip ${head.slice(0, 7)} is not in ${sha}: not this job's merge`); } }
-  const commit = saveJob(R, m, { ...j, state: 'MERGED', merge: `merged ${full.slice(0, 7)} ${today()}` }, `${m}: MERGED ${full.slice(0, 7)}`);
+  const commit = saveJob(R, m, { ...j, state: 'MERGED', merge: `merged ${full.slice(0, 7)} ${today()}`, merges: [...(j.merges || []), `${full.slice(0, 7)} ${today()} reviews:${j.reviews || 0}`] }, `${m}: MERGED ${full.slice(0, 7)}`);
   planEdit(R, (p) => clear(p, `merge ${m}`), `${m} merged`);
   // The merged branch's delete (JOB-LIFE §1) is tried from here and, where the proxy refuses ref deletes (R-BOB-1-2), done
   // by the product's prune workflow (REP 4), whose dispatch is printed; a merged branch left behind is harmless meanwhile
@@ -1037,7 +1039,9 @@ export function jobArchived(o) {
   const { id: T } = tranche(R), csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
   if (cur.split('\n').some((l) => l.startsWith(`${o.session},`))) refuse(`${o.session} already has its row in ${csv}`);
   const size = (stateRead(R, `jobs/${m}/report.md`) || '').match(/^Size: test runs (\d+), module lines (\d+)/m) || [];
-  const reviewed = j.review ? (/^review · /.test(j.review) ? 'yes' : 'no') : '';
+  const counts = (j.merges || []).map((x) => Number(x.match(/reviews:(\d+)/)?.[1] || 0));
+  const reviewedMerges = counts.filter((c, i) => c > (i ? counts[i - 1] : 0)).length;
+  const reviewed = counts.length ? `${reviewedMerges}/${counts.length}` : j.review ? (/^review · /.test(j.review) ? 'yes' : 'no') : '';
   R.write(csv, `${cur}${[o.session, 'job', o.name || j.name, m, u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', size[1] ?? j.runs, size[2] ?? '', reviewed, j.session === o.session ? '' : 'replaced'].join(',')}\n`);
   const commit = commitPush(R, TRANCHE, [csv], `metrics ${T}: ${o.name || j.name} archived`);
   if (j.session === o.session) { saveJob(R, m, { ...j, state: 'ARCHIVED' }, `${m}: ARCHIVED`); planEdit(R, (p) => clear(p, `archive ${m}`), `${m} archived`); }
