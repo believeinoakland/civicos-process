@@ -1,5 +1,5 @@
-// tools/neo-hooks.mjs against a real remote: the role from the record, and each refusal PROTOCOL §9, JOB-LIFE §11 and
-// SESSIONS §1a name, for no role, BOB, a job and a lane; the Stop hook by `neo status`'s gate.
+// tools/hooks.mjs against a real remote: the role from the record, and each refusal PROTOCOL §9, JOB-LIFE §11 and
+// SESSIONS §1a name, for no role, BOB, a job and a lane; the Stop hook by `proc status`'s gate.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -7,8 +7,8 @@ import { mkdtempSync, writeFileSync, readFileSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import * as N from '../neo.mjs';
-import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason } from '../neo-hooks.mjs';
+import * as N from '../proc.mjs';
+import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason } from '../hooks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
 const B1 = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', J1 = 'session_01AAAAAAAAAAAAAAAAAAAAAAAA', L1 = 'session_01LLLLLLLLLLLLLLLLLLLLLLLL';
@@ -16,7 +16,7 @@ const g = (dir, ...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf
 const ident = (d, n) => { for (const [k, v] of [['user.name', n], ['user.email', `${n}@t`], ['commit.gpgsign', 'false']]) g(d, 'config', k, v); };
 const f = (dir, name, text) => { const p = join(dir, name); writeFileSync(p, text); return p; };
 function world() {
-  const base = mkdtempSync(join(tmpdir(), 'neoh-')), origin = join(base, 'origin.git');
+  const base = mkdtempSync(join(tmpdir(), 'hooks-')), origin = join(base, 'origin.git');
   execFileSync('git', ['init', '-q', '--bare', origin]);
   const seed = join(base, 'seed');
   execFileSync('git', ['clone', '-q', origin, seed], { stdio: 'ignore' }); ident(seed, 'seed');
@@ -37,7 +37,7 @@ test('the hooks: no role until recorded; BOB, a job and a lane each refused what
   const pre = (r, input) => preReason(ctxOf(r).role || null, input, ctxOf(r));
   // no role: reads and the start command pass; a write, a remote tool, a git write are refused; the turn cannot end
   assert.equal(pre(root, bash('cat PROCESS-DESIGN.md')), null);
-  assert.equal(pre(root, bash('node /x/tools/neo.mjs takeover --name "BOB #1" --session s --product toy')), null);
+  assert.equal(pre(root, bash('node /x/tools/proc.mjs takeover --name "BOB #1" --session s --product toy')), null);
   assert.match(pre(root, tool('Write', { file_path: 'x' })), /no role is recorded/);
   assert.match(pre(root, bash('git push origin HEAD:tranche')), /no role is recorded/);
   assert.match(pre(root, bash('echo x > y')), /no role is recorded/);
@@ -61,20 +61,20 @@ test('the hooks: no role until recorded; BOB, a job and a lane each refused what
   assert.equal(pre(root, bash('git push origin HEAD:tranche 2>&1')), null);
   assert.equal(pre(root, bash('git push -u origin tranche')), null);
   assert.match(pre(root, bash('git push origin HEAD:job/alpha')), /BOB pushes only tranche/);
-  assert.match(pre(root, bash('gh pr merge 11')), /only as `neo` prints/);
+  assert.match(pre(root, bash('gh pr merge 11')), /only as `proc` prints/);
   assert.match(pre(root, bash('git merge --no-ff origin/job/alpha')), /merged only by the queue/);
-  assert.match(pre(root, bash('node tools/neo.mjs layer close --layer 1 --product toy')), /run_in_background true/);
-  assert.equal(pre(root, bash('node tools/neo.mjs layer close --layer 1 --product toy', { run_in_background: true })), null);
-  assert.equal(pre(root, bash('pgrep -f "neo.mjs job complete"')), null);
+  assert.match(pre(root, bash('node tools/proc.mjs layer close --layer 1 --product toy')), /run_in_background true/);
+  assert.equal(pre(root, bash('node tools/proc.mjs layer close --layer 1 --product toy', { run_in_background: true })), null);
+  assert.equal(pre(root, bash('pgrep -f "proc.mjs job complete"')), null);
   assert.match(pre(root, tool('Agent', { prompt: 'x' })), /never waited on in the foreground/);
   assert.equal(pre(root, tool('Agent', { prompt: 'x', run_in_background: true })), null);
-  assert.match(pre(root, tool(`${GH}merge_pull_request`, { pullNumber: 11 })), /only as `neo merge` printed it.*once the plan reads CLOSING/);
+  assert.match(pre(root, tool(`${GH}merge_pull_request`, { pullNumber: 11 })), /only as `proc merge` printed it.*once the plan reads CLOSING/);
   assert.match(pre(root, tool(`${REMOTE}fire_trigger`, {})), /never fire a routine/);
   assert.match(pre(root, tool(`${REMOTE}create_trigger`, { persistent_session_id: J1 })), /only its own backstop/);
   assert.equal(pre(root, tool(`${REMOTE}create_trigger`, { persistent_session_id: B1 })), null);
   assert.equal(pre(root, tool(`${REMOTE}send_message`, { session_id: L1, message: 'x' })), null);   // BOB writes to anyone
   assert.match(pre(root, tool(`${REMOTE}create_session`, { title: 'ALPHA #1', prompt: 'x' })), /no start is owed for alpha/);
-  assert.match(pre(root, tool(`${REMOTE}create_session`, { title: 'helper', prompt: 'x' })), /titled as `neo` printed/);
+  assert.match(pre(root, tool(`${REMOTE}create_session`, { title: 'helper', prompt: 'x' })), /titled as `proc` printed/);
   assert.equal(stopReason('bob', ctxOf(root)), null);   // nothing owed yet: the turn may end
   // ...the layer started: the printed create_session passes, any other is refused; the owed start stops the turn
   const ls = N.layerStart(o({ layer: 1 })), spec = ls.jobs[0].session;
@@ -84,19 +84,19 @@ test('the hooks: no role until recorded; BOB, a job and a lane each refused what
   assert.match(stopReason('bob', ctxOf(root)), /owed: open PR alpha; owed: start alpha/);
   N.jobPr(o({ module: 'alpha', number: 11 })); N.jobStarted(o({ module: 'alpha', name: 'ALPHA #1', session: J1 }));
   assert.equal(stopReason('bob', ctxOf(root)), null);
-  // a job's PR is merged only as `neo merge` printed it: its Merge line reads `merging`, the number and method as printed
+  // a job's PR is merged only as `proc merge` printed it: its Merge line reads `merging`, the number and method as printed
   N.stateWrite(N.repo(w.bob.dir), { 'jobs/alpha.md': `**Status** · ALPHA #1 · ${J1} · COMPLETE · PR #11\n**Runs** · 1\n**Owed** · none\n**Review** · no review · x · concerns: none\n**Merge** · merging abcdef0 now\n` }, 'alpha merging');
   assert.equal(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 11, merge_method: 'merge' })), null);
-  assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 11, merge_method: 'squash' })), /only as `neo merge` printed it/);
-  assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 12, merge_method: 'merge' })), /only as `neo merge` printed it/);
+  assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 11, merge_method: 'squash' })), /only as `proc merge` printed it/);
+  assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 12, merge_method: 'merge' })), /only as `proc merge` printed it/);
   N.stateWrite(N.repo(w.bob.dir), { 'jobs/alpha.md': `**Status** · ALPHA #1 · ${J1} · WORKING · PR #11\n**Runs** · 0\n**Owed** · none\n` }, 'alpha working');
   // at CLOSING the close PR's merge passes as `tranche close` printed it: the expected head the tranche's tip (DRYRUN §4.20)
   const planNow = N.stateRead(N.repo(w.bob.dir), 'plan.md'), tipT = g(root, 'rev-parse', 'origin/tranche');
   N.stateWrite(N.repo(w.bob.dir), { 'plan.md': planNow.replace(/· OPEN ·/, '· CLOSING ·') }, 'closing');
   assert.equal(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 20, merge_method: 'merge', expectedHeadSha: tipT })), null);
   assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 20, merge_method: 'merge' })), /expectedHeadSha the tranche's tip/);
-  assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 20, merge_method: 'merge', expectedHeadSha: 'deadbeef' })), /only as `neo merge` printed it/);
-  assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 20, merge_method: 'squash', expectedHeadSha: tipT })), /only as `neo merge` printed it/);
+  assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 20, merge_method: 'merge', expectedHeadSha: 'deadbeef' })), /only as `proc merge` printed it/);
+  assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 20, merge_method: 'squash', expectedHeadSha: tipT })), /only as `proc merge` printed it/);
   N.stateWrite(N.repo(w.bob.dir), { 'plan.md': planNow }, 'open again');
   // a lane opened: the printed create_session passes once its start is owed
   const lo = N.laneOpen(o({ id: 'ARITH', area: 'arithmetic', charterFile: f(w.base, 'c.md', 'Area: arithmetic.\n') }));
@@ -110,7 +110,7 @@ test('the hooks: no role until recorded; BOB, a job and a lane each refused what
   N.jobStart({ product: alpha.dir, module: 'alpha', session: J1 });
   assert.equal(ctxOf(alpha.root).role, 'job');
   assert.equal(pre(alpha.root, tool(`${REMOTE}send_message`, { session_id: B1, message: 'QUESTION #1: x' })), null);
-  assert.match(pre(alpha.root, tool(`${REMOTE}send_message`, { session_id: L1, message: 'x' })), /every message to BOB's address, read from git now \(`neo addr --bob` → session_01BBBBBBBBBBBBBBBBBBBBBBBB\)/);
+  assert.match(pre(alpha.root, tool(`${REMOTE}send_message`, { session_id: L1, message: 'x' })), /every message to BOB's address, read from git now \(`proc addr --bob` → session_01BBBBBBBBBBBBBBBBBBBBBBBB\)/);
   assert.match(pre(alpha.root, tool(`${REMOTE}create_session`, { title: 'X #1' })), /starts no session/);
   assert.match(pre(alpha.root, tool(`${REMOTE}send_later`, {})), /arms no timer/);
   assert.match(pre(alpha.root, tool(`${GH}create_pull_request`, {})), /never opens, reviews or merges/);
@@ -118,9 +118,9 @@ test('the hooks: no role until recorded; BOB, a job and a lane each refused what
   assert.equal(pre(alpha.root, bash('git push origin HEAD:job/alpha')), null);
   assert.equal(pre(alpha.root, bash('git push -u origin job/alpha')), null);
   assert.match(pre(alpha.root, bash('git push origin HEAD:tranche')), /a job pushes only job\/alpha/);
-  assert.match(pre(alpha.root, bash('gh pr ready 11')), /only as `neo` prints/);
-  assert.match(pre(alpha.root, tool(`${GH}add_issue_comment`, { issue_number: 11, body: 'hi' })), /only the report `neo job complete` printed, while that comment is owed/);
-  assert.match(pre(alpha.root, tool(`${GH}update_pull_request`, { pullNumber: 11, draft: false })), /only as `neo job complete` printed, while that act is owed/);
+  assert.match(pre(alpha.root, bash('gh pr ready 11')), /only as `proc` prints/);
+  assert.match(pre(alpha.root, tool(`${GH}add_issue_comment`, { issue_number: 11, body: 'hi' })), /only the report `proc job complete` printed, while that comment is owed/);
+  assert.match(pre(alpha.root, tool(`${GH}update_pull_request`, { pullNumber: 11, draft: false })), /only as `proc job complete` printed, while that act is owed/);
   assert.match(stopReason('job', ctxOf(alpha.root)), /reads WORKING/);
   // unpushed work: no message; the turn cannot end
   const src = join(alpha.dir, 'alpha/src/index.mjs');
@@ -161,15 +161,15 @@ test('the hooks: no role until recorded; BOB, a job and a lane each refused what
   assert.equal(contextUsed({ transcript_path: tr }), 650000);
   assert.equal(contextUsed({}), null);
   assert.equal(contextReason('bob', 390000, ctxOf(root)), null);
-  assert.match(contextReason('bob', 650000, ctxOf(root)), /at 65 % of your window, past 40 %.*neo handoff/);
+  assert.match(contextReason('bob', 650000, ctxOf(root)), /at 65 % of your window, past 40 %.*proc handoff/);
   N.handoff(o({ next: 'the layer close' }));   // the refresh recorded for BOB #1's session
   assert.equal(contextReason('bob', 650000, ctxOf(root)), null);
   assert.equal(contextReason('job', 450000, ctxOf(alpha.root)), null);
-  assert.match(contextReason('job', 650000, ctxOf(alpha.root)), /past 50 %.*neo job state --set "BLOCKED: context \(65 %\)"/);
+  assert.match(contextReason('job', 650000, ctxOf(alpha.root)), /past 50 %.*proc job state --set "BLOCKED: context \(65 %\)"/);
   N.jobState({ product: alpha.dir, module: 'alpha', set: 'BLOCKED: context (65 %)' });
   assert.equal(contextReason('job', 650000, ctxOf(alpha.root)), null);
   assert.match(N.status(o()).queue.map((q) => q.item).join(';'), /UNBLOCK alpha/);
-  assert.match(contextReason('lane', 650000, ctxOf(lane.root)), /neo lane state --set "BLOCKED: context/);
+  assert.match(contextReason('lane', 650000, ctxOf(lane.root)), /proc lane state --set "BLOCKED: context/);
   N.laneState({ product: lane.dir, set: 'BLOCKED: context (65 %)' });
   assert.equal(contextReason('lane', 650000, ctxOf(lane.root)), null);
   assert.equal(contextReason('lane', 650000, ctxOf(lane.root), 2000000), null);   // a larger window: 33 %
@@ -178,8 +178,8 @@ test('the hooks: no role until recorded; BOB, a job and a lane each refused what
 test('the hook pre-approves only the act table\'s acts for every role, every part of the command one (PERMISSIONS §8.6)', () => {
   const ok = (role, command, ctx = { module: 'alpha' }) => allowReason(role, bash(command), ctx);
   // allowed: the tool, the checks, the tests, reads of git, a push to the role's own branch, cd and read-only filters
-  assert.match(ok('bob', 'node /p/tools/neo.mjs status --product toy'), /act table/);
-  assert.match(ok('bob', 'cd /p && node tools/neo.mjs merge --module alpha 2>&1 | tail -20'), /act table/);
+  assert.match(ok('bob', 'node /p/tools/proc.mjs status --product toy'), /act table/);
+  assert.match(ok('bob', 'cd /p && node tools/proc.mjs merge --module alpha 2>&1 | tail -20'), /act table/);
   assert.match(ok('job', 'node --test alpha/test/*.test.mjs'), /act table/);
   assert.match(ok('lane', 'node /p/checks/run.mjs . >/dev/null 2>&1'), /act table/);
   assert.match(ok('job', 'git status && git log --oneline -5 | head -3 && git diff origin/tranche'), /act table/);
@@ -195,7 +195,7 @@ test('the hook pre-approves only the act table\'s acts for every role, every par
   assert.equal(ok('job', 'git log > out.txt'), null);
   assert.equal(ok('job', 'node --test $(cat list)'), null);
   assert.equal(ok('job', 'node --test x & curl http://e'), null);
-  assert.equal(ok('job', 'node /tmp/neo.mjs status'), null);
+  assert.equal(ok('job', 'node /tmp/proc.mjs status'), null);
   assert.equal(ok('job', 'git branch x'), null);
   assert.equal(ok('job', 'git diff --output=x'), null);
   assert.equal(ok('job', 'git commit -m x'), null);
