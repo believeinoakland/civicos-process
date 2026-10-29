@@ -1,6 +1,6 @@
 # The Design stage: how a lane's decision becomes a requirement
 
-**Status** · Draft, decided by neoProcess #1 on 2026-10-29 (technical, BOB's by P17, within P5: requirements are owned by BOB, with Bob where their meaning changes). Not in force; certified on a dry run before use (P3). Governed by the delegation protocol (`PROTOCOL.md`).
+**Status** · In force from 2026-10-29, certified on the dry run N1 (`dryrun/N1/CERTIFICATION.md`; the run and its flaws, `lane-neoprocess/DRYRUN.md`). Drafted, decided by neoProcess #1 on 2026-10-29 (technical, BOB's by P17, within P5: requirements are owned by BOB, with Bob where their meaning changes). Governed by the delegation protocol (`PROTOCOL.md`).
 
 ## 1. What a lane delivers
 

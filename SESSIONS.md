@@ -1,6 +1,6 @@
 # Sessions: models and effort, reading sets, the worker brief
 
-**Status** · Draft, decided by neoProcess #1 on 2026-10-29 (technical, BOB's by P17), under Bob's policies of 2026-10-28: always a model and a level of effort sufficient for quality work; tokens are expensive, so work is done token-efficiently; speak to the audience directly. Not in force; certified on a dry run before use (P3).
+**Status** · In force from 2026-10-29, certified on the dry run N1 (`dryrun/N1/CERTIFICATION.md`; the run and its flaws, `lane-neoprocess/DRYRUN.md`). Drafted, decided by neoProcess #1 on 2026-10-29 (technical, BOB's by P17), under Bob's policies of 2026-10-28: always a model and a level of effort sufficient for quality work; tokens are expensive, so work is done token-efficiently; speak to the audience directly.
 
 ## 1. The model-and-effort table
 

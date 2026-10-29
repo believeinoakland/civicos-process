@@ -1,6 +1,6 @@
 # The delegation protocol: how jobs and lanes reach each other through BOB
 
-**Status** · Draft, decided by neoProcess #1 on 2026-10-28 (a technical matter, BOB's by P17). Not in force; certified on a dry run before use (P3). Reported to Bob in plain words on the neoProcess page (§2).
+**Status** · In force from 2026-10-29, certified on the dry run N1 (`dryrun/N1/CERTIFICATION.md`; the run and its flaws, `lane-neoprocess/DRYRUN.md`). Drafted, decided by neoProcess #1 on 2026-10-28 (a technical matter, BOB's by P17). Reported to Bob in plain words on the neoProcess page (§2).
 
 ## The requirements it meets (Bob, 2026-10-28)
 

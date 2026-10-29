@@ -1,6 +1,6 @@
 # The job's life as a pull request (Building and Integration)
 
-**Status** · Draft, decided by neoProcess #1 on 2026-10-29 (technical, BOB's by P17). Not in force; certified on a dry run before use (P3). Reported to Bob on the neoProcess page (§4).
+**Status** · In force from 2026-10-29, certified on the dry run N1 (`dryrun/N1/CERTIFICATION.md`; the run and its flaws, `lane-neoprocess/DRYRUN.md`). Drafted, decided by neoProcess #1 on 2026-10-29 (technical, BOB's by P17). Reported to Bob on the neoProcess page (§4).
 
 ## What it must satisfy
 

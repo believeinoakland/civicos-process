@@ -1,6 +1,6 @@
 # Permissions: how neoProcess handles a refused act
 
-**Status** · Draft, neoProcess #4, 2026-10-29, on Bob's direction of the same day: "the neoProcess also needs to robustly handle permissions, something the current process continually struggles with." Not in force; certified on the dry run before use (P3). What is Bob's here is named in §6.
+**Status** · In force from 2026-10-29, certified on the dry run N1 (`dryrun/N1/CERTIFICATION.md`; the run and its flaws, `lane-neoprocess/DRYRUN.md`). Drafted, neoProcess #4, 2026-10-29, on Bob's direction of the same day: "the neoProcess also needs to robustly handle permissions, something the current process continually struggles with." What is Bob's here is named in §6.
 
 ## 1. What refuses an act, measured
 

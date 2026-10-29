@@ -1200,7 +1200,7 @@ export function shims(o) {
   const R = repo(o.product), proc = o.process || '/home/user/neoProcess', name = o.repo || 'believeinoakland/neoProcess', rel = R.rel('.');
   const ref = o.ref || (() => { try { const b = execFileSync('git', ['-C', PROCESS, 'rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); return b === 'HEAD' ? 'main' : b; } catch { return 'main'; } })();
   const hook = (ev) => `node "${proc}/tools/hooks.mjs" ${ev}`;
-  const supplies = existsSync(join(PROCESS, 'PRODUCT-SUPPLIES.md')) ? 'PRODUCT-SUPPLIES.md' : 'lane-neoprocess/PRODUCT-SUPPLIES.md';   // at the root from the commit point
+  const supplies = 'PRODUCT-SUPPLIES.md';   // at the root since the commit point
   // PERMISSIONS §2.4, §6: the standing list, Bob's, applied to every product; K1702's refusal of a session's edit of the
   // settings file is row X4 of the dry run (then Bob commits it once and this only checks drift).
   const standing = JSON.parse(readFileSync(join(PROCESS, 'permissions.json'), 'utf8'));
