@@ -749,6 +749,43 @@ test('repo rename renames a repository on the runner with the process\'s token a
   assert.doesNotMatch(wf, /run:[\s\S]*\$\{\{ inputs\./);
 });
 
+test('repo transfer moves a repository to another account on the runner with the process\'s token; the new owner accepts; from a session the dispatch is printed (PERMISSIONS §9)', async () => {
+  let owner = 'bob', pending = false, auth = null;
+  const fetch = async (url, init) => {
+    const path = url.replace('https://api.github.com', ''), method = init.method; auth = init.headers.Authorization ?? null;
+    const reply = (status, body) => ({ status, text: async () => JSON.stringify(body) });
+    if (path === '/user') return reply(200, { login: 'bob' });
+    const m = path.match(/^\/repos\/([\w.-]+)\/neoprocess$/);
+    if (m && method === 'GET') return m[1] === owner ? reply(200, { name: 'neoprocess', owner: { login: owner }, html_url: `https://github.com/${owner}/neoprocess` }) : reply(404, { message: 'Not Found' });
+    if (path === '/repos/bob/neoprocess/transfer' && method === 'POST') { if (!auth) return reply(403, { message: 'Repository settings writes are not permitted through this proxy' }); pending = JSON.parse(init.body).new_owner; return reply(202, { name: 'neoprocess' }); }
+    return reply(500, { message: `unexpected ${method} ${path}` });
+  };
+  await assert.rejects(N.repoTransfer({ repo: 'nope', to: 'x' }), /--repo <owner\/name> --to <new owner>/);
+  await assert.rejects(N.repoTransfer({ repo: 'bob/neoprocess', to: 'bob', fetch, env: {} }), /the token is bob's already/);
+  await assert.rejects(N.repoTransfer({ repo: 'alice/neoprocess', to: 'robert', fetch, env: {} }), /the token is bob's, and --repo names alice/);
+  // from a session: the proxy refuses the settings write; the dispatch and what follows are printed
+  const r1 = await N.repoTransfer({ repo: 'bob/neoprocess', to: 'robert', fetch, env: {} });
+  assert.deepEqual([r1.ok, r1.steps, r1.token, pending], [false, [], 'the proxy\'s', false]);
+  assert.match(r1.refused.join(';'), /^POST \/repos\/bob\/neoprocess\/transfer 403: Repository settings writes/);
+  assert.deepEqual([r1.dispatch.tool, r1.dispatch.workflow_id, r1.dispatch.ref, r1.dispatch.inputs], ['actions_run_trigger', N.REPO_TRANSFER_WORKFLOW, 'main', { repo: 'bob/neoprocess', to: 'robert' }]);
+  assert.match(r1.then, /accepts GitHub's email within a day.*add_repo.*git remote set-url origin.*proc shims.*issues the process's token anew/);
+  // on the runner, with the token: the transfer requested (202), pending the new owner's acceptance; nothing read back yet
+  const r2 = await N.repoTransfer({ repo: 'bob/neoprocess', to: 'robert', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } });
+  assert.equal(auth, 'Bearer ghp_x');
+  assert.deepEqual([r2.ok, r2.pending, r2.moved, pending, r2.dispatch], [true, true, undefined, 'robert', undefined]);
+  assert.match(r2.steps[0], /^transfer requested: robert accepts GitHub's email within a day/);
+  // accepted: read back under the new owner, from the runner or a session, whichever token
+  owner = 'robert';
+  const r3 = await N.repoTransfer({ repo: 'bob/neoprocess', to: 'robert', fetch, env: {} });
+  assert.deepEqual([r3.ok, r3.moved, r3.steps], [true, true, ['already owned by robert: https://github.com/robert/neoprocess']]);
+  // on the runner a refusal is a refusal
+  owner = 'other';
+  await assert.rejects(N.repoTransfer({ repo: 'bob/neoprocess', to: 'robert', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } }), /with the process's token: GET \/repos\/bob\/neoprocess 404/);
+  const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', N.REPO_TRANSFER_WORKFLOW), 'utf8');
+  assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\.NEOPROCESS_GITHUB_TOKEN \}\}/); assert.match(wf, /node tools\/proc\.mjs repo transfer --repo "\$REPO" --to "\$TO"/);
+  assert.doesNotMatch(wf, /run:[\s\S]*\$\{\{ inputs\./);
+});
+
 test('onboarding: a new project seeded from nothing, an existing one converted, and where each stands (ONBOARDING §2, §3)', () => {
   const mk = (files) => {
     const base = mkdtempSync(join(tmpdir(), 'onboard-')), origin = join(base, 'origin.git'), dir = join(base, 'p');
