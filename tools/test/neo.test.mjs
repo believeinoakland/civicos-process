@@ -290,6 +290,7 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   assert.deepEqual([jc.acts[0].issue_number, jc.acts[1].pullNumber, jc.acts[1].draft], [11, 11, false]);
   assert.match(jc.acts[0].body, /^\*\*Met\*\* · R6[\s\S]*\nTests: \d+\/\d+\. Checks: format, architecture, coverage, fixtures, ownership: no new finding\.\nSize: test runs 1, module lines \d+\. Head [0-9a-f]{7}\.$/);
   assert.equal(g(alpha.root, 'log', '-1', '--format=%s'), 'alpha T1: met R6');
+  assert.equal(g(alpha.root, 'status', '--porcelain'), '');   // the bundles read alpha's source, were regenerated for the run, and are not the job's to commit
   assert.doesNotMatch(g(alpha.root, 'show', 'HEAD:toy/build/requirements/alpha.md'), /not yet met: T1/);
   assert.match(g(alpha.root, 'show', 'HEAD:toy/build/requirements/alpha.md'), /^- \*\*R6\*\* Returns `add\(a, a\)`\.$/m);
   assert.equal(g(alpha.root, 'rev-parse', 'origin/job/alpha'), g(alpha.root, 'rev-parse', 'HEAD'));
@@ -424,4 +425,56 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   assert.match(csv, /^,defect,BETA #1,beta,,,,,,,no,total\(\[\]\) documented wrong$/m);
   assert.match(csv, new RegExp(`^${B2},BOB-final,BOB #0,,1,1,1,1,,,,$`, 'm'));
   assert.throws(() => N.handoff(o()), /owed: open PR stats/);
+});
+
+test('the one skill\'s reading, the shims written and checked for drift, the gate as CI runs it (JOB-LIFE §4, SESSIONS §6, PRODUCT-SUPPLIES)', () => {
+  const w = world(), R = N.repo(w.bob.dir);
+  // reading: the principles and the role's rulebooks whole, measured against the role's budget; the start command last
+  const rj = N.reading({ role: 'job', product: 'toy' });
+  assert.deepEqual(rj.files.map((f) => f.book ?? 'principles'), ['principles', 'building', 'integration', 'sessions']);
+  assert.match(rj.text, /^=== PROCESS-DESIGN\.md \(\d+ bytes\) ===\n# The process principles/);
+  assert.match(rj.text, /\(not yet written\)/);   // building is not drafted yet
+  assert.match(rj.text, /\nNext: read everything above whole \(P20\), then run `neo job start --module <m> --session <your session id> --product toy`/);
+  assert.deepEqual(rj.over, []); assert.equal(rj.budget, 26 * 1024);
+  assert.equal(N.reading({ role: 'bob' }).budget, 55 * 1024);
+  assert.throws(() => N.reading({ role: 'worker' }), /--role/);
+  assert.deepEqual(N.sizes(R, ['alpha', 'nope']), []);
+  // shims: the three files written from here; a hand edit is drift; CLAUDE.md under thirty lines
+  const sh = N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess' });
+  assert.deepEqual(sh.written.sort(), ['.claude/skills/neoprocess/SKILL.md', '.github/workflows/gate.yml', 'CLAUDE.md']);
+  const skill = readFileSync(join(w.bob.root, '.claude/skills/neoprocess/SKILL.md'), 'utf8');
+  assert.match(skill, /^---\nname: neoprocess\n/); assert.match(skill, /command: 'node "\/p\/neoProcess\/tools\/neo-hooks\.mjs" pre'/);
+  assert.match(skill, /!`node "\/p\/neoProcess\/tools\/neo\.mjs" reading --role "\$ARGUMENTS" --product "toy"/);
+  const claude = readFileSync(join(w.bob.root, 'CLAUDE.md'), 'utf8');
+  assert.ok(claude.split('\n').length <= 30); assert.match(claude, /`o\/neoProcess`, attached at `\/p\/neoProcess`/);
+  const yml = readFileSync(join(w.bob.root, '.github/workflows/gate.yml'), 'utf8');
+  assert.match(yml, /^name: gate\non:\n  pull_request:\n    branches: \[tranche\]\n  merge_group:\n/);
+  assert.match(yml, /repository: o\/neoProcess\n          path: \.neoprocess\n          ssh-key: \$\{\{ secrets\.NEOPROCESS_DEPLOY_KEY \}\}/);
+  assert.match(yml, /run: node \.neoprocess\/tools\/neo\.mjs gate --product "toy" --base "\$\{\{ github\.event\.pull_request\.base\.sha \|\| github\.event\.merge_group\.base_sha \}\}"/);
+  assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', check: true }).drift, []);
+  writeFileSync(join(w.bob.root, 'CLAUDE.md'), `${claude}\nMy own rule.\n`);
+  assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', check: true }).drift, ['CLAUDE.md: differs']);
+  assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess' }).written, ['CLAUDE.md']);   // rewritten
+  g(w.bob.root, 'add', '-A'); g(w.bob.root, 'commit', '-q', '-m', 'shims'); g(w.bob.root, 'push', '-q', 'origin', 'HEAD:tranche');
+  // the gate on a job branch: the module from the diff; green with the artifacts regenerated for the run; another module's file and a hand-edited shim each fail
+  const base = g(w.bob.root, 'rev-parse', 'HEAD');
+  g(w.bob.root, 'checkout', '-q', '-b', 'job/alpha');
+  const src = join(w.bob.dir, 'alpha/src/index.mjs');
+  writeFileSync(src, `${readFileSync(src, 'utf8')}// a line\n`);
+  g(w.bob.root, 'add', '-A'); g(w.bob.root, 'commit', '-q', '-m', 'alpha: a line');
+  const g1 = N.gateCmd({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', base });
+  assert.equal(g(w.bob.root, 'status', '--porcelain'), '');   // the bundles (which read alpha's source) were regenerated for the run and put back
+  assert.deepEqual([g1.ok, g1.module, g1.fails, g1.checks], [true, 'alpha', [], ['format', 'architecture', 'coverage', 'fixtures']]);
+  assert.ok(g1.tests.pass > 0 && g1.tests.pass === g1.tests.tests);
+  assert.match(g1.users.beta, /^\d+\/\d+$/);   // beta uses alpha: its tests ran too
+  writeFileSync(join(w.bob.dir, 'beta/src/index.mjs'), `${readFileSync(join(w.bob.dir, 'beta/src/index.mjs'), 'utf8')}// not alpha's\n`);
+  g(w.bob.root, 'add', '-A'); g(w.bob.root, 'commit', '-q', '-m', 'alpha: touches beta');
+  assert.throws(() => N.gateCmd({ product: w.bob.dir, base }), /several modules: alpha, beta/);
+  const g2 = N.gateCmd({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', base, module: 'alpha' });
+  assert.match(g2.fails.join(';'), /ownership: .*beta\/src\/index\.mjs: outside alpha's paths/);
+  g(w.bob.root, 'reset', '-q', '--hard', 'HEAD~1');
+  writeFileSync(join(w.bob.root, 'CLAUDE.md'), 'mine\n'); g(w.bob.root, 'add', '-A'); g(w.bob.root, 'commit', '-q', '-m', 'alpha: edits the shim');
+  const g3 = N.gateCmd({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', base, module: 'alpha' });
+  assert.deepEqual(g3.fails.filter((x) => x.startsWith('shims')), ['shims: CLAUDE.md: differs']);
+  assert.throws(() => N.gateCmd({ product: w.bob.dir, base: 'nope' }), /not a commit/);
 });
