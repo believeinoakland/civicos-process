@@ -597,6 +597,10 @@ const loadJob = (R, m) => jobOf(R, m) ?? refuse(`no job for ${m} on the state br
 const saveJob = (R, m, j, msg) => stateWrite(R, { [jobPath(m)]: fmtJob(m, j) }, msg);
 const done = (R, m) => ['MERGED', 'ARCHIVED'].includes(jobOf(R, m)?.state);
 function at(R, ref, fn) { const back = R.branch(), head = R.g(['rev-parse', 'HEAD']); R.g(['checkout', '-q', '--detach', ref]); try { return fn(); } finally { R.g(['checkout', '-q', back === 'HEAD' ? head : back]); } }
+// The job branch's opening commit (JOB-LIFE §2): GitHub refuses a pull request with no commit between base and head
+// (measured 29 Oct, #5: BOB #1's R-BOB-1-1), so every job branch starts one empty commit past the tranche tip, made by
+// plumbing and pushed; the gate reads an empty diff as nothing to check yet.
+function opening(R, tip, message) { return execFileSync('git', ['-C', R.root, 'commit-tree', `${tip}^{tree}`, '-p', tip, '-m', message], { encoding: 'utf8' }).trim(); }
 const strike = (line, T) => line.replace(/\s*\*\(not yet met:([^)]*)\)\*/g, (all, list) => { const rest = list.split(/[\s,;]+/).filter((x) => x && x !== T); return rest.length ? ` *(not yet met: ${rest.join(', ')})*` : ''; });
 
 // A job's own set (SESSIONS §3, §6.3): its requirements, both parts; the public part of each module it uses; the layer
@@ -662,12 +666,14 @@ export function layerStart(o) {
       jobs.push({ module: m.id, action: 'message', send: { session_id: cur.session, message } });
       continue;
     }
-    if (cur && cur.state !== 'ARCHIVED') refuse(`${m.id}: its job reads ${cur.state} (${cur.name}): one job per module (P8)`);
-    if (R.heads(`refs/heads/${jobBranch(m.id)}`).length) refuse(`${jobBranch(m.id)} exists on origin: \`neo merged\` deletes a merged one; a live one is a job`);
-    const name = `${m.id.toUpperCase()} #${nextK(R, T, m.id)}`, model = mechanical.includes(m.id) ? 'sonnet' : 'opus';
+    // A START made and not yet opened (STARTING, no PR, no session) is remade: the branch and the text, the name kept.
+    const retry = !!cur && cur.state === 'STARTING' && !cur.pr && !cur.session;
+    if (cur && cur.state !== 'ARCHIVED' && !retry) refuse(`${m.id}: its job reads ${cur.state} (${cur.name}): one job per module (P8)`);
+    if (R.heads(`refs/heads/${jobBranch(m.id)}`).length) { if (retry) R.g(['push', '-q', 'origin', `:refs/heads/${jobBranch(m.id)}`]); else refuse(`${jobBranch(m.id)} exists on origin: \`neo merged\` deletes a merged one; a live one is a job`); }
+    const name = retry ? cur.name : `${m.id.toUpperCase()} #${nextK(R, T, m.id)}`, model = mechanical.includes(m.id) ? 'sonnet' : retry ? (cur.model || 'opus') : 'opus';
     const start = sized(startText(R, m.id, name, T, `layer ${L}`, entries, o), `${m.id}'s START`);
     const after = (entries.match(/\*\(after ([a-z0-9-]+(?:,\s*[a-z0-9-]+)*)\)\*/)?.[1] || '').split(/,\s*/).filter(Boolean);
-    R.g(['push', '-q', 'origin', `${tip}:refs/heads/${jobBranch(m.id)}`]);
+    R.g(['push', '-q', 'origin', `${opening(R, tip, `${name} opens: ${T} layer ${L}, module ${m.id}`)}:refs/heads/${jobBranch(m.id)}`]);
     files[jobPath(m.id)] = fmtJob(m.id, { name, session: null, state: 'STARTING', pr: null, runs: 0, owed: [], after, model });
     files[`jobs/${m.id}/start.md`] = start;
     owed.push(`open PR ${m.id}`, `start ${m.id}`);
@@ -910,7 +916,7 @@ export function jobReopen(o) {
   R.fetch(jobBranch(m));
   let head = null; try { head = R.g(['rev-parse', `origin/${jobBranch(m)}`]); } catch { /* gone */ }
   if (head) { try { R.g(['merge-base', '--is-ancestor', head, tip]); } catch { refuse(`${jobBranch(m)} holds work not on ${TRANCHE}: not merged`); } R.g(['push', '-q', 'origin', `:refs/heads/${jobBranch(m)}`]); }
-  R.g(['push', '-q', 'origin', `${tip}:refs/heads/${jobBranch(m)}`]);
+  R.g(['push', '-q', 'origin', `${opening(R, tip, `${j.name} re-opens: ${T}, module ${m}`)}:refs/heads/${jobBranch(m)}`]);
   const start = sized(startText(R, m, j.name, T, 're-opened after its merge', change, o), 'the re-opened START');
   const commit = stateWrite(R, { [jobPath(m)]: fmtJob(m, { ...j, state: 'REOPENED', pr: null, owed: [], review: null, merge: null }), [`jobs/${m}/start.md`]: start }, `${m}: re-opened`);
   planEdit(R, (p) => owe(p, [`open PR ${m}`]), `owed: open PR ${m}`);
@@ -1064,7 +1070,8 @@ export function moduleOfDiff(R, base) {
   const files = R.g(['diff', '--name-only', `${base}...HEAD`]).split('\n').filter(Boolean).map((f) => relative(R.rel('.'), f)).filter((f) => !gen.includes(f));
   const owner = (f) => modules(R).find((x) => [...(x.paths || []), ...(x.tests || [])].some((p) => f === p || f.startsWith(p.endsWith('/') ? p : `${p}/`)) || f === `build/requirements/${x.id}.md`)?.id;
   const ids = [...new Set(files.map(owner).filter(Boolean))];
-  if (!ids.length) refuse(`no module's files changed since ${base.slice(0, 7)}: ${files.join(', ') || 'nothing changed'}`);
+  if (!files.length) return null;   // the job's opening commit: nothing to check yet
+  if (!ids.length) refuse(`no module's files changed since ${base.slice(0, 7)}: ${files.join(', ')}`);
   if (ids.length > 1) refuse(`the diff touches several modules: ${ids.join(', ')} (one job, one module; P8)`);
   return ids[0];
 }
@@ -1076,8 +1083,9 @@ export function gateCmd(o) {
   if (o.base) { try { base = R.g(['rev-parse', '--verify', `${o.base}^{commit}`]); } catch { refuse(`--base ${o.base}: not a commit this checkout sees`); } }
   else { R.fetch(TRANCHE); base = history(R, `origin/${TRANCHE}`, 'HEAD') ?? refuse(`no common history with ${TRANCHE}: --base <ref>`); }
   const m = o.module || moduleOfDiff(R, base);
-  const r = runGate(R, m, base);
   const drift = shims({ ...o, check: true }).drift.map((d) => `shims: ${d}`);
+  if (!m) return { ok: !drift.length, module: null, base: base.slice(0, 7), fails: drift, note: 'nothing changed since the base: the job\'s opening commit', tests: { pass: 0, tests: 0 }, users: {}, checks: [] };
+  const r = runGate(R, m, base);
   const fails = [...r.fails, ...drift];
   return { ok: !fails.length, module: m, base: base.slice(0, 7), fails, tests: { pass: r.tests.pass, tests: r.tests.tests }, users: Object.fromEntries(Object.entries(r.users).map(([k, v]) => [k, `${v.pass}/${v.tests}`])), checks: r.checks };
 }

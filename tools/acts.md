@@ -17,7 +17,7 @@ Every act the process takes, per role: the route the tool uses, the relation it 
 | `send_message(job or lane)` | BOB | the call `neo` printed | none measured | 2026-10-29 #2 |
 | `send_later(own backstop)` | BOB | `send_later` to itself | its own session | 2026-10-29 #4 |
 | `archive_session(child)` | BOB (jobs, lanes), ROOT (BOBs), a lane (probes) | `neo job retire`, `layer close`, `lane archived`, `bob archived` | the archived session is one the caller created: a parent or sibling was refused by the classifier ("Interfere With Workloads") on 29 Oct (#3, #4) even with an allow rule in settings | 2026-10-29 #4 (child passed, parent refused) |
-| `create_pull_request(draft job PR)` | BOB | the call `neo layer start` or `job reopen` printed | the GitHub app's scope on the product repository | N1 |
+| `create_pull_request(draft job PR)` | BOB | the call `neo layer start` or `job reopen` printed | the GitHub app's scope on the product repository; the head one commit past the base (GitHub refuses an empty PR: measured 29 Oct #5 by BOB #1, R-BOB-1-1, fixed by the opening commit) | N1 |
 | `add_issue_comment(own PR report)` | job | the call `neo job complete` printed | its own PR, while the comment is owed | N1 |
 | `update_pull_request(own PR ready)` | job, BOB | the call `neo job complete` or `neo merged` printed | its own PR, while the act is owed | N1 |
 | `pull_request_review_write` | BOB | the call `neo review result` printed | none measured | N1 |

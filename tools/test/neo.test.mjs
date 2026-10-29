@@ -274,13 +274,19 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   assert.deepEqual([a.session.model, a.session.effort, a.session.source_revision], ['claude-opus-5-5', 'high', 'job/alpha']);
   assert.match(ls.jobs[1].pr.body, /build\/requirements\/alpha\.md \(Public\)/);   // beta uses alpha
   assert.deepEqual(R.heads('refs/heads/job/*').sort(), ['job/alpha', 'job/beta']);
-  assert.equal(g2('rev-parse', 'origin/job/alpha'), g2('rev-parse', 'HEAD'));
+  assert.equal(g2('rev-parse', 'origin/job/alpha~1'), g2('rev-parse', 'HEAD'));   // one opening commit past the tip: GitHub refuses an empty PR
+  assert.equal(g2('log', '-1', '--format=%s', 'origin/job/alpha'), 'ALPHA #1 opens: T1 layer 1, module alpha');
+  assert.equal(g2('rev-parse', 'origin/job/alpha^{tree}'), g2('rev-parse', 'HEAD^{tree}'));
+  // a START made and not yet opened is remade by the same call (the name kept), never refused as a second job
+  const again = N.layerStart(o({ layer: 1, modules: 'alpha' }));
+  assert.deepEqual([again.jobs[0].action, again.jobs[0].pr.title], ['create', 'alpha T1 (ALPHA #1)']);
+  assert.equal(g2('rev-parse', 'origin/job/alpha~1'), g2('rev-parse', 'HEAD'));
   let st = N.status(o());
   assert.deepEqual(st.owed, ['open PR alpha', 'start alpha', 'open PR beta', 'start beta']);
   assert.deepEqual(st.jobs.map((j) => [j.module, j.state, j.after]), [['alpha', 'STARTING', []], ['beta', 'STARTING', ['alpha']]]);
   assert.throws(() => N.layerStart(o({ layer: 1 })), /name the modules/);
-  assert.throws(() => N.layerStart(o({ layer: 1, modules: 'alpha' })), /one job per module/);
   assert.equal(N.jobPr(o({ module: 'alpha', number: 11 })).subscribe.pullNumber, 11);
+  assert.throws(() => N.layerStart(o({ layer: 1, modules: 'alpha' })), /one job per module/);   // opened: a second start is refused
   N.jobPr(o({ module: 'beta', number: 12 }));
   assert.throws(() => N.jobPr(o({ module: 'alpha', number: 13 })), /already has PR #11/);
   assert.throws(() => N.jobStarted(o({ module: 'alpha', name: 'BETA #1', session: J1 })), /is ALPHA #1/);
@@ -407,7 +413,8 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   const ro = N.jobReopen(o({ module: 'alpha', changeFile: f(w.base, 'c1.md', 'CHANGE: R6 now also says twice(-0) is -0; prove it.\n') }));
   assert.equal(ro.send.session_id, J1); assert.match(ro.pr.body, /^START ALPHA #1 · T1 · re-opened after its merge · module alpha\nEntries:\nCHANGE: R6/);
   assert.deepEqual(R.heads('refs/heads/job/*'), ['job/alpha']);
-  assert.equal(g2('rev-parse', 'origin/job/alpha'), g2('rev-parse', 'HEAD'));
+  assert.equal(g2('rev-parse', 'origin/job/alpha~1'), g2('rev-parse', 'HEAD'));
+  assert.equal(g2('log', '-1', '--format=%s', 'origin/job/alpha'), 'ALPHA #1 re-opens: T1, module alpha');
   assert.deepEqual(N.status(o()).owed, ['open PR alpha']);
   assert.equal(N.jobState(o({ module: 'alpha' })).state, 'REOPENED');
   assert.throws(() => N.jobState(jo({ set: 'WORKING' })), /start it first/);
@@ -504,6 +511,9 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   // the gate on a job branch: the module from the diff; green with the artifacts regenerated for the run; another module's file and a hand-edited shim each fail
   const base = g(w.bob.root, 'rev-parse', 'HEAD');
   g(w.bob.root, 'checkout', '-q', '-b', 'job/alpha');
+  g(w.bob.root, 'commit', '-q', '--allow-empty', '-m', 'ALPHA #1 opens');
+  const g0 = N.gateCmd({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', base });   // the opening commit: nothing to check yet
+  assert.deepEqual([g0.ok, g0.module, g0.fails], [true, null, []]);
   const src = join(w.bob.dir, 'alpha/src/index.mjs');
   writeFileSync(src, `${readFileSync(src, 'utf8')}// a line\n`);
   g(w.bob.root, 'add', '-A'); g(w.bob.root, 'commit', '-q', '-m', 'alpha: a line');
