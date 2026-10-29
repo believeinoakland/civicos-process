@@ -49,8 +49,29 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   assert.deepEqual(tk.queue, []);
   assert.equal(N.addr(o({ bob: true })), B1);
   assert.equal(N.status(o()).bob.session, B1);
+  assert.deepEqual(tk.check, { ok: true, problems: [] });   // the start self-check (PERMISSIONS §2.6)
   // the tranche checkout is untouched by state writes: no commit, nothing unpushed
   assert.deepEqual(N.unpushed(N.repo(w.bob.dir)), []);
+  // a refused act is recorded, listed, routed and counted (PERMISSIONS §2.5); predicted when the act table has the row
+  assert.throws(() => N.refused(o({ act: 'x', kind: 'nope', reason: 'y' })), /--kind hook\|classifier\|scope\|platform/);
+  const r1 = N.refused(o({ act: 'archive_session(child)', kind: 'classifier', reason: 'Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Interfere With Workloads].' }));
+  assert.deepEqual([r1.refusal, r1.predicted], ['R-BOB-1-1', true]);
+  const r2 = N.refused(o({ act: 'git push --tags', kind: 'platform', reason: 'the proxy refused the tag', by: 'ALPHA #1' }));
+  assert.deepEqual([r2.refusal, r2.predicted], ['R-ALPHA-1-1', false]);
+  let stq = N.status(o());
+  assert.match(stq.queue.map((q) => q.item).join(';'), /REFUSED ALPHA #1 git push --tags;REFUSED BOB #1 archive_session\(child\)/);
+  assert.match(stq.queue.find((q) => q.item.startsWith('REFUSED ALPHA')).detail, /UNPREDICTED, R-ALPHA-1-1/);
+  assert.match(stq.gate.join(';'), /R-BOB-1-1 \(BOB #1: archive_session\(child\)\) is an open refusal/);
+  assert.throws(() => N.refusedRouted(o({ id: 'R-NONE-1', route: 'x' })), /no refusal R-NONE-1/);
+  assert.equal(N.refusedRouted(o({ id: 'R-BOB-1-1', route: 'ROOT archives it: the parent' })).flaw, null);
+  assert.match(N.refusedRouted(o({ id: 'R-ALPHA-1-1', route: 'Bob prunes it' })).flaw, /unpredicted refusal/);
+  assert.throws(() => N.refusedRouted(o({ id: 'R-BOB-1-1', route: 'again' })), /already routed/);
+  stq = N.status(o());
+  assert.deepEqual(stq.queue.filter((q) => q.item.startsWith('REFUSED')), []); assert.deepEqual(stq.gate, []);
+  assert.deepEqual(stq.refusals.map((r) => [r.id, r.status, r.route]), [['R-ALPHA-1-1', 'ROUTED', 'Bob prunes it'], ['R-BOB-1-1', 'ROUTED', 'ROOT archives it: the parent']]);
+  const mcsv = readFileSync(join(w.bob.dir, 'build/metrics/D3.csv'), 'utf8');
+  assert.match(mcsv, /^,refusal,BOB #1,bob,,,,,,,classifier,archive_session\(child\) · predicted · ROOT archives it: the parent$/m);
+  assert.match(mcsv, /^,refusal,ALPHA #1,alpha,,,,,,,platform,git push --tags · unpredicted · Bob prunes it$/m);
   // a job's transient line (the job commands come with the job's life): alpha is live
   N.stateWrite(N.repo(w.bob.dir), { 'jobs/alpha.md': `**Status** · ALPHA #1 · ${J1} · WORKING\n` }, 'alpha working');
   assert.equal(N.addr(o({ module: 'alpha' })), J1);
@@ -447,7 +468,8 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   assert.deepEqual(N.sizes(R, ['alpha', 'nope']), []);
   // shims: the three files written from here; a hand edit is drift; CLAUDE.md under thirty lines
   const sh = N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess' });
-  assert.deepEqual(sh.written.sort(), ['.claude/skills/neoprocess/SKILL.md', '.github/workflows/gate.yml', 'CLAUDE.md']);
+  assert.deepEqual(sh.written.sort(), ['.claude/settings.json', '.claude/skills/neoprocess/SKILL.md', '.github/workflows/gate.yml', 'CLAUDE.md']);
+  assert.deepEqual(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).permissions.allow, JSON.parse(readFileSync(join(HERE, '..', '..', 'permissions.json'), 'utf8')).allow);   // the standing list, applied (PERMISSIONS §2.4)
   const skill = readFileSync(join(w.bob.root, '.claude/skills/neoprocess/SKILL.md'), 'utf8');
   assert.match(skill, /^---\nname: neoprocess\n/); assert.match(skill, /command: 'node "\/p\/neoProcess\/tools\/neo-hooks\.mjs" pre'/);
   assert.match(skill, /!`node "\/p\/neoProcess\/tools\/neo\.mjs" reading --role "\$ARGUMENTS" --product "toy"/);

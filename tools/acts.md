@@ -1,0 +1,29 @@
+# The act table (PERMISSIONS §2.1)
+
+Every act the process takes, per role: the route the tool uses, the relation it needs, and what was measured. `neo refused --act <id>` marks a refusal predicted when its act is a row here; a product session takes no act this table has not seen pass. Measured: a date with the session, or `N1` (the dry run proves it, row X1), or `—` (not yet).
+
+| act | role | route | relation it needs | measured |
+| --- | --- | --- | --- | --- |
+| `git push(own branch)` | job, lane, BOB | `neo` commands and the session's own `git push` | its own branch only (`job/<m>`; `tranche`); the hooks refuse any other | N1 |
+| `git push(state branch)` | every role | `neo …` by plumbing (`stateWrite`), never by hand | the one state branch of the epoch | N1 |
+| `git push(delete state branch)` | BOB | `neo epoch close` | the git proxy must allow the delete (REP 2 says it refuses hand deletes) | — (X3) |
+| `git push(delete job branch)` | BOB | `neo merged`, after the queue's merge | the branch is merged | N1 |
+| `git merge --ff-only / checkout -B` (a stale local branch) | every role | the tool and the session | none; `git reset --hard` was refused by the classifier on 29 Oct (#4) and is never used | 2026-10-29 #4 |
+| `create_session(job)` | BOB | the call `neo layer start` or `neo job route` printed, unchanged | BOB is the parent | N1 |
+| `create_session(lane)` | BOB | the call `neo lane open`, `lane route` or `ask ask` printed | BOB is the parent | N1 |
+| `create_session(BOB)` | ROOT | `START BOB #<n>` from the handoff | ROOT is the parent | N1 |
+| `create_session(probe)` | a lane | by hand, Haiku | the lane is the parent | 2026-10-29 #4 (PROBE-J12 #1) |
+| `send_message(BOB)` | job, lane | the address `neo addr --bob` prints, with the record pushed | none measured | 2026-10-29 #2 (PROBE-R) |
+| `send_message(job or lane)` | BOB | the call `neo` printed | none measured | 2026-10-29 #2 |
+| `send_later(own backstop)` | BOB | `send_later` to itself | its own session | 2026-10-29 #4 |
+| `archive_session(child)` | BOB (jobs, lanes), ROOT (BOBs), a lane (probes) | `neo job retire`, `layer close`, `lane archived`, `bob archived` | the archived session is one the caller created: a parent or sibling was refused by the classifier ("Interfere With Workloads") on 29 Oct (#3, #4) even with an allow rule in settings | 2026-10-29 #4 (child passed, parent refused) |
+| `create_pull_request(draft job PR)` | BOB | the call `neo layer start` or `job reopen` printed | the GitHub app's scope on the product repository | N1 |
+| `add_issue_comment(own PR report)` | job | the call `neo job complete` printed | its own PR, while the comment is owed | N1 |
+| `update_pull_request(own PR ready)` | job, BOB | the call `neo job complete` or `neo merged` printed | its own PR, while the act is owed | N1 |
+| `pull_request_review_write` | BOB | the call `neo review result` printed | none measured | N1 |
+| `enable_pr_auto_merge` | BOB | `neo merge` | **Allow auto-merge** on in the repository (refused otherwise, measured 29 Oct #2) | N1 |
+| `merge_pull_request(close PR to main)` | BOB | the GitHub merge tool, once the plan reads CLOSING | the hook allows it then only | N1 |
+| `create_repository(organization)` | — | none: an act of Bob's | refused by scope on 29 Oct (#4: 404 on the organization endpoint) | 2026-10-29 #4 |
+| `write(.claude/settings.json)` | the seed | `neo shims` from `permissions.json` | K1702: a session's edit of the settings file was refused | — (X4) |
+| `Agent(background worker)` | BOB, a lane | `neo ask dispatch`, `review decide` | `run_in_background: true` (the hook refuses the foreground) | 2026-10-29 #2 |
+| `TaskStop(worker)` | BOB | by hand, to re-dispatch from the brief | its own worker | — (X2 injects it) |

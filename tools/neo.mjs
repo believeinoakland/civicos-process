@@ -36,6 +36,7 @@
 //   reading --role <bob|job|lane|root>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--check]
 //   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
 //   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (the old tool's, P20)
+//   refused --act "<act or act-table id>" --kind hook|classifier|scope|platform --reason "<…>" [--by "<ROLE #k>"]      refused routed --id R-<role>-<n> --route "<…>"
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -199,11 +200,11 @@ export function takeover(o) {
   const before = parsePlan(stateRead(R, 'plan.md', e) || '');
   const commit = planEdit(R, (p) => ({ ...p, state: p.state || 'OPEN', bob: { name: o.name, session: o.session } }), `${o.name} ${o.session} takes over`);
   writeRole(R, { role: 'bob', product: R.rel('.'), session: o.session, name: o.name, epoch: e });
-  const st = status(o);
+  const st = status(o), check = selfcheck(R, TRANCHE);
   const acts = [];
   if (before.bob && before.bob.session !== o.session) acts.push(`archive ${before.bob.name} ${before.bob.session} once idle, then: neo bob archived --name "${before.bob.name}" --session ${before.bob.session} --usage '<archive_session usage json>'`);
   for (const w of st.working.filter((x) => x.by && x.by !== o.name && x.by !== o.session)) acts.push(`re-dispatch ${w.ask} (${w.stage}) from its brief: it was out under ${w.by}, which is replaced (PROTOCOL §7a)`);
-  return { commit, previous: before.bob, queue: st.queue, working: st.working, acts };
+  return { commit, previous: before.bob, queue: st.queue, working: st.working, acts, check };
 }
 
 // ---- asks (PROTOCOL §3–§6) ----
@@ -401,7 +402,7 @@ export function laneStart(o) {
   if (l.session !== o.session) refuse(`the state branch names ${l.session ?? 'no session'} for ${o.id}, not ${o.session}: BOB records the session (neo lane started) before it starts`);
   writeRole(R, { role: 'lane', product: R.rel('.'), session: o.session, name: l.name, lane: o.id, epoch: e });
   const row = lanes(R).find((x) => x.id === o.id);
-  return { charter: R.read(row.charter), canon: row.canon, asks: asks(R, e).filter((a) => a.lane === o.id && a.status === 'ASKED').map((a) => ({ id: a.id, question: a.Asked.body })) };
+  return { charter: R.read(row.charter), canon: row.canon, asks: asks(R, e).filter((a) => a.lane === o.id && a.status === 'ASKED').map((a) => ({ id: a.id, question: a.Asked.body })), check: selfcheck(R, TRANCHE) };
 }
 // Bob's suggestion, or BOB's own: the charter rewritten in place, with a decision line saying why.
 export function laneCharter(o) {
@@ -494,6 +495,8 @@ export function status(o) {
       queue.push({ item: `${stage} ${a.id}${flag ? ` ${flag}` : ''}`, detail: `${a.from?.who ?? '?'}: ${(a.From?.body || '').split('\n')[0].slice(0, 100)}${a.lane ? ` → ${a.lane}` : ''}` });
     }
   }
+  const refusals = refusalsOf(R, e), open = refusals.filter((r) => r.status === 'OPEN');
+  for (const r of open) queue.push({ item: `REFUSED ${r.by} ${r.act}`, detail: `${r.kind}: ${r.reason.slice(0, 100)} (${r.predicted ? 'predicted' : 'UNPREDICTED'}, ${r.id})` });
   for (const s of sizes(R, jobs.filter((j) => LIVE_JOB.test(j.state)).map((j) => j.module))) queue.push({ item: `SIZE`, detail: s });
   const owed = plan.owed.map((x) => `owed: ${x}`), role = readRole(R.root);
   // What stops a turn (the Stop hook): for BOB an ask that needs an act with nothing dispatched or an act owed; for a job
@@ -502,9 +505,58 @@ export function status(o) {
   const gate = role?.role === 'job'
     ? [...unpushed(R), ...(mine?.owed || []).map((x) => `${role.module} owes: ${x}`)]
     : role?.role === 'lane' ? unpushed(R)
-      : [...owed, ...unpushed(R), ...all.filter((a) => ['RECEIVED', 'DECIDED'].includes(a.status) && !a.working).map((a) => `${a.id} reads ${a.status} with nothing dispatched: route and dispatch it, or close it`)];
-  return { epoch: e, bob: plan.bob, jobs, lanes: lanes(R).map((l) => ({ ...l, ...parseLane(stateRead(R, `lanes/${l.id}.md`, e) || '') })), queue, working, owed: plan.owed, gate };
+      : [...owed, ...unpushed(R), ...all.filter((a) => ['RECEIVED', 'DECIDED'].includes(a.status) && !a.working).map((a) => `${a.id} reads ${a.status} with nothing dispatched: route and dispatch it, or close it`), ...open.map((r) => `${r.id} (${r.by}: ${r.act}) is an open refusal: route it (neo refused routed), or bring it to Bob`)];
+  return { epoch: e, bob: plan.bob, jobs, lanes: lanes(R).map((l) => ({ ...l, ...parseLane(stateRead(R, `lanes/${l.id}.md`, e) || '') })), queue, working, owed: plan.owed, refusals, gate };
 }
+// ---- refusals (PERMISSIONS §2.5) and the act table (§2.1): a refused act is recorded, routed and counted, never worked around ----
+
+export const ACTS = join(PROCESS, 'tools', 'acts.md');
+// The act table's ids: the first cell of each row, `| <id> | …`.
+export function actIds() { return existsSync(ACTS) ? [...readFileSync(ACTS, 'utf8').matchAll(/^\| `([^`|]+)` \|/gm)].map((m) => m[1]) : []; }
+const REFUSAL = /^\*\*Refused\*\* · (R[\w-]+) · (\S+) · (.+?) · (hook|classifier|scope|platform) · (predicted|unpredicted) · (OPEN|ROUTED)$/m;
+export function parseRefusal(text) {
+  const m = (text || '').match(REFUSAL); if (!m) return null;
+  return { id: m[1], date: m[2], by: m[3], kind: m[4], predicted: m[5] === 'predicted', status: m[6], act: (text.match(/^\*\*Act\*\* · (.*)$/m)?.[1] ?? ''), reason: (text.match(/^\*\*Reason\*\* · (.*)$/m)?.[1] ?? ''), route: (text.match(/^\*\*Route\*\* · (.*)$/m)?.[1] ?? null) };
+}
+const fmtRefusal = (r) => `# ${r.id} (transient)\n\n**Refused** · ${r.id} · ${r.date} · ${r.by} · ${r.kind} · ${r.predicted ? 'predicted' : 'unpredicted'} · ${r.status}\n**Act** · ${r.act}\n**Reason** · ${r.reason}\n${r.route ? `**Route** · ${r.route}\n` : ''}`;
+export function refusalsOf(R, e = needEpoch(R)) { return stateList(R, 'refusals', e).map((p) => parseRefusal(stateRead(R, p, e))).filter(Boolean); }
+// Any role, the moment it is refused: one file on the state branch, named by the role's session name so two sessions never
+// write one file; `predicted` when `--act` names a row of the act table (an unpredicted refusal in a product run is a
+// process flaw, P3). The session then carries on with what does not depend on the act (mechanics §16).
+export function refused(o) {
+  const R = repo(o.product);
+  if (!o.act || !['hook', 'classifier', 'scope', 'platform'].includes(o.kind) || !o.reason) refuse('--act "<the one act, or an act-table id>" --kind hook|classifier|scope|platform --reason "<the refusal\'s words>"');
+  const by = o.by || readRole(R.root)?.name || refuse('--by "<ROLE #k>" (no role is recorded for this session)');
+  const mine = refusalsOf(R).filter((r) => r.by === by);
+  const id = `R-${by.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${mine.length + 1}`;
+  const r = { id, date: today(), by, kind: o.kind, predicted: actIds().includes(String(o.act)), status: 'OPEN', act: String(o.act).replace(/\n/g, ' '), reason: String(o.reason).replace(/\s*\n\s*/g, ' ').trim(), route: null };
+  return { refusal: id, predicted: r.predicted, commit: stateWrite(R, { [`refusals/${id}.md`]: fmtRefusal(r) }, `${id}: ${o.kind} refused ${r.act.slice(0, 50)}`) };
+}
+// BOB routes it from the act table (to the party whose relation passes, to the tool's route, or to Bob) and counts it: one
+// metrics row on the tranche branch (kind, role, act, predicted, route), the ROUTED line on the state branch.
+export function refusedRouted(o) {
+  const R = repo(o.product); if (!o.id || !o.route) refuse('--id R-<role>-<n> --route "<where it goes>"');
+  const r = refusalsOf(R).find((x) => x.id === o.id) ?? refuse(`no refusal ${o.id} on the state branch`);
+  if (r.status !== 'OPEN') refuse(`${o.id} is already routed: ${r.route}`);
+  on(R, TRANCHE);
+  const { id: T } = tranche(R), csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
+  const one = (s) => String(s).replace(/[,\n]/g, ' ');
+  R.write(csv, `${cur}${['', 'refusal', r.by, r.by.split(' #')[0].toLowerCase(), '', '', '', '', '', '', r.kind, `${one(r.act)} · ${r.predicted ? 'predicted' : 'unpredicted'} · ${one(o.route)}`].join(',')}\n`);
+  const commit = commitPush(R, TRANCHE, [csv], `metrics ${T}: ${r.id} routed (${r.kind}, ${r.predicted ? 'predicted' : 'UNPREDICTED'})`);
+  stateWrite(R, { [`refusals/${r.id}.md`]: fmtRefusal({ ...r, status: 'ROUTED', route: String(o.route).replace(/\n/g, ' ') }) }, `${r.id}: routed`);
+  return { refusal: r.id, predicted: r.predicted, commit, flaw: r.predicted ? null : 'an unpredicted refusal: in a product run this stops the work until the act table and the route are fixed (PERMISSIONS §2.1, P3)' };
+}
+// The start self-check (PERMISSIONS §2.6): the role's reaching acts dry-fired so a scope or proxy problem shows in the
+// first turn. Reported, never refused: the session records what fails as a refusal and carries on with the rest.
+export function selfcheck(R, own) {
+  const problems = [];
+  const tryGit = (what, args) => { const r = spawnSync('git', ['-C', R.root, ...args], { encoding: 'utf8' }); if (r.status !== 0) problems.push(`${what}: ${(r.stderr || r.stdout || '').trim().split('\n').pop()}`); };
+  tryGit('fetch', ['fetch', '-q', 'origin', `+refs/heads/${TRANCHE}:refs/remotes/origin/${TRANCHE}`]);
+  tryGit(`push --dry-run to ${own}`, ['push', '-q', '--dry-run', 'origin', `HEAD:refs/heads/${own}`]);
+  try { epoch(R); } catch (e) { problems.push(`state branch: ${e.message}`); }
+  return { ok: !problems.length, problems };
+}
+
 // A handoff is generated (SESSIONS §6): the queue, what is out, the next step; ten lines of prose at most; 4 KB.
 export function handoff(o) {
   const st = status(o);
@@ -667,7 +719,7 @@ export function jobStart(o) {
   const state = ['STARTING', 'REOPENED'].includes(j.state) ? 'WORKING' : j.state;   // a successor keeps a recorded wait
   const commit = saveJob(R, m, { ...j, state }, `${m}: ${j.name} ${state.split(':')[0].toLowerCase()}`);
   const rs = readingSet(R, m);
-  return { commit, name: j.name, pr: j.pr, state, start: stateRead(R, `jobs/${m}/start.md`), reading: rs, size: rs.bytes > MODULE_SET ? `SIZE: the module's set is ${rs.bytes} bytes, over ${MODULE_SET} (SESSIONS §6): BLOCKED: reading` : null };
+  return { commit, name: j.name, pr: j.pr, state, start: stateRead(R, `jobs/${m}/start.md`), reading: rs, size: rs.bytes > MODULE_SET ? `SIZE: the module's set is ${rs.bytes} bytes, over ${MODULE_SET} (SESSIONS §6): BLOCKED: reading` : null, check: selfcheck(R, jobBranch(m)) };
 }
 // The job's state line: read (the goal's proof) or set to WORKING or a wait; COMPLETE only by `job complete`.
 export function jobState(o) {
@@ -1021,7 +1073,11 @@ export function gateCmd(o) {
 export function shims(o) {
   const R = repo(o.product), proc = o.process || '/home/user/neoProcess', name = o.repo || 'believeinoakland/neoProcess', rel = R.rel('.');
   const hook = (ev) => `node "${proc}/tools/neo-hooks.mjs" ${ev}`;
+  // PERMISSIONS §2.4, §6: the standing list, Bob's, applied to every product; K1702's refusal of a session's edit of the
+  // settings file is row X4 of the dry run (then Bob commits it once and this only checks drift).
+  const standing = JSON.parse(readFileSync(join(PROCESS, 'permissions.json'), 'utf8'));
   const files = {
+    '.claude/settings.json': `${JSON.stringify({ permissions: { allow: standing.allow } }, null, 2)}\n`,
     'CLAUDE.md': `# Built by neoProcess
 
 The process is \`${name}\`, attached at \`${proc}\` (if it is missing, attach it with add_repo and clone it there). Nothing about the process is decided in this repository: it supplies what \`${proc}/PRODUCT-SUPPLIES.md\` lists, and nothing else.
@@ -1231,7 +1287,7 @@ export const COMMANDS = {
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
-  ruling, steps: stepsCmd,
+  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted,
 };
 function main() {
   const o = args(process.argv.slice(2));
