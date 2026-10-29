@@ -455,7 +455,7 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   assert.ok(claude.split('\n').length <= 30); assert.match(claude, /`o\/neoProcess`, attached at `\/p\/neoProcess`/);
   const yml = readFileSync(join(w.bob.root, '.github/workflows/gate.yml'), 'utf8');
   assert.match(yml, /^name: gate\non:\n  pull_request:\n    branches: \[tranche\]\n  merge_group:\n/);
-  assert.match(yml, /repository: o\/neoProcess\n          path: \.neoprocess\n          ssh-key: \$\{\{ secrets\.NEOPROCESS_DEPLOY_KEY \}\}/);
+  assert.match(yml, /repository: o\/neoProcess\n          path: \.neoprocess\n      - uses: actions\/setup-node/);   // public: no key, no secret
   assert.match(yml, /run: node \.neoprocess\/tools\/neo\.mjs gate --product "toy" --process "\/p\/neoProcess" --repo "o\/neoProcess" --base "\$\{\{ github\.event\.pull_request\.base\.sha \|\| github\.event\.merge_group\.base_sha \}\}"/);   // the same inputs in CI: no drift
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', check: true }).drift, []);
   writeFileSync(join(w.bob.root, 'CLAUDE.md'), `${claude}\nMy own rule.\n`);

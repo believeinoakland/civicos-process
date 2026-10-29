@@ -1017,6 +1017,7 @@ export function gateCmd(o) {
 // PRODUCT-SUPPLIES: the few files that sit in the product repository, written from here and never by hand; `--check`
 // lists the ones that differ (the gate fails on drift). `--process` is the process checkout's path in a session and
 // `--repo` the process repository's GitHub name: the workflow carries both, so CI's check regenerates the same text.
+// The process repository is public (BOB, 29 Oct), so its checkout needs no key or secret (JOB-LIFE §4).
 export function shims(o) {
   const R = repo(o.product), proc = o.process || '/home/user/neoProcess', name = o.repo || 'believeinoakland/neoProcess', rel = R.rel('.');
   const hook = (ev) => `node "${proc}/tools/neo-hooks.mjs" ${ev}`;
@@ -1062,7 +1063,6 @@ jobs:
         with:
           repository: ${name}
           path: .neoprocess
-          ssh-key: \${{ secrets.NEOPROCESS_DEPLOY_KEY }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22

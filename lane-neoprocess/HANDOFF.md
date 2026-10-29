@@ -16,7 +16,7 @@ The ten rulebooks are drafted in `rulebooks/` (32 KB together, each under 4 KB; 
 
 ## What remains, in order
 
-1. **Bob's setup act**, put to him in plain words by #4 on 29 Oct (awaiting his answer) from `SETUP-STEPS.md` (verified against GitHub's pages by `neo steps`, 26 labels), with the one decision it carries: the toy repository public in the organization, since GitHub offers a merge queue only there (DRYRUN §1); the same for `civicsmith` later. BOB makes the deploy key pair at that moment, or Bob makes the process repository public and no key is needed.
+1. **Bob's setup act** (`SETUP-STEPS.md`, verified by `neo steps`): Bob decided 29 Oct the toy repository is public in the organization (GitHub offers a merge queue only there; the same for `civicsmith` later) and left the key question to BOB, which decided the process repository goes public, no secret. Creating the toy from a session was refused (404 on the organization endpoint), so steps 1–10 are his; once the toy exists, `add_repo` it and seed (`n1/SEED.md`).
 2. **The dry run** (`DRYRUN.md`; the seed, plan, charters and rows in `n1/`, prepared by #4 and rehearsed on a scratch copy: checks and tests green) on the toy's own repository, once Bob's act exists; the queue measured there (JOB-LIFE §12).
 3. **The commit point**: `neo` takes the `proc` name; the old tool, skills and mechanics rewritten from these files; the rulebooks moved to `rulebooks/` at the root; the page final.
 
