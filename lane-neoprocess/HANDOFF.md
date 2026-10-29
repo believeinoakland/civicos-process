@@ -10,7 +10,7 @@
 
 ## Where things stand
 
-The design is here and on the page (https://claude.ai/artifact/7Jghdu6JV3beK58dkZKPsd, v25; companion https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E). The principles' wording is trimmed later (Bob, 29 Oct). The tool is built beside the old one, in force until the commit point (P3): `tools/neo.mjs` (48 commands), `tools/neo-hooks.mjs`, fixture tests on a real remote (~2 min); each rulebook's CODE claims read against it. The ten rulebooks are drafted in `rulebooks/` (each under 4 KB; the accounting in `rulebooks/work/`). #3 decided: the tool alone deletes a merged job branch and a closed epoch's state branch; BOB writes `tranche` for what is no job's; a move starts only on Bob's word; release specifics belong to the product's procedure; `rulings-active.md` retires at the commit point.
+The design is here and on the page (https://claude.ai/artifact/7Jghdu6JV3beK58dkZKPsd, v25; companion https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E). The tool is built beside the old one, in force until the commit point (P3): `tools/neo.mjs` (48 commands), `tools/neo-hooks.mjs`, fixture tests on a real remote (~2 min); each rulebook's CODE claims read against it. The ten rulebooks are drafted in `rulebooks/` (each under 4 KB; the accounting in `rulebooks/work/`). #3 decided: the tool alone deletes a merged job branch and a closed epoch's state branch; a move starts only on Bob's word; `rulings-active.md` retires at the commit point.
 
 ## What remains, in order
 
