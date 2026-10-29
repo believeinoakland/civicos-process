@@ -505,7 +505,7 @@ export function status(o) {
     if (/^BLOCKED: /.test(j.state)) queue.push({ item: `UNBLOCK ${j.module}`, detail: j.state });
     if (/^NEEDS BOB: /.test(j.state)) queue.push({ item: `RELAY TO BOB ${j.module}`, detail: j.state });
     // COMPLETE with nothing owed by the job: the review to decide, then the merge; a review out or a merge queued waits
-    if (j.state === 'COMPLETE' && !j.owed.length && !j.merge) {
+    if (j.state === 'COMPLETE' && !owedByJob(j).length && !j.merge) {
       const detail = j.pr ? `PR #${j.pr}` : 'no PR recorded';
       if (!j.review) queue.push({ item: `DECIDE REVIEW ${j.module}`, detail });
       else if (/ · working since /.test(j.review)) queue.push({ item: `REVIEWING ${j.module}`, detail: j.review });
@@ -537,7 +537,7 @@ export function status(o) {
   // its own owed acts; for every role, work unpushed.
   const mine = role?.role === 'job' ? jobs.find((j) => j.module === role.module) : null;
   const gate = role?.role === 'job'
-    ? [...unpushed(R), ...(mine?.owed || []).map((x) => `${role.module} owes: ${x}`)]
+    ? [...unpushed(R), ...owedByJob(mine).map((x) => `${role.module} owes: ${x}`)]
     : role?.role === 'lane' ? unpushed(R)
       : [...owed, ...unpushed(R), ...all.filter((a) => ['RECEIVED', 'DECIDED'].includes(a.status) && !a.working).map((a) => `${a.id} reads ${a.status} with nothing dispatched: route and dispatch it, or close it`), ...open.map((r) => `${r.id} (${r.by}: ${r.act}) is an open refusal: route it (neo refused routed), or bring it to Bob`)];
   return { epoch: e, bob: plan.bob, jobs, lanes: lanes(R).map((l) => ({ ...l, ...parseLane(stateRead(R, `lanes/${l.id}.md`, e) || '') })), queue, working, owed: plan.owed, refusals, gate };
@@ -629,6 +629,9 @@ const jobOf = (R, m) => parseJob(stateRead(R, jobPath(m)) || '');
 const loadJob = (R, m) => jobOf(R, m) ?? refuse(`no job for ${m} on the state branch`);
 const saveJob = (R, m, j, msg) => stateWrite(R, { [jobPath(m)]: fmtJob(m, j) }, msg);
 const done = (R, m) => ['MERGED', 'ARCHIVED'].includes(jobOf(R, m)?.state);
+// `ready after <m>` is BOB's act (cleared by `neo merged` for m), never the job's: left out of what the job owes
+// (BETA #1's REPORT 2, 29 Oct: a job complete before the module it waits on had merged could not end a turn).
+const owedByJob = (j) => (j?.owed || []).filter((x) => !/^ready after /.test(x));
 function at(R, ref, fn) { const back = R.branch(), head = R.g(['rev-parse', 'HEAD']); R.g(['checkout', '-q', '--detach', ref]); try { return fn(); } finally { R.g(['checkout', '-q', back === 'HEAD' ? head : back]); } }
 // The job branch's opening commit (JOB-LIFE §2): GitHub refuses a pull request with no commit between base and head
 // (measured 29 Oct, #5: BOB #1's R-BOB-1-1), so every job branch starts one empty commit past the tranche tip, made by
@@ -833,7 +836,8 @@ export function jobPosted(o) {
   if (o.ready) owed = owed.filter((x) => !/^ready/.test(x));
   if (owed.length === j.owed.length) refuse(`nothing cleared: ${m} owes ${j.owed.join('; ') || 'nothing'}`);
   const commit = saveJob(R, m, { ...j, owed }, `${m}: ${[o.comment && `comment ${o.comment}`, o.ready && 'ready'].filter(Boolean).join(', ')}`);
-  return { commit, owed, send: owed.length ? null : { session_id: addr({ product: o.product, bob: true }), message: `COMPLETE #${j.runs}: ${m} (PR #${j.pr}); the report is its comment and it is ready for review.` } };
+  const after = owed.find((x) => /^ready after /.test(x));
+  return { commit, owed, send: owedByJob({ owed }).length ? null : { session_id: addr({ product: o.product, bob: true }), message: `COMPLETE #${j.runs}: ${m} (PR #${j.pr}); the report is its comment${after ? `; ${after} merges (BOB marks it ready then)` : ' and it is ready for review'}.` } };
 }
 // The concerns the tool lists mechanically (JOB-LIFE §5); BOB judges and writes the decision.
 function reviewConcerns(R, m, j) {
@@ -860,7 +864,7 @@ export function reviewDecide(o) {
   const R = repo(o.product), m = o.module; if (!m || !o.reason || !o.review === !o.noReview) refuse('--module <m> (--review | --no-review) --reason "<…>"');
   const j = loadJob(R, m);
   if (j.state !== 'COMPLETE') refuse(`${m} reads ${j.state}: a review is decided on COMPLETE`);
-  if (j.owed.length) refuse(`${m} still owes: ${j.owed.join('; ')}`);
+  if (owedByJob(j).length) refuse(`${m} still owes: ${owedByJob(j).join('; ')}`);
   if (j.review) refuse(`${m}'s review is decided: ${j.review}`);
   R.fetch(TRANCHE, jobBranch(m));
   const concerns = reviewConcerns(R, m, j), note = `concerns: ${concerns.join('; ') || 'none'}`;
@@ -905,7 +909,7 @@ export function merge(o) {
   const R = repo(o.product), m = o.module; if (!m) refuse('--module <m> --head <sha> --gate <conclusion> (both from the check event)');
   const j = loadJob(R, m);
   if (j.state !== 'COMPLETE') refuse(`${m} reads ${j.state}: a merge follows COMPLETE`);
-  if (j.owed.length) refuse(`${m} still owes: ${j.owed.join('; ')}`);
+  if (j.owed.length) refuse(`${m} still owes: ${j.owed.join('; ')}`);   // `ready after` included: the PR is a draft until BOB marks it
   if (!j.review) refuse(`decide the review first (neo review decide --module ${m})`);
   if (/^review · /.test(j.review) && !/ · approved · /.test(j.review)) refuse(`${m}'s review is not approved: ${j.review}`);
   if (/^(merging|merged)/.test(j.merge || '')) refuse(`${m} is already ${j.merge}`);

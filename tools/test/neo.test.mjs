@@ -368,15 +368,18 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   const bc = N.jobComplete(bo({ reportFile: f(w.base, 'rb.md', '**Met** · none\n**Evidence**\n- beta/src/index.mjs:1\n') }));
   assert.deepEqual(bc.acts.map((x) => x.tool), ['add_issue_comment']);
   assert.match(bc.then, /ready is owed after alpha/);
-  N.jobPosted(bo({ comment: 778 }));
+  const bp = N.jobPosted(bo({ comment: 778 }));
   assert.deepEqual(N.jobState(bo({})).owed, ['ready after alpha']);
+  assert.deepEqual(N.status(bo({})).gate, []);   // `ready after` is BOB's act, not the job's: beta's turn may end
+  assert.match(bp.send.message, /^COMPLETE #1: beta \(PR #12\); the report is its comment; ready after alpha merges/);
+  assert.match(N.status(o()).queue.map((q) => q.item).join(';'), /DECIDE REVIEW beta/);
 
   // alpha: no review, the concerns listed; the merge printed and owed; the queue's merge recorded from its event
   assert.throws(() => N.merge(o({ module: 'alpha' })), /decide the review first/);
   const rd = N.reviewDecide(o({ module: 'alpha', noReview: true, reason: 'one small function, tested at the interface' }));
   assert.deepEqual(rd.concerns, ['provided service changed (1 export line(s) differ)']);
   assert.throws(() => N.reviewDecide(o({ module: 'alpha', review: true, reason: 'x' })), /is decided/);
-  assert.match(N.status(o()).queue.map((q) => q.item).join(';'), /^MERGE alpha$/);
+  assert.match(N.status(o()).queue.map((q) => q.item).join(';'), /^MERGE alpha;DECIDE REVIEW beta$/);   // beta's review may be decided while it waits on alpha
   const ahead = g2('rev-parse', 'origin/job/alpha');
   assert.throws(() => N.merge(o({ module: 'alpha' })), /--head <sha the check ran on> --gate/);
   assert.throws(() => N.merge(o({ module: 'alpha', head: 'deadbeef', gate: 'success' })), /that result is for an older commit/);
@@ -384,7 +387,7 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   assert.throws(() => N.merged(o({ module: 'alpha', sha: g2('rev-parse', 'HEAD') })), /is not merging/);
   const mg = N.merge(o({ module: 'alpha', head: ahead, gate: 'success' }));
   assert.deepEqual([mg.merge.tool, mg.merge.pullNumber, mg.merge.merge_method], ['merge_pull_request', 11, 'merge']);
-  assert.deepEqual(N.status(o()).owed, ['merge alpha']); assert.deepEqual(N.status(o()).queue, []);
+  assert.deepEqual(N.status(o()).owed, ['merge alpha']); assert.deepEqual(N.status(o()).queue.map((q) => q.item), ['DECIDE REVIEW beta']);
   assert.throws(() => N.merge(o({ module: 'alpha', head: ahead, gate: 'success' })), /already merging/);
   assert.throws(() => N.merged(o({ module: 'alpha', sha: g2('rev-parse', 'HEAD') })), /tip [0-9a-f]{7} is not in/);
   g2('fetch', '-q', 'origin'); g2('merge', '-q', '--no-ff', '-m', 'alpha T1 (#11)', 'origin/job/alpha'); g2('push', '-q', 'origin', 'HEAD:tranche');   // GitHub's merge of the PR
