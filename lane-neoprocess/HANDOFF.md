@@ -14,13 +14,13 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 - **Attach no second repository** (PERMISSIONS §10.7; the toy refused again #12). A product's shims are regenerated on the runner: `proc repo shims`, `repo-shims.yml` (§9.8; #12).
 - Bob to #12: the connector on his three Claude accounts includes this repository; **the status line approved in words** (done); **the product lives in a new organization `civicsmith`**.
 - Measured #12, 21:34Z: the secret holds `neobobkrause`'s token (run 40958960320 read `already named neoprocess`); `repo-shims.yml` on the toy was refused at the push, `Permission ... denied to neobobkrause` (run 40958955811): a fine-grained token reaches only its owner's repositories.
-- The sitting page: https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (version 12, behind item 1).
+- The sitting page: https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (version 13, #12: item 1's acts as its steps 3 to 7).
 
 ## What remains, in order
 
 1. **BOB's decision (P17), #12**: every development repository has one owner, `civicsmith`, so one token covers all (§9). Bob's acts, at one sitting: the organization if not yet made (no session can read it); the Claude app on it, all repositories; `bio`, `neoprocess-dryrun` and `neoprocess-x9` transferred into it (SETUP-STEPS "The move" step 2); the token with **Resource owner** `civicsmith` over the secret (step 3 as revised); each Claude account's connector widened to it. The process repository stays `neobobkrause`'s.
 2. **Then the lane**: `repo-shims.yml` for the toy (its shims name `believeinoakland`); `repo-setup.yml` for `civicsmith/bio` (rulesets, idempotent); the product attached in a fresh session and read back; the onboarding session, convert path, whose first run proves DRYRUN §6's product-run rows.
-3. The sitting page as version 13: item 1's acts (Artifact tool: read, then publish).
+3. The sitting page: version 13 published by #12; refresh it as Bob's acts land.
 4. **The release-signing decision** (the page's foot): his.
 5. `dryrun/` refreshed from the toy: **dropped** (#12): it is the suite's seed (COMMIT-POINT §7).
 
