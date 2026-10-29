@@ -103,7 +103,7 @@ export function preReason(role, input, ctx) {
     if (!NAME.test(title) || /^BOB /.test(title)) return 'BOB starts only jobs and lanes, each titled as `neo` printed it (rulebook SES 1)';
     const R = R_of(ctx), id = title.split(' #')[0];
     let plan; try { plan = parsePlan(stateRead(R, 'plan.md') || ''); } catch (e) { return `the plan could not be read from the state branch (${e.message})`; }
-    if (lanes(R).some((l) => l.id === id)) {
+    if (lanes(R).some((l) => l.id === id && l.status === 'OPEN')) {   // a closed lane's id is no lane (R-BOB-1-4)
       if (!plan.owed.includes(`start lane ${id}`)) return `no start is owed for lane ${id}: run \`neo lane open\`, \`neo lane route\` or \`neo ask ask\` first, and use the call it prints`;
       const want = laneSession(R, id, Number(title.split('#')[1]));
       if (ti.prompt !== want.prompt || ti.source_revision !== want.source_revision) return `use the create_session \`neo\` printed for ${title}, unchanged (the goal, the standing lines, the branch ${want.source_revision})`;
