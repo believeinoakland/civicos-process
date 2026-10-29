@@ -11,7 +11,7 @@ Do these on github.com, signed in as yourself. <<org>> means the organization be
 7. In the "Target branches" section click **Add a target**, choose to include by name, and type <<tranche>>.
 8. In the "Branch protections" section tick **Require merge queue** (the page names it so for branch protection; the ruleset screen may word it slightly differently) and tick **Require status checks to pass before merging**; in "Additional settings" type <<gate>> as the status check and click the plus to add it. Then save the ruleset.
 9. Make a second ruleset the same way (step 5), named <<main>>, **Active**, targeting <<main>>. In "Branch protections" tick **Require a pull request before merging**, then save.
-10. Open the page github.com/believeinoakland/neoProcess, click **Settings**, and in the sidebar click **Deploy Keys**, then click **Add deploy key**.
+10. Open the page github.com/believeinoakland/civicos-process (the process repository under its present name; once it is renamed neoProcess, the old address redirects), click **Settings**, and in the sidebar click **Deploy Keys**, then click **Add deploy key**.
 11. In the "Title" field type <<repo>>, and in the "Key" field paste the public key BOB gave you. Leave **Allow write access** unticked, then click **Add key**.
 12. Go back to the neoprocess-dryrun repository, click **Settings**, then in the "Security" section click **Secrets and variables**, then click **Actions**.
 13. Click the **Secrets** tab, then click **New repository secret**.
