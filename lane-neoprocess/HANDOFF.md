@@ -10,14 +10,15 @@
 
 ## Where things stand
 
-**The dry run N1 is closed** (29 Oct 14:39Z; DRYRUN §5): every row of `dryrun/N1/CERTIFICATION.md` (copied from the toy's `main` 3dcd423, the post-merge evidence written here) reads PROVEN or names its product run (P15, X4, X6–X8). Twenty-one flaws found and fixed with tests (DRYRUN §4; 21 is fixed at the commit point); suite green (289). BOB #3 archived by #6; BOB #2 (`session_01RAN5emQV3q3LnPm2Ft8oMN`) idle, its archive Bob's. REP 9–10 and GOV 9 rewritten for the permissions as built. Commit point step 1 (`neo` → `proc`, `tools/lib.mjs`; 262 tests green, the 27 of the retired tool gone) is local commits on the worktree branch `worktree-agent-a8187b29f2e92d6ed` of this checkout, merged with the lane's tip, not yet pushed.
+**The dry run N1 is closed and the commit point is taken** (29 Oct; DRYRUN §5; COMMIT-POINT §2 steps 1–6 done, each one commit with the suite green at 262): `tools/proc.mjs`, `tools/hooks.mjs`, `tools/lib.mjs`; the rulebooks at `rulebooks/`; the one skill `neoprocess`; the design files at the root, in force; `roles/`, `situations/` and the old mechanics retired, every line accounted for (HISTORY.md); `PROCESS-MECHANICS.md` the index; CLAUDE.md and README.md rewritten; the pages at v26 (new links, README). Twenty-one flaws fixed with tests. BOB #2 of the run (`session_01RAN5emQV3q3LnPm2Ft8oMN`) is idle; its archive is Bob's.
 
 ## What remains, in order
 
-1. **The commit point** (`COMMIT-POINT.md` §2): step 1 fast-forwarded from the worktree branch onto the lane (the toy follows this branch: its `CLAUDE.md` and `gate.yml` name `neo.mjs`; step 7 refreshes it); flaw 21 (`refused routed --tranche`; `epoch close` on an OPEN refusal); then steps 2–8, each one commit with the suite green. `mechanics-citations.md` is step 5's input.
-2. **Permissions**: rows X1–X8 from `dryrun/N1/CERTIFICATION.md` into PERMISSIONS §4 and `acts.md`'s measured column.
-3. **The page** (v25) final at the commit point; the lane's `README.md` table folded into the root README (step 6).
+1. **Merge to `main`**: PR #36 (this branch) marked ready and merged by the lane with the suite green; HISTORY.md's commit-point entry names the restore point.
+2. **Step 7, the toy follows `main`**: on `believeinoakland/neoprocess-dryrun`, `proc shims --ref main` by one PR to its `main`; `dryrun/` here refreshed from the toy's `main` (the N1 overlay becomes the toy).
+3. **Step 8, the product** (`bio`, to be `civicsmith`): Bob's setup act (SETUP-STEPS: the two rulesets, the Claude app's access), then `proc shims` on it by its first BOB from a ROOT Bob starts; `build/rulings-active.md` retires there (DESIGN-STAGE §3); its lanes opened as PRODUCT-SUPPLIES lists. Then the first real tranche.
+4. Later, when flaws appear in a product run: the rows X5–X8 (PERMISSIONS §4) proven there.
 
 ## Acts only Bob can take (nothing waits on them)
 
-A repository's two rulesets, once (SETUP-STEPS); the Claude app's access to a new repository; a ROOT on a new account at a move; the renames; archiving #2–#5 and the dry run's BOB #2 (`session_01RAN5emQV3q3LnPm2Ft8oMN`, refused to #6); the toy's `seed-*`/`probe-*` branches.
+A repository's two rulesets, once (SETUP-STEPS); the Claude app's access to a new repository; a ROOT on a new account at a move; the renames (`neoProcess`, `civicsmith`); archiving neoProcess #2–#5 and the dry run's BOB #2 (`session_01RAN5emQV3q3LnPm2Ft8oMN`, refused to #6); the toy's `seed-*`/`probe-*` branches; the proposed principles (the amended P17, P21–P23 on the page), when he chooses; the server-managed permission lists (PERMISSIONS §7), if he wants them.
