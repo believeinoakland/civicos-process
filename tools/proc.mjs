@@ -38,6 +38,7 @@
 //   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (tools/lib.mjs, P20)
 //   repo setup --repo <owner/name> [--private] [--dry-run]      (PERMISSIONS §9: the repository and its two rulesets)
 //   process start --branch <b> --session <id>      process handoff      (the neoProcess lane, in the process repository itself)
+//   grants check [--branch <b>] [--urls <u1,u2>]      (PERMISSIONS §10, GRANTS.md: proven before `tranche open`)
 //   refused --act "<act or act-table id>" --kind hook|classifier|scope|platform --reason "<…>" [--by "<ROLE #k>"]      refused routed --id R-<role>-<n> --route "<…>"
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
@@ -1373,6 +1374,7 @@ export function roundClose(o) {
 // it whole once the close PR has merged; a tip not on main is a running tranche.
 export function trancheOpen(o) {
   const R = repo(o.product), text = planFile(o), T = tranche({ read: () => text }).id;
+  const held = grantsHeld(R); if (held) refuse(held);   // PERMISSIONS §10.3: a missing grant stops the opening, never a step
   R.fetch('main', TRANCHE);
   const tip = R.g(['rev-parse', 'origin/main']);
   if (R.heads(`refs/heads/${TRANCHE}`).length) { try { R.g(['merge-base', '--is-ancestor', `origin/${TRANCHE}`, tip]); } catch { refuse(`${TRANCHE} holds work not on main: the running tranche closes first (its close PR merged, recorded by \`proc tranche merged\`)`); } }
@@ -1502,6 +1504,61 @@ export async function repoSetup(o) {
   return out;
 }
 
+// ---- the grants (PERMISSIONS §10; GRANTS.md): every grant the four stages need, proven held before a tranche opens ----
+// The tool's HTTP goes through the session's agent proxy, which injects each host's credential, and Node's fetch uses
+// HTTPS_PROXY only when NODE_USE_ENV_PROXY is set at its start (measured #7, 29 Oct: without it `GET /user` answered 403
+// and a hosting provider's token check failed; with it 200 as the Claude app, and the check passed), so main() restarts a network
+// command with it set. No credential is named or read here: a hand command naming one is refused by the classifier.
+export const GRANTS_FILE = 'proc-grants.json', GRANTS_PRODUCT = 'build/grants.json', GRANTS_FRESH_H = 24, EXPIRY_WARN_D = 14;
+const NETWORK = new Set(['repo setup', 'grants check']);
+export async function grantsCheck(o) {
+  const R = repo(o.product), f = o.fetch || globalThis.fetch, rows = [], now_ = o.now ? new Date(o.now) : new Date();
+  const row = (grant, ok, detail) => rows.push({ grant, ok, detail });
+  const get = async (url) => { try { const r = await f(url, { headers: { Accept: 'application/json' } }); let json = null; try { json = JSON.parse(await r.text()); } catch { /* not json */ } return { status: r.status, headers: r.headers, json }; } catch (e) { return { status: 0, error: e.cause?.code || e.message }; } };
+  // the standing list in the repository's settings (§2.4, §6): every allow and deny rule present
+  const standing = JSON.parse(readFileSync(join(PROCESS, 'permissions.json'), 'utf8'));
+  let s = null; try { s = JSON.parse(R.read('.claude/settings.json') || 'null'); } catch { /* unreadable */ }
+  const allow = new Set(s?.permissions?.allow || []), deny = new Set(s?.permissions?.deny || []);
+  const missing = [...standing.allow.filter((x) => !allow.has(x)), ...(standing.deny || []).filter((x) => !deny.has(x))];
+  row('standing list', !missing.length, missing.length ? `${missing.length} rule(s) of permissions.json missing from .claude/settings.json (${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ', …' : ''}): \`proc shims\` writes them` : 'every allow and deny rule of permissions.json present');
+  // the push to the role's own branch, dry (§2.6)
+  const own = o.branch || readRole(R.root)?.branch || TRANCHE;
+  const p = spawnSync('git', ['-C', R.root, 'push', '-q', '--dry-run', 'origin', `HEAD:refs/heads/${own}`], { encoding: 'utf8' });
+  row(`push to ${own}`, p.status === 0, p.status === 0 ? 'git push --dry-run passes' : (p.stderr || p.stdout || '').trim().split('\n').pop());
+  // GitHub through the proxy: the identity, and the token's kind and expiry (the app's token renews itself; a token of the process's does not)
+  const gh = await get('https://api.github.com/user');
+  if (gh.status !== 200) row('GitHub API', false, `GET /user answered ${gh.status || gh.error}: no credential reaches api.github.com`);
+  else {
+    const app = gh.headers.get('x-oauth-client-id'), exp = gh.headers.get('github-authentication-token-expiration');
+    const days = exp && !app ? (new Date(exp.replace(' UTC', 'Z').replace(' ', 'T')) - now_) / 864e5 : null;
+    row('GitHub API', days == null || days > EXPIRY_WARN_D, `${gh.json?.login} by ${app ? `the Claude app's token (client ${app})` : 'a token of its own'}${days == null ? '' : `, expiring ${exp} (${Math.floor(days)} days): renew before ${EXPIRY_WARN_D} days remain`}`);
+  }
+  // the product's own services and addresses (PRODUCT-SUPPLIES: `build/grants.json`; the process names none of them):
+  // each service answers through the proxy, active by the field it names, and not expiring within the warning; each
+  // address the exercise stage reaches (a development release) answers; `--urls` adds addresses for this run
+  let pg = {}; try { pg = JSON.parse(R.read(GRANTS_PRODUCT) || '{}'); } catch (e) { row(GRANTS_PRODUCT, false, `unreadable: ${e.message}`); }
+  const at = (obj, path) => String(path || '').split('.').filter(Boolean).reduce((v, k) => v?.[k], obj);
+  for (const sv of pg.services || []) {
+    const r = await get(sv.url), [k, want] = String(sv.active || '').split('='), got = k ? at(r.json, k) : undefined;
+    const exp = sv.expires ? at(r.json, sv.expires) : null, days = exp ? (new Date(exp) - now_) / 864e5 : null;
+    const ok = r.status === 200 && (!k || String(got) === want) && (days == null || days > EXPIRY_WARN_D);
+    row(sv.name, ok, r.status === 200 ? `${k ? `${k} ${got}` : 'answers'}${days == null ? '' : `, expiring ${exp}${days > EXPIRY_WARN_D ? '' : `: renew before ${EXPIRY_WARN_D} days remain`}`}` : `answered ${r.status || r.error}`);
+  }
+  for (const u of [...(pg.urls || []), ...String(o.urls || '').split(',').filter(Boolean)]) { const r = await get(u); row(`reach ${u}`, r.status > 0 && r.status < 500, r.status ? `answered ${r.status}` : r.error); }
+  const ok = rows.every((r) => r.ok);
+  writeFileSync(join(R.root, '.git', GRANTS_FILE), JSON.stringify({ at: now_.toISOString(), ok, rows }));
+  return { ok, rows };
+}
+// Why a tranche may not open, or null: the grants proven held by `proc grants check` in the last day (§10.3).
+export function grantsHeld(R, now_ = new Date()) {
+  const fl = join(R.root, '.git', GRANTS_FILE);
+  if (!existsSync(fl)) return 'the grants are not proven held: run `proc grants check` (PERMISSIONS §10.3)';
+  const g = JSON.parse(readFileSync(fl, 'utf8'));
+  if (!g.ok) return `a grant is not held: ${g.rows.filter((r) => !r.ok).map((r) => `${r.grant}: ${r.detail}`).join('; ')} (PERMISSIONS §10.3; GRANTS.md says who gives it)`;
+  if (now_ - new Date(g.at) > GRANTS_FRESH_H * 36e5) return `the grants were proven at ${g.at}, over ${GRANTS_FRESH_H} hours ago: run \`proc grants check\` again`;
+  return null;
+}
+
 // ---- command line ----
 
 export function args(argv) {
@@ -1523,11 +1580,15 @@ export const COMMANDS = {
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
-  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'process start': processStart, 'process handoff': processHandoff,
+  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'process start': processStart, 'process handoff': processHandoff, 'grants check': grantsCheck,
 };
 async function main() {
   const o = args(process.argv.slice(2));
   const name = [o._.slice(0, 2).join(' '), o._[0]].find((n) => COMMANDS[n]) ?? refuse(`unknown command: ${o._.join(' ')}`);
+  if (NETWORK.has(name) && process.env.HTTPS_PROXY && !process.env.NODE_USE_ENV_PROXY) {   // the proxy carries the credential (see grantsCheck)
+    const r = spawnSync(process.execPath, ['--no-warnings', ...process.argv.slice(1)], { stdio: 'inherit', env: { ...process.env, NODE_USE_ENV_PROXY: '1' } });
+    process.exit(r.status ?? 1);
+  }
   const r = await COMMANDS[name](o);
   console.log(typeof r === 'string' ? r : name === 'reading' || name === 'process start' ? r.text : JSON.stringify(r, null, 2));
   if (r && r.ok === false) process.exit(1);

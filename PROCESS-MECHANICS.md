@@ -19,7 +19,7 @@ The process is carried out by one tool, `tools/proc.mjs` (one command per step: 
 | Sessions: who starts whom, models, reading sets, refreshes, workers | `rulebooks/sessions.md` (SES) | `SESSIONS.md`; `PROTOCOL.md` §6, §7, §7a, §7c | `proc takeover`, `handoff`, `lane open`, `lane route`, `job route`, `ask dispatch`, `reading` |
 | Usage: what sessions cost, the meter, an account move | `rulebooks/usage.md` (USE) | `PROCESS-DESIGN.md` P14; `PROTOCOL.md` §7a (the move) | `proc job archived`, `lane archived`, `bob archived`, `defect` |
 
-How sessions reach each other, in every area: `PROTOCOL.md` (one address, the ask record, the queue in git, nothing blocks, fault tolerance, refresh and account move, the state branch). How a refused act is handled, in every area: `PERMISSIONS.md` and the act table `tools/acts.md`. What a product supplies and what Bob sets up once: `PRODUCT-SUPPLIES.md`, `SETUP-STEPS.md`. The checks the gate runs: `checks/README.md`.
+How sessions reach each other, in every area: `PROTOCOL.md` (one address, the ask record, the queue in git, nothing blocks, fault tolerance, refresh and account move, the state branch). How a refused act is handled, in every area: `PERMISSIONS.md` and the act table `tools/acts.md`; every grant gathered before the work and held to its end: `GRANTS.md` (`proc grants check`). What a product supplies and what Bob sets up once: `PRODUCT-SUPPLIES.md`, `SETUP-STEPS.md`. The checks the gate runs: `checks/README.md`.
 
 ## 2. What no other text says
 
