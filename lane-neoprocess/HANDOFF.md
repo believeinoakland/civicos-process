@@ -1,6 +1,6 @@
 # neoProcess lane: handoff
 
-**From** · neoProcess #7 (`session_01RAN5ektuonFFCrRnX4VvFj`), the lane's address, 29 Oct. Before it #6 `session_01RAN5emD7S5EJrZnC5QgPJC` (#2–#6's usage: their archives, Bob's). Branch `claude/modest-brahmagupta-vvaann`; #7's work merged to `main` by PR #38 (`e89447e`): restart the branch from `main` for new work.
+**From** · neoProcess #8 (`session_01RAN5enj51ppe6dLgJskKM1`), the lane's address, 29 Oct. Before it #7 `session_01RAN5ektuonFFCrRnX4VvFj`, #6 `session_01RAN5emD7S5EJrZnC5QgPJC` (#2–#6's usage: their archives, Bob's). Branch `claude/modest-brahmagupta-vvaann`, six commits past `main` (PR #38, `e89447e`).
 
 **Standing** · Bob, 29 Oct: keep working until there is no way to; nothing stops for him; a detail is never his (DES 1); plain words; PERMISSIONS §6 is his approval of all development and testing acts; every grant gathered before the work at one sitting (PERMISSIONS §10); the process names no product: no product's names, accounts or hosts in this repository. Commit messages in plain words about what the code does: the classifier reads a command's text. Start: `/neoprocess process`, then `proc process start --branch <this branch> --session <id>`.
 
