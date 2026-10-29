@@ -17,3 +17,10 @@ A toy product repository of its own, `believeinoakland/neoprocess-dryrun` (the t
 ## 3. What is measured only here (JOB-LIFE §12)
 
 The tool's merge on `tranche` (JOB-LIFE §6): the gate on a pull request, a branch behind the tranche updated by `update_pull_request_branch` and the gate run on it, the merge by the printed call, the `pull_request.closed` event after it. (Whether a `/goal` message sets a goal again after a wait was measured on 29 Oct: it does not, SESSIONS §1b.)
+
+## 4. Flaws the run found (P3: each fixed in the tool before the run went on, with a fixture test)
+
+1. **An empty pull request is refused** (BOB #1, R-BOB-1-1, SEED step 8): GitHub refuses a PR with no commit between base and head, and `layer start` made job branches at the tranche tip. Fix `b3ff809`: an opening commit on every job branch; a START made and not yet opened is remade by the same call; the gate reads an empty diff as nothing yet.
+2. **A lane started before any ask could not meet its goal** (ARITH #1 via BOB #1): the goal named an ask, and no command recorded a lane's wait. Fix `cba1554`: `neo lane state --set`; the goal is met with no ask open, so such a lane idles until a message.
+3. **The proxy refuses every remote ref delete** (BOB #1, R-BOB-1-2; confirmed by #5 on a probe branch: `unexpected disconnect`, the branch kept). Fix `164445b`: no command deletes a branch; a job branch is remade by an opening commit over what is there (a merged tip takes both parents); `merged` and `epoch close` print the dispatch of the product's `prune.yml` (`workflow_dispatch`; `state/*` and merged `job/*`), measured on the toy: run 40827749216 deleted `job/probe` in 11 s. Leftover toy branches `seed-*`, `probe-delete` are Bob's to delete in the UI; harmless.
+
