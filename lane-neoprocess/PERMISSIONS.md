@@ -36,7 +36,7 @@ X1, every row of the act table tried in its role and relation on the toy, passin
 
 ## 5. Rules, as they will read
 
-Rulebook REP 9 and 10 and GOV 9 are rewritten at the commit point from §2 (BOB's, the mechanism); the one-sentence forms: *A refused act is recorded by `neo refused` and routed from the act table, never worked around; an unpredicted refusal in a product run stops the work until the table and the route are fixed (P3, P16, P17).* *The standing list is one file in the process repository, Bob's; the tool writes each product's settings from it and fails on drift (P16, P17).* *A session archives only sessions it created; a role's successor is started by the role's parent (P13; PROTOCOL §7a).*
+Rulebook REP 9 and 10 and GOV 9 are rewritten from §2 and §8 (BOB's, the mechanism; written 29 Oct by #6, `rulebooks/repository.md` and `governance.md`); their substance: *A refused act is recorded by `neo refused` and routed from the act table, never worked around; an unpredicted refusal in a product run stops the work until the table and the route are fixed (P3, P16, P17).* *The standing list is one file in the process repository, Bob's; the tool writes each product's settings from it and fails on drift (P16, P17).* *A session archives only sessions it created; a role's successor is started by the role's parent (P13; PROTOCOL §7a).*
 
 ## 6. Bob's standing approval (29 Oct 2026, his words, on record)
 
