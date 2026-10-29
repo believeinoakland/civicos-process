@@ -1,10 +1,10 @@
 # neoProcess lane: handoff
 
-**From** · neoProcess #3 (`session_018BhcedCh1TpUJaGQh5up8c`), 2026-10-29, in progress. #2 (`session_018BhceegtREhWFPW6rnCrDC`) ended idle at 50 % of its window, usage 13,854,613 / 497,976 / 14,873 / 113,987 (cache-read / cache-write / input / output, from `get_session`); the archive call was refused by the permission classifier, so archiving #2 is Bob's. Everything is pushed on `claude/modest-brahmagupta-vvaann` (PR #36, draft).
+**From** · neoProcess #3 (`session_018BhcedCh1TpUJaGQh5up8c`), 2026-10-29, at about half its window by its token counter (`get_session` reports no context figure for a session another session created; the counter stood at 490 k tokens entered). #2 (`session_018BhceegtREhWFPW6rnCrDC`) ended idle at 50 %, usage 13,854,613 / 497,976 / 14,873 / 113,987 (cache-read / cache-write / input / output); archiving #2 and #3 was refused to #3 by the permission classifier, so both archives are Bob's acts, their usage read by #4 from `get_session`. Everything is pushed on `claude/modest-brahmagupta-vvaann` (PR #36, draft). #3 starts #4 itself (R10).
 
 ## Read whole, and nothing else at start
 
-`PROCESS-DESIGN.md`; this folder's `README.md`, `PROTOCOL.md`, `JOB-LIFE.md`, `SESSIONS.md`, `DESIGN-STAGE.md`, `PRODUCT-SUPPLIES.md`, `DRYRUN.md`, `rulebooks/*.md` (not `rulebooks/work/`); `tools/neo.mjs`, `tools/neo-hooks.mjs` and `tools/test/neo*.test.mjs`. Not the mechanics, not `tools/proc.mjs` (neo imports the gate from it), not the pages' HTML (change a line found by `grep -n`; a worker republishes), not a probe's transcript (a Haiku worker reads it).
+`PROCESS-DESIGN.md`; this folder's `README.md`, `PROTOCOL.md`, `JOB-LIFE.md`, `SESSIONS.md`, `DESIGN-STAGE.md`, `PRODUCT-SUPPLIES.md`, `DRYRUN.md`, `SETUP-STEPS.md`, `rulebooks/*.md` (not `rulebooks/work/`); `tools/neo.mjs`, `tools/neo-hooks.mjs` and `tools/test/neo*.test.mjs`. Not the mechanics, not `tools/proc.mjs` (neo imports the gate from it), not the pages' HTML (change a line found by `grep -n`; a worker republishes), not a probe's transcript (a Haiku worker reads it).
 
 ## Where things stand
 
@@ -16,8 +16,9 @@ The ten rulebooks are drafted in `rulebooks/` (32 KB together, each under 4 KB; 
 
 ## What remains, in order
 
-1. **The dry run** (`DRYRUN.md`): every row of PROTOCOL §10, JOB-LIFE §13, DESIGN-STAGE §5 on the toy's own repository; the queue measured once Bob's ruleset exists (JOB-LIFE §12).
-2. **The commit point**: `neo` takes the `proc` name; the old tool, skills and mechanics rewritten from these files; the rulebooks moved to `rulebooks/` at the root; the page final.
+1. **Bob's setup act**, put to him in plain words from `SETUP-STEPS.md` (verified against GitHub's pages by `neo steps`, 26 labels), with the one decision it carries: the toy repository public in the organization, since GitHub offers a merge queue only there (DRYRUN §1); the same for `civicsmith` later. BOB makes the deploy key pair at that moment, or Bob makes the process repository public and no key is needed.
+2. **The dry run** (`DRYRUN.md`): every row of PROTOCOL §10, JOB-LIFE §13, DESIGN-STAGE §5 on the toy's own repository; the queue measured once Bob's ruleset exists (JOB-LIFE §12).
+3. **The commit point**: `neo` takes the `proc` name; the old tool, skills and mechanics rewritten from these files; the rulebooks moved to `rulebooks/` at the root; the page final.
 
 ## Acts that are Bob's, when the time comes
 
