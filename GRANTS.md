@@ -24,12 +24,13 @@ Its grant list, by stage (develop; test; deploy a development release; exercise 
 
 ```json
 { "services": [{ "name": "<shown in the check>", "url": "<an endpoint that answers through the proxy with the credential>", "active": "<json.path>=<value>", "expires": "<json.path to an expiry date>" }],
-  "urls": ["<each address a development release is exercised at>"] }
+  "urls": ["<each address a development release is exercised at>"],
+  "variables": ["<each variable a stage reads, by name: the check reports it present or not, never its value>"] }
 ```
 
 ## 3. Held, checked and renewed
 
-`proc grants check` proves, from the session: the standing list present, the push to the role's own branch, the repository host's API answering as the expected identity (the kind of token and its expiry), each service of the product's list active and not expiring within 14 days, each address answering. It records the result in `.git/proc-grants.json`; `proc tranche open` refuses unless it passed within the last day. A row that fails names the grant and, by this table, who gives it.
+`proc grants check` proves, from the session: the standing list present, the push to the role's own branch, the repository host's API answering as the expected identity (the kind of token and its expiry), each service of the product's list active and not expiring within 14 days, each address answering, each variable it names present. It records the result in `.git/proc-grants.json`; `proc tranche open` refuses unless it passed within the last day. A row that fails names the grant and, by this table, who gives it.
 
 ## 4. The sitting
 

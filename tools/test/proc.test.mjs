@@ -759,6 +759,10 @@ test('the grants: proven by `proc grants check` through the proxy, and a tranche
   assert.match(r.rows[2].detail, /a token of its own, expiring 2026-11-03 00:00:00 UTC \(4 days\): renew/);
   r = await check(net(appGh, res(200, { result: { status: 'active', expires_on: '2026-11-01T00:00:00Z' } })));
   assert.match(r.rows.find((x) => x.grant === 'Hosting API').detail, /expiring 2026-11-01T00:00:00Z: renew/);
+  // the variables the list names: present or not, by name only
+  writeFileSync(join(w.bob.dir, N.GRANTS_PRODUCT), JSON.stringify({ variables: ['WALK_USER', 'WALK_PASS'] }));
+  r = await check(net(appGh, cfOk), { env: { WALK_USER: 'x' } });
+  assert.deepEqual(r.rows.filter((x) => x.grant.startsWith('variable')).map((x) => [x.grant, x.ok, x.detail]), [['variable WALK_USER', true, 'present'], ['variable WALK_PASS', false, 'not set in this environment']]);
   r = await check(net(res(403, {}), cfOk));
   assert.match(r.rows[2].detail, /GET \/user answered 403: no credential reaches api\.github\.com/);
   assert.equal(r.ok, false);

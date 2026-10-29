@@ -1549,6 +1549,9 @@ export async function grantsCheck(o) {
     const ok = r.status === 200 && (!k || String(got) === want) && (days == null || days > EXPIRY_WARN_D);
     row(sv.name, ok, r.status === 200 ? `${k ? `${k} ${got}` : 'answers'}${days == null ? '' : `, expiring ${exp}${days > EXPIRY_WARN_D ? '' : `: renew before ${EXPIRY_WARN_D} days remain`}`}` : `answered ${r.status || r.error}`);
   }
+  // each variable the product's list names is present in the session's environment, judged by name only: no value is read or shown
+  const env = o.env || process.env;
+  for (const v of pg.variables || []) row(`variable ${v}`, Object.prototype.hasOwnProperty.call(env, v) && env[v] !== '', Object.prototype.hasOwnProperty.call(env, v) ? 'present' : 'not set in this environment');
   for (const u of [...(pg.urls || []), ...String(o.urls || '').split(',').filter(Boolean)]) { const r = await get(u); row(`reach ${u}`, r.status > 0 && r.status < 500, r.status ? `answered ${r.status}` : r.error); }
   const ok = rows.every((r) => r.ok);
   writeFileSync(join(R.root, '.git', GRANTS_FILE), JSON.stringify({ at: now_.toISOString(), ok, rows }));
