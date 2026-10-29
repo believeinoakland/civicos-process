@@ -33,12 +33,13 @@
 //   review result --module <m> --result-file <f>      merge --module <m> --head <sha> --gate <conclusion>      merged --module <m> --sha <commit>
 //   job reopen --module <m> --change-file <f>      job retire --module <m>      job archived --module <m> --session <id> --usage <json>
 //   defect --module <m> --what "<…>"      bob archived --name "BOB #n" --session <id> --usage <json> [--tranche <T>]
-//   reading --role <bob|job|lane|root|process>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
+//   reading --role <bob|job|lane|root|process|onboard>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
 //   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
 //   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (tools/lib.mjs, P20)
 //   repo setup --repo <owner/name> [--private] [--dry-run]      (PERMISSIONS §9: the repository and its two rulesets)
 //   process start --branch <b> --session <id>      process handoff      (the neoProcess lane, in the process repository itself)
 //   grants check [--branch <b>] [--urls <u1,u2>]      (PERMISSIONS §10, GRANTS.md: proven before `tranche open`)
+//   init --mode <new|convert> [--name "<project>"] | init --check      onboard start --product <dir> --session <id>      (ONBOARDING.md)
 //   refused --act "<act or act-table id>" --kind hook|classifier|scope|platform --reason "<…>" [--by "<ROLE #k>"]      refused routed --id R-<role>-<n> --route "<…>"
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
@@ -1137,21 +1138,23 @@ export function bobArchived(o) {
 
 // ---- the reading sets and their budgets (SESSIONS §3, §6), the gate (JOB-LIFE §4), the shims (PRODUCT-SUPPLIES) ----
 
-export const PROCESS_TEXT = { root: 26 * 1024, bob: 55 * 1024, job: 26 * 1024, lane: 26 * 1024, process: 26 * 1024 };
-const ROLE_BOOKS = { root: ['governance', 'sessions', 'usage'], bob: null, job: ['building', 'integration', 'sessions'], lane: ['design', 'governance', 'sessions'], process: ['design', 'governance', 'sessions'] };
-const START_CMD = { bob: 'proc takeover --name "BOB #<n>" --session <your session id>', job: 'proc job start --module <m> --session <your session id>', lane: 'proc lane start --id <ID> --session <your session id>', root: 'proc status', process: 'proc process start --branch <the lane\'s branch> --session <your session id>' };
+export const PROCESS_TEXT = { root: 26 * 1024, bob: 55 * 1024, job: 26 * 1024, lane: 26 * 1024, process: 26 * 1024, onboard: 32 * 1024 };
+const ROLE_BOOKS = { root: ['governance', 'sessions', 'usage'], bob: null, job: ['building', 'integration', 'sessions'], lane: ['design', 'governance', 'sessions'], process: ['design', 'governance', 'sessions'], onboard: ['governance'] };
+// A role's own design texts, read whole beside its rulebooks: the onboarding session works from ONBOARDING and GRANTS.
+const ROLE_TEXTS = { onboard: ['ONBOARDING.md', 'GRANTS.md'] };
+const START_CMD = { bob: 'proc takeover --name "BOB #<n>" --session <your session id>', job: 'proc job start --module <m> --session <your session id>', lane: 'proc lane start --id <ID> --session <your session id>', root: 'proc status', process: 'proc process start --branch <the lane\'s branch> --session <your session id>', onboard: 'proc onboard start --product <the project\'s directory> --session <your session id>' };
 // The rulebooks' home is `rulebooks/`; until the ten are written there, the lane's drafts stand in.
 export function rulebooksDir() { for (const d of ['rulebooks', 'lane-neoprocess/rulebooks']) if (existsSync(join(PROCESS, d))) return join(PROCESS, d); return null; }
 const allBooks = (dir) => (dir ? readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)).sort() : []);
 // A role's process text, whole, with its size against its budget; printed by the one skill, then the start command.
 export function reading(o) {
-  const role = String(o.role || '').trim().toLowerCase(); if (!(role in ROLE_BOOKS)) refuse('--role bob | job | lane | root | process');
+  const role = String(o.role || '').trim().toLowerCase(); if (!(role in ROLE_BOOKS)) refuse('--role bob | job | lane | root | process | onboard');
   const dir = rulebooksDir(), books = ROLE_BOOKS[role] ?? allBooks(dir);
-  const files = [{ path: join(PROCESS, 'PROCESS-DESIGN.md') }, ...books.map((b) => ({ path: join(dir || PROCESS, `${b}.md`), book: b }))];
+  const files = [{ path: join(PROCESS, 'PROCESS-DESIGN.md') }, ...books.map((b) => ({ path: join(dir || PROCESS, `${b}.md`), book: b })), ...(ROLE_TEXTS[role] || []).map((t) => ({ path: join(PROCESS, t) }))];
   for (const f of files) { f.text = existsSync(f.path) ? readFileSync(f.path, 'utf8') : null; f.bytes = f.text ? Buffer.byteLength(f.text) : 0; }
   const bytes = files.reduce((n, f) => n + f.bytes, 0), budget = PROCESS_TEXT[role];
   const over = [...(bytes > budget ? [`${role}'s process text is ${bytes} bytes, over ${budget} (SESSIONS §6)`] : []), ...files.filter((f) => f.book && f.bytes > LIMIT).map((f) => `rulebook ${f.book} is ${f.bytes} bytes, over ${LIMIT} (rulebook SES 4)`)];
-  const text = `${files.map((f) => `=== ${relative(PROCESS, f.path)} (${f.bytes} bytes) ===\n${f.text ?? '(not yet written)'}`).join('\n\n')}\n\n=== your process text: ${bytes} bytes of ${budget} ===\n${over.map((x) => `SIZE: ${x}`).join('\n')}${over.length ? '\n' : ''}Next: read everything above whole (P20), then run \`${START_CMD[role]} --product ${o.product || '.'}\`, which prints the rest of your set.\n`;
+  const text = `${files.map((f) => `=== ${relative(PROCESS, f.path)} (${f.bytes} bytes) ===\n${f.text ?? '(not yet written)'}`).join('\n\n')}\n\n=== your process text: ${bytes} bytes of ${budget} ===\n${over.map((x) => `SIZE: ${x}`).join('\n')}${over.length ? '\n' : ''}Next: read everything above whole (P20), then run \`${START_CMD[role]}${role === 'onboard' ? '' : ` --product ${o.product || '.'}`}\`, which prints the rest of your set.\n`;
   return { role, files: files.map(({ text: _, ...f }) => f), bytes, budget, over, next: START_CMD[role], text };
 }
 // What is over a budget: a rulebook over 4 KB, a role's process text over its budget, a named module's own set over 40 KB.
@@ -1561,6 +1564,85 @@ export function grantsHeld(R, now_ = new Date()) {
   return null;
 }
 
+// ---- onboarding (ONBOARDING.md): a project brought under the process, new or existing ----
+// Bob, 29 Oct: a capability that converts an existing project, or starts a new one as soon as its vision, audiences and
+// first requirements can be discussed. `proc init` writes the build state's skeleton (never overwriting a project's own
+// file), surveys an existing project, runs `proc shims`, and reports the onboarding steps; `--check` only reports.
+export const ONBOARD_MARK = '<!-- onboarding:';
+const ONBOARD_BRANCH = 'onboard';
+const CODE_FILE = /\.(m?[jt]sx?|cjs|py|rb|go|rs|java|kt|swift|cs|cpp|cc|c|h|hpp|php|scala|ex|exs|clj|dart|lua|sh|sql|vue|svelte)$/;
+const NOT_CODE_DIR = /^(\.|build$|docs?$|requirements$|node_modules$|dist$|vendor$)/;
+function skeleton(name, legacy) {
+  const m = (what) => `${ONBOARD_MARK} ${what} -->`;
+  return {
+    'requirements/README.md': `# ${name}: the canon index\n\nWhat the product is for, whom it serves and what it must do; every module requirement cites a section here (P5). Written with the owner at onboarding (ONBOARDING §2, step 1).\n\n## Vision\n\n${m("the owner's vision, in his words")}\n\n## Audiences\n\n${m('each audience, and what it needs from the product')}\n\n## Initial requirements\n\n${m('the first requirements, each numbered, each one a behaviour a test can confirm')}\n\n## Designs\n\nNone yet.\n`,
+    'build/manifest.md': `# Build manifest\n\n${name}: where the canon, the build state, each layer's tests and the generated artifacts live (PRODUCT-SUPPLIES).\n\n## Canon\n\n\`requirements/README.md\`.\n\n## Tests\n\n${m("how each module's tests are run, and each layer's")}\n`,
+    'build/layers.md': `# The layers\n\n| layer | name | contract | modules |\n| --- | --- | --- | --- |\n${legacy.length ? `| 1 | Legacy | The existing code, held whole until extracted (ONBOARDING §2, step 5). | ${legacy.map((x) => x.id).join(', ')} |\n` : ''}`,
+    'build/modules.json': `${JSON.stringify({ not_product: ['build/', 'requirements/'], modules: legacy }, null, 2)}\n`,
+    'build/areas.md': '# The product areas\n\n| area | canon | modules | rulebook |\n| --- | --- | --- | --- |\n',
+    'build/rulings.md': '# Rulings\n\nOne line each: `K<n> · date · area · ruling · why` (GOV 7).\n',
+    'build/plan/next.md': '# Next\n\nThe work prepared for the coming tranche (P18); each entry names its module.\n',
+    'build/GRANTS.md': `# Grants\n\nEvery act of the four stages, with what it needs, by name only (GRANTS §2; PERMISSIONS §10). Gathered before the first tranche; the owner gives what only he can at one sitting.\n\n${['Develop', 'Test', 'Deploy a development release', 'Exercise a release'].map((s) => `## ${s}\n\n| act | service and host | credential or access (name only) | where the product uses it |\n| --- | --- | --- | --- |\n\n${m(`the acts of this stage`)}\n`).join('\n')}`,
+    'build/grants.json': `${JSON.stringify({ services: [], urls: [] }, null, 2)}\n`,
+  };
+}
+// An existing project's survey: what is there, from git alone; the legacy modules are its code directories, each held whole.
+function survey(R) {
+  const files = R.g(['ls-files']).split('\n').filter(Boolean).filter((f) => !f.startsWith('build/') && !f.startsWith('requirements/'));
+  const top = new Map();
+  for (const f of files) { const d = f.includes('/') ? f.split('/')[0] : '.'; const t = top.get(d) ?? top.set(d, { n: 0, code: 0, ext: new Map() }).get(d); t.n++; if (CODE_FILE.test(f)) t.code++; const e = (f.match(/\.[^./]+$/) || ['(none)'])[0]; t.ext.set(e, (t.ext.get(e) || 0) + 1); }
+  const pick = (re) => files.filter((f) => re.test(f));
+  const legacy = [...top.entries()].filter(([d, t]) => d !== '.' && t.code && !NOT_CODE_DIR.test(d)).map(([d]) => ({ id: d.toLowerCase().replace(/[^a-z0-9-]+/g, '-'), layer: 1, legacy: true, paths: [`${d}/`], tests: [], uses: ['*earlier'] }));
+  const rootCode = (top.get('.')?.code || 0) ? files.filter((f) => !f.includes('/') && CODE_FILE.test(f)) : [];
+  const text = `# Onboarding survey\n\nWritten by \`proc init --mode convert\` from git alone (ONBOARDING §2, step 1): where the project stands before it comes under the process. Helpers read the code and documents in full from here (P20).\n\n## Directories\n\n| directory | files | code files | kinds |\n| --- | --- | --- | --- |\n${[...top.entries()].sort().map(([d, t]) => `| \`${d}\` | ${t.n} | ${t.code} | ${[...t.ext.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([e, n]) => `${e} ${n}`).join(', ')} |`).join('\n')}\n\n## What builds and tests it\n\n- package manifests: ${pick(/(^|\/)(package\.json|pyproject\.toml|requirements\.txt|Cargo\.toml|go\.mod|pom\.xml|build\.gradle|Gemfile|composer\.json)$/).filter((f) => !f.includes('node_modules/')).map((f) => `\`${f}\``).join(', ') || 'none found'}\n- test directories: ${[...new Set(files.map((f) => f.match(/^(.*?(?:^|\/)(?:test|tests|__tests__|spec))\//)?.[1]).filter(Boolean))].map((f) => `\`${f}/\``).join(', ') || 'none found'}\n- workflows: ${pick(/^\.github\/workflows\//).map((f) => `\`${f}\``).join(', ') || 'none'}\n- deploy and service configuration: ${pick(/(^|\/)(wrangler\.(toml|jsonc?)|Dockerfile|docker-compose\.ya?ml|vercel\.json|netlify\.toml|fly\.toml|serverless\.ya?ml|\.env\.example)$/).map((f) => `\`${f}\``).join(', ') || 'none found'} (read for the grant list, step 3)\n\n## The legacy modules proposed (\`build/modules.json\`)\n\n${legacy.map((x) => `- \`${x.id}\`: \`${x.paths[0]}\``).join('\n') || '- none: no code directory'}\n${rootCode.length ? `\nCode at the root, owned by no module yet (the format check will name each until a module claims it): ${rootCode.map((f) => `\`${f}\``).join(', ')}\n` : ''}`;
+  return { text, legacy };
+}
+export function init(o) {
+  const R = repo(o.product), mode = o.mode, name = o.name || R.rel('.').split('/').pop() || 'The product';
+  if (o.check) return { check: initCheck(R, o) };
+  if (!['new', 'convert'].includes(mode)) refuse('--mode new | convert [--name "<project>"]');
+  const sv = mode === 'convert' ? survey(R) : { legacy: [] };
+  if (mode === 'new' && R.g(['ls-files']).split('\n').some((f) => f && CODE_FILE.test(f) && !f.startsWith('.'))) refuse('the repository already holds code: onboard it with --mode convert');
+  const files = skeleton(name, sv.legacy), written = [], kept = [];
+  if (mode === 'convert') { files['build/onboarding/survey.md'] = sv.text; const old = R.read('CLAUDE.md'); if (old && !old.includes('Written by `proc shims`') && !R.read('build/onboarding/CLAUDE-before.md')) files['build/onboarding/CLAUDE-before.md'] = old; }
+  for (const [p, t] of Object.entries(files)) { if (R.read(p) != null && p !== 'build/onboarding/survey.md') { kept.push(p); continue; } R.write(p, t); written.push(p); }
+  const sh = shims(o);
+  return { mode, written, kept, shims: sh.written, check: initCheck(R, o) };
+}
+// Where onboarding stands, from the project's files alone (ONBOARDING §3): each step DONE or OPEN, with what is missing and whose it is.
+export function initCheck(R, o = {}) {
+  const has = (p) => R.read(p) != null;
+  const canon = R.read('requirements/README.md');
+  let mods = []; try { mods = JSON.parse(R.read('build/modules.json') || '{}').modules || []; } catch { /* unreadable */ }
+  const layers = R.read('build/layers.md') || '';
+  const seed = ['requirements/README.md', 'build/manifest.md', 'build/layers.md', 'build/modules.json', 'build/GRANTS.md', 'build/grants.json'];
+  let drift = ['not checked']; try { drift = shims({ ...o, check: true }).drift; } catch (e) { drift = [e.message]; }
+  const noReq = mods.filter((m) => !m.legacy && !has(`build/requirements/${m.id}.md`)).map((m) => m.id);
+  const noLayer = mods.filter((m) => !new RegExp(`\\b${m.id.replace(/[-]/g, '\\-')}\\b`).test(layers)).map((m) => m.id);
+  const next = R.read('build/plan/next.md') || '', planned = /^\s*(- |\*\*)/m.test(next.split('\n').slice(1).join('\n')) || has('build/plan/current.md');
+  let onMain = false; try { R.fetch('main'); onMain = /Written by `proc shims`/.test(R.g(['show', `origin/main:${R.rel('CLAUDE.md')}`])); } catch { /* no main yet */ }
+  let ep = null; try { ep = epoch(R); } catch { /* none */ }
+  const step = (n, name, done, missing, whose) => ({ step: n, name, status: done == null ? 'CHECK' : done ? 'DONE' : 'OPEN', ...(done ? {} : { missing, whose }) });
+  return [
+    step(1, 'intake', canon != null && !canon.includes(ONBOARD_MARK), canon == null ? 'requirements/README.md' : 'the vision, audiences and first requirements in requirements/README.md (a marker is left)', 'the owner, with the session'),
+    step(2, 'seed', seed.every(has) && !drift.length, [...seed.filter((p) => !has(p)), ...drift].join('; '), 'BOB (`proc init`)'),
+    step(3, 'grants', has('build/grants.json') && !grantsHeld(R), grantsHeld(R) || 'build/grants.json', 'the list BOB; the sitting the owner (PERMISSIONS §10)'),
+    step(4, 'repository', null, 'the two rulesets, read back by `proc repo setup --repo <owner/name>`', 'the tool, or the owner once (SETUP-STEPS)'),
+    step(5, 'architecture', mods.length > 0 && !noLayer.length, mods.length ? `modules missing from build/layers.md: ${noLayer.join(', ')}` : 'no module in build/modules.json', 'the owner for capability-carrying layers and modules; BOB the rest (P4)'),
+    step(6, 'requirements', mods.length > 0 && !noReq.length, noReq.length ? `no build/requirements/<id>.md for ${noReq.join(', ')}` : 'no module yet', 'BOB, with the owner where meaning changes (P5)'),
+    step(7, 'first tranche', planned, 'an entry in build/plan/next.md', 'BOB'),
+    step(8, 'handover', onMain && !!ep, !onMain ? 'the seed merged to main (the onboard branch\'s pull request)' : 'an epoch opened by the project\'s first BOB, started by its ROOT, which the owner starts', 'the owner starts ROOT (SESSIONS §1a)'),
+  ];
+}
+// The onboarding session's first command (ONBOARDING §1): started on the process repository with the project attached.
+export function onboardStart(o) {
+  if (!SESSION.test(o.session || '') || !o.product) refuse('--product <the project\'s directory> --session <id>');
+  const P = repo(PROCESS), R = repo(o.product);
+  if (resolve(R.root) === resolve(PROCESS)) refuse('--product names the project to onboard, not the process repository');
+  writeRole(P, { role: 'onboard', product: relative(PROCESS, R.dir) || '.', session: o.session, name: 'ONBOARD', branch: ONBOARD_BRANCH });
+  return { role: 'onboard', product: R.dir, branch: ONBOARD_BRANCH, check: initCheck(R, o), next: `work on the project's branch ${ONBOARD_BRANCH} (git -C ${R.dir} checkout -B ${ONBOARD_BRANCH}); \`proc init --mode new|convert --product ${R.dir}\`; then the steps \`proc init --check\` lists` };
+}
+
 // ---- command line ----
 
 export function args(argv) {
@@ -1582,7 +1664,7 @@ export const COMMANDS = {
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
-  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'process start': processStart, 'process handoff': processHandoff, 'grants check': grantsCheck,
+  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'process start': processStart, 'process handoff': processHandoff, 'grants check': grantsCheck, init, 'onboard start': onboardStart,
 };
 async function main() {
   const o = args(process.argv.slice(2));

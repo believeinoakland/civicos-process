@@ -690,6 +690,46 @@ test('repo setup makes a development repository and its two rulesets, idempotent
   await assert.rejects(N.repoSetup({ repo: 'bob/toy', fetch: refusing }), /POST rulesets tranche answered 403: Repository settings writes.*proc refused --act "rulesets\(process token\)"/);
 });
 
+test('onboarding: a new project seeded from nothing, an existing one converted, and where each stands (ONBOARDING §2, §3)', () => {
+  const mk = (files) => {
+    const base = mkdtempSync(join(tmpdir(), 'onboard-')), origin = join(base, 'origin.git'), dir = join(base, 'p');
+    execFileSync('git', ['init', '-q', '--bare', origin]); execFileSync('git', ['clone', '-q', origin, dir], { stdio: 'ignore' }); ident(dir, 'p');
+    for (const [p, t] of Object.entries(files)) { mkdirSync(dirname(join(dir, p)), { recursive: true }); writeFileSync(join(dir, p), t); }
+    g(dir, 'add', '-A'); g(dir, 'commit', '-q', '--allow-empty', '-m', 'start'); g(dir, 'branch', '-M', 'main'); g(dir, 'push', '-q', 'origin', 'main');
+    return dir;
+  };
+  // a new project: the skeleton and the shims written; intake open until the owner's vision, audiences and requirements are in
+  const n = mk({ 'README.md': '# A new idea\n' });
+  const r = N.init({ product: n, mode: 'new', name: 'Idea', repo: 'o/proc', ref: 'main' });
+  assert.ok(['requirements/README.md', 'build/manifest.md', 'build/modules.json', 'build/GRANTS.md', 'build/grants.json'].every((p) => r.written.includes(p)));
+  assert.ok(r.shims.includes('CLAUDE.md') && r.shims.includes('.claude/settings.json'));
+  const st = (c) => Object.fromEntries(c.map((x) => [x.name, x.status]));
+  assert.deepEqual(st(r.check), { intake: 'OPEN', seed: 'DONE', grants: 'OPEN', repository: 'CHECK', architecture: 'OPEN', requirements: 'OPEN', 'first tranche': 'OPEN', handover: 'OPEN' });
+  assert.match(readFileSync(join(n, 'requirements/README.md'), 'utf8'), /## Vision\n\n<!-- onboarding:/);
+  // the owner's words written: intake done; a module and its requirements: architecture and requirements done; nothing overwritten on a second run
+  writeFileSync(join(n, 'requirements/README.md'), '# Idea\n\n## Vision\n\nA place to meet.\n\n## Audiences\n\nNeighbours.\n\n## Initial requirements\n\n1. A list of meetings.\n');
+  writeFileSync(join(n, 'build/modules.json'), JSON.stringify({ modules: [{ id: 'meetings', layer: 1, paths: ['meetings/'], tests: ['meetings/test/'], uses: [] }] }));
+  writeFileSync(join(n, 'build/layers.md'), '# The layers\n\n| layer | name | contract | modules |\n| --- | --- | --- | --- |\n| 1 | Core | x | meetings |\n');
+  mkdirSync(join(n, 'build/requirements')); writeFileSync(join(n, 'build/requirements/meetings.md'), '# meetings\n');
+  const again = N.init({ product: n, mode: 'new', name: 'Idea', repo: 'o/proc', ref: 'main' });
+  assert.ok(again.kept.includes('requirements/README.md') && !again.written.includes('build/modules.json'));
+  assert.deepEqual([st(again.check).intake, st(again.check).architecture, st(again.check).requirements], ['DONE', 'DONE', 'DONE']);
+  // a new project that already holds code is refused: it is converted instead
+  assert.throws(() => N.init({ product: mk({ 'app/main.py': 'print(1)\n' }), mode: 'new', repo: 'o/proc', ref: 'main' }), /--mode convert/);
+  // an existing project: surveyed, one legacy module per code directory, its old CLAUDE.md kept, its files never overwritten
+  const c = mk({ 'CLAUDE.md': '# Old rules\n', 'api/server.js': 'x\n', 'api/test/server.test.js': 'x\n', 'web/app.tsx': 'x\n', 'docs/intro.md': 'x\n', 'tool.py': 'x\n', 'package.json': '{}\n', '.github/workflows/ci.yml': 'x\n' });
+  const cv = N.init({ product: c, mode: 'convert', repo: 'o/proc', ref: 'main' });
+  assert.deepEqual(JSON.parse(readFileSync(join(c, 'build/modules.json'), 'utf8')).modules.map((m) => [m.id, m.legacy, m.paths[0]]), [['api', true, 'api/'], ['web', true, 'web/']]);
+  assert.equal(readFileSync(join(c, 'build/onboarding/CLAUDE-before.md'), 'utf8'), '# Old rules\n');
+  const sv = readFileSync(join(c, 'build/onboarding/survey.md'), 'utf8');
+  assert.match(sv, /`package\.json`/); assert.match(sv, /`api\/test\/`/); assert.match(sv, /`\.github\/workflows\/ci\.yml`/); assert.match(sv, /owned by no module yet[^\n]*`tool\.py`/);
+  assert.equal(st(cv.check).architecture, 'DONE'); assert.equal(st(cv.check).requirements, 'DONE');   // a legacy module carries none until it is extracted
+  assert.throws(() => N.init({ product: c, mode: 'x' }), /--mode new \| convert/);
+  // the onboarding session's start refuses the process repository itself
+  assert.throws(() => N.onboardStart({ product: N.PROCESS, session: L1 }), /not the process repository/);
+  assert.match(N.reading({ role: 'onboard' }).next, /proc onboard start --product/);
+});
+
 test('the grants: proven by `proc grants check` through the proxy, and a tranche opens only while they are held (PERMISSIONS §10)', async () => {
   const w = world(), R = N.repo(w.bob.dir), at = '2026-10-29T17:00:00Z';
   const res = (status, body, headers = {}) => ({ status, text: async () => JSON.stringify(body), headers: { get: (k) => headers[k.toLowerCase()] ?? null } });

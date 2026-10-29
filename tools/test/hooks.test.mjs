@@ -245,3 +245,17 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   assert.deepEqual(r.files.map((x) => x.book).filter(Boolean), ['design', 'governance', 'sessions']);
   assert.match(r.next, /proc process start --branch/);
 });
+
+test('an onboarding session pushes only the project\'s onboard branch, opens and merges the seed pull request, and starts no session (ONBOARDING §1)', () => {
+  const ctx = { role: 'onboard', branch: 'onboard', session: L1, root: '/nowhere', product: '../p' };
+  const pre = (input) => preReason('onboard', input, ctx);
+  assert.equal(preReason(null, bash('node tools/proc.mjs onboard start --product ../p --session s'), {}), null);
+  assert.equal(pre(bash('git -C ../p push -u origin onboard')), null);
+  assert.match(pre(bash('git -C ../p push origin HEAD:main')), /nothing is pushed to main/);
+  assert.match(pre(bash('git -C ../p push origin tranche')), /onboarding session pushes only onboard/);
+  assert.equal(pre(tool(`${GH}create_pull_request`, {})), null);
+  assert.equal(pre(tool(`${GH}merge_pull_request`, {})), null);
+  assert.match(pre(tool(`${REMOTE}create_session`, { title: 'ROOT #1' })), /starts no session/);
+  assert.equal(stopReason('onboard', ctx), null);
+  assert.match(contextReason('onboard', 600_000, ctx, 1_000_000), /proc init --check/);
+});

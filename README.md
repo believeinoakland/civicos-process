@@ -11,6 +11,7 @@ A development process for any software product: its principles, its rulebooks, i
 | `SESSIONS.md` | models and effort, the goal, reading sets and their budgets, the worker brief, ROOT's turn |
 | `DESIGN-STAGE.md` | how a lane's decision becomes a canon section, a rule or a requirement |
 | `PERMISSIONS.md` | how a refused act is predicted, routed and counted; Bob's standing approval; `permissions.json` and `tools/acts.md` |
+| `ONBOARDING.md` | bringing a project under the process: a new one from its vision, audiences and first requirements, or an existing one converted (`proc init`) |
 | `GRANTS.md` | every grant the work needs, gathered at one sitting before it starts and held to its end (`proc grants check`) |
 | `PRODUCT-SUPPLIES.md`, `SETUP-STEPS.md` | what a product supplies; Bob's one setup act per repository |
 | `PROCESS-MECHANICS.md` | the index: which text governs what, and what none of them says |

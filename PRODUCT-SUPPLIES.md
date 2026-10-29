@@ -1,6 +1,6 @@
 # What a product supplies to neoProcess
 
-**Status** · In force from 2026-10-29, certified on the dry run N1 (`dryrun/N1/CERTIFICATION.md`; the run and its flaws, `lane-neoprocess/DRYRUN.md`). Drafted, neoProcess #1, 2026-10-29. Names (Bob, 29 Oct): the process is neoProcess and its repository `neoProcess`; the `civicos` moniker is retired; the process names no product. The checklist every product fills in; everything else comes from the process repository (P2). The dry run's toy product (`dryrun/`) is the first "second project": it fills this list with the smallest possible product, and certifying the process on it is also the proof that the process is product-independent.
+**Status** · In force from 2026-10-29, certified on the dry run N1 (`dryrun/N1/CERTIFICATION.md`; the run and its flaws, `lane-neoprocess/DRYRUN.md`). Drafted, neoProcess #1, 2026-10-29. Names (Bob, 29 Oct): the process is neoProcess and its repository `neoProcess`; the `civicos` moniker is retired; the process names no product. The checklist every product fills in, started for it by `proc init` (ONBOARDING.md); everything else comes from the process repository (P2). The dry run's toy product (`dryrun/`) is the first "second project": it fills this list with the smallest possible product, and certifying the process on it is also the proof that the process is product-independent.
 
 | the product supplies | where | written by | notes |
 |---|---|---|---|
