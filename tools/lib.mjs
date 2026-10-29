@@ -1,0 +1,313 @@
+// The shared functions of the process tool (tools/proc.mjs), its hooks (tools/hooks.mjs) and the checks' gate (`proc gate`,
+// run by CI on every pull request): the plan's entries, the history a merge needs, the module list, the generated
+// artifacts, the test runs and their reds, the checks a module answers for, a report's Evidence section and the steps for
+// Bob verified against their source (P20). Moved from the old tool and its hooks at the commit point
+// (lane-neoprocess/COMMIT-POINT.md, step 1), each copied verbatim with the private helpers it needs and nothing else.
+import { execFileSync, spawnSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, openSync, closeSync } from 'node:fs';
+import { totalmem, availableParallelism } from 'node:os';
+import { join, dirname, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { artifactRows } from '../checks/lib.mjs';
+
+const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+class Refused extends Error {}
+const refuse = (msg) => { throw new Refused(msg); };
+
+// ---- git and files ----
+
+export function repo(product) {
+  const dir = resolve(product || '.');
+  const root = execFileSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  const g = (args, quiet = true) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', quiet ? 'ignore' : 'inherit'], maxBuffer: 64 << 20 }).trim();
+  const rel = (p) => relative(root, join(dir, p)) || '.';
+  const read = (p) => { const f = join(dir, p); return existsSync(f) ? readFileSync(f, 'utf8') : null; };
+  const write = (p, text) => { const f = join(dir, p); mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, text); };
+  const remote = (branch, p) => { try { return g(['show', `origin/${branch}:${rel(p)}`]); } catch { return null; } };
+  const fetch = (...branches) => { for (const b of branches) { try { g(['fetch', '-q', 'origin', `+refs/heads/${b}:refs/remotes/origin/${b}`]); } catch { /* absent */ } } };
+  const branch = () => g(['rev-parse', '--abbrev-ref', 'HEAD']);
+  return { dir, root, g, rel, read, write, remote, fetch, branch };
+}
+// A cloud session starts on a shallow clone (its last 50 commits); older history stays on the remote and is fetched
+// only when a step needs it: where two lines of work split (bio's full-history download at session start is retired,
+// lane HANDOFF R8). Deepens the clone until `a` and `b` have a merge base, then returns it (null: no common history).
+export function history(R, a, b) {
+  const base = () => { try { return R.g(['merge-base', a, b]); } catch { return null; } };
+  const named = [a, b].filter((x) => x.startsWith('origin/'));
+  const refs = named.map((x) => `+refs/heads/${x.slice(7)}:refs/remotes/${x}`);
+  // Deepening adds history; it never moves a ref the session already holds (D25: it had moved a pinned origin/main).
+  const held = Object.fromEntries(named.map((x) => { try { return [x, R.g(['rev-parse', '--verify', '-q', `refs/remotes/${x}`])]; } catch { return [x, null]; } }));
+  const keep = () => { for (const [x, sha] of Object.entries(held)) if (sha) R.g(['update-ref', `refs/remotes/${x}`, sha]); };
+  for (let depth = 200; ; depth *= 5) {
+    const found = base();
+    if (found || R.g(['rev-parse', '--is-shallow-repository']) !== 'true') return found;
+    if (depth > 125000) R.g(['fetch', '-q', '--unshallow', 'origin', ...refs]);
+    else R.g(['fetch', '-q', `--deepen=${depth}`, 'origin', ...refs]);
+    keep();
+  }
+}
+export function modules(R) {
+  const all = JSON.parse(R.read('build/modules.json') || '[]');
+  return Array.isArray(all) ? all : all.modules;
+}
+
+// ---- the plan ----
+
+// The entries of one module in one layer of the running round's plan.
+export function entriesOf(planText, layer, m) {
+  const sec = planText.split(/^## /m).find((s) => s.startsWith(`Layer ${layer}`)) || '';
+  const block = sec.split(/^\*\*/m).find((b) => b.startsWith(`${m}**`));
+  return block ? block.slice(m.length + 2).trim() : '';
+}
+
+// ---- generated artifacts ----
+
+// The product's generated artifacts: rows of the manifest's table `| \`<path>\`[, \`<path>\`…] | <owner> | \`<regenerate>\` | \`<verify>\` |`,
+// run in the table's order from the product's root. A manifest with a "Generated artifacts" section and no such row is
+// refused, so a table in another form never passes as "nothing to regenerate".
+export function artifacts(R) {
+  const text = R.read('build/manifest.md') || '';
+  const rows = artifactRows(text);
+  if (!rows.length && /^## Generated artifacts/m.test(text)) refuse('build/manifest.md has a Generated artifacts section but no row `| `<path>` | <owner> | `<regenerate>` | `<verify>` |` (mechanics §14)');
+  return rows.map((r) => ({ ...r, path: r.paths.join(', ') }));
+}
+// A job's own run (tests and checks) sees the generated artifacts as its merge will make them: each is regenerated in
+// the working tree, the run made, and every artifact path put back to HEAD, so a job never commits one (mechanics §14;
+// a new word key read by its test resolves before the merge regenerates the rows, bio K5583, BOB #327).
+export function withArtifacts(R, fn) {
+  const list = artifacts(R), paths = list.flatMap((a) => a.paths);
+  for (const a of list) spawnSync('sh', ['-c', a.regen], { cwd: R.dir, encoding: 'utf8' });
+  try { return fn(); } finally {
+    // paths from the repository root, untrimmed (a porcelain line starts with its status columns)
+    const moved = rawGit(R.root, ['status', '--porcelain', '--untracked-files=all', '--', ...paths.map(R.rel)]).split('\n').filter(Boolean).map((l) => l.slice(3));
+    const tracked = moved.filter((f) => spawnSync('git', ['-C', R.root, 'cat-file', '-e', `HEAD:${f}`]).status === 0);
+    if (tracked.length) R.g(['checkout', '-q', 'HEAD', '--', ...tracked]);
+    for (const f of moved.filter((x) => !tracked.includes(x))) spawnSync('rm', ['-rf', '--', join(R.root, f)]);
+  }
+}
+const rawGit = (dir, args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', maxBuffer: 1 << 28 }).stdout || '';
+const run = (cmd, args, cwd) => spawnSync(cmd, args, { encoding: 'utf8', cwd, maxBuffer: 1 << 28 });
+const lastLine = (r) => `${r.stdout || ''}${r.stderr || ''}`.trim().split('\n').pop();
+// ---- test runs (lane HANDOFF R14: a run that gives no result says why; a runaway test fails itself) ----
+
+// This process's memory cgroup (v2 or v1): the memory every process shares, and its count of OOM kills (null if unread).
+export function memory() {
+  const rd = (p) => { try { return readFileSync(p, 'utf8'); } catch { return null; } };
+  const cg = rd('/proc/self/cgroup') || '';
+  const v1 = cg.match(/^\d+:(?:[^:\n]*,)?memory(?:,[^:\n]*)?:(\S*)$/m)?.[1], v2 = cg.match(/^0::(\S*)$/m)?.[1];
+  const dir = v1 !== undefined && existsSync('/sys/fs/cgroup/memory') ? join('/sys/fs/cgroup/memory', v1) : v2 !== undefined ? join('/sys/fs/cgroup', v2) : null;
+  const limits = [];
+  for (let d = dir; d && d.startsWith('/sys/fs/cgroup'); d = dirname(d)) {
+    const n = Number((rd(join(d, 'memory.max')) ?? rd(join(d, 'memory.limit_in_bytes')) ?? '').trim());
+    if (n > 0) limits.push(n);
+    if (d === '/sys/fs/cgroup' || d === '/sys/fs/cgroup/memory') break;
+  }
+  const limit = Math.min(totalmem(), ...limits);
+  const ooms = () => { const t = dir && (rd(join(dir, 'memory.events')) ?? rd(join(dir, 'memory.oom_control'))); const n = t?.match(/^oom_kill (\d+)$/m)?.[1]; return n === undefined ? null : Number(n); };
+  return { limit, ooms };
+}
+// One `node --test` run, its report written to a file (never a pipe), at a file concurrency the memory allows, each test
+// process under a heap cap and, by tools/memwatch.mjs, a memory cap: a process over it is killed and named, so a runaway
+// test fails by itself (lane R14: in bio, 3 files reached 12 GB outside the JS heap and starved their neighbours).
+// Returns the summary, the failed tests, and the results it could not get, each with its cause:
+// { tests, pass, fail, failed, noResult: [{ name, cause }], peaks, heavy, report }.
+export function runSuite(R, files, o = {}) {
+  const mem = memory(), MiB = 1 << 20, heap = Number(o.heapMb) || Math.min(4096, Math.floor(mem.limit / MiB / 4));
+  const conc = Math.max(1, Math.min(availableParallelism() - 1, Math.floor((mem.limit * 0.6) / (heap * MiB))));
+  const cap = Number(o.capMb) || Math.floor((mem.limit * 0.6) / MiB / conc);
+  const dir = join(R.g(['rev-parse', '--absolute-git-dir']), 'civicos-runs'); mkdirSync(dir, { recursive: true });
+  const base = join(dir, `${o.label || 'run'}-${new Date().toISOString().replace(/[:.]/g, '-')}`), report = `${base}.tap`, watchLog = `${base}.mem`;
+  // A clean environment: under a test runner, NODE_TEST_CONTEXT would send the child's report to the parent instead.
+  const env = { ...process.env }; delete env.NODE_TEST_CONTEXT;
+  env.NODE_OPTIONS = `${env.NODE_OPTIONS || ''} --max-old-space-size=${heap}`.trim();
+  const min = Number(o.timeoutMin) || 30, oom0 = mem.ooms();
+  const watch = spawn(process.execPath, [join(PROCESS, 'tools/memwatch.mjs'), String(process.pid), String(cap), watchLog], { stdio: 'ignore' });
+  const out = openSync(report, 'w'), err = openSync(`${base}.err`, 'w');
+  const r = spawnSync('node', ['--test', '--test-reporter=tap', `--test-concurrency=${conc}`, ...files], { cwd: R.dir, env, stdio: ['ignore', out, err], timeout: min * 60000 });
+  closeSync(out); closeSync(err); watch.kill('SIGTERM');
+  const ooms = oom0 === null ? null : mem.ooms() - oom0;
+  const watched = (existsSync(watchLog) ? readFileSync(watchLog, 'utf8').match(/^\{.*\}$/gm) || [] : []).map((l) => JSON.parse(l)).sort((a, b) => b.mb - a.mb);
+  const capped = new Set(watched.filter((x) => x.killed).map((x) => x.file));
+  const text = readFileSync(report, 'utf8'), all = `${text}\n${readFileSync(`${base}.err`, 'utf8')}`;
+  const n = (k) => Number((text.match(new RegExp(`^(?:ℹ|#) ${k} (\\d+)$`, 'm')) || [])[1] ?? NaN);
+  const killedBy = (sig, file) => (file && capped.has(file) ? `over its ${cap} MB memory cap (killed by proc's memory watch)` : sig === 'SIGABRT' && /heap out of memory/.test(all) ? `out of heap (over its ${heap} MB cap)` : sig === 'SIGKILL' && ooms ? 'killed by the memory cgroup (OOM)' : `killed (${sig})`);
+  // A test file whose process died is reported by node as `not ok - <file>` with its signal: not a red but no result.
+  const noResult = [], dead = new Set();
+  for (const x of text.matchAll(/^( *)not ok \d+ - (.+?)(?: # .*)?\n\1 {2}---\n([\s\S]*?)\n\1 {2}\.\.\.$/gm)) {
+    const sig = x[3].match(/^ *signal: '(\w+)'$/m)?.[1];
+    const name = x[2].trim();
+    if (sig) { noResult.push({ name: name.startsWith('/') ? relative(R.root, name) : name, cause: killedBy(sig, name) }); dead.add(name); }
+  }
+  const failed = [...new Set([...text.matchAll(/^\s*not ok \d+ - (.+?)(?: # .*)?$/gm)].map((x) => x[1].trim()))].filter((x) => !dead.has(x));
+  const plan = Number(text.match(/^1\.\.(\d+)$/m)?.[1] ?? NaN), seen = (text.match(/^(?:not )?ok \d+ /gm) || []).length;
+  const res = { tests: n('tests'), pass: n('pass'), fail: n('fail'), failed, noResult, report };
+  // The run as a whole: the runner itself killed, timed out, or its report cut short (no summary, or fewer results than planned).
+  const oomNote = ooms ? `; the memory cgroup killed ${ooms} process(es) for memory during the run` : '';
+  const tail = all.trim().split('\n').filter((l) => l.trim()).slice(-3).join(' | ').slice(0, 300);
+  let whole = null;
+  if (r.error?.code === 'ETIMEDOUT') whole = `timed out after ${min} min`;
+  else if (r.signal) whole = `the runner was ${killedBy(r.signal, '(runner)')}${oomNote}`;
+  else if (Number.isNaN(res.tests) || Number.isNaN(plan) || seen < plan) whole = `report incomplete: ${seen} of ${Number.isNaN(plan) ? '?' : plan} results, exit ${r.status}${oomNote}; its tail: ${tail}`;
+  if (whole) res.noResult.push({ name: 'the whole suite', cause: whole });
+  const show = (x) => `${x.file.startsWith('/') ? relative(R.root, x.file) : x.file} ${x.mb} MB`;
+  res.peaks = watched.slice(0, 3).map(show);
+  res.heavy = watched.filter((x) => x.mb > cap / 2).map(show);
+  return res;
+}
+// A module's tests, every *.test.mjs under its `tests` paths. A report cut short with no kill and no timeout (seen once
+// with --test-force-exit and a piped report, never reproduced; lane R14) is run once more, and says so.
+export function runTests(R, m, o = {}) {
+  const mod = modules(R).find((x) => x.id === m) ?? refuse(`no module ${m} in build/modules.json`);
+  const files = (mod.tests || []).flatMap((p) => R.g(['ls-files', '--', R.rel(p)]).split('\n')).filter((f) => f.endsWith('.test.mjs')).map((f) => join(R.root, f));
+  if (!files.length) return { tests: 0, pass: 0, fail: 0, failed: [], noResult: [], peaks: [], heavy: [] };
+  const first = runSuite(R, files, { ...o, label: m });
+  const cut = first.noResult.find((x) => x.name === 'the whole suite' && /^report incomplete/.test(x.cause) && !/memory cgroup/.test(x.cause));
+  if (!cut) return first;
+  return { ...runSuite(R, files, { ...o, label: `${m}-rerun` }), rerun: `the first run's ${cut.cause.split(';')[0]} (${first.report}); run once more` };
+}
+// What a run did not pass, by name: the failed tests and the results it could not get. Old ones are inherited (R10).
+export const reds = (t) => [...(t.failed || []), ...(t.noResult || []).map((x) => `NO RESULT ${x.name}`)];
+// Old debt never blocks new work, and new work never adds to it (lane HANDOFF R10; the old process's "no new finding in
+// your files"). A failure is judged against the same measure taken on the tranche before the work: only a new one
+// refuses. A check's finding is compared without its line numbers, so a finding that only moved is the same finding.
+const norm = (c, l) => `${c}: ${l.replace(/^FAIL\s+/, '').replace(/:\d+(?::\d+)?\b/g, '').trim()}`;
+const WORDS_TABLE = 'docs/development/ux-substrate/screens/words.json';
+// The checks a module's work answers for (mechanics §8), scoped to the module where the check takes one.
+export function moduleChecks(R, m) {
+  const names = ['format', 'architecture', 'coverage', 'fixtures', ...(existsSync(join(R.dir, WORDS_TABLE)) ? ['words'] : [])];
+  const fails = new Set();
+  for (const c of names) {
+    const r = run('node', [join(PROCESS, `checks/${c}.mjs`), R.dir, ...(c === 'format' ? [] : [m])]);
+    const lines = `${r.stdout}`.split('\n').filter((l) => l.startsWith('FAIL'));
+    for (const l of lines) fails.add(norm(c, l));
+    if (r.status && !lines.length) fails.add(`${c}: ${lastLine(r)}`);
+  }
+  return { names, fails };
+}
+// Every check over the whole product (checks/run.mjs), once per layer close.
+export function allChecks(R) {
+  const r = run('node', [join(PROCESS, 'checks/run.mjs'), R.dir]);
+  const fails = new Set(`${r.stdout}`.split('\n').filter((l) => l.startsWith('FAIL')).map((l) => norm('check', l)));
+  if (r.status && !fails.size) fails.add(`check: ${lastLine(r)}`);
+  return { fails };
+}
+
+// ---- the report's evidence (P20) ----
+
+// P20: a report states what it read or ran. Its `**Evidence**` section (a line starting `**Evidence**`, optionally with the
+// first item after a `·` or `:`) runs to the next line that starts `**` or `#`; each line is an item (a bullet or number
+// marker is dropped). An item counts when it is a command run with its result (a `command` followed by text), a file:line,
+// or a test run with its totals (`3/3`, `pass 3`, `3 pass`, `tests 3`). Returns the items, or null with no section.
+export const EVIDENCE_FORMS = 'a command run with its result line (`cmd` → result), a file:line (src/x.mjs:12), or a test run with its totals (tests 3, pass 3)';
+export const EVIDENCE_ITEM = [/`[^`\n]+`.*\S{3,}/, /[\w./-]+\.\w+:\d+/, /\b\d+\s*\/\s*\d+\b|\bpass(?:ed)?\s*:?\s*\d+|\b\d+\s+pass|\btests?\s*:?\s*\d+/i];
+export function evidenceItems(report) {
+  const lines = String(report || '').split('\n'), i = lines.findIndex((l) => /^\*\*Evidence\*\*/.test(l));
+  if (i < 0) return null;
+  const items = [], first = lines[i].replace(/^\*\*Evidence\*\*\s*[·:]?\s*/, '').trim();
+  if (first) items.push(first);
+  for (const l of lines.slice(i + 1)) {
+    if (/^(\*\*|#)/.test(l)) break;
+    const t = l.replace(/^\s*(?:[-*]|\d+[.)])\s+/, '').trim();
+    if (t) items.push(t);
+  }
+  return items;
+}
+
+// ---- steps for Bob (P20) ----
+
+// A step for Bob is written from the very thing he will use. Every label in the steps set in **bold** or in `backticks`
+// must occur verbatim in at least one source file, after HTML entity decoding (of the source and of the label). A label
+// the steps define themselves (a placeholder) is exempt only when wrapped as <<label>>: `**<<your name>>**`, `<<name>>`.
+// Code spans are read first and masked, so a bold label never contains one. On success the steps text is printed
+// followed by `verified: <n> labels in <sources>` (n = distinct labels checked, exempt ones not counted) and
+// `.git/civicos-steps-ok.json` {sha256, sources, at} is written; the BOB Stop hook (hooks.mjs) lets a numbered list
+// with bold labels end a turn only when that file is under 30 minutes old and its sha256 matches `stepsHash` of the list.
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0', mdash: '—', ndash: '–', hellip: '…', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', middot: '·', copy: '©', times: '×', rarr: '→', larr: '←', bull: '•' };
+export function decodeEntities(t) {
+  return String(t).replace(/&(?:#(\d+)|#[xX]([0-9a-fA-F]+)|([A-Za-z]+));/g, (m, d, h, n) => {
+    if (n) return ENTITIES[n] ?? m;
+    const c = d ? Number(d) : parseInt(h, 16);
+    try { return String.fromCodePoint(c); } catch { return m; }
+  });
+}
+// The labels of a steps text: [{ label, line, exempt }] in order of appearance.
+export function stepLabels(text) {
+  const out = [];
+  String(text).split('\n').forEach((raw, i) => {
+    const note = (label) => { const l = label.trim(); if (l) out.push({ label: l, line: i + 1, exempt: /^<<[\s\S]+>>$/.test(l) }); };
+    let line = raw;
+    for (const m of raw.matchAll(/(?<!`)`([^`\n]+)`(?!`)/g)) { note(m[1]); line = line.replace(m[0], ' '.repeat(m[0].length)); }
+    for (const m of line.matchAll(/\*\*([^*\n]+?)\*\*/g)) note(m[1]);
+  });
+  return out;
+}
+// The numbered list of a text, normalised: its item lines (`1.` or `1)` after optional indentation) and the indented
+// lines that follow them, each with runs of whitespace collapsed to one space and trimmed, blank lines dropped, joined
+// by "\n". Prose between items, and unindented lines, are not part of it. '' when there is no numbered item.
+export function numberedList(text) {
+  const out = []; let in_ = false;
+  for (const raw of String(text).replace(/\r/g, '').split('\n')) {
+    const item = /^\s*\d+[.)]\s+\S/.test(raw);
+    if (item) in_ = true; else if (!in_ || !/^\s+\S/.test(raw)) { in_ = false; continue; }
+    out.push(raw.replace(/\s+/g, ' ').trim());
+  }
+  return out.join('\n');
+}
+// A list is "steps for Bob" when it has at least two numbered items, the first numbered 1, and a **bold** label in it.
+export function isStepsList(text) {
+  const list = numberedList(text), items = list.split('\n').filter((l) => /^\d+[.)]\s/.test(l));
+  return items.length >= 2 && /^1[.)]\s/.test(items[0]) && /\*\*[^*\n]+\*\*/.test(list);
+}
+export const stepsHash = (text) => createHash('sha256').update(numberedList(text) || String(text).replace(/\s+/g, ' ').trim()).digest('hex');
+export const STEPS_OK = 'civicos-steps-ok.json';
+export function stepsCmd(o) {
+  if (typeof o.file !== 'string' || typeof o.source !== 'string') refuse('--file <steps.md> --source <path1,path2,…>');
+  const text = existsSync(o.file) ? readFileSync(o.file, 'utf8') : refuse(`${o.file}: no such steps file`);
+  const sources = o.source.split(',').map((x) => x.trim()).filter(Boolean);
+  if (!sources.length) refuse('--source names no file');
+  const hay = sources.map((f) => (existsSync(f) ? decodeEntities(readFileSync(f, 'utf8')) : refuse(`${f}: no such source file`))).join('\n');
+  const labels = stepLabels(text), missing = [], seen = new Set();
+  for (const l of labels) {
+    if (l.exempt) continue;
+    seen.add(l.label);
+    if (!hay.includes(decodeEntities(l.label))) missing.push(l);
+  }
+  if (missing.length) refuse(`${missing.length} label(s) in ${o.file} not found verbatim in ${sources.join(', ')}:\n${missing.map((l) => `  line ${l.line}: "${l.label}"`).join('\n')}\nwrite the step from the page's or screen's own words; a placeholder the steps define themselves is wrapped as <<label>>`);
+  const R = repo(o.product);
+  writeFileSync(join(R.root, '.git', STEPS_OK), JSON.stringify({ sha256: stepsHash(text), sources, at: new Date().toISOString() }));
+  return `${text.trimEnd()}\n\nverified: ${seen.size} labels in ${sources.join(', ')}`;
+}
+
+// ---- from the old hooks: BOB's last message, and its steps for Bob checked (P20) ----
+
+// BOB's last assistant message (P20). The Stop hook input carries `last_assistant_message` (Claude Code hooks docs, Stop)
+// and `transcript_path` (common field; the docs say the transcript "may lag the in-memory conversation"), so the message
+// is taken from the first when it is a string, else from the transcript: the text blocks of the assistant entries after
+// the last `user` entry. null when neither can be read.
+export function lastAssistantText(input) {
+  if (typeof input.last_assistant_message === 'string') return input.last_assistant_message;
+  if (typeof input.transcript_path !== 'string') return null;
+  let rows; try { rows = readFileSync(input.transcript_path, 'utf8').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch { return null; }
+  const text = [];
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i], m = r.message;
+    if (r.type === 'user' || m?.role === 'user') break;
+    if (r.type !== 'assistant' && m?.role !== 'assistant') continue;
+    const c = m?.content;
+    const t = typeof c === 'string' ? c : Array.isArray(c) ? c.filter((b) => b?.type === 'text').map((b) => b.text).join('\n') : '';
+    if (t) text.unshift(t);
+  }
+  return text.length ? text.join('\n') : null;
+}
+// P20: a numbered list with **bold** labels in BOB's last message is a step for Bob; the turn ends only when
+// `.git/civicos-steps-ok.json` (written by `proc steps`) is under 30 minutes old and its sha256 matches the list.
+export function stepsReason(message, root, now = Date.now()) {
+  if (!message || !isStepsList(message)) return null;
+  let ok = null; try { ok = JSON.parse(readFileSync(join(root, '.git', STEPS_OK), 'utf8')); } catch { /* none */ }
+  const how = 'steps for Bob are sent only as `node tools/proc.mjs steps --file <steps.md> --source <the page or screen code,…>` printed them (P20): run it and send its output unchanged';
+  if (!ok) return `your message has a numbered list with bold labels, but ${how} (no verified steps on record)`;
+  if (!(now - Date.parse(ok.at) < 30 * 60e3)) return `your message has a numbered list with bold labels, but the steps last verified are over 30 minutes old: ${how}`;
+  if (ok.sha256 !== stepsHash(message)) return `your message has a numbered list with bold labels that is not the list \`proc steps\` verified: ${how}`;
+  return null;
+}
