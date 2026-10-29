@@ -74,13 +74,13 @@ ol.steps { margin: 0; padding-left: 24px; display: grid; gap: 8px; max-width: 70
 
 <div class="wrap">
 <header class="top">
-  <div class="eyebrow">Companion to neoProcess · neoProcess #1 · 28 October 2026</div>
+  <div class="eyebrow">Companion to neoProcess · neoProcess #1–#6 · v26 · 29 October 2026</div>
   <h1>Civicsmith on neoProcess</h1>
-  <p class="lede">What the first product supplies to the process, what BOB #333 measured on it today, and the order of work back to T53. Everything here is about <code>believeinoakland/bio</code>; nothing here is a rule of the process.</p>
+  <p class="lede">What the first product supplies to the process, what BOB #333 measured on it on 28 October, and the order of work back to T53. Everything here is about <code>believeinoakland/bio</code>; nothing here is a rule of the process.</p>
 </header>
 
 <section class="status" aria-label="Status">
-  <p><strong>Where the figures come from.</strong> Every measurement on this page is BOB #333's, taken on <code>tranche/T53</code> at <code>e5a5c870</code> and reported in its <a href="https://claude.ai/artifact/J8E73nE7Y4qNczAVPTB5Sn" target="_blank" rel="noopener">Civicsmith Rulebook</a>. This session did not open the product repository; the figures are carried, not verified. The process itself is on the <a href="https://claude.ai/artifact/7Jghdu6JV3beK58dkZKPsd" target="_blank" rel="noopener">neoProcess page</a>.</p>
+  <p><strong>Where the figures come from.</strong> Every measurement on this page is BOB #333's, taken on <code>tranche/T53</code> at <code>e5a5c870</code> and reported in its <a href="https://claude.ai/artifact/J8E73nE7Y4qNczAVPTB5Sn" target="_blank" rel="noopener">Civicsmith Rulebook</a>. This session did not open the product repository; the figures are carried, not verified. The process itself is on the <a href="https://claude.ai/artifact/7Jghdu6JV3beK58dkZKPsd" target="_blank" rel="noopener">neoProcess page</a>. It has been in force since 29 October, certified on a dry run on a toy repository, not on Civicsmith (neoProcess §9); every figure here is from before that.</p>
 </section>
 
 <section>
@@ -105,7 +105,7 @@ ol.steps { margin: 0; padding-left: 24px; display: grid; gap: 8px; max-width: 70
 </section>
 
 <section>
-  <h2><span class="n">2</span>What BOB #333 measured today</h2>
+  <h2><span class="n">2</span>What BOB #333 measured on 28 October</h2>
   <div class="kpis">
     <div class="kpi"><div class="n">5,782</div><div class="l">rulings in 34 days (4.7 MB), about 650 naming Bob</div></div>
     <div class="kpi"><div class="n">8.1 MB</div><div class="l">module requirements in 191 files; median 36 KB, 55 over 50 KB</div></div>
@@ -130,14 +130,14 @@ ol.steps { margin: 0; padding-left: 24px; display: grid; gap: 8px; max-width: 70
 <section>
   <h2><span class="n">3</span>The order of work</h2>
   <ol class="steps">
-    <li>You decide what is yours on the neoProcess page (its §8), and the stop on product work stays until step 6.</li>
+    <li>The process on the neoProcess page is in force since 29 October (its §9); the stop on product work stays until step 6.</li>
     <li><strong>Codify.</strong> For each area, a worker reads that area's sources whole and drafts its rulebook, accounting for every ruling in its slice: kept as a rule, folded into a requirement or design, made code, superseded by a named rule, or retired with its reason. BOB reviews every line; you read only the rules that are yours, area by area, rendered.</li>
     <li><strong>Trim the requirements</strong> to what each module does now, so every job can read its own whole (P6). History and citation chains go to the archive.</li>
-    <li><strong>Rebuild the tooling to the rulebooks:</strong> a pull request per job; the gate and the reviewer in CI; the merge queue; start skills that load each role's areas; path-scoped product rules; size limits checked in CI. PROCESS-REPAIR's merge-queue, bundles-out-of-git and R2 work carries straight in.</li>
-    <li><strong>Clean the repository in place.</strong> Screenshots, bundles and finished records leave the working tree; history stays untouched. The repository keeps its address, because every team's copy checks <code>believeinoakland/bio</code>'s <code>main</code> for update notices and the installer fetches each release from it; a brand-new repository would cut every team off. BOB #333 estimates a 150 MB checkout afterwards, against 723 MB today.</li>
-    <li><strong>Prove it</strong> with a dry run (P3), then resume T53: layer 5's last two jobs, the audit's defects, then layer 6.</li>
+    <li><strong><s>Rebuild the tooling to the rulebooks</s></strong>: done at the commit point, 29 October (neoProcess §9). A pull request per job; the gate and the reviewer in CI; the merge by the tool (<code>tools/proc.mjs</code>, with the hooks <code>tools/hooks.mjs</code>), since GitHub offers a merge queue only to an organization's repository; one skill, <code>neoprocess</code>, that loads each role's areas; path-scoped product rules; size limits checked in CI. PROCESS-REPAIR's bundles-out-of-git and R2 work carries straight in.</li>
+    <li><strong>Clean the repository in place.</strong> Screenshots, bundles and finished records leave the working tree; history stays untouched. The repository keeps its address, because every team's copy checks <code>believeinoakland/bio</code>'s <code>main</code> for update notices and the installer fetches each release from it; a brand-new repository would cut every team off. A rename to <code>civicsmith</code>, when you choose, keeps them working, because GitHub redirects a renamed repository. BOB #333 estimates a 150 MB checkout afterwards, against 723 MB on 28 October.</li>
+    <li><strong><s>Prove it</s></strong> with a dry run (P3): done 29 October on the toy repository, 40 rows proven, 21 flaws found and fixed with tests (neoProcess §9). Then the two rulesets on this repository, yours, once (SETUP-STEPS); then resume T53: layer 5's last two jobs, the audit's defects, then layer 6.</li>
   </ol>
-  <p style="margin-top:12px">BOB #333's estimate is about a week of elapsed time, not measured. The merge queue also answers most of the waiting your slowdown analysis measured: finished jobs queued for BOB to merge by hand.</p>
+  <p style="margin-top:12px">BOB #333's estimate is about a week of elapsed time, not measured. The merge at each job's completion, one tool command after the gate, also answers most of the waiting your slowdown analysis measured: finished jobs queued for BOB to merge by hand.</p>
 
   <h3>Decisions here</h3>
   <div class="decisions">
@@ -165,6 +165,7 @@ ol.steps { margin: 0; padding-left: 24px; display: grid; gap: 8px; max-width: 70
   <h2><span class="n">4</span>Sources</h2>
   <ol class="sources">
     <li>BOB #333, <a href="https://claude.ai/artifact/J8E73nE7Y4qNczAVPTB5Sn" target="_blank" rel="noopener">Civicsmith Rulebook</a>, 28 Oct 2026, read whole: every figure, the audit table, the product areas and the order of work are from it.</li>
+    <li><code>lane-neoprocess/DRYRUN.md</code>, 29 Oct 2026, for the dry run and the commit point named in §3.</li>
     <li>The audit's full report, which BOB #333 cites and this session has not seen.</li>
     <li>Your analysis, <a href="https://claude.ai/artifact/Rw9FsHdPS7muc68mDtKzVW" target="_blank" rel="noopener">Civicsmith Merge Slowdown</a>, as BOB #333 cites it.</li>
   </ol>
