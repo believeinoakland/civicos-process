@@ -10,15 +10,15 @@
 
 ## Where things stand
 
-The dry run N1 runs on `believeinoakland/neoprocess-dryrun` (public, Bob's personal account; its rulesets and `main` settled; log DRYRUN §5): 32 rows PROVEN; BOB #2 (`session_01RAN5emQV3q3LnPm2Ft8oMN`, at ~36 %) closes it: A4 decided by #5 as the toy's owner (DRYRUN §4.15), the fold, stats' job, the layer, round and epoch close, the close PR to `main`. BOB #2 reports to the lane by message; the lane (parent of every BOB) archives a BOB and sends its usage for `neo bob archived`. Fifteen flaws found by the run are fixed with tests (DRYRUN §4); suite green (288). Decided 29 Oct: no merge queue, the tool merges (JOB-LIFE §1, §6); no session deletes a branch (prune.yml); a BOB's goal counts a wait as met; `ask route --bob` needs DES 1's test; a turn never ends waiting on Bob.
+The dry run N1 runs on `believeinoakland/neoprocess-dryrun` (public, Bob's personal account; log DRYRUN §5). BOB #3 (`session_01RAN5emPdCiSTDkQW4nz7cb`, started by #6 at 14:24Z on `tranche` @ 35e4920) closes it: the completion round R2 is closed; the lanes' archives, `tranche close`, the close PR to `main`, `tranche merged`, `epoch close`; rows P20, J10, D4, X3 and X1's last acts. The rows proven after the merge are written by the lane in `dryrun/N1/CERTIFICATION.md` here (nothing is pushed to `tranche` once `main` holds it). BOB #2 handed off at 67 % and is idle; its archive was refused to #6 by the classifier (Bob's); its row is from `get_session` (sent to BOB #3). Eighteen flaws fixed with tests (DRYRUN §4: 16 the last BOB's row, `bob archived --tranche`; 17 every role's Stop hook enforces its context threshold; 18 a BOB's goal counts its handoff as met); suite green (289). REP 9–10 and GOV 9 rewritten for the permissions as built. Commit point step 1 (`neo` → `proc`) is being prepared by a worker in a worktree, not pushed: merged only after the run closes.
 
 ## What remains, in order
 
-1. **The run's close**: BOB #2's report, then archive it and keep its usage: the final BOB's row has no home after the merge (`bob archived` writes `tranche`, which is closed): record it in DRYRUN §5 and fix the tool at the commit point (flaw 16). Then `CERTIFICATION.md` from the toy's `main` into `dryrun/N1/`.
-2. **The commit point** (`COMMIT-POINT.md`, eight steps): only after the run closes, since the toy follows this branch. Step 5's reader is done: `mechanics-citations.md` (156 citations in 45 files; §5.1, §5.6, §5.9, §11, §12, §12.5 never cited; four stale ones; `roles/` cites nothing by number).
-3. **Permissions**: REP 9–10 and GOV 9 rewritten for the permissions as built (PERMISSIONS §8); rows X1–X8 from the toy's certification.
+1. **The run's close**: BOB #3's report; archive BOB #3 (#6 created it) and record its row in DRYRUN §5 (no next tranche on the toy); write the post-merge rows into `dryrun/N1/CERTIFICATION.md` from the toy's `main`, with their evidence.
+2. **The commit point** (`COMMIT-POINT.md`): step 1 from the worker's commit, then steps 2–8. `mechanics-citations.md` is step 5's input.
+3. **Permissions**: rows X1–X8 from the toy's certification into PERMISSIONS §4 and acts.md.
 4. **The page** (v25) final at the commit point.
 
 ## Acts only Bob can take (nothing waits on them)
 
-A repository's two rulesets, once (SETUP-STEPS); the Claude app's access to a new repository; a ROOT on a new account at a move; the renames; archiving #2–#5 on their accounts; the toy's `seed-*`/`probe-*` branches.
+A repository's two rulesets, once (SETUP-STEPS); the Claude app's access to a new repository; a ROOT on a new account at a move; the renames; archiving #2–#5 and the dry run's BOB #2 (`session_01RAN5emQV3q3LnPm2Ft8oMN`, refused to #6); the toy's `seed-*`/`probe-*` branches.
