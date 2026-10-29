@@ -25,4 +25,4 @@ What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-
 
 ## Acts only Bob can take (all at the one sitting)
 
-(Done 29 Oct: this repository's settings hold the standing list, on his words.) The Claude GitHub app on all the account's repositories; the process's GitHub token and each service token as network secrets; the environment's hosts. When he chooses: the renames, the proposed principles, server-managed lists. Archiving old sessions is not needed.
+(Done 29 Oct: this repository's settings hold the standing list, on his words; the Claude GitHub app already reaches every repository, he says.) the process's GitHub token and each service token as network secrets; the environment's hosts. When he chooses: the renames, the proposed principles, server-managed lists. Archiving old sessions is not needed.
