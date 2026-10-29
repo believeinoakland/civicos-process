@@ -1,0 +1,37 @@
+name: repo setup
+# PERMISSIONS §9: a development repository and its two rulesets, made by `proc repo setup` on GitHub's runner with the
+# process's own token, the repository secret NEOPROCESS_GITHUB_TOKEN (Bob's one act, set once; SETUP-STEPS). A cloud
+# session cannot do it (measured 29 Oct #8: the agent proxy binds the GitHub API to the session's repositories and
+# refuses settings writes), so `proc repo setup` from a session prints this workflow's dispatch, as `proc merged`
+# prints prune.yml's (REP 4). The inputs reach the command through the environment, never spliced into the script.
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "owner/name of the development repository to create and configure"
+        required: true
+      private:
+        description: "true for a private repository; the process's own are public"
+        required: false
+        default: "false"
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: the repository and its two rulesets, read back active (PERMISSIONS §9)
+        env:
+          NEOPROCESS_GITHUB_TOKEN: ${{ secrets.NEOPROCESS_GITHUB_TOKEN }}
+          REPO: ${{ inputs.repo }}
+          PRIVATE: ${{ inputs.private }}
+        run: |
+          if [ -z "$NEOPROCESS_GITHUB_TOKEN" ]; then
+            echo "the repository secret NEOPROCESS_GITHUB_TOKEN is not set: Bob's one act (PERMISSIONS §9; the steps are in SETUP-STEPS.md)"
+            exit 1
+          fi
+          flag=""
+          if [ "$PRIVATE" = "true" ]; then flag="--private"; fi
+          node tools/proc.mjs repo setup --repo "$REPO" $flag --product .
