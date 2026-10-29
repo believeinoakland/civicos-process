@@ -1,0 +1,31 @@
+K16 | P17 (PROCESS-DESIGN.md P17) | P17 · kept as rule 1 (the split of who decides; restated by K2055)
+K2055 | mechanics §2, §7 (PROCESS-MECHANICS.md:36, 185-200) | P17 · kept as rules 1 and 4 (Bob's list; explanation, options, recommendation)
+K5036 | mechanics §7 (PROCESS-MECHANICS.md:192) | P17 · kept as rules 1 and 10 (a text that changes no principle is BOB's); supersedes K1258's and K2020's approval of mechanics text by Bob
+K1258 | P16 (PROCESS-DESIGN.md P16) | P16 · kept as rule 10 (principle change only after Bob saw the exact change rendered); narrowed by K5036 to principles and YOURS rules
+K1437 | mechanics §7 (PROCESS-MECHANICS.md:185-200) | P17 · kept as rule 2 (sort by P17: BOB's if it follows from canon and rulings or is technical)
+K2009 | mechanics §7 | P15 · kept as rule 2 (a question Bob already answered is not asked again; no inherited "for Bob" label)
+K1913 | - | P15 · folded (already in rule 2 through K2009)
+K1257 | mechanics §7 (PROCESS-MECHANICS.md:192) | P4 · folded (already in rule 1 and mechanics §7: module boundaries are BOB's)
+K2008 | rulings-active.md:6 | P17 · folded (already in rule 1; packaging is BOB's)
+K1762 | rulings-active.md:7 | P15 · folded (already in rulings-active §1: Bob's ruling in his words; a Rulings-area matter, not Design)
+K3540 | rulings-active.md:9 | P17 · folded (already in rulings-active §1; an unconfirmed point about Anthropic's terms is never brought to Bob; covered by rule 2 only as "BOB's")
+K3466 | rulings-active.md:8 | P17 · folded (already in rule 1: no technical steps and no approval requests to Bob)
+K3600 | rulings-active.md:8 | P17 · folded (already in rule 1: no approval requests to Bob)
+K2010 | - | P17 · retired (withdrawn by K2020: no question register, no process change)
+K2020 | - | P17 · retired (confirms K2010 withdrawn; no rule)
+K592 | - | P17 · superseded by DESIGN-STAGE.md:11-15 (a lane writes its own area's canon design on the tranche branch; K592's "never writes canon" no longer holds; its "starts no jobs or sessions" and "hands BOB its drafts" stand in rules 3 and 6)
+K945 | mechanics §13.1 (PROCESS-MECHANICS.md:266) | P17 · folded (already in mechanics §13.1 item 5: the UX stream's DECs are cited, folded once on `main`; cross-account channel, an Integration/Channel matter, not a Design rule)
+K438 | - | P15 · retired (a practice for one page, the UX substrate page; no rule)
+K1251 | mechanics §7 | P5 · folded (already in rule 1 and mechanics §7: what a service means is Bob's, its packaging BOB's)
+K5334 | PROTOCOL.md:11 (R5) | P13 · folded (already in the lane protocol: BOB defines a lane; not a Design rule)
+K5335 | - | P3 · folded (certification of the redesign; DESIGN-STAGE.md:34 states the dry run for this area)
+§3 | PROCESS-MECHANICS.md:56-72 | P5 · folded (requirements format: public and private parts, ids; rule 6 cites only that BOB writes a requirement with the canon section cited)
+§7 | PROCESS-MECHANICS.md:185-200 | P17 · kept as rules 1, 2, 7, 8 (BOB resolves; Bob's list; wording-only change is BOB's; a service change reaches every user module); its "otherwise in `next.md`" is superseded by DESIGN-STAGE.md:26 (running job, START, completion round, P10, P19)
+DESIGN-STAGE §1 | DESIGN-STAGE.md:7-15 | P5, P15 · kept as rules 5 and 6 (three homes, who writes each)
+DESIGN-STAGE §2 | DESIGN-STAGE.md:17-26 | P5, P10, P15 · kept as rules 7 and 8 (write before the answer; NEEDS BOB; entries to user modules); step 1 `proc ask decided` coded in the protocol
+DESIGN-STAGE §3 | DESIGN-STAGE.md:28-30 | P15 · kept as rule 9 (decisions.md line; cite L-id, not a ruling number)
+DESIGN-STAGE §4 | DESIGN-STAGE.md:32-34 | P9, P15 · kept as rules 3 and 9 (a lane's own question goes to BOB; Bob's direct direction is a `Bob` line)
+PROTOCOL §4 | PROTOCOL.md (section "How BOB routes") | P17 · kept as rule 2 (answer, ask a lane, bring to Bob; the route written with a reason)
+PROTOCOL §5 | PROTOCOL.md (section "Translation, both ways") | P20 · kept as rules 3 and 5 (question in the lane's terms; DECISION parts); the reply in the requester's terms is in rule 7
+PROTOCOL §1, §9 | PROTOCOL.md (sections "One address", "Tool and hooks") | P16 · coded (the lane's PreToolUse hook refuses `send_message` to any address but BOB's: rule 3; `proc ask route|decided|close`: rules 2, 5, 7, 8)
+Unresolved: (1) rule 9's `decisions.md` line has no check named in the files I read; I tagged it TEXT. A check that each cited `L-<ID>-<n>` exists would make it CODE, and that is for BOB to decide. (2) Rules 4 and 8 name `NEEDS BOB` as an ask status that `proc status` lists and `proc ask close` refuses to close without Bob's decision; PROTOCOL.md (Status, section "The ask record", §9) states it, but the commands are drafts not yet built. (3) I drew nothing on "ambiguity in a service" beyond mechanics §7's wording-only clause: P7's rule that BOB updates requirements to remove an ambiguity (PROCESS-DESIGN.md P7) is the Requirements area's, not Design's. (4) Stated limit of the search: I grepped `rulings.md` with broad area words and read only the matching lines, so a ruling that uses none of those words may be missing.

@@ -433,7 +433,8 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   const rj = N.reading({ role: 'job', product: 'toy' });
   assert.deepEqual(rj.files.map((f) => f.book ?? 'principles'), ['principles', 'building', 'integration', 'sessions']);
   assert.match(rj.text, /^=== PROCESS-DESIGN\.md \(\d+ bytes\) ===\n# The process principles/);
-  assert.match(rj.text, /\(not yet written\)/);   // building is not drafted yet
+  assert.doesNotMatch(rj.text, /\(not yet written\)/);   // the ten rulebooks exist; a missing one would print so
+  assert.equal(N.reading({ role: 'bob' }).files.length, 11);   // the principles and all ten
   assert.match(rj.text, /\nNext: read everything above whole \(P20\), then run `neo job start --module <m> --session <your session id> --product toy`/);
   assert.deepEqual(rj.over, []); assert.equal(rj.budget, 26 * 1024);
   assert.equal(N.reading({ role: 'bob' }).budget, 55 * 1024);

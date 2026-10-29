@@ -578,7 +578,9 @@ function nextK(R, T, m) {
 // create_session printed and owed. Layers run lowest first (P10); `--modules` starts late entries of a started layer, and
 // a late entry for a live job is a CHANGE to it. An entries block may read `*(after <m>)*`: its PR stays a draft until m merges.
 export function layerStart(o) {
-  const R = repo(o.product), L = Number(o.layer); if (!L) refuse('--layer <n> [--modules a,b] [--mechanical a,b]');
+  const R = repo(o.product), L = Number(o.layer); if (!L) refuse('--layer <n> [--modules a,b] [--mechanical a,b] [--usage <rate_limit_info.status>]');
+  // A weekly warning is no stop (Bob, K5722); only a status that refuses use stops new jobs, and Bob is told (K5323; rulebook USE 7).
+  if (o.usage && !['allowed', 'allowed_warning'].includes(o.usage)) refuse(`usage status is "${o.usage}": no new job starts; tell Bob in one line (K5323)`);
   on(R, TRANCHE);
   if (unpushed(R).length) refuse(`the tranche checkout is not pushed: ${unpushed(R).join('; ')}`);
   const { id: T, text } = tranche(R), plan = parsePlan(stateRead(R, 'plan.md') || '');

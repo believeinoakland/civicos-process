@@ -22,7 +22,7 @@ A lane answers an ask with a `DECISION` (`PROTOCOL.md` §5): the decision, its r
 
 ## 3. The lane's record
 
-Each lane keeps `build/lanes/<id>/decisions.md` on the tranche branch (durable): one line per decision, `L-<ID>-<n> · <date> · <ask id> · <the decision in one sentence> · <where it is folded>`. A rulebook rule or a requirement cites `L-UX-12`, never a ruling number; the ask file that held the discussion is on the state branch and is thrown away with it, because the decision line and the folded text carry everything that binds (P15).
+Each lane keeps `build/lanes/<id>/decisions.md` on the tranche branch (durable): one line per decision, `L-<ID>-<n> · <date> · <ask id> · <the decision in one sentence> · <where it is folded>`. A rulebook rule or a requirement cites `L-UX-12`, never a ruling number; the ask file that held the discussion is on the state branch and is thrown away with it, because the decision line and the folded text carry everything that binds (P15). For the same reason the product's `build/rulings-active.md` retires at the commit point: a process rule lives in its rulebook, which cites the ruling that set it as its source (the rulebooks' `work/` files account for every active line), and a product ruling of Bob's lives in `build/rulings-product/`; BOB's standing conventions are rules or code (neoProcess #3, 29 Oct).
 
 ## 4. A lane's own question, and Bob's direct input
 
