@@ -247,8 +247,11 @@ test('the epoch closes only when nothing is open, and the state branch is really
   assert.throws(() => N.epochClose(o()), /sessions still live on the state branch: jobs\/alpha\.md/);
   N.stateWrite(R, { 'jobs/alpha.md': '**Status** · ALPHA #1 · session_01AAAAAAAAAAAAAAAAAAAAAAAA · ARCHIVED\n' }, 'alpha archived');
   const ec = N.epochClose(o());
-  assert.equal(ec.epoch, 'E1');
+  assert.equal(ec.epoch, 'E1'); assert.equal(ec.prune.deleted, true);
   assert.deepEqual(R.heads('refs/heads/state/*'), []);
+  // a closed epoch's branch left behind (the proxy's refusal) does not count as open: the next epoch opens beside it
+  g(w.bob.root, 'push', '-q', 'origin', 'HEAD:refs/heads/state/E1');
+  assert.throws(() => N.status(o()), /no epoch is open/);
   assert.match(readFileSync(join(w.bob.dir, 'build/epochs.md'), 'utf8'), /^- E1 · opened \S+ · closed \S+$/m);
   assert.throws(() => N.status(o()), /no epoch is open/);
   assert.equal(N.epochOpen(o()).epoch, 'E2');
@@ -378,6 +381,7 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   assert.throws(() => N.merged(o({ module: 'alpha', sha: g2('rev-parse', 'HEAD') })), /tip [0-9a-f]{7} is not in/);
   g2('fetch', '-q', 'origin'); g2('merge', '-q', '--no-ff', '-m', 'alpha T1 (#11)', 'origin/job/alpha'); g2('push', '-q', 'origin', 'HEAD:tranche');   // GitHub's merge of the PR
   const md = N.merged(o({ module: 'alpha', sha: g2('rev-parse', 'HEAD') }));
+  assert.deepEqual(md.prune, { ref: 'job/alpha', deleted: true });   // a bare origin allows the delete; the proxy prints the prune dispatch instead
   assert.equal(md.send.session_id, J1); assert.match(md.send.message, /^MERGED: alpha is on tranche at [0-9a-f]{7} \(PR #11\)/);
   assert.deepEqual(md.ready.map((r) => [r.module, r.mark.pullNumber, r.mark.draft]), [['beta', 12, false]]);
   assert.deepEqual(R.heads('refs/heads/job/*'), ['job/beta']);   // the merged branch is gone
@@ -420,10 +424,13 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
 
   // a CHANGE after the merge re-opens alpha on a fresh branch and PR, in its session
   assert.throws(() => N.jobReopen(o({ module: 'beta', changeFile: f(w.base, 'c0.md', 'x\n') })), /begins CHANGE/);
+  g2('push', '-q', 'origin', `${g2('rev-parse', 'HEAD^2')}:refs/heads/job/alpha`);   // as if the proxy had refused the merged branch's delete (R-BOB-1-2)
   const ro = N.jobReopen(o({ module: 'alpha', changeFile: f(w.base, 'c1.md', 'CHANGE: R6 now also says twice(-0) is -0; prove it.\n') }));
+  assert.equal(g2('rev-parse', 'origin/job/alpha^1'), g2('rev-parse', 'HEAD^2')); assert.equal(g2('rev-parse', 'origin/job/alpha^2'), g2('rev-parse', 'HEAD'));
+  assert.equal(g2('rev-parse', 'origin/job/alpha^{tree}'), g2('rev-parse', 'HEAD^{tree}'));
+  assert.equal(g2('diff', '--stat', 'origin/tranche...origin/job/alpha'), '');
   assert.equal(ro.send.session_id, J1); assert.match(ro.pr.body, /^START ALPHA #1 · T1 · re-opened after its merge · module alpha\nEntries:\nCHANGE: R6/);
   assert.deepEqual(R.heads('refs/heads/job/*'), ['job/alpha']);
-  assert.equal(g2('rev-parse', 'origin/job/alpha~1'), g2('rev-parse', 'HEAD'));
   assert.equal(g2('log', '-1', '--format=%s', 'origin/job/alpha'), 'ALPHA #1 re-opens: T1, module alpha');
   assert.deepEqual(N.status(o()).owed, ['open PR alpha']);
   assert.equal(N.jobState(o({ module: 'alpha' })).state, 'REOPENED');
@@ -500,7 +507,8 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   assert.deepEqual(N.sizes(R, ['alpha', 'nope']), []);
   // shims: the three files written from here; a hand edit is drift; CLAUDE.md under thirty lines
   const sh = N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane' });
-  assert.deepEqual(sh.written.sort(), ['.claude/settings.json', '.claude/skills/neoprocess/SKILL.md', '.github/workflows/gate.yml', 'CLAUDE.md']);
+  assert.deepEqual(sh.written.sort(), ['.claude/settings.json', '.claude/skills/neoprocess/SKILL.md', '.github/workflows/gate.yml', '.github/workflows/prune.yml', 'CLAUDE.md']);
+  assert.match(readFileSync(join(w.bob.root, '.github/workflows/prune.yml'), 'utf8'), /workflow_dispatch:[\s\S]*git push origin --delete "\$r"/);
   const standing = JSON.parse(readFileSync(join(HERE, '..', '..', 'permissions.json'), 'utf8')), written = JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).permissions;
   assert.deepEqual([written.allow, written.deny], [standing.allow, standing.deny]);   // the standing list, allow and deny, applied (PERMISSIONS §2.4, §8.2)
   assert.ok(standing.deny.some((r) => /force/.test(r)) && !standing.allow.some((r) => /^Bash\(\*\)|^Agent$/.test(r)));   // the safety rules denied; no broad rule Auto would drop

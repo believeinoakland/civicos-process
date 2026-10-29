@@ -60,7 +60,7 @@ One row per path PROTOCOL §10, JOB-LIFE §13 and DESIGN-STAGE §5 name. A row i
 | --- | --- | --- | --- | --- |
 | X1 | every row of the act table (`tools/acts.md`) tried in its role and relation, passing | the whole run | the table's measured column, each row naming its event | PLANNED |
 | X2 | a classifier refusal recorded by `neo refused`, listed by `neo status`, routed to the party whose relation passes | BOB archives a session it did not create (induced) | the state-branch line; the metrics row; the archive by the parent | PLANNED |
-| X3 | the state-branch delete through the git proxy | `neo epoch close` | the branch gone, or the proxy's refusal and the design settled | PLANNED |
+| X3 | a `state/*` or merged `job/*` branch deleted by the product's prune workflow, dispatched as `neo` prints it (the proxy refuses every ref delete: measured 29 Oct #5, R-BOB-1-2) | `neo merged`, `neo epoch close` | the workflow run; `git ls-remote` without the branch | PLANNED |
 | X4 | the toy's `.claude/settings.json` written by `neo shims` at seeding | the seed | the commit, or the classifier's refusal and Bob's commit | PLANNED |
 | X5 | a standing-list rule honoured where a permission prompt would otherwise stop a session | a job's act the list names | the act taken with no prompt | PLANNED |
 | X6 | `autoMode.allow` in the product's settings honoured by a cloud session in Auto | a job's routine act in Auto | the act taken with no classifier block | PLANNED |

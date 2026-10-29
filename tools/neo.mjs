@@ -97,11 +97,20 @@ const writeRole = (R, rec) => writeFileSync(join(R.root, '.git', ROLE_FILE), JSO
 
 // ---- the state branch (PROTOCOL §7d): an orphan, written by plumbing, one writer per file ----
 
-// The one state branch on origin. Exactly one exists between two transitions; none means no epoch is open.
+// A remote branch deleted from here when the proxy allows it (a bare fixture does), else by the product's prune
+// workflow (`.github/workflows/prune.yml`, written by shims; REP 4), whose dispatch is printed as the act owed.
+export function pruneRef(R, ref) {
+  const r = spawnSync('git', ['-C', R.root, 'push', '-q', 'origin', `:refs/heads/${ref}`], { encoding: 'utf8' });
+  if (r.status === 0) { try { R.g(['update-ref', '-d', `refs/remotes/origin/${ref}`]); } catch { /* none */ } return { ref, deleted: true }; }
+  return { ref, deleted: false, dispatch: { tool: 'actions_run_trigger', ...ghRepo(R), workflow_id: 'prune.yml', ref: 'main', inputs: { ref } }, why: `the proxy refused the delete: ${(r.stderr || '').trim().split('\n').pop() || 'no reason given'}` };
+}
+// The one open state branch on origin: a `state/*` head whose epoch the log does not record closed (a closed epoch's
+// branch may linger until the prune workflow deletes it). None means no epoch is open.
 export function epoch(R) {
-  const all = R.heads('refs/heads/state/*');
-  if (all.length > 1) refuse(`more than one state branch on origin (${all.join(', ')}): close the old epoch first`);
-  return all[0]?.slice('state/'.length) ?? null;
+  const closed = new Set([...(R.read('build/epochs.md') || '').matchAll(/^- (E\d+) · opened \S+ · closed /gm)].map((x) => x[1]));
+  const all = R.heads('refs/heads/state/*').map((b) => b.slice('state/'.length)).filter((e) => !closed.has(e));
+  if (all.length > 1) refuse(`more than one open state branch on origin (${all.map((e) => `state/${e}`).join(', ')}): close the old epoch first`);
+  return all[0] ?? null;
 }
 const needEpoch = (R) => epoch(R) ?? refuse('no epoch is open: run `epoch open` first');
 export function stateRead(R, path, e = needEpoch(R)) { R.fetch(stateBranch(e)); try { return R.g(['show', `origin/${stateBranch(e)}:${path}`]); } catch { return null; } }
@@ -161,12 +170,11 @@ export function epochClose(o) {
   if (live.length) refuse(`sessions still live on the state branch: ${live.join(', ')} (archive them and record it first)`);
   const plan = parsePlan(stateRead(R, 'plan.md', e) || '');
   if (plan.owed.length) refuse(`acts still owed: ${plan.owed.join('; ')}`);
-  R.g(['push', '-q', 'origin', `:refs/heads/${stateBranch(e)}`]);
-  try { R.g(['update-ref', '-d', `refs/remotes/origin/${stateBranch(e)}`]); } catch { /* none */ }
+  const prune = pruneRef(R, stateBranch(e));
   const log = R.read('build/epochs.md') || '';
   // Mid-tranche (an account move, a stop) the closed line is written now; at a tranche's close it is already in the close PR.
   R.write('build/epochs.md', log.replace(new RegExp(`^- ${e} · opened (\\S+)$`, 'm'), `- ${e} · opened $1 · closed ${today()}`));
-  return { epoch: e, commit: commitPush(R, TRANCHE, ['build/epochs.md'], `epoch ${e} closes`) };
+  return { epoch: e, prune, commit: commitPush(R, TRANCHE, ['build/epochs.md'], `epoch ${e} closes`) };
 }
 
 // ---- the plan's transient lines ----
@@ -619,7 +627,21 @@ function at(R, ref, fn) { const back = R.branch(), head = R.g(['rev-parse', 'HEA
 // The job branch's opening commit (JOB-LIFE §2): GitHub refuses a pull request with no commit between base and head
 // (measured 29 Oct, #5: BOB #1's R-BOB-1-1), so every job branch starts one empty commit past the tranche tip, made by
 // plumbing and pushed; the gate reads an empty diff as nothing to check yet.
-function opening(R, tip, message) { return execFileSync('git', ['-C', R.root, 'commit-tree', `${tip}^{tree}`, '-p', tip, '-m', message], { encoding: 'utf8' }).trim(); }
+function opening(R, tip, message, parents = [tip]) { return execFileSync('git', ['-C', R.root, 'commit-tree', `${tip}^{tree}`, ...parents.flatMap((p) => ['-p', p]), '-m', message], { encoding: 'utf8' }).trim(); }
+// The job branch made at the tranche tip, or remade over what is there without a remote delete (the proxy refuses ref
+// deletes: measured 29 Oct, #5, and BOB #1's R-BOB-1-2): a branch already at the tip, or whose tip is on the tranche (a
+// merged job's), takes the opening commit as a fast-forward with both as parents, so the PR's diff against the tranche is empty.
+function jobBranchAt(R, m, tip, message) {
+  R.fetch(jobBranch(m));
+  let cur = null; try { cur = R.g(['rev-parse', `origin/${jobBranch(m)}`]); } catch { /* none */ }
+  const is = (a, b) => { try { R.g(['merge-base', '--is-ancestor', a, b]); return true; } catch { return false; } };
+  // already opened over this tip (opening commits only, the tip's tree): kept as it is
+  if (cur && cur !== tip && is(tip, cur) && R.g(['rev-parse', `${cur}^{tree}`]) === R.g(['rev-parse', `${tip}^{tree}`])) return cur;
+  if (cur && cur !== tip && !is(cur, tip)) refuse(`${jobBranch(m)} holds work not on ${TRANCHE} (${cur.slice(0, 7)}): a live job's branch, never remade`);
+  const commit = !cur || cur === tip ? opening(R, tip, message) : opening(R, tip, message, [cur, tip]);
+  R.g(['push', '-q', 'origin', `${commit}:refs/heads/${jobBranch(m)}`]);
+  return commit;
+}
 const strike = (line, T) => line.replace(/\s*\*\(not yet met:([^)]*)\)\*/g, (all, list) => { const rest = list.split(/[\s,;]+/).filter((x) => x && x !== T); return rest.length ? ` *(not yet met: ${rest.join(', ')})*` : ''; });
 
 // A job's own set (SESSIONS §3, §6.3): its requirements, both parts; the public part of each module it uses; the layer
@@ -688,11 +710,11 @@ export function layerStart(o) {
     // A START made and not yet opened (STARTING, no PR, no session) is remade: the branch and the text, the name kept.
     const retry = !!cur && cur.state === 'STARTING' && !cur.pr && !cur.session;
     if (cur && cur.state !== 'ARCHIVED' && !retry) refuse(`${m.id}: its job reads ${cur.state} (${cur.name}): one job per module (P8)`);
-    if (R.heads(`refs/heads/${jobBranch(m.id)}`).length) { if (retry) R.g(['push', '-q', 'origin', `:refs/heads/${jobBranch(m.id)}`]); else refuse(`${jobBranch(m.id)} exists on origin: \`neo merged\` deletes a merged one; a live one is a job`); }
+    if (R.heads(`refs/heads/${jobBranch(m.id)}`).length && !retry && !done(R, m.id)) refuse(`${jobBranch(m.id)} exists on origin and ${m.id}'s job is not merged: a live one is a job`);
     const name = retry ? cur.name : `${m.id.toUpperCase()} #${nextK(R, T, m.id)}`, model = mechanical.includes(m.id) ? 'sonnet' : retry ? (cur.model || 'opus') : 'opus';
     const start = sized(startText(R, m.id, name, T, `layer ${L}`, entries, o), `${m.id}'s START`);
     const after = (entries.match(/\*\(after ([a-z0-9-]+(?:,\s*[a-z0-9-]+)*)\)\*/)?.[1] || '').split(/,\s*/).filter(Boolean);
-    R.g(['push', '-q', 'origin', `${opening(R, tip, `${name} opens: ${T} layer ${L}, module ${m.id}`)}:refs/heads/${jobBranch(m.id)}`]);
+    jobBranchAt(R, m.id, tip, `${name} opens: ${T} layer ${L}, module ${m.id}`);
     files[jobPath(m.id)] = fmtJob(m.id, { name, session: null, state: 'STARTING', pr: null, runs: 0, owed: [], after, model });
     files[`jobs/${m.id}/start.md`] = start;
     owed.push(`open PR ${m.id}`, `start ${m.id}`);
@@ -910,7 +932,10 @@ export function merged(o) {
   if (head) { try { R.g(['merge-base', '--is-ancestor', head, full]); } catch { refuse(`${jobBranch(m)}'s tip ${head.slice(0, 7)} is not in ${sha}: not this job's merge`); } }
   const commit = saveJob(R, m, { ...j, state: 'MERGED', merge: `merged ${full.slice(0, 7)} ${today()}` }, `${m}: MERGED ${full.slice(0, 7)}`);
   planEdit(R, (p) => clear(p, `merge ${m}`), `${m} merged`);
-  if (head) { R.g(['push', '-q', 'origin', `:refs/heads/${jobBranch(m)}`]); try { R.g(['update-ref', '-d', `refs/remotes/origin/${jobBranch(m)}`]); } catch { /* none */ } }
+  // The merged branch's delete (JOB-LIFE §1) is tried from here and, where the proxy refuses ref deletes (R-BOB-1-2), done
+  // by the product's prune workflow (REP 4), whose dispatch is printed; a merged branch left behind is harmless meanwhile
+  // (jobBranchAt builds over it, nothing reads it).
+  const prune = head ? pruneRef(R, jobBranch(m)) : null;
   const ready = [];
   for (const p of jobFiles(R)) {
     const om = p.slice(5, -3), other = parseJob(stateRead(R, p) || ''), w = other?.owed.find((x) => /^ready after /.test(x));
@@ -918,7 +943,7 @@ export function merged(o) {
     const rest = w.slice('ready after '.length).split(/,\s*/).filter((a) => a !== m && !done(R, a));
     if (!rest.length) ready.push({ module: om, mark: { tool: 'update_pull_request', ...ghRepo(R), pullNumber: other.pr, draft: false }, then: `neo job posted --module ${om} --ready` });
   }
-  return { commit, send: j.session ? { session_id: j.session, message: `MERGED: ${m} is on ${TRANCHE} at ${full.slice(0, 7)} (PR #${j.pr}).` } : null, ready };
+  return { commit, prune, send: j.session ? { session_id: j.session, message: `MERGED: ${m} is on ${TRANCHE} at ${full.slice(0, 7)} (PR #${j.pr}).` } : null, ready };
 }
 // JOB-LIFE §7: a CHANGE after the merge re-opens the job in its session: the branch remade at the tranche tip (the
 // merged one deleted, never force-pushed), a new draft PR whose body is the CHANGE, and the job goes round again.
@@ -932,14 +957,11 @@ export function jobReopen(o) {
   const change = fileText(o.changeFile, '--change-file');
   if (!/^CHANGE\b/.test(change)) refuse('the change begins CHANGE');
   const { id: T } = tranche(R), tip = R.g(['rev-parse', 'HEAD']);
-  R.fetch(jobBranch(m));
-  let head = null; try { head = R.g(['rev-parse', `origin/${jobBranch(m)}`]); } catch { /* gone */ }
-  if (head) { try { R.g(['merge-base', '--is-ancestor', head, tip]); } catch { refuse(`${jobBranch(m)} holds work not on ${TRANCHE}: not merged`); } R.g(['push', '-q', 'origin', `:refs/heads/${jobBranch(m)}`]); }
-  R.g(['push', '-q', 'origin', `${opening(R, tip, `${j.name} re-opens: ${T}, module ${m}`)}:refs/heads/${jobBranch(m)}`]);
+  jobBranchAt(R, m, tip, `${j.name} re-opens: ${T}, module ${m}`);
   const start = sized(startText(R, m, j.name, T, 're-opened after its merge', change, o), 'the re-opened START');
   const commit = stateWrite(R, { [jobPath(m)]: fmtJob(m, { ...j, state: 'REOPENED', pr: null, owed: [], review: null, merge: null }), [`jobs/${m}/start.md`]: start }, `${m}: re-opened`);
   planEdit(R, (p) => owe(p, [`open PR ${m}`]), `owed: open PR ${m}`);
-  return { commit, pr: { ...ghRepo(R), title: `${m} ${T} (${j.name}, re-opened)`, head: jobBranch(m), base: TRANCHE, body: start, draft: true }, then: `neo job pr --module ${m} --number <n>, then send`, send: { session_id: j.session, message: `${change}\n(Your branch ${jobBranch(m)} is remade at ${TRANCHE}'s tip, which holds your merged work: \`git pull\` fast-forwards; then \`neo job start\` again.)` } };
+  return { commit, pr: { ...ghRepo(R), title: `${m} ${T} (${j.name}, re-opened)`, head: jobBranch(m), base: TRANCHE, body: start, draft: true }, then: `neo job pr --module ${m} --number <n>, then send`, send: { session_id: j.session, message: `${change}\n(Your branch ${jobBranch(m)} now carries ${TRANCHE}'s tip, which holds your merged work: \`git pull\` fast-forwards; then \`neo job start\` again.)` } };
 }
 // JOB-LIFE §8: complete on the record before the layer closes: merged, no open ask names it, no running job of its layer uses it.
 export function jobRetire(o) {
@@ -1149,6 +1171,32 @@ hooks:
           command: '${hook('stop')}'
 ---
 !\`node "${proc}/tools/neo.mjs" reading --role "$ARGUMENTS" --product "${rel}" || echo "STOP: the process repository is not at ${proc}, or the role is not bob, job or lane; attach it, then invoke this skill again with your role."\`
+`,
+    '.github/workflows/prune.yml': `name: prune
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "the branch to delete: a state/* branch, or a job/* branch whose tip is on ${TRANCHE}"
+        required: true
+permissions:
+  contents: write
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: delete the branch (the sessions' git proxy refuses ref deletes; REP 2, REP 4)
+        run: |
+          r="\${{ inputs.ref }}"
+          case "$r" in
+            state/*) ;;
+            job/*) git merge-base --is-ancestor "origin/$r" "origin/${TRANCHE}" || { echo "$r is not merged into ${TRANCHE}"; exit 1; } ;;
+            *) echo "only state/* and merged job/* branches are pruned"; exit 1 ;;
+          esac
+          git push origin --delete "$r"
 `,
     '.github/workflows/gate.yml': `name: gate
 on:

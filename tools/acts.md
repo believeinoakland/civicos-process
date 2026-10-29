@@ -6,8 +6,9 @@ Every act the process takes, per role: the route the tool uses, the relation it 
 | --- | --- | --- | --- | --- |
 | `git push(own branch)` | job, lane, BOB | `neo` commands and the session's own `git push` | its own branch only (`job/<m>`; `tranche`); the hooks refuse any other | N1 |
 | `git push(state branch)` | every role | `neo …` by plumbing (`stateWrite`), never by hand | the one state branch of the epoch | N1 |
-| `git push(delete state branch)` | BOB | `neo epoch close` | the git proxy must allow the delete (REP 2 says it refuses hand deletes) | — (X3) |
-| `git push(delete job branch)` | BOB | `neo merged`, after the tool's merge | the branch is merged; `tranche` itself is never deleted (its ruleset refuses it) | N1 |
+| `git push(delete state branch)` | BOB | `neo epoch close` tries it, then prints the prune workflow's dispatch | the proxy refuses every ref delete (measured 29 Oct #5 on the toy: `unexpected disconnect`, the branch kept); the product's `prune.yml` deletes it (REP 4) | 2026-10-29 #5 (refused; the workflow is row X3) |
+| `git push(delete job branch)` | BOB | `neo merged` tries it, then prints the prune workflow's dispatch | refused by the proxy (BOB #1's R-BOB-1-2, 29 Oct); a merged branch left behind is built over by the next opening commit; `tranche` itself is never deleted | 2026-10-29 #5 (refused; the workflow is row X3) |
+| `actions_run_trigger(prune.yml)` | BOB | the dispatch `neo merged` or `neo epoch close` printed | the workflow on `main`; the GitHub app's scope | — (X3) |
 | `git merge --ff-only / checkout -B` (a stale local branch) | every role | the tool and the session | none; `git reset --hard` was refused by the classifier on 29 Oct (#4) and is never used | 2026-10-29 #4 |
 | `create_session(job)` | BOB | the call `neo layer start` or `neo job route` printed, unchanged | BOB is the parent | N1 |
 | `create_session(lane)` | BOB | the call `neo lane open`, `lane route` or `ask ask` printed | BOB is the parent | N1 |
