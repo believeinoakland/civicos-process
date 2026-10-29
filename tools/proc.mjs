@@ -38,6 +38,7 @@
 //   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (tools/lib.mjs, P20)
 //   repo setup --repo <owner/name> [--private] [--dry-run]      (PERMISSIONS §9: the repository and its two rulesets; from a session it prints the workflow's dispatch)
 //   repo rename --repo <owner/old> --name <new>      (PERMISSIONS §9: a repository renamed on GitHub's runner; from a session it prints the dispatch)
+//   repo transfer --repo <owner/name> --to <new owner>      (PERMISSIONS §9: a repository moved to another account on GitHub's runner; the new owner accepts the email)
 //   process start --branch <b> --session <id>      process handoff [--prepare]      (the neoProcess lane, in the process repository itself; the handoff prints its successor's create_session)
 //   grants check [--branch <b>] [--urls <u1,u2>]      (PERMISSIONS §10, GRANTS.md: proven before `tranche open`)
 //   init --mode <new|convert> [--name "<project>"] | init --check      onboard start --product <dir> --session <id>      (ONBOARDING.md)
@@ -1596,13 +1597,56 @@ export async function repoRename(o) {
   return out;
 }
 
+// A repository moved to another account (Bob, 29 Oct: this one to his own account `neobobkrause`, the product's after):
+// `POST /repos/<owner>/<name>/transfer` (docs.github.com, read 29 Oct #10): 202, the transfer continues asynchronously, and
+// a move to a personal account waits for the new owner to accept an email within a day; issues, pull requests, secrets,
+// webhooks and deploy keys stay with the repository, the old links redirect, and the previous owner is kept as a
+// collaborator. A settings write, so it runs on GitHub's runner by `repo-transfer.yml` with the process's token, as
+// `repo rename` does; from a session the dispatch is printed. The proof of the move is the repository read back under
+// the new owner (this command again, once accepted); the secret moved with it is the old owner's token, replaced by one
+// the new owner issues (SETUP-STEPS; a token is issued per owner, PERMISSIONS §9).
+export const REPO_TRANSFER_WORKFLOW = 'repo-transfer.yml';
+export async function repoTransfer(o) {
+  const m = String(o.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/), to = String(o.to || '');
+  if (!m || !/^[\w-]+$/.test(to)) refuse('--repo <owner/name> --to <new owner>');
+  const [, owner, name] = m, api = 'https://api.github.com', f = o.fetch || globalThis.fetch;
+  const token = (o.env || process.env).NEOPROCESS_GITHUB_TOKEN || null;
+  const call = async (method, path, body) => {
+    const r = await f(`${api}${path}`, { method, headers: { Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
+    const text = await r.text(); let json = null; try { json = JSON.parse(text); } catch { /* not json */ }
+    return { status: r.status, json, text };
+  };
+  const why = (c) => `${c.status}: ${String(c.json?.message || c.text || '').slice(0, 160)}`;
+  const out = { repo: `${owner}/${name}`, to, token: token ? 'the process\'s own (NEOPROCESS_GITHUB_TOKEN)' : 'the proxy\'s', steps: [], refused: [] };
+  const me = await call('GET', '/user'); if (me.status !== 200) refuse(`GET /user answered ${me.status}: no GitHub token reaches api.github.com (PERMISSIONS §9)`);
+  if (me.json?.login === to) refuse(`the token is ${to}'s already: --to names the account the repository moves to, and the move is asked by its present owner ${owner}`);
+  const there = await call('GET', `/repos/${to}/${name}`);
+  if (there.status === 200 && there.json?.owner?.login === to) { out.steps.push(`already owned by ${to}: ${there.json.html_url}`); out.ok = true; out.moved = true; return out; }
+  if (me.json?.login !== owner) refuse(`the token is ${me.json?.login}'s, and --repo names ${owner}: a repository is moved by its present owner`);
+  const cur = await call('GET', `/repos/${owner}/${name}`);
+  if (cur.status !== 200) out.refused.push(`GET /repos/${owner}/${name} ${why(cur)}`);
+  else {
+    const c = await call('POST', `/repos/${owner}/${name}/transfer`, { new_owner: to });
+    if (c.status === 202) { out.steps.push(`transfer requested: ${to} accepts GitHub's email within a day; then this command, run again, reads it back under ${to}`); out.ok = true; out.pending = true; }
+    else out.refused.push(`POST /repos/${owner}/${name}/transfer ${why(c)}`);
+  }
+  if (!out.ok) {
+    out.ok = false;
+    if (token) refuse(`with the process's token: ${out.refused.join('; ')}`);
+    let P = {}; try { P = ghRepo(repo(PROCESS)); } catch { /* no remote */ }
+    out.dispatch = { tool: 'actions_run_trigger', ...P, workflow_id: REPO_TRANSFER_WORKFLOW, ref: 'main', inputs: { repo: `${owner}/${name}`, to } };
+    out.then = `a session cannot write this: the proxy refuses settings writes (measured 29 Oct #5). Dispatch the workflow above: it runs this command on GitHub's runner with the process's token (PERMISSIONS §9); ${to} then accepts GitHub's email within a day. Once accepted: attach ${to}/${name} (add_repo), set every clone's remote (git remote set-url origin), regenerate each product's shims (proc shims), and ${to} issues the process's token anew and sets it as the moved repository's secret (SETUP-STEPS).`;
+  }
+  return out;
+}
+
 // ---- the grants (PERMISSIONS §10; GRANTS.md): every grant the four stages need, proven held before a tranche opens ----
 // The tool's HTTP goes through the session's agent proxy, which injects each host's credential, and Node's fetch uses
 // HTTPS_PROXY only when NODE_USE_ENV_PROXY is set at its start (measured #7, 29 Oct: without it `GET /user` answered 403
 // and a hosting provider's token check failed; with it 200 as the Claude app, and the check passed), so main() restarts a network
 // command with it set. No credential is named or read here: a hand command naming one is refused by the classifier.
 export const GRANTS_FILE = 'proc-grants.json', GRANTS_PRODUCT = 'build/grants.json', GRANTS_FRESH_H = 24, EXPIRY_WARN_D = 14;
-const NETWORK = new Set(['repo setup', 'repo rename', 'grants check']);
+const NETWORK = new Set(['repo setup', 'repo rename', 'repo transfer', 'grants check']);
 export async function grantsCheck(o) {
   const R = repo(o.product), f = o.fetch || globalThis.fetch, rows = [], now_ = o.now ? new Date(o.now) : new Date();
   const row = (grant, ok, detail) => rows.push({ grant, ok, detail });
@@ -1759,7 +1803,7 @@ export const COMMANDS = {
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
-  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'repo rename': repoRename, 'process start': processStart, 'process handoff': processHandoff, 'grants check': grantsCheck, init, 'onboard start': onboardStart,
+  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'repo rename': repoRename, 'repo transfer': repoTransfer, 'process start': processStart, 'process handoff': processHandoff, 'grants check': grantsCheck, init, 'onboard start': onboardStart,
 };
 async function main() {
   const o = args(process.argv.slice(2));

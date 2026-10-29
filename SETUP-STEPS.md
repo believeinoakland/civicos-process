@@ -13,6 +13,13 @@
 
 Nothing else is his: a session dispatches the workflow, attaches the new repository and reads its rulesets back; the run's log shows the token's expiry (`proc repo setup` prints it there, never the token), which GRANTS names with its renewal date.
 
+**The move of the process repository to Bob's own account `neobobkrause`** (Bob, 29 Oct 19:55Z; PERMISSIONS §9.6). The lane dispatches `repo-transfer.yml`, which asks GitHub for the transfer with the present secret; GitHub then emails `neobobkrause`. Bob's acts, in order, from GitHub's pages (docs.github.com: transferring a repository; read 29 Oct #10):
+
+1. **Before accepting**, as `neobobkrause`: make sure the account holds no repository named `neoprocess` (the transfer is refused otherwise); install the Claude GitHub app on it at github.com/apps/claude/installations/select_target, picking `neobobkrause` and **All repositories**.
+2. **Accept**: open GitHub's email to `neobobkrause` ("transfer request") and click its link within one day of the dispatch; GitHub moves the repository, redirects the old links and keeps `believeinoakland` as a collaborator. If the day has passed, the lane dispatches the request again.
+3. **The token, as `neobobkrause`**: steps 1–3 above exactly, with **Resource owner** `neobobkrause`; then step 4 on the moved repository's page (github.com/neobobkrause/neoprocess), where the secret `NEOPROCESS_GITHUB_TOKEN` already exists (it moved with the repository, holding `believeinoakland`'s token): click its pencil and paste the new token in its place. The token can be generated before the move and pasted after.
+4. **claude.ai**: if the lane's next session cannot attach `neobobkrause/neoprocess` (the lane reports it), reconnect GitHub at claude.ai/connect-github as `neobobkrause`, and start the next lane session from the START file on the moved repository.
+
 **For a new product repository by hand** (the fallback while the secret is not set), from the screens Bob saw on 29 Oct (<<org>> means the account that owns the process's repositories, <<repo>> the repository's name):
 
 1. At the top right of any page click the plus icon, then **New repository**; set **Owner** to <<org>>, type <<repo>>, choose **Public**, click **Create repository**.
