@@ -1,0 +1,16 @@
+name: gate
+on:
+  pull_request:
+  merge_group:
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: the checks' own tests
+        run: node --test checks/test/*.test.mjs tools/test/*.test.mjs
+      - name: no PROBE-FAIL marker
+        run: test ! -f PROBE-FAIL
