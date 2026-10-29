@@ -1015,7 +1015,8 @@ export function gateCmd(o) {
   return { ok: !fails.length, module: m, base: base.slice(0, 7), fails, tests: { pass: r.tests.pass, tests: r.tests.tests }, users: Object.fromEntries(Object.entries(r.users).map(([k, v]) => [k, `${v.pass}/${v.tests}`])), checks: r.checks };
 }
 // PRODUCT-SUPPLIES: the few files that sit in the product repository, written from here and never by hand; `--check`
-// lists the ones that differ (the gate fails on drift). `--process` is the process checkout's path in a session.
+// lists the ones that differ (the gate fails on drift). `--process` is the process checkout's path in a session and
+// `--repo` the process repository's GitHub name: the workflow carries both, so CI's check regenerates the same text.
 export function shims(o) {
   const R = repo(o.product), proc = o.process || '/home/user/neoProcess', name = o.repo || 'believeinoakland/neoProcess', rel = R.rel('.');
   const hook = (ev) => `node "${proc}/tools/neo-hooks.mjs" ${ev}`;
@@ -1066,7 +1067,7 @@ jobs:
         with:
           node-version: 22
       - name: the gate (artifacts, ownership, the module's tests and its users', the checks, the sizes, the shims)
-        run: node .neoprocess/tools/neo.mjs gate --product "${rel}" --base "\${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}"
+        run: node .neoprocess/tools/neo.mjs gate --product "${rel}" --process "${proc}" --repo "${name}" --base "\${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}"
 `,
   };
   const at_ = (p) => join(R.root, p), drift = [];
