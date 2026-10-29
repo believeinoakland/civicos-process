@@ -42,7 +42,7 @@ One row per path PROTOCOL §10, JOB-LIFE §13 and DESIGN-STAGE §5 name. A row i
 | J9 | a job retired early by `neo job retire` and one at the layer's close | alpha early, beta at the close | the plan's owed lines; two metrics rows | PLANNED |
 | J10 | a tranche closed by the one PR to `main` | the close | the PR `N1: close`, merged by BOB; `tranche` gone | PLANNED |
 | J11 | a job that ends a turn with its record WORKING sent back by its goal without a message from BOB | beta N9 | beta's transcript: the Stop hook's refusals, then the goal's send-back | PLANNED |
-| J12 | whether a message whose first words are `/goal` sets the goal again after a wait | BOB, after alpha's first wait | alpha's `get_session` goal fields after the message | PLANNED |
+| J12 | whether a message whose first words are `/goal` sets the goal again after a wait | PROBE-J12 #1, 29 Oct | `get_session`: the first condition unchanged (`iterations: 1, met: true`); the message read as data by `ReadNotifications`; no `Goal set:` reply | MEASURED before the run: it does not (SESSIONS §1b); no dry-run row |
 | J13 | the merge queue on `tranche`, the required checks, auto-merge queuing, the `merge_group` run (JOB-LIFE §12) | every merge | GitHub's queue page; the check runs on `merge_group` | PLANNED |
 
 ## The Design stage (DESIGN-STAGE §5)

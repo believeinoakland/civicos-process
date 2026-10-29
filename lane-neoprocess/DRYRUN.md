@@ -16,4 +16,4 @@ A toy product repository of its own, `neoprocess-dryrun`, **public and owned by 
 
 ## 3. What is measured only here (JOB-LIFE §12)
 
-The queue on `tranche`, the required checks, auto-merge queuing a pull request, the `merge_group` run on the merged result, and whether a message beginning `/goal` sets a session's goal again after a wait (SESSIONS §1b).
+The queue on `tranche`, the required checks, auto-merge queuing a pull request, the `merge_group` run on the merged result. (Whether a `/goal` message sets a goal again after a wait was measured on 29 Oct: it does not, SESSIONS §1b.)
