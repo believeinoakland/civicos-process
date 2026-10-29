@@ -12,7 +12,7 @@
 // `gh pr merge` and the merge tool are refused but for the call `proc merge` printed, so no push of BOB's can carry a job around the gate.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE } from './proc.mjs';
+import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE } from './proc.mjs';
 import { stepsReason, lastAssistantText } from './lib.mjs';   // P20: steps for Bob verified against their source (`proc steps`)
 
 const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__';
@@ -86,6 +86,13 @@ export function preReason(role, input, ctx) {
     return null;
   }
   if (role !== 'bob') {
+    // the neoProcess lane has no parent session to start its successor, so it starts it itself, with the one
+    // create_session `proc process handoff` printed (rulebook SES 1; Bob, 29 Oct: the lane refreshes without him)
+    if (role === 'process' && tool === `${REMOTE}create_session`) {
+      let want; try { want = processSession(R_of(ctx), ctx.branch); } catch (e) { return `the successor's create_session could not be derived (${e.message})`; }
+      if (ti.title === want.title && ti.prompt === want.prompt && ti.source_revision === want.source_revision && ti.source_url === want.source_url) return null;
+      return `the neoProcess lane starts only its successor ${want.title}, with the create_session \`proc process handoff\` printed, unchanged (rulebook SES 1)`;
+    }
     if ([`${REMOTE}create_session`, `${REMOTE}create_trigger`, `${REMOTE}fire_trigger`, `${REMOTE}send_later`].includes(tool)) return `a ${role} starts no session and arms no timer (rulebook SES 1)`;
     // the neoProcess lane opens and merges its own pull request to the process repository's main (no BOB there); it never reviews one
     if (OUTSIDE.has(role) && [`${GH}merge_pull_request`, `${GH}create_pull_request`].includes(tool)) return null;   // an onboarding session: the one seed pull request
@@ -203,7 +210,7 @@ export function contextReason(role, used, ctx, window = WINDOW) {
     const f = join(ctx.root, '.git', 'proc-handoff.json');
     if (existsSync(f) && JSON.parse(readFileSync(f, 'utf8')).session === ctx.session) return null;
     if (role === 'onboard') return `${at}: refresh now: commit and push the project's onboard branch, then end the turn; the owner starts the next onboarding session, which continues from \`proc init --check\``;
-    if (role === 'process') return `${at}: refresh now: write lane-neoprocess/HANDOFF.md (its From line naming you) and the START file with the prompt Bob pastes, commit, push, run \`proc process handoff\`, then take no further act`;
+    if (role === 'process') return `${at}: refresh now: write lane-neoprocess/HANDOFF.md (its From line naming you), commit, push, run \`proc process handoff\` and create your successor with the call it prints, then take no further act`;
     return `${at}: refresh now: run \`proc handoff --next "<the next step>"\` at a clean point and send ROOT the START line it prints, then take no further act`;
   }
   const R = R_of(ctx);

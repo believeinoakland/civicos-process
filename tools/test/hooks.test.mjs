@@ -227,8 +227,19 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   assert.equal(pre(bash('git add -A && git commit -q -m "a missing push grant named before work relied on it"')), null);
   assert.match(pre(bash('git -c core.x=1 push origin HEAD:main')), /nothing is pushed to main/);
   assert.match(pre(bash('git --no-pager push --force origin claude/lane-x')), /force push/);
-  // it starts no session and arms no timer; it opens and merges its own pull request, never reviews one
-  assert.match(pre(tool(`${REMOTE}create_session`, { title: 'X #1' })), /starts no session/);
+  // it starts its own successor, with the one create_session `proc process handoff` prints (Bob, 29 Oct), and arms no timer;
+  // it opens and merges its own pull request, never reviews one
+  const here = { ...ctx, root: N.PROCESS }, want = N.processSession(N.repo(N.PROCESS), 'claude/lane-x');
+  assert.match(want.title, /^NEOPROCESS #\d+$/); assert.equal(want.source_revision, 'claude/lane-x'); assert.match(want.source_url, /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/);
+  assert.match(want.prompt, new RegExp(`^You are neoProcess #${want.n}, the successor of neoProcess #${want.n - 1} \\(session_[0-9A-Za-z]+\\) in the neoProcess lane of [\\w.-]+\\/[\\w.-]+, on branch claude\\/lane-x \\(push there only\\)\\. Invoke the skill neoprocess with the argument process`));
+  assert.match(want.prompt, /Your first acts: put your own session id in the handoff's From line and push; then item 1 of "What remains"\.$/);
+  assert.equal(preReason('process', tool(`${REMOTE}create_session`, { title: want.title, prompt: want.prompt, source_url: want.source_url, source_revision: want.source_revision }), here), null);
+  assert.match(preReason('process', tool(`${REMOTE}create_session`, { title: want.title, prompt: `${want.prompt} and hurry`, source_url: want.source_url, source_revision: want.source_revision }), here), /starts only its successor NEOPROCESS #\d+, with the create_session `proc process handoff` printed, unchanged/);
+  assert.match(preReason('process', tool(`${REMOTE}create_session`, { title: 'X #1', prompt: want.prompt, source_url: want.source_url, source_revision: want.source_revision }), here), /starts only its successor/);
+  assert.match(preReason('process', tool(`${REMOTE}create_session`, { title: want.title, prompt: want.prompt, source_url: want.source_url, source_revision: 'main' }), here), /starts only its successor/);
+  assert.match(pre(tool(`${REMOTE}create_session`, { title: 'X #1' })), /could not be derived/);   // no repository at the fixture's root
+  assert.throws(() => N.processSession(N.repo(N.PROCESS), undefined), /no branch recorded/);
+  assert.match(N.processStartText(want, 'o/r'), /^# Starting neoProcess #\d+ \(written by `proc process handoff`/);
   assert.match(pre(tool(`${REMOTE}send_later`, {})), /arms no timer/);
   assert.equal(pre(tool(`${GH}create_pull_request`, {})), null);
   assert.equal(pre(tool(`${GH}merge_pull_request`, {})), null);
@@ -238,7 +249,7 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   assert.equal(allowReason('process', bash('git push origin tranche'), ctx), null);
   // no product gate to read; past half its window the turn ends only with its handoff marked
   assert.equal(stopReason('process', ctx), null);
-  assert.match(contextReason('process', 600_000, ctx, 1_000_000), /proc process handoff/);
+  assert.match(contextReason('process', 600_000, ctx, 1_000_000), /proc process handoff` and create your successor with the call it prints/);
   assert.equal(contextReason('process', 400_000, ctx, 1_000_000), null);
   // the start refuses outside the process repository and on main; its reading set is the lane's
   const w = world();
