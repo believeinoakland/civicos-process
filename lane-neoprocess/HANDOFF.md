@@ -19,7 +19,7 @@ What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-
 2. **The rest of Bob's sitting** (PERMISSIONS §10): https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (steps 1, 2, 4 done; 3 open: the secret; 5–7 his). The product's grant list is written by the onboarding session into the product. X10 PROVEN (#8: the hosting token reads its own scope; PERMISSIONS §9).
 3. **Owed to certification** (DRYRUN §6): a handover to an open epoch, the `tranche open` refusal live (the product's first run); the runner's run (once the secret is set).
 4. **The product**, by ONBOARDING's convert path, in the onboarding session Bob starts (step 7 of the page).
-5. `dryrun/` refreshed from the toy when the tests are next touched.
+5. `dryrun/` refreshed from the toy, in a session with the toy attached (not this one: a second repository costs the standing list, PERMISSIONS §10.7; #8's decision).
 6. **The repository's name**: Bob (29 Oct, to #8) expected a fresh `neoProcess`; the record plans a rename of this one (README line 1), his act when he chooses; the texts naming the old name then follow (PROCESS-DESIGN's status line with his approval, GOV 3).
 
 ## Acts only Bob can take (all at the one sitting)
