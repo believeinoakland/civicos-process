@@ -10,21 +10,20 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## Where it stands (29 Oct; suite 270 green)
 
-- Certified: the process (N1), onboarding both ways, X9, X10, the rename (#9), the move (#10 Bob's hand act; #11 the first session on the new name: start, push, grants check, read-back all passed; DRYRUN §6), the hook rule for a product's `shims` branch (#12, PR #51).
-- **Attach no second repository** (PERMISSIONS §10.7; measured #11 and again #12: the toy refused as the session's first attach, "Access Added As A Means"). A product's shims are regenerated on GitHub's runner: `proc repo shims` and `repo-shims.yml` (PERMISSIONS §9.8; acts.md `shims(process token)`), written by #12.
-- Bob, 29 Oct 21:3xZ, to #12: the GitHub connector on all three of his Claude accounts includes `neobobkrause/neoprocess`; **approved in words: the status line reads `neobobkrause/neoprocess`** (done, PROCESS-DESIGN); **the product lives in a new organization `civicsmith`** (the token's owner follows: PERMISSIONS §9.8, SETUP-STEPS "The move" step 3 revised).
-- The sitting page: https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (version 12; behind this handoff on the token's owner and the organization: item 5).
+- Certified: the process (N1), onboarding both ways, X9, X10, the rename (#9), the move (#10, #11; DRYRUN §6), the hook rule for a product's `shims` branch (#12, PR #51).
+- **Attach no second repository** (PERMISSIONS §10.7; the toy refused again #12). A product's shims are regenerated on the runner: `proc repo shims`, `repo-shims.yml` (§9.8; #12).
+- Bob to #12: the connector on his three Claude accounts includes this repository; **the status line approved in words** (done); **the product lives in a new organization `civicsmith`**.
+- Measured #12, 21:34Z: the secret holds `neobobkrause`'s token (run 40958960320 read `already named neoprocess`); `repo-shims.yml` on the toy was refused at the push, `Permission ... denied to neobobkrause` (run 40958955811): a fine-grained token reaches only its owner's repositories.
+- The sitting page: https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (version 12, behind item 1).
 
 ## What remains, in order
 
-1. **The toy's shims** (`neoprocess-dryrun`: `CLAUDE.md` and `gate.yml` still name `believeinoakland/neoprocess`): once PR #52 is on `main`, dispatch `repo-shims.yml` with `repo` `believeinoakland/neoprocess-dryrun` (the secret still holds `believeinoakland`'s token, which covers the toy; after Bob replaces it, it never does again); read the run's log; record the measurement in acts.md's `shims(process token)` row and DRYRUN §6.
-2. **Bob's, after item 1**: the token as the owner of `civicsmith` over the moved secret (SETUP-STEPS "The move" step 3); the Claude app on `civicsmith`; `bio` transferred into `civicsmith` (recommended: then the convert path onboards it as it stands) or a fresh repository's name; the connector on each Claude account widened to the organization's repositories. Until the token is replaced the three runner workflows refuse for `civicsmith`.
-3. **Then the lane**: `proc repo setup --repo civicsmith/<name>` dispatched (the rulesets, idempotent), the product attached in a fresh session and read back; then the onboarding session (step 7 of the page), convert path; its first run proves DRYRUN §6's product-run rows.
+1. **BOB's decision (P17), #12**: every development repository has one owner, `civicsmith`, so one token covers all (§9). Bob's acts, at one sitting: the organization if not yet made (no session can read it); the Claude app on it, all repositories; `bio`, `neoprocess-dryrun` and `neoprocess-x9` transferred into it (SETUP-STEPS "The move" step 2); the token with **Resource owner** `civicsmith` over the secret (step 3 as revised); each Claude account's connector widened to it. The process repository stays `neobobkrause`'s.
+2. **Then the lane**: `repo-shims.yml` for the toy (its shims name `believeinoakland`); `repo-setup.yml` for `civicsmith/bio` (rulesets, idempotent); the product attached in a fresh session and read back; the onboarding session, convert path, whose first run proves DRYRUN §6's product-run rows.
+3. The sitting page as version 13: item 1's acts (Artifact tool: read, then publish).
 4. **The release-signing decision** (the page's foot): his.
-5. The sitting page refreshed to the acts as they now stand (version 13; the Artifact tool, read then publish).
-6. `dryrun/` refreshed from the toy: **dropped** (#12): no lane session can attach the toy (#11, #12), the fixture is the suite's seed (COMMIT-POINT §7), and the certified toy's state is its own repository's `main`.
+5. `dryrun/` refreshed from the toy: **dropped** (#12): it is the suite's seed (COMMIT-POINT §7).
 
 ## Acts only Bob can take
 
-Done 29 Oct: the standing list, the app on both accounts, the hosting token, the secret, the walk identities, the transfer, the connector on the three Claude accounts, the status line's approval, the organization's name. Still his: item 2's five acts (the token as `civicsmith`'s owner; the app on the organization; `bio` moved into it, or a fresh name; the connector widened; the organization itself if it does not exist yet, which no session can read); item 4.
-
+Done 29 Oct: the standing list, the app on both accounts, the hosting token, the secret, the walk identities, the transfer, the token as `neobobkrause`, the connector on three Claude accounts, the status line, the organization's name. Still his: item 1; item 4.
