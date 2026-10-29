@@ -1,6 +1,6 @@
 // neoProcess's hooks (PROTOCOL §9, JOB-LIFE §11, SESSIONS §1a; rulebook SES 1, 3, 6, 8). Registered by the one skill
 // `neoprocess`, whose argument is the role; the hooks read the role from `.git/proc-role.json`, written by the start
-// commands (`proc takeover`, `proc job start`, `proc lane start`), and refuse every act until one is recorded, so the role
+// commands (`proc takeover`, `proc job start`, `proc lane start`; `proc process start` for the neoProcess lane), and refuse every act until one is recorded, so the role
 // is set by the record and never by which skill was invoked. Claude Code passes the event as JSON on stdin; this script
 // always exits 0 and answers in JSON: a PreToolUse refusal as `permissionDecision: "deny"` (a pre-approved act of the
 // act table as `"allow"`, PERMISSIONS §8.6), a Stop refusal as
@@ -16,13 +16,16 @@ import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead,
 import { stepsReason, lastAssistantText } from './lib.mjs';   // P20: steps for Bob verified against their source (`proc steps`)
 
 const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__';
-const FORCE = /\bgit\b[^|;&]*\bpush\b[^|;&]*(\s(-f|--force|--force-with-lease|--mirror|--delete|-d)\b|\s\+\S+|\s:\S)/;
-const PUSH = /\bgit\b[^|;&]*\bpush\b([^|;&]*)/;
+// A push is `push` as git's subcommand, after git's own options (`-C <dir>`, `-c <k=v>`, `--flag`), never the word in a
+// commit message (`git commit -m "… push …"` was refused as a push to its words, #7, 29 Oct).
+const GIT_SUB = String.raw`\bgit(?:\s+-[Cc]\s+\S+|\s+--?[\w-]+(?:=\S+)?)*\s+`;
+const FORCE = new RegExp(GIT_SUB + String.raw`push\b[^|;&]*(\s(-f|--force|--force-with-lease|--mirror|--delete|-d)\b|\s\+\S+|\s:\S)`);
+const PUSH = new RegExp(GIT_SUB + String.raw`push\b([^|;&]*)`);
 const REDIRECT = /(\d*>>?&\d+-?|&>>?\s*[^\s|;&]+|\d*>>?\s*[^\s|;&]+|<+\s*[^\s|;&]+)/g;
 // A hand merge, tag, branch, reset, rebase or pull request from a state branch (PROTOCOL §7d).
 const STATE_REF = /\bgit\b[^|;&]*\b(merge|tag|branch|checkout|switch|worktree|rebase|cherry-pick|reset|pull)\b[^|;&]*\bstate\//;
 const LONG = /(?:^|[\s;&|(])node\s+(?:\S+\/)?proc\.mjs\s+(job\s+complete|layer\s+close)\b/;
-const START_CMD = /(?:^|[\s;&|(])node\s+(?:\S+\/)?proc\.mjs\s+(takeover|job\s+start|lane\s+start)\b/;
+const START_CMD = /(?:^|[\s;&|(])node\s+(?:\S+\/)?proc\.mjs\s+(takeover|job\s+start|lane\s+start|process\s+start|onboard\s+start)\b/;
 const WRITES = /\bgit\b[^|;&]*\b(push|commit|merge|rebase|reset|tag|branch|checkout|switch)\b|(?:^|[\s;&|(])(rm|mv|cp|tee|sed\s+-i|gh)\b|(?<![<>])>(?!>)|>>/;
 const GH_CLI = /(?:^|[\s;&|(])gh\s+pr\s+(merge|ready|review|edit|close|reopen|create)\b/;
 const NAME = /^[A-Z][A-Z0-9-]* #\d+$/;
@@ -39,6 +42,11 @@ export function partialReadReason(tool, ti) {
 }
 const refs = (push) => push[1].trim().split(/\s+/).filter((w) => w && !w.startsWith('-') && w !== 'origin').map((r) => r.split(':').pop().replace(/^refs\/heads\//, ''));
 const R_of = (ctx) => repo(join(ctx.root, ctx.product || '.'));
+// The one branch a role pushes: a job its job branch, the neoProcess lane the branch its start recorded, every other `tranche`.
+const ownBranch = (role, ctx) => (role === 'job' ? jobBranch(ctx.module) : role === 'process' || role === 'onboard' ? ctx.branch : TRANCHE);
+const WHO = { job: 'a job', lane: 'a lane', bob: 'BOB', root: 'ROOT', process: 'the neoProcess lane', onboard: 'the onboarding session' };
+// The two roles outside a running product (no state branch, no BOB): the neoProcess lane and an onboarding session (ONBOARDING §1).
+const OUTSIDE = new Set(['process', 'onboard']);
 const unpushedReason = (ctx, what) => { const u = unpushed(R_of(ctx)); return u.length ? `${what} only once your record and work are pushed (PROTOCOL §2, §7b): ${u.join('; ')}` : null; };
 
 // The reason a tool call is refused, or null. `ctx` is the role file's record plus `root`; `role` null until one is recorded.
@@ -48,7 +56,7 @@ export function preReason(role, input, ctx) {
   const c = tool === 'Bash' ? String(ti.command || '').replace(REDIRECT, ' ') : '';
   if (!role) {
     if (tool === 'Bash' && START_CMD.test(String(ti.command || ''))) return null;
-    if (['Write', 'Edit', 'NotebookEdit', 'Agent'].includes(tool) || tool.startsWith('mcp__') || (tool === 'Bash' && WRITES.test(String(ti.command || '')))) return 'no role is recorded for this session: read your set, then run your start command (`proc takeover`, `proc job start` or `proc lane start`) before any act (SESSIONS §1a)';
+    if (['Write', 'Edit', 'NotebookEdit', 'Agent'].includes(tool) || tool.startsWith('mcp__') || (tool === 'Bash' && WRITES.test(String(ti.command || '')))) return 'no role is recorded for this session: read your set, then run your start command (`proc takeover`, `proc job start`, `proc lane start`, `proc process start` for the neoProcess lane, `proc onboard start` for an onboarding session) before any act (SESSIONS §1a)';
     return null;
   }
   if (tool === 'Bash') {
@@ -63,15 +71,15 @@ export function preReason(role, input, ctx) {
       const to = refs(push);
       if (to.some((r) => r === 'main')) return 'nothing is pushed to main: the tranche reaches main only by its close PR (P12)';
       if (to.some((r) => r.startsWith('state/'))) return 'the state branch is written only by the tool (PROTOCOL §7d)';
-      const own = role === 'job' ? jobBranch(ctx.module) : TRANCHE;
-      if (to.some((r) => r !== own)) return `${role === 'job' ? 'a job' : role === 'lane' ? 'a lane' : 'BOB'} pushes only ${own} (JOB-LIFE §11)`;
+      const own = ownBranch(role, ctx);
+      if (!own || to.some((r) => r !== own)) return `${WHO[role] ?? role} pushes only ${own ?? 'the branch its start recorded'} (JOB-LIFE §11)`;
     }
     return null;
   }
   if (tool === 'Agent' && ti.run_in_background !== true) return 'a worker is never waited on in the foreground (P13; rulebook SES 6): start it with run_in_background true and end your turn; its completion wakes you';
   if (tool === `${REMOTE}send_message`) {
     const u = unpushedReason(ctx, 'a message is sent'); if (u) return u;
-    if (role !== 'bob') {
+    if (role !== 'bob' && !OUTSIDE.has(role)) {   // the process repository has no BOB: the neoProcess lane's message is data to its reader
       let bob; try { bob = addr({ product: join(ctx.root, ctx.product || '.'), bob: true }); } catch (e) { return `BOB's address could not be read from the state branch (${e.message})`; }
       if (ti.session_id !== bob) return `a ${role} sends every message to BOB's address, read from git now (\`proc addr --bob\` → ${bob}), never to a lane or another job (PROTOCOL §1)`;
     }
@@ -79,6 +87,8 @@ export function preReason(role, input, ctx) {
   }
   if (role !== 'bob') {
     if ([`${REMOTE}create_session`, `${REMOTE}create_trigger`, `${REMOTE}fire_trigger`, `${REMOTE}send_later`].includes(tool)) return `a ${role} starts no session and arms no timer (rulebook SES 1)`;
+    // the neoProcess lane opens and merges its own pull request to the process repository's main (no BOB there); it never reviews one
+    if (OUTSIDE.has(role) && [`${GH}merge_pull_request`, `${GH}create_pull_request`].includes(tool)) return null;   // an onboarding session: the one seed pull request
     if ([`${GH}merge_pull_request`, `${GH}enable_pr_auto_merge`, `${GH}pull_request_review_write`, `${GH}create_pull_request`].includes(tool)) return `a ${role} never opens, reviews or merges a pull request: BOB and the queue do (JOB-LIFE §11)`;
     if (role === 'job' && [`${GH}update_pull_request`, `${GH}add_issue_comment`].includes(tool)) {
       let j = null; try { j = parseJob(stateRead(R_of(ctx), `jobs/${ctx.module}.md`) || ''); } catch { /* read below */ }
@@ -147,19 +157,20 @@ export function allowReason(role, input, ctx) {
   if (/[`<>]|\$\(|\n|(?<!&)&(?!&)|--output\b/.test(c)) return null;
   const parts = c.split(/&&|\|\||;|\|/).map((x) => x.trim()).filter(Boolean);
   if (!parts.length) return null;
-  const own = role === 'job' ? jobBranch(ctx.module) : TRANCHE;
+  const own = ownBranch(role, ctx);
   for (const part of parts) {
     if (ALLOW_PART.some((re) => re.test(part))) continue;
     const push = part.match(/^git\s+(?:-C\s+\S+\s+)?push((?:\s+(?:-u|--set-upstream|-q|--quiet))*\s+origin\s+\S+)$/);
-    if (push && !FORCE.test(part) && refs(push).length && refs(push).every((r) => r === own)) continue;
+    if (push && own && !FORCE.test(part) && refs(push).length && refs(push).every((r) => r === own)) continue;
     return null;
   }
-  return `the act table gives every ${role === 'bob' ? 'BOB' : role} this act (PERMISSIONS §8.6)`;
+  return `the act table gives every ${role === 'bob' ? 'BOB' : role === 'process' ? 'neoProcess lane' : role === 'onboard' ? 'onboarding session' : role} this act (PERMISSIONS §8.6)`;
 }
 
 // The reason a turn may not end, or null: no role yet; a job's record WORKING; anything `proc status` gates for the role.
 export function stopReason(role, ctx) {
-  if (!role) return 'run your start command first (`proc takeover`, `proc job start` or `proc lane start`): the role is recorded by it (SESSIONS §1a)';
+  if (!role) return 'run your start command first (`proc takeover`, `proc job start`, `proc lane start`, `proc process start` for the neoProcess lane, `proc onboard start` for an onboarding session): the role is recorded by it (SESSIONS §1a)';
+  if (OUTSIDE.has(role)) return null;   // the process repository has no state branch, so no gate of `proc status` to read
   const R = R_of(ctx), st = status({ product: R.dir });
   const why = [...st.gate];
   if (role === 'job') {
@@ -173,7 +184,7 @@ export function stopReason(role, ctx) {
 // input (fresh, cache read and cache write) in the transcript; the window is the model's, 1,000,000 unless
 // NEO_CONTEXT_WINDOW says otherwise. BOB's refresh is its handoff (`proc handoff` marks it for its session); a job's or a
 // lane's is the wait `BLOCKED: context`, which BOB's queue lists as UNBLOCK and answers by `proc job route` / `lane route`.
-export const THRESHOLD = { bob: 0.4, job: 0.5, lane: 0.5 };
+export const THRESHOLD = { bob: 0.4, job: 0.5, lane: 0.5, process: 0.5, onboard: 0.5 };
 export const WINDOW = Number(process.env.NEO_CONTEXT_WINDOW) || 1_000_000;
 export function contextUsed(input) {
   if (typeof input?.transcript_path !== 'string') return null;
@@ -188,9 +199,11 @@ export function contextUsed(input) {
 export function contextReason(role, used, ctx, window = WINDOW) {
   if (!(role in THRESHOLD) || !(used > THRESHOLD[role] * window)) return null;
   const pct = Math.round((100 * used) / window), limit = Math.round(100 * THRESHOLD[role]), at = `you are at ${pct} % of your window, past ${limit} % (P13; rulebook SES 5)`;
-  if (role === 'bob') {
+  if (role === 'bob' || OUTSIDE.has(role)) {
     const f = join(ctx.root, '.git', 'proc-handoff.json');
     if (existsSync(f) && JSON.parse(readFileSync(f, 'utf8')).session === ctx.session) return null;
+    if (role === 'onboard') return `${at}: refresh now: commit and push the project's onboard branch, then end the turn; the owner starts the next onboarding session, which continues from \`proc init --check\``;
+    if (role === 'process') return `${at}: refresh now: write lane-neoprocess/HANDOFF.md (its From line naming you) and the START file with the prompt Bob pastes, commit, push, run \`proc process handoff\`, then take no further act`;
     return `${at}: refresh now: run \`proc handoff --next "<the next step>"\` at a clean point and send ROOT the START line it prints, then take no further act`;
   }
   const R = R_of(ctx);
@@ -223,7 +236,7 @@ function main() {
   if (ev === 'stop') {
     let why = null; try { why = stopReason(role, ctx); } catch (e) { why = `the stop check failed (${e.message}); fix the cause`; }
     if (!why && role === 'bob') { try { why = stepsReason(lastAssistantText(input), join(root, r.product || '.')); } catch (e) { why = `the steps check failed (${e.message}); fix the cause`; } }
-    if (!why && (role === 'bob' || role === 'lane')) { try { why = askingBobReason(lastAssistantText(input)); } catch { /* no text */ } }
+    if (!why && (role === 'bob' || role === 'lane' || OUTSIDE.has(role))) { try { why = askingBobReason(lastAssistantText(input)); } catch { /* no text */ } }
     if (!why && role) { try { why = contextReason(role, contextUsed(input), ctx); } catch (e) { why = `the context check failed (${e.message}); fix the cause`; } }
     // The same refusal three times in a row lets the turn end, so a cause the session cannot clear never loops.
     const f = join(root, '.git', 'proc-stop.json');

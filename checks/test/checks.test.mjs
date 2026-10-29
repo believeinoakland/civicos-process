@@ -403,7 +403,7 @@ test('ownership: onlyRemoves reads tokens, and a string literal is one token (K1
 const TERMS = (f) => readFileSync(new URL(`./fixtures/terms/${f}`, import.meta.url), 'utf8');
 const withRegister = (over = {}) => base({ 'build/terms/anthropic.md': TERMS('register.md'), ...over });
 
-process.env.CIVICOS_TERMS_CHECK = '1'; // N656 is opt-in until certified (P3)
+process.env.PROC_TERMS_CHECK = '1'; // N656 is opt-in until certified (P3)
 test('format: a limit on Anthropic\'s terms citing a register id passes; an uncited one fails, naming file and line (N656, K1763)', () => {
   assert.deepEqual(checkFormat(repo(withRegister({ 'docs/architecture/cited.md': TERMS('cited.md') })).root).failures, []);
   assert.deepEqual(checkFormat(repo(withRegister({ 'docs/architecture/uncited.md': TERMS('uncited.md') })).root).failures,
@@ -504,8 +504,8 @@ test('format: a dated lane report from 2026-10-29 on without Evidence: fails, na
 });
 
 // rulebook BLD 5 (bio K3923): run.mjs runs the words check where the product has a word table.
-test('run.mjs: the words check runs where the product has words.json; a planted inline sentence fails it, exit 1', () => {
-  const words = { 'docs/development/ux-substrate/screens/words.json': JSON.stringify({ words: [{ key: 'screen.home.title', en: 'Home' }] }) };
+test('run.mjs: the words check runs where the product configures it (build/words.json); a planted inline sentence fails it, exit 1', () => {
+  const words = { 'docs/development/ux-substrate/screens/words.json': JSON.stringify({ words: [{ key: 'screen.home.title', en: 'Home' }] }), 'build/words.json': JSON.stringify({ table: 'docs/development/ux-substrate/screens/words.json' }) };
   const run = (files) => {
     const { root } = repo(base({ ...words, ...files }));
     const r = spawnSync('node', [fileURLToPath(new URL('../run.mjs', import.meta.url)), root], { encoding: 'utf8' });

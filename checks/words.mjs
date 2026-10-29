@@ -15,11 +15,11 @@
 //   missingkey   a literal key given to word(/hasWord(/wordsOf( or listed in words-reads.json that words.json lacks.
 //   handlist     a test array of 5+ strings that are op names, refusal codes or word keys (K3268). Tag `?` on
 //                op names and refusal codes (whose owner module is not known to the check); word keys are certain.
-// The words come from `docs/development/ux-substrate/screens/words.json` ({words: [{key, en}]}); op names from the
-// product's op declarations (`<root>/bio-plane/src/op-declarations/index.mjs`, its `OPS`) or, failing that, from
+// The words come from the table `build/words.json` names ({words: [{key, en}]}); op names from the
+// product's op declarations (`opDeclarations`, its `OPS`) or, failing that, from
 // `build/ops.json` (a JSON array of names). Files read: tracked files of the module's `paths` / `tests` with a
 // JS/TS extension; never generated files (a header saying GENERATED or "do not edit by hand", the manifest's
-// "Generated artifacts" table), vendored code, node_modules, dist, fixtures, setup-words itself.
+// "Generated artifacts" table), vendored code, node_modules, dist, fixtures, the word list's own module (`wordsModule`).
 // Words B (bio K3930; words-B-design §10): the marker `localize(id, en, vars)` (MARKER; named `t` until bio K3943, renamed
 // because 1,450 of bio's files bind `t` already) is a reading like word(): the literals given as its first and second
 // arguments are never `inline` or `testcopy` findings. Fifth arm:
@@ -27,7 +27,7 @@
 //                is not KEY_RE, whose id is used with two different en across the tree (each place after the first), or
 //                that sits in a drawn-screen module (DRAWN_MODULES). `missingkey` still judges word/hasWord/wordsOf only.
 //   unreviewed   only with `--release` (`checkWords(root, only, { release: true })`; run.mjs does not pass it): one failure per
-//                row of `bio-plane/src/setup-words/words-unreviewed.json` ({unreviewed: [{id,en,module,file,line}]}),
+//                row of the `unreviewed` file `build/words.json` names ({unreviewed: [{id,en,module,file,line}]}),
 //                the design stream's review list, which must be empty at a release cut.
 // Usage: node checks/words.mjs <product-root> [module ...] [--release]
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
@@ -35,22 +35,28 @@ import { join, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readModules, trackedFiles, ownerIndex, notProduct, report } from './lib.mjs';
 
-export const WORDS_JSON = 'docs/development/ux-substrate/screens/words.json';
-// The generated word rows (setup-words R10, R15): the design's words followed by the sentences written first in code
-// (`t`/`localize(id, en)`, Words B). A key there is a word `word(key)` answers, so `missingkey` does not judge it (bio K5579).
-export const WORD_ROWS = 'bio-plane/src/setup-words/rows.mjs';
-export const READS_JSON = 'docs/development/ux-substrate/screens/words-reads.json';
+// The process names no product (Bob, 29 Oct): where a product keeps its words, and what its modules are called, come from
+// its own `build/words.json`, and the check runs only where that file exists (PRODUCT-SUPPLIES). Its keys:
+//   table        the word table ({words: [{key, en}]})                 reads        the design's words-reads.json
+//   rows         the generated word rows (the design's words followed by the sentences written first in code; a key
+//                there is a word `word(key)` answers, so `missingkey` does not judge it)
+//   unreviewed   the design stream's review list, judged with --release  baseline     the test files that hold English today
+//   opDeclarations  a module exporting OPS and OP_FAMILIES              marker       the marker function's name
+//   wordsModule  the word list's own module (holds the English by definition; its tests may test the marker's refusals)
+//   declModules  modules whose tests may list ops                     drawnPrefix, drawnModules  the drawn-screen modules
+export const WORDS_CONFIG = 'build/words.json';
+export function wordsConfig(root) {
+  const p = join(root, WORDS_CONFIG);
+  if (!existsSync(p)) return null;
+  const c = JSON.parse(readFileSync(p, 'utf8'));
+  const drawn = new Set(c.drawnModules || []);
+  return { ...c, marker: c.marker || 'localize', own: new Set(c.wordsModule ? [c.wordsModule] : []), decl: new Set(c.declModules || []), drawn: (id) => (c.drawnPrefix ? id.startsWith(c.drawnPrefix) : false) || drawn.has(id) };
+}
+const NONE = { own: new Set(), decl: new Set(), drawn: () => false, marker: 'localize' };
 const CODE_EXT = /\.(mjs|js|cjs|ts|tsx|jsx)$/;
 const SKIP_DIR = /(^|\/)(node_modules|dist|vendor|vendored|fixtures?|testdata|generated|coverage|profiles|datasets?|scripts|\.git)\//;
 const TABLE_FILE = /(^|\/)[^/]*(words|texts|messages|copy|strings|labels|glossary|vocabulary)[^/]*\.m?js$/i;
-// Drawn screens are written first by the design and read their words only through word(); a `t` call there fails the
-// check (bio K3930 (3); words-B-design §4).
-export const DRAWN_MODULES = (id) => /^screens-/.test(id) || ['interface-shell', 'wizard-scripts', 'site', 'installer', 'installer-steps'].includes(id);
-export const UNREVIEWED_JSON = 'bio-plane/src/setup-words/words-unreviewed.json'; // bio K3932
-const OWN_WORDS_MODULES = new Set(['setup-words']); // the word list's own module: holds the English by definition
-const OWN_DECL_MODULES = new Set(['op-declarations', 'op-capabilities']); // modules whose tests may list ops
-export const BASELINE_JSON = 'build/tests-english-baseline.json'; // bio K5426: the test files that hold English today; the count only shrinks
-export const MARKER = 'localize'; // setup-words R14 (bio K3943)
+// Drawn screens are written first by the design and read their words only through word(); a marker call there fails the check.
 const KEY_RE = /^[a-z][a-z0-9_-]*(\.[A-Za-z0-9_-]+)+$/;
 const ERROR_CALLEE = /(^|\.)\w*Error$/;
 const TITLE_CALLEE = /^(test|it|describe|suite|before|after)(\.\w+)?$/;
@@ -303,8 +309,8 @@ function excerpt(v) {
 
 // ---- product knowledge ------------------------------------------------------------------------------------------------
 export function loadWords(root) {
-  const p = join(root, WORDS_JSON);
-  if (!existsSync(p)) return { keys: new Set(), ens: new Map(), blob: '', codes: new Set(), codeKeys: new Set() };
+  const C = wordsConfig(root) || {}, p = C.table ? join(root, C.table) : null;
+  if (!p || !existsSync(p)) return { keys: new Set(), ens: new Map(), blob: '', codes: new Set(), codeKeys: new Set() };
   const rows = JSON.parse(readFileSync(p, 'utf8')).words || [];
   const keys = new Set(), ens = new Map(), codes = new Set();
   for (const r of rows) {
@@ -315,8 +321,8 @@ export function loadWords(root) {
   }
   const blob = '\n' + [...ens.keys()].join('\n') + '\n';
   const codeKeys = new Set();
-  const g = join(root, WORD_ROWS);
-  if (existsSync(g)) for (const m of readFileSync(g, 'utf8').matchAll(/^\s*\["([^"\\]+)",/gm)) codeKeys.add(m[1]);
+  const g = C.rows ? join(root, C.rows) : null;
+  if (g && existsSync(g)) for (const m of readFileSync(g, 'utf8').matchAll(/^\s*\["([^"\\]+)",/gm)) codeKeys.add(m[1]);
   return { keys, ens, blob, codes, codeKeys };
 }
 
@@ -330,8 +336,8 @@ export async function loadOpNames(root) {
     const d = JSON.parse(readFileSync(j, 'utf8'));
     if (Array.isArray(d)) for (const x of d) names.set(x, null); else for (const [k, v] of Object.entries(d)) names.set(k, v);
   }
-  const decl = join(root, 'bio-plane/src/op-declarations/index.mjs');
-  if (existsSync(decl)) {
+  const od = (wordsConfig(root) || {}).opDeclarations, decl = od ? join(root, od) : null;
+  if (decl && existsSync(decl)) {
     try {
       const m = await import(pathToFileURL(decl).href);
       for (const k of Object.keys(m.OPS || {})) if (!names.has(k)) names.set(k, null);
@@ -346,9 +352,9 @@ export async function loadOpNames(root) {
 
 // The design's own list of inline strings no member reads (words-reads.json `unkeyed`), per module, placeholders normalised.
 export function loadUnkeyed(root) {
-  const p = join(root, READS_JSON);
+  const r = (wordsConfig(root) || {}).reads, p = r ? join(root, r) : null;
   const out = new Map();
-  if (!existsSync(p)) return out;
+  if (!p || !existsSync(p)) return out;
   let j; try { j = JSON.parse(readFileSync(p, 'utf8')); } catch { return out; }
   for (const [id, e] of Object.entries(j.modules || {})) {
     if ((e.unkeyed || []).length) out.set(id, '\n' + e.unkeyed.map((u) => String(u.text).replace(/\$?\{[^}]*\}/g, '{}')).join('\n') + '\n');
@@ -400,12 +406,14 @@ const RX_CALLS = new Set(['match', 'doesNotMatch', 'test', 'exec', 'search']);
 // the prose fragments of a regex source: literal runs of 12+ characters with two words in them
 const rxFragments = (rx) => rx.replace(/\\(.)/g, '$1').split(/[\[\]()|?*+{}^$]|\.(?=[*+?])/).map((x) => x.trim()).filter((x) => /[A-Za-z]+ [A-Za-z]+/.test(x) && x.length >= 12);
 export function loadBaseline(root) {
-  const p = join(root, BASELINE_JSON);
-  if (!existsSync(p)) return null;
+  const b = (wordsConfig(root) || {}).baseline, p = b ? join(root, b) : null;
+  if (!p || !existsSync(p)) return null;
   try { const j = JSON.parse(readFileSync(p, 'utf8')); return { files: j.files || {} }; } catch { return { files: {} }; }
 }
 
 export async function checkWords(root, only = [], { release = false, record = false } = {}) {
+  const C = wordsConfig(root) || NONE, MARKER = C.marker, DRAWN_MODULES = C.drawn, OWN_WORDS_MODULES = C.own, OWN_DECL_MODULES = C.decl;
+  const READS_JSON = C.reads || null, UNREVIEWED_JSON = C.unreviewed || null;
   const state = readModules(root);
   const words = loadWords(root);
   const ops = await loadOpNames(root);
@@ -479,8 +487,8 @@ export async function checkWords(root, only = [], { release = false, record = fa
     // marker: t(id, en, vars) calls
     const plain = (x) => x && x.t === 'str' && !x.interp;
     const endsArg = (x) => x && x.t === 'p' && (x.v === ',' || x.v === ')');
-    // A bare `t(` is the reading only where the file imports the specifier `t` FROM setup-words (a source path ending in
-    // `setup-words` or `setup-words/index.mjs`): bio's tests bind `t` to node:test's `test` and other helpers. Any other
+    // A bare marker call is the reading only where the file imports the marker FROM the word list's own module (a source
+    // path ending in its name or `<name>/index.mjs`): a product's tests may bind the same name to node:test's `test` and other helpers. Any other
     // binding of `t` (default import, `x as t`, another module, a local declaration) is neither a marker nor an exempt
     // reading. A member call `.t(` is not judged.
     let hasT = false;
@@ -489,7 +497,7 @@ export async function checkWords(root, only = [], { release = false, record = fa
       let j = k + 2, named = false;
       for (; j < toks.length && toks[j].v !== '}'; j++) if (toks[j].t === 'id' && toks[j].v === MARKER && !['as'].includes(toks[j - 1].v) && !(toks[j + 1] && toks[j + 1].v === 'as')) named = true;
       const from = toks[j + 1], src = toks[j + 2];
-      if (named && from && from.v === 'from' && src && src.t === 'str' && /(^|\/)setup-words(\/index\.mjs)?$/.test(src.v)) hasT = true;
+      if (named && from && from.v === 'from' && src && src.t === 'str' && C.wordsModule && new RegExp(`(^|/)${C.wordsModule.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(/index\\.mjs)?$`).test(src.v)) hasT = true;
     }
     // The word list's own module (OWN_WORDS_MODULES) tests the marker's refusals on purpose: its `t` calls are not judged.
     for (let k = 0; hasT && !OWN_WORDS_MODULES.has(m.id) && k < toks.length - 1; k++) {
@@ -639,13 +647,13 @@ export async function checkWords(root, only = [], { release = false, record = fa
       }
     }
   };
-  if (existsSync(join(root, READS_JSON))) checkReads(READS_JSON, readFileSync(join(root, READS_JSON), 'utf8'));
+  if (READS_JSON && existsSync(join(root, READS_JSON))) checkReads(READS_JSON, readFileSync(join(root, READS_JSON), 'utf8'));
   for (const f of files) if (basename(f) === 'words-reads.json' && f !== READS_JSON && !SKIP_DIR.test(f)) {
     const o = state.modules.find((x) => (x.paths || []).some((p) => (p.endsWith('/') ? f.startsWith(p) : p === f)));
     if (o) checkReads(f, readFileSync(join(root, f), 'utf8'), o.id);
   }
 
-  if (release && existsSync(join(root, UNREVIEWED_JSON))) {
+  if (release && UNREVIEWED_JSON && existsSync(join(root, UNREVIEWED_JSON))) {
     let u = []; try { u = JSON.parse(readFileSync(join(root, UNREVIEWED_JSON), 'utf8')).unreviewed || []; } catch { /* unreadable: no rows */ }
     for (const r of u) if (!only.length || only.includes(r.module)) add('unreviewed', r.module, r.file, r.line, '', r.id);
   }

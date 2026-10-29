@@ -33,10 +33,13 @@
 //   review result --module <m> --result-file <f>      merge --module <m> --head <sha> --gate <conclusion>      merged --module <m> --sha <commit>
 //   job reopen --module <m> --change-file <f>      job retire --module <m>      job archived --module <m> --session <id> --usage <json>
 //   defect --module <m> --what "<…>"      bob archived --name "BOB #n" --session <id> --usage <json> [--tranche <T>]
-//   reading --role <bob|job|lane|root>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
+//   reading --role <bob|job|lane|root|process|onboard>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
 //   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
 //   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (tools/lib.mjs, P20)
 //   repo setup --repo <owner/name> [--private] [--dry-run]      (PERMISSIONS §9: the repository and its two rulesets)
+//   process start --branch <b> --session <id>      process handoff      (the neoProcess lane, in the process repository itself)
+//   grants check [--branch <b>] [--urls <u1,u2>]      (PERMISSIONS §10, GRANTS.md: proven before `tranche open`)
+//   init --mode <new|convert> [--name "<project>"] | init --check      onboard start --product <dir> --session <id>      (ONBOARDING.md)
 //   refused --act "<act or act-table id>" --kind hook|classifier|scope|platform --reason "<…>" [--by "<ROLE #k>"]      refused routed --id R-<role>-<n> --route "<…>"
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
@@ -457,6 +460,38 @@ export function laneStart(o) {
   writeRole(R, { role: 'lane', product: R.rel('.'), session: o.session, name: l.name, lane: o.id, epoch: e });
   const row = lanes(R).find((x) => x.id === o.id);
   return { charter: R.read(row.charter), canon: row.canon, asks: asks(R, e).filter((a) => a.lane === o.id && a.status === 'ASKED').map((a) => ({ id: a.id, question: a.Asked.body })), check: selfcheck(R, TRANCHE) };
+}
+// The neoProcess lane's first command (SESSIONS §1a): the session that maintains the process repository itself, which has
+// no state branch, no BOB and no tranche, so no other start command can record its role (neoProcess #7, 29 Oct: the
+// hooks refused every act of the lane that maintains them). The role is recorded on the lane's branch, never main; the
+// command checks that branch out itself, since the hook refuses a checkout before a role is recorded. It prints the
+// lane's handoff, whose reading section names the rest of the set.
+export const PROCESS_LANE = 'lane-neoprocess';
+export function processStart(o) {
+  if (!SESSION.test(o.session || '') || !o.branch) refuse('--branch <the lane\'s branch> --session <id>');
+  const R = repo(o.product);
+  if (resolve(R.root) !== resolve(PROCESS)) refuse(`the neoProcess lane works in the process repository (${PROCESS}), not ${R.root}`);
+  if (o.branch === 'main' || o.branch.startsWith('state/')) refuse(`the lane works on its own branch, never ${o.branch}: main takes its work only by a pull request`);
+  if (R.branch() !== o.branch) {
+    if (R.g(['status', '--porcelain', '--untracked-files=no'])) refuse(`uncommitted changes on ${R.branch()}: commit or drop them before the lane checks out ${o.branch}`);
+    R.fetch(o.branch);
+    let tip = null; try { tip = R.g(['rev-parse', `origin/${o.branch}`]); } catch { /* a new branch, made at HEAD */ }
+    R.g(tip ? ['checkout', '-q', '-B', o.branch, '--track', `origin/${o.branch}`] : ['checkout', '-q', '-b', o.branch]);
+  }
+  writeRole(R, { role: 'process', product: '.', session: o.session, name: 'NEOPROCESS', branch: o.branch });
+  const h = R.read(`${PROCESS_LANE}/HANDOFF.md`);
+  return { role: 'process', branch: o.branch, text: `${h ?? `(${PROCESS_LANE}/HANDOFF.md not found)`}\nNext: put your session id (${o.session}) in the handoff's From line and push to ${o.branch}; read whole what its reading section names (P20); continue from "What remains".\n` };
+}
+// The neoProcess lane's refresh past half its window (rulebook SES 5): the handoff, naming the outgoing session in its
+// From line, committed and pushed, then marked for the Stop hook, which then lets the turn end.
+export function processHandoff(o) {
+  const R = repo(o.product), me = readRole(R.root);
+  if (me?.role !== 'process') refuse('only the neoProcess lane, recorded by `proc process start`, hands off this way');
+  const u = unpushed(R); if (u.length) refuse(`not at a clean point: ${u.join('; ')}`);
+  const h = R.read(`${PROCESS_LANE}/HANDOFF.md`) || '';
+  if (!h.includes(me.session)) refuse(`${PROCESS_LANE}/HANDOFF.md does not name you (${me.session}) as the session it is from`);
+  writeFileSync(join(R.root, '.git', 'proc-handoff.json'), JSON.stringify({ session: me.session, at: now() }));
+  return { handoff: `${PROCESS_LANE}/HANDOFF.md`, at: R.g(['rev-parse', '--short', 'HEAD']), next: 'end the turn; Bob starts the successor from the START file the handoff names' };
 }
 // Bob's suggestion, or BOB's own: the charter rewritten in place, with a decision line saying why.
 export function laneCharter(o) {
@@ -1103,21 +1138,23 @@ export function bobArchived(o) {
 
 // ---- the reading sets and their budgets (SESSIONS §3, §6), the gate (JOB-LIFE §4), the shims (PRODUCT-SUPPLIES) ----
 
-export const PROCESS_TEXT = { root: 26 * 1024, bob: 55 * 1024, job: 26 * 1024, lane: 26 * 1024 };
-const ROLE_BOOKS = { root: ['governance', 'sessions', 'usage'], bob: null, job: ['building', 'integration', 'sessions'], lane: ['design', 'governance', 'sessions'] };
-const START_CMD = { bob: 'proc takeover --name "BOB #<n>" --session <your session id>', job: 'proc job start --module <m> --session <your session id>', lane: 'proc lane start --id <ID> --session <your session id>', root: 'proc status' };
+export const PROCESS_TEXT = { root: 26 * 1024, bob: 55 * 1024, job: 26 * 1024, lane: 26 * 1024, process: 26 * 1024, onboard: 32 * 1024 };
+const ROLE_BOOKS = { root: ['governance', 'sessions', 'usage'], bob: null, job: ['building', 'integration', 'sessions'], lane: ['design', 'governance', 'sessions'], process: ['design', 'governance', 'sessions'], onboard: ['governance'] };
+// A role's own design texts, read whole beside its rulebooks: the onboarding session works from ONBOARDING and GRANTS.
+const ROLE_TEXTS = { onboard: ['ONBOARDING.md', 'GRANTS.md'] };
+const START_CMD = { bob: 'proc takeover --name "BOB #<n>" --session <your session id>', job: 'proc job start --module <m> --session <your session id>', lane: 'proc lane start --id <ID> --session <your session id>', root: 'proc status', process: 'proc process start --branch <the lane\'s branch> --session <your session id>', onboard: 'proc onboard start --product <the project\'s directory> --session <your session id>' };
 // The rulebooks' home is `rulebooks/`; until the ten are written there, the lane's drafts stand in.
 export function rulebooksDir() { for (const d of ['rulebooks', 'lane-neoprocess/rulebooks']) if (existsSync(join(PROCESS, d))) return join(PROCESS, d); return null; }
 const allBooks = (dir) => (dir ? readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)).sort() : []);
 // A role's process text, whole, with its size against its budget; printed by the one skill, then the start command.
 export function reading(o) {
-  const role = String(o.role || '').trim().toLowerCase(); if (!(role in ROLE_BOOKS)) refuse('--role bob | job | lane | root');
+  const role = String(o.role || '').trim().toLowerCase(); if (!(role in ROLE_BOOKS)) refuse('--role bob | job | lane | root | process | onboard');
   const dir = rulebooksDir(), books = ROLE_BOOKS[role] ?? allBooks(dir);
-  const files = [{ path: join(PROCESS, 'PROCESS-DESIGN.md') }, ...books.map((b) => ({ path: join(dir || PROCESS, `${b}.md`), book: b }))];
+  const files = [{ path: join(PROCESS, 'PROCESS-DESIGN.md') }, ...books.map((b) => ({ path: join(dir || PROCESS, `${b}.md`), book: b })), ...(ROLE_TEXTS[role] || []).map((t) => ({ path: join(PROCESS, t) }))];
   for (const f of files) { f.text = existsSync(f.path) ? readFileSync(f.path, 'utf8') : null; f.bytes = f.text ? Buffer.byteLength(f.text) : 0; }
   const bytes = files.reduce((n, f) => n + f.bytes, 0), budget = PROCESS_TEXT[role];
   const over = [...(bytes > budget ? [`${role}'s process text is ${bytes} bytes, over ${budget} (SESSIONS §6)`] : []), ...files.filter((f) => f.book && f.bytes > LIMIT).map((f) => `rulebook ${f.book} is ${f.bytes} bytes, over ${LIMIT} (rulebook SES 4)`)];
-  const text = `${files.map((f) => `=== ${relative(PROCESS, f.path)} (${f.bytes} bytes) ===\n${f.text ?? '(not yet written)'}`).join('\n\n')}\n\n=== your process text: ${bytes} bytes of ${budget} ===\n${over.map((x) => `SIZE: ${x}`).join('\n')}${over.length ? '\n' : ''}Next: read everything above whole (P20), then run \`${START_CMD[role]} --product ${o.product || '.'}\`, which prints the rest of your set.\n`;
+  const text = `${files.map((f) => `=== ${relative(PROCESS, f.path)} (${f.bytes} bytes) ===\n${f.text ?? '(not yet written)'}`).join('\n\n')}\n\n=== your process text: ${bytes} bytes of ${budget} ===\n${over.map((x) => `SIZE: ${x}`).join('\n')}${over.length ? '\n' : ''}Next: read everything above whole (P20), then run \`${START_CMD[role]}${role === 'onboard' ? '' : ` --product ${o.product || '.'}`}\`, which prints the rest of your set.\n`;
   return { role, files: files.map(({ text: _, ...f }) => f), bytes, budget, over, next: START_CMD[role], text };
 }
 // What is over a budget: a rulebook over 4 KB, a role's process text over its budget, a named module's own set over 40 KB.
@@ -1198,7 +1235,9 @@ export function gateCmd(o) {
 // The process repository is public (BOB, 29 Oct), so its checkout needs no key or secret (JOB-LIFE §4). No merge queue:
 // the tool merges a green, current pull request (JOB-LIFE §6), so the workflow runs on pull requests only.
 export function shims(o) {
-  const R = repo(o.product), proc = o.process || '/home/user/neoProcess', name = o.repo || 'believeinoakland/neoProcess', rel = R.rel('.');
+  // the process's own place and name, read from its checkout and its remote, never written into the tool (Bob, 29 Oct)
+  const remoteName = () => { try { return execFileSync('git', ['-C', PROCESS, 'remote', 'get-url', 'origin'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim().replace(/\.git$/, '').split(/[/:]/).slice(-2).join('/'); } catch { return null; } };
+  const R = repo(o.product), proc = o.process || PROCESS, name = o.repo || remoteName() || refuse('--repo <owner/name>: the process repository\'s remote could not be read'), rel = R.rel('.');
   const ref = o.ref || (() => { try { const b = execFileSync('git', ['-C', PROCESS, 'rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); return b === 'HEAD' ? 'main' : b; } catch { return 'main'; } })();
   const hook = (ev) => `node "${proc}/tools/hooks.mjs" ${ev}`;
   const supplies = 'PRODUCT-SUPPLIES.md';   // at the root since the commit point
@@ -1340,6 +1379,7 @@ export function roundClose(o) {
 // it whole once the close PR has merged; a tip not on main is a running tranche.
 export function trancheOpen(o) {
   const R = repo(o.product), text = planFile(o), T = tranche({ read: () => text }).id;
+  const held = grantsHeld(R); if (held) refuse(held);   // PERMISSIONS §10.3: a missing grant stops the opening, never a step
   R.fetch('main', TRANCHE);
   const tip = R.g(['rev-parse', 'origin/main']);
   if (R.heads(`refs/heads/${TRANCHE}`).length) { try { R.g(['merge-base', '--is-ancestor', `origin/${TRANCHE}`, tip]); } catch { refuse(`${TRANCHE} holds work not on main: the running tranche closes first (its close PR merged, recorded by \`proc tranche merged\`)`); } }
@@ -1469,6 +1509,145 @@ export async function repoSetup(o) {
   return out;
 }
 
+// ---- the grants (PERMISSIONS §10; GRANTS.md): every grant the four stages need, proven held before a tranche opens ----
+// The tool's HTTP goes through the session's agent proxy, which injects each host's credential, and Node's fetch uses
+// HTTPS_PROXY only when NODE_USE_ENV_PROXY is set at its start (measured #7, 29 Oct: without it `GET /user` answered 403
+// and a hosting provider's token check failed; with it 200 as the Claude app, and the check passed), so main() restarts a network
+// command with it set. No credential is named or read here: a hand command naming one is refused by the classifier.
+export const GRANTS_FILE = 'proc-grants.json', GRANTS_PRODUCT = 'build/grants.json', GRANTS_FRESH_H = 24, EXPIRY_WARN_D = 14;
+const NETWORK = new Set(['repo setup', 'grants check']);
+export async function grantsCheck(o) {
+  const R = repo(o.product), f = o.fetch || globalThis.fetch, rows = [], now_ = o.now ? new Date(o.now) : new Date();
+  const row = (grant, ok, detail) => rows.push({ grant, ok, detail });
+  const get = async (url) => { try { const r = await f(url, { headers: { Accept: 'application/json' } }); let json = null; try { json = JSON.parse(await r.text()); } catch { /* not json */ } return { status: r.status, headers: r.headers, json }; } catch (e) { return { status: 0, error: e.cause?.code || e.message }; } };
+  // the standing list in the repository's settings (§2.4, §6): every allow and deny rule present
+  const standing = JSON.parse(readFileSync(join(PROCESS, 'permissions.json'), 'utf8'));
+  let s = null; try { s = JSON.parse(R.read('.claude/settings.json') || 'null'); } catch { /* unreadable */ }
+  const allow = new Set(s?.permissions?.allow || []), deny = new Set(s?.permissions?.deny || []);
+  const missing = [...standing.allow.filter((x) => !allow.has(x)), ...(standing.deny || []).filter((x) => !deny.has(x))];
+  row('standing list', !missing.length, missing.length ? `${missing.length} rule(s) of permissions.json missing from .claude/settings.json (${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ', …' : ''}): \`proc shims\` writes them` : 'every allow and deny rule of permissions.json present');
+  // the push to the role's own branch, dry (§2.6)
+  const own = o.branch || readRole(R.root)?.branch || TRANCHE;
+  const p = spawnSync('git', ['-C', R.root, 'push', '-q', '--dry-run', 'origin', `HEAD:refs/heads/${own}`], { encoding: 'utf8' });
+  row(`push to ${own}`, p.status === 0, p.status === 0 ? 'git push --dry-run passes' : (p.stderr || p.stdout || '').trim().split('\n').pop());
+  // GitHub through the proxy: the identity, and the token's kind and expiry (the app's token renews itself; a token of the process's does not)
+  const gh = await get('https://api.github.com/user');
+  if (gh.status !== 200) row('GitHub API', false, `GET /user answered ${gh.status || gh.error}: no credential reaches api.github.com`);
+  else {
+    const app = gh.headers.get('x-oauth-client-id'), exp = gh.headers.get('github-authentication-token-expiration');
+    const days = exp && !app ? (new Date(exp.replace(' UTC', 'Z').replace(' ', 'T')) - now_) / 864e5 : null;
+    row('GitHub API', days == null || days > EXPIRY_WARN_D, `${gh.json?.login} by ${app ? `the Claude app's token (client ${app})` : 'a token of its own'}${days == null ? '' : `, expiring ${exp} (${Math.floor(days)} days): renew before ${EXPIRY_WARN_D} days remain`}`);
+  }
+  // the product's own services and addresses (PRODUCT-SUPPLIES: `build/grants.json`; the process names none of them):
+  // each service answers through the proxy, active by the field it names, and not expiring within the warning; each
+  // address the exercise stage reaches (a development release) answers; `--urls` adds addresses for this run
+  let pg = {}; try { pg = JSON.parse(R.read(GRANTS_PRODUCT) || '{}'); } catch (e) { row(GRANTS_PRODUCT, false, `unreadable: ${e.message}`); }
+  const at = (obj, path) => String(path || '').split('.').filter(Boolean).reduce((v, k) => v?.[k], obj);
+  for (const sv of pg.services || []) {
+    const r = await get(sv.url), [k, want] = String(sv.active || '').split('='), got = k ? at(r.json, k) : undefined;
+    const exp = sv.expires ? at(r.json, sv.expires) : null, days = exp ? (new Date(exp) - now_) / 864e5 : null;
+    const ok = r.status === 200 && (!k || String(got) === want) && (days == null || days > EXPIRY_WARN_D);
+    row(sv.name, ok, r.status === 200 ? `${k ? `${k} ${got}` : 'answers'}${days == null ? '' : `, expiring ${exp}${days > EXPIRY_WARN_D ? '' : `: renew before ${EXPIRY_WARN_D} days remain`}`}` : `answered ${r.status || r.error}`);
+  }
+  // each variable the product's list names is present in the session's environment, judged by name only: no value is read or shown
+  const env = o.env || process.env;
+  for (const v of pg.variables || []) row(`variable ${v}`, Object.prototype.hasOwnProperty.call(env, v) && env[v] !== '', Object.prototype.hasOwnProperty.call(env, v) ? 'present' : 'not set in this environment');
+  for (const u of [...(pg.urls || []), ...String(o.urls || '').split(',').filter(Boolean)]) { const r = await get(u); row(`reach ${u}`, r.status > 0 && r.status < 500, r.status ? `answered ${r.status}` : r.error); }
+  const ok = rows.every((r) => r.ok);
+  writeFileSync(join(R.root, '.git', GRANTS_FILE), JSON.stringify({ at: now_.toISOString(), ok, rows }));
+  return { ok, rows };
+}
+// Why a tranche may not open, or null: the grants proven held by `proc grants check` in the last day (§10.3).
+export function grantsHeld(R, now_ = new Date()) {
+  const fl = join(R.root, '.git', GRANTS_FILE);
+  if (!existsSync(fl)) return 'the grants are not proven held: run `proc grants check` (PERMISSIONS §10.3)';
+  const g = JSON.parse(readFileSync(fl, 'utf8'));
+  if (!g.ok) return `a grant is not held: ${g.rows.filter((r) => !r.ok).map((r) => `${r.grant}: ${r.detail}`).join('; ')} (PERMISSIONS §10.3; GRANTS.md says who gives it)`;
+  if (now_ - new Date(g.at) > GRANTS_FRESH_H * 36e5) return `the grants were proven at ${g.at}, over ${GRANTS_FRESH_H} hours ago: run \`proc grants check\` again`;
+  return null;
+}
+
+// ---- onboarding (ONBOARDING.md): a project brought under the process, new or existing ----
+// Bob, 29 Oct: a capability that converts an existing project, or starts a new one as soon as its vision, audiences and
+// first requirements can be discussed. `proc init` writes the build state's skeleton (never overwriting a project's own
+// file), surveys an existing project, runs `proc shims`, and reports the onboarding steps; `--check` only reports.
+export const ONBOARD_MARK = '<!-- onboarding:';
+const ONBOARD_BRANCH = 'onboard';
+const CODE_FILE = /\.(m?[jt]sx?|cjs|py|rb|go|rs|java|kt|swift|cs|cpp|cc|c|h|hpp|php|scala|ex|exs|clj|dart|lua|sh|sql|vue|svelte)$/;
+const NOT_CODE_DIR = /^(\.|build$|docs?$|requirements$|node_modules$|dist$|vendor$)/;
+function skeleton(name, legacy) {
+  const m = (what) => `${ONBOARD_MARK} ${what} -->`;
+  return {
+    'requirements/README.md': `# ${name}: the canon index\n\nWhat the product is for, whom it serves and what it must do; every module requirement cites a section here (P5). Written with the owner at onboarding (ONBOARDING §2, step 1).\n\n## Vision\n\n${m("the owner's vision, in his words")}\n\n## Audiences\n\n${m('each audience, and what it needs from the product')}\n\n## Initial requirements\n\n${m('the first requirements, each numbered, each one a behaviour a test can confirm')}\n\n## Designs\n\nNone yet.\n`,
+    'build/manifest.md': `# Build manifest\n\n${name}: where the canon, the build state, each layer's tests and the generated artifacts live (PRODUCT-SUPPLIES).\n\n## Canon\n\n\`requirements/README.md\`.\n\n## Tests\n\n${m("how each module's tests are run, and each layer's")}\n`,
+    'build/layers.md': `# The layers\n\n| layer | name | contract | modules |\n| --- | --- | --- | --- |\n${legacy.length ? `| 1 | Legacy | The existing code, held whole until extracted (ONBOARDING §2, step 5). | ${legacy.map((x) => x.id).join(', ')} |\n` : ''}`,
+    'build/modules.json': `${JSON.stringify({ not_product: ['build/', 'requirements/'], modules: legacy }, null, 2)}\n`,
+    'build/areas.md': '# The product areas\n\n| area | canon | modules | rulebook |\n| --- | --- | --- | --- |\n',
+    'build/rulings.md': '# Rulings\n\nOne line each: `K<n> · date · area · ruling · why` (GOV 7).\n',
+    'build/plan/next.md': '# Next\n\nThe work prepared for the coming tranche (P18); each entry names its module.\n',
+    'build/GRANTS.md': `# Grants\n\nEvery act of the four stages, with what it needs, by name only (GRANTS §2; PERMISSIONS §10). Gathered before the first tranche; the owner gives what only he can at one sitting.\n\n${['Develop', 'Test', 'Deploy a development release', 'Exercise a release'].map((s) => `## ${s}\n\n| act | service and host | credential or access (name only) | where the product uses it |\n| --- | --- | --- | --- |\n\n${m(`the acts of this stage`)}\n`).join('\n')}`,
+    'build/grants.json': `${JSON.stringify({ services: [], urls: [] }, null, 2)}\n`,
+  };
+}
+// An existing project's survey: what is there, from git alone; the legacy modules are its code directories, each held whole.
+function survey(R) {
+  const files = R.g(['ls-files']).split('\n').filter(Boolean).filter((f) => !f.startsWith('build/') && !f.startsWith('requirements/'));
+  const top = new Map();
+  for (const f of files) { const d = f.includes('/') ? f.split('/')[0] : '.'; const t = top.get(d) ?? top.set(d, { n: 0, code: 0, ext: new Map() }).get(d); t.n++; if (CODE_FILE.test(f)) t.code++; const e = (f.match(/\.[^./]+$/) || ['(none)'])[0]; t.ext.set(e, (t.ext.get(e) || 0) + 1); }
+  const pick = (re) => files.filter((f) => re.test(f));
+  const legacy = [...top.entries()].filter(([d, t]) => d !== '.' && t.code && !NOT_CODE_DIR.test(d)).map(([d]) => ({ id: d.toLowerCase().replace(/[^a-z0-9-]+/g, '-'), layer: 1, legacy: true, paths: [`${d}/`], tests: [], uses: ['*earlier'] }));
+  const rootCode = (top.get('.')?.code || 0) ? files.filter((f) => !f.includes('/') && CODE_FILE.test(f)) : [];
+  const text = `# Onboarding survey\n\nWritten by \`proc init --mode convert\` from git alone (ONBOARDING §2, step 1): where the project stands before it comes under the process. Helpers read the code and documents in full from here (P20).\n\n## Directories\n\n| directory | files | code files | kinds |\n| --- | --- | --- | --- |\n${[...top.entries()].sort().map(([d, t]) => `| \`${d}\` | ${t.n} | ${t.code} | ${[...t.ext.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([e, n]) => `${e} ${n}`).join(', ')} |`).join('\n')}\n\n## What builds and tests it\n\n- package manifests: ${pick(/(^|\/)(package\.json|pyproject\.toml|requirements\.txt|Cargo\.toml|go\.mod|pom\.xml|build\.gradle|Gemfile|composer\.json)$/).filter((f) => !f.includes('node_modules/')).map((f) => `\`${f}\``).join(', ') || 'none found'}\n- test directories: ${[...new Set(files.map((f) => f.match(/^(.*?(?:^|\/)(?:test|tests|__tests__|spec))\//)?.[1]).filter(Boolean))].map((f) => `\`${f}/\``).join(', ') || 'none found'}\n- workflows: ${pick(/^\.github\/workflows\//).map((f) => `\`${f}\``).join(', ') || 'none'}\n- deploy and service configuration: ${pick(/(^|\/)(wrangler\.(toml|jsonc?)|Dockerfile|docker-compose\.ya?ml|vercel\.json|netlify\.toml|fly\.toml|serverless\.ya?ml|\.env\.example)$/).map((f) => `\`${f}\``).join(', ') || 'none found'} (read for the grant list, step 3)\n\n## The legacy modules proposed (\`build/modules.json\`)\n\n${legacy.map((x) => `- \`${x.id}\`: \`${x.paths[0]}\``).join('\n') || '- none: no code directory'}\n${rootCode.length ? `\nCode at the root, owned by no module yet (the format check will name each until a module claims it): ${rootCode.map((f) => `\`${f}\``).join(', ')}\n` : ''}`;
+  return { text, legacy };
+}
+export function init(o) {
+  const R = repo(o.product), mode = o.mode, name = o.name || R.rel('.').split('/').pop() || 'The product';
+  if (o.check) return { check: initCheck(R, o) };
+  if (!['new', 'convert'].includes(mode)) refuse('--mode new | convert [--name "<project>"]');
+  const sv = mode === 'convert' ? survey(R) : { legacy: [] };
+  if (mode === 'new' && R.g(['ls-files']).split('\n').some((f) => f && CODE_FILE.test(f) && !f.startsWith('.'))) refuse('the repository already holds code: onboard it with --mode convert');
+  const files = skeleton(name, sv.legacy), written = [], kept = [];
+  if (mode === 'convert') { files['build/onboarding/survey.md'] = sv.text; const old = R.read('CLAUDE.md'); if (old && !old.includes('Written by `proc shims`') && !R.read('build/onboarding/CLAUDE-before.md')) files['build/onboarding/CLAUDE-before.md'] = old; }
+  for (const [p, t] of Object.entries(files)) { if (R.read(p) != null && p !== 'build/onboarding/survey.md') { kept.push(p); continue; } R.write(p, t); written.push(p); }
+  const sh = shims(o);
+  return { mode, written, kept, shims: sh.written, check: initCheck(R, o) };
+}
+// Where onboarding stands, from the project's files alone (ONBOARDING §3): each step DONE or OPEN, with what is missing and whose it is.
+export function initCheck(R, o = {}) {
+  const has = (p) => R.read(p) != null;
+  const canon = R.read('requirements/README.md');
+  let mods = []; try { mods = JSON.parse(R.read('build/modules.json') || '{}').modules || []; } catch { /* unreadable */ }
+  const layers = R.read('build/layers.md') || '';
+  const seed = ['requirements/README.md', 'build/manifest.md', 'build/layers.md', 'build/modules.json', 'build/GRANTS.md', 'build/grants.json'];
+  // drift against the process branch the project says it follows (its CLAUDE.md, as `proc shims` wrote it), not this checkout's
+  const ref = o.ref || (R.read('CLAUDE.md') || '').match(/on its branch `([^`]+)`/)?.[1];
+  let drift = ['not checked']; try { drift = shims({ ...o, product: R.dir, ...(ref ? { ref } : {}), check: true }).drift; } catch (e) { drift = [e.message]; }
+  const noReq = mods.filter((m) => !m.legacy && !has(`build/requirements/${m.id}.md`)).map((m) => m.id);
+  const noLayer = mods.filter((m) => !new RegExp(`\\b${m.id.replace(/[-]/g, '\\-')}\\b`).test(layers)).map((m) => m.id);
+  const next = R.read('build/plan/next.md') || '', planned = /^\s*(- |\*\*)/m.test(next.split('\n').slice(1).join('\n')) || has('build/plan/current.md');
+  let onMain = false; try { R.fetch('main'); onMain = /Written by `proc shims`/.test(R.g(['show', `origin/main:${R.rel('CLAUDE.md')}`])); } catch { /* no main yet */ }
+  let ep = null; try { ep = epoch(R); } catch { /* none */ }
+  const step = (n, name, done, missing, whose) => ({ step: n, name, status: done == null ? 'CHECK' : done ? 'DONE' : 'OPEN', ...(done ? {} : { missing, whose }) });
+  return [
+    step(1, 'intake', canon != null && !canon.includes(ONBOARD_MARK), canon == null ? 'requirements/README.md' : 'the vision, audiences and first requirements in requirements/README.md (a marker is left)', 'the owner, with the session'),
+    step(2, 'seed', seed.every(has) && !drift.length, [...seed.filter((p) => !has(p)), ...drift].join('; '), 'BOB (`proc init`)'),
+    step(3, 'grants', has('build/grants.json') && !grantsHeld(R), grantsHeld(R) || 'build/grants.json', 'the list BOB; the sitting the owner (PERMISSIONS §10)'),
+    step(4, 'repository', null, 'the two rulesets, read back by `proc repo setup --repo <owner/name>`', 'the tool, or the owner once (SETUP-STEPS)'),
+    step(5, 'architecture', mods.length > 0 && !noLayer.length, mods.length ? `modules missing from build/layers.md: ${noLayer.join(', ')}` : 'no module in build/modules.json', 'the owner for capability-carrying layers and modules; BOB the rest (P4)'),
+    step(6, 'requirements', mods.length > 0 && !noReq.length, noReq.length ? `no build/requirements/<id>.md for ${noReq.join(', ')}` : 'no module yet', 'BOB, with the owner where meaning changes (P5)'),
+    step(7, 'first tranche', planned, 'an entry in build/plan/next.md', 'BOB'),
+    step(8, 'handover', onMain && !!ep, !onMain ? 'the seed merged to main (the onboard branch\'s pull request)' : 'an epoch opened by the project\'s first BOB, started by its ROOT, which the owner starts', 'the owner starts ROOT (SESSIONS §1a)'),
+  ];
+}
+// The onboarding session's first command (ONBOARDING §1): started on the process repository with the project attached.
+export function onboardStart(o) {
+  if (!SESSION.test(o.session || '') || !o.product) refuse('--product <the project\'s directory> --session <id>');
+  const P = repo(PROCESS), R = repo(o.product);
+  if (resolve(R.root) === resolve(PROCESS)) refuse('--product names the project to onboard, not the process repository');
+  writeRole(P, { role: 'onboard', product: relative(PROCESS, R.dir) || '.', session: o.session, name: 'ONBOARD', branch: ONBOARD_BRANCH });
+  return { role: 'onboard', product: R.dir, branch: ONBOARD_BRANCH, check: initCheck(R, o), next: `work on the project's branch ${ONBOARD_BRANCH} (git -C ${R.dir} checkout -B ${ONBOARD_BRANCH}); \`proc init --mode new|convert --product ${R.dir}\`; then the steps \`proc init --check\` lists` };
+}
+
 // ---- command line ----
 
 export function args(argv) {
@@ -1490,13 +1669,17 @@ export const COMMANDS = {
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
-  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup,
+  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'process start': processStart, 'process handoff': processHandoff, 'grants check': grantsCheck, init, 'onboard start': onboardStart,
 };
 async function main() {
   const o = args(process.argv.slice(2));
   const name = [o._.slice(0, 2).join(' '), o._[0]].find((n) => COMMANDS[n]) ?? refuse(`unknown command: ${o._.join(' ')}`);
+  if (NETWORK.has(name) && process.env.HTTPS_PROXY && !process.env.NODE_USE_ENV_PROXY) {   // the proxy carries the credential (see grantsCheck)
+    const r = spawnSync(process.execPath, ['--no-warnings', ...process.argv.slice(1)], { stdio: 'inherit', env: { ...process.env, NODE_USE_ENV_PROXY: '1' } });
+    process.exit(r.status ?? 1);
+  }
   const r = await COMMANDS[name](o);
-  console.log(typeof r === 'string' ? r : name === 'reading' ? r.text : JSON.stringify(r, null, 2));
+  console.log(typeof r === 'string' ? r : name === 'reading' || name === 'process start' ? r.text : JSON.stringify(r, null, 2));
   if (r && r.ok === false) process.exit(1);
 }
 if (import.meta.url === `file://${process.argv[1]}`) {

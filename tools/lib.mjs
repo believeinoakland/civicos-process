@@ -116,7 +116,7 @@ export function runSuite(R, files, o = {}) {
   const mem = memory(), MiB = 1 << 20, heap = Number(o.heapMb) || Math.min(4096, Math.floor(mem.limit / MiB / 4));
   const conc = Math.max(1, Math.min(availableParallelism() - 1, Math.floor((mem.limit * 0.6) / (heap * MiB))));
   const cap = Number(o.capMb) || Math.floor((mem.limit * 0.6) / MiB / conc);
-  const dir = join(R.g(['rev-parse', '--absolute-git-dir']), 'civicos-runs'); mkdirSync(dir, { recursive: true });
+  const dir = join(R.g(['rev-parse', '--absolute-git-dir']), 'proc-runs'); mkdirSync(dir, { recursive: true });
   const base = join(dir, `${o.label || 'run'}-${new Date().toISOString().replace(/[:.]/g, '-')}`), report = `${base}.tap`, watchLog = `${base}.mem`;
   // A clean environment: under a test runner, NODE_TEST_CONTEXT would send the child's report to the parent instead.
   const env = { ...process.env }; delete env.NODE_TEST_CONTEXT;
@@ -172,7 +172,7 @@ export const reds = (t) => [...(t.failed || []), ...(t.noResult || []).map((x) =
 // your files"). A failure is judged against the same measure taken on the tranche before the work: only a new one
 // refuses. A check's finding is compared without its line numbers, so a finding that only moved is the same finding.
 const norm = (c, l) => `${c}: ${l.replace(/^FAIL\s+/, '').replace(/:\d+(?::\d+)?\b/g, '').trim()}`;
-const WORDS_TABLE = 'docs/development/ux-substrate/screens/words.json';
+const WORDS_TABLE = 'build/words.json';   // the product's own words configuration (checks/words.mjs): the words check runs where it exists
 // The checks a module's work answers for (JOB-LIFE §4), scoped to the module where the check takes one.
 export function moduleChecks(R, m) {
   const names = ['format', 'architecture', 'coverage', 'fixtures', ...(existsSync(join(R.dir, WORDS_TABLE)) ? ['words'] : [])];
@@ -221,7 +221,7 @@ export function evidenceItems(report) {
 // the steps define themselves (a placeholder) is exempt only when wrapped as <<label>>: `**<<your name>>**`, `<<name>>`.
 // Code spans are read first and masked, so a bold label never contains one. On success the steps text is printed
 // followed by `verified: <n> labels in <sources>` (n = distinct labels checked, exempt ones not counted) and
-// `.git/civicos-steps-ok.json` {sha256, sources, at} is written; the BOB Stop hook (hooks.mjs) lets a numbered list
+// `.git/proc-steps-ok.json` {sha256, sources, at} is written; the BOB Stop hook (hooks.mjs) lets a numbered list
 // with bold labels end a turn only when that file is under 30 minutes old and its sha256 matches `stepsHash` of the list.
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0', mdash: '—', ndash: '–', hellip: '…', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', middot: '·', copy: '©', times: '×', rarr: '→', larr: '←', bull: '•' };
 export function decodeEntities(t) {
@@ -260,7 +260,7 @@ export function isStepsList(text) {
   return items.length >= 2 && /^1[.)]\s/.test(items[0]) && /\*\*[^*\n]+\*\*/.test(list);
 }
 export const stepsHash = (text) => createHash('sha256').update(numberedList(text) || String(text).replace(/\s+/g, ' ').trim()).digest('hex');
-export const STEPS_OK = 'civicos-steps-ok.json';
+export const STEPS_OK = 'proc-steps-ok.json';
 export function stepsCmd(o) {
   if (typeof o.file !== 'string' || typeof o.source !== 'string') refuse('--file <steps.md> --source <path1,path2,…>');
   const text = existsSync(o.file) ? readFileSync(o.file, 'utf8') : refuse(`${o.file}: no such steps file`);
@@ -301,7 +301,7 @@ export function lastAssistantText(input) {
   return text.length ? text.join('\n') : null;
 }
 // P20: a numbered list with **bold** labels in BOB's last message is a step for Bob; the turn ends only when
-// `.git/civicos-steps-ok.json` (written by `proc steps`) is under 30 minutes old and its sha256 matches the list.
+// `.git/proc-steps-ok.json` (written by `proc steps`) is under 30 minutes old and its sha256 matches the list.
 export function stepsReason(message, root, now = Date.now()) {
   if (!message || !isStepsList(message)) return null;
   let ok = null; try { ok = JSON.parse(readFileSync(join(root, '.git', STEPS_OK), 'utf8')); } catch { /* none */ }

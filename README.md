@@ -1,6 +1,6 @@
 # neoProcess (repository `civicos-process`, to be renamed `neoProcess`)
 
-The development process for Civicsmith (`believeinoakland/bio`, to be `civicsmith`): its principles, its rulebooks, its design, its tool, its hooks and its checks. It is product-independent (P2): a product supplies what `PRODUCT-SUPPLIES.md` lists and nothing else. In force from 2026-10-29, certified on the dry run N1 (`dryrun/N1/CERTIFICATION.md`). Created by Bob on 2026-09-26; redesigned by the lane neoProcess, 28–29 Oct 2026 (`lane-neoprocess/`).
+A development process for any software product: its principles, its rulebooks, its design, its tool, its hooks and its checks. It is product-independent (P2): a product supplies what `PRODUCT-SUPPLIES.md` lists and nothing else. In force from 2026-10-29, certified on the dry run N1 (`dryrun/N1/CERTIFICATION.md`). Created by Bob on 2026-09-26; redesigned by the lane neoProcess, 28–29 Oct 2026 (`lane-neoprocess/`).
 
 | file | what |
 | --- | --- |
@@ -11,6 +11,8 @@ The development process for Civicsmith (`believeinoakland/bio`, to be `civicsmit
 | `SESSIONS.md` | models and effort, the goal, reading sets and their budgets, the worker brief, ROOT's turn |
 | `DESIGN-STAGE.md` | how a lane's decision becomes a canon section, a rule or a requirement |
 | `PERMISSIONS.md` | how a refused act is predicted, routed and counted; Bob's standing approval; `permissions.json` and `tools/acts.md` |
+| `ONBOARDING.md` | bringing a project under the process: a new one from its vision, audiences and first requirements, or an existing one converted (`proc init`) |
+| `GRANTS.md` | every grant the work needs, gathered at one sitting before it starts and held to its end (`proc grants check`) |
 | `PRODUCT-SUPPLIES.md`, `SETUP-STEPS.md` | what a product supplies; Bob's one setup act per repository |
 | `PROCESS-MECHANICS.md` | the index: which text governs what, and what none of them says |
 | `tools/proc.mjs`, `tools/hooks.mjs`, `tools/lib.mjs` | the tool (one command per step), the hooks (what must never happen, in code), their shared functions; `tools/mail.mjs` the cross-account channel |

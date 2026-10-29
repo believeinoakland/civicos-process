@@ -52,7 +52,7 @@ The words check fails a module's own code that holds a sentence people read (it 
 
 ## How the checks read the build state (BOB #38, 2026-09-26)
 
-- **Owner.** A path ending in `/` owns everything under it; any other path owns that one file. When paths nest, the most specific owns the file (a legacy module's `bio-plane/test/` holds the extracted modules' `bio-plane/test/m/<module>/`). Two modules claiming the same path is a format failure. This is how "exactly one owner" (P4, rulebook REQ 1) is read.
+- **Owner.** A path ending in `/` owns everything under it; any other path owns that one file. When paths nest, the most specific owns the file (a legacy module's `<legacy>/test/` holds the extracted modules' `<legacy>/test/m/<module>/`). Two modules claiming the same path is a format failure. This is how "exactly one owner" (P4, rulebook REQ 1) is read.
 - **Not product.** `not_product` in `modules.json` lists the paths no module owns (docs, the build state, the old tooling, release output). An import of one of them from product code fails.
 - **Imports.** Relative specifiers of `import`, `export … from`, `import()` and `require()` in `.mjs`, `.cjs`, `.js` and `.ts` files, with comments removed. Package imports are not judged. A relative import naming no tracked file is counted, not judged: it is fixture text more often than code, and a real one fails when loaded.
 - **Generated artifacts.** The ownership check never judges a path the manifest lists as a generated artifact.

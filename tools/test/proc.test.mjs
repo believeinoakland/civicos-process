@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, cpSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, cpSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +29,8 @@ function world(opts = {}) {
   return { base, origin, bob: clone('bob'), clone };
 }
 const O = (w, extra = {}) => ({ product: w.bob.dir, ...extra });
+// the grants proven held now (PERMISSIONS §10.3), as `proc grants check` records them
+const heldGrants = (root, at = new Date()) => writeFileSync(join(root, '.git', N.GRANTS_FILE), JSON.stringify({ at: at.toISOString(), ok: true, rows: [] }));
 
 test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the handoff, the epoch closed', () => {
   const w = world(), o = (x) => O(w, x);
@@ -591,6 +593,8 @@ test('a tranche opened from main, a round opened and closed, the tranche closed 
   const plan = f(w.base, 'plan.md', '# Plan: test T2\n\n**Status** · OPEN.\n\n## Layer 1\n\n**alpha**\n- N1 · A line.\n');
   assert.throws(() => N.trancheOpen(o({ planFile: f(w.base, 'bad.md', '# Plan: no id\n\n## Layer 1\n') })), /names the tranche/);
   assert.throws(() => N.trancheOpen(o({ planFile: f(w.base, 'big.md', `# Plan: test T9\n\n## Layer 1\n\n**alpha**\n- N1 · ${'x'.repeat(N.PLAN_LIMIT)}\n`) })), /limit is 51200/);   // SESSIONS §6.3
+  assert.throws(() => N.trancheOpen(o({ planFile: plan })), /grants are not proven held/);   // PERMISSIONS §10.3
+  heldGrants(w.bob.root);
   const to = N.trancheOpen(o({ planFile: plan }));
   assert.deepEqual([to.tranche, to.round, to.layers, R.branch()], ['T2', 1, [1], 'tranche']);
   assert.equal(g2('rev-parse', 'origin/tranche'), g2('rev-parse', 'HEAD'));
@@ -684,4 +688,84 @@ test('repo setup makes a development repository and its two rulesets, idempotent
   const refusing = async (url, init) => (init.method === 'POST' ? { status: 403, text: async () => 'Repository settings writes are not permitted through this proxy' } : fetch(url, init));
   made.rulesets = []; made.repo = true;
   await assert.rejects(N.repoSetup({ repo: 'bob/toy', fetch: refusing }), /POST rulesets tranche answered 403: Repository settings writes.*proc refused --act "rulesets\(process token\)"/);
+});
+
+test('onboarding: a new project seeded from nothing, an existing one converted, and where each stands (ONBOARDING §2, §3)', () => {
+  const mk = (files) => {
+    const base = mkdtempSync(join(tmpdir(), 'onboard-')), origin = join(base, 'origin.git'), dir = join(base, 'p');
+    execFileSync('git', ['init', '-q', '--bare', origin]); execFileSync('git', ['clone', '-q', origin, dir], { stdio: 'ignore' }); ident(dir, 'p');
+    for (const [p, t] of Object.entries(files)) { mkdirSync(dirname(join(dir, p)), { recursive: true }); writeFileSync(join(dir, p), t); }
+    g(dir, 'add', '-A'); g(dir, 'commit', '-q', '--allow-empty', '-m', 'start'); g(dir, 'branch', '-M', 'main'); g(dir, 'push', '-q', 'origin', 'main');
+    return dir;
+  };
+  // a new project: the skeleton and the shims written; intake open until the owner's vision, audiences and requirements are in
+  const n = mk({ 'README.md': '# A new idea\n' });
+  const r = N.init({ product: n, mode: 'new', name: 'Idea', repo: 'o/proc', ref: 'main' });
+  assert.ok(['requirements/README.md', 'build/manifest.md', 'build/modules.json', 'build/GRANTS.md', 'build/grants.json'].every((p) => r.written.includes(p)));
+  assert.ok(r.shims.includes('CLAUDE.md') && r.shims.includes('.claude/settings.json'));
+  const st = (c) => Object.fromEntries(c.map((x) => [x.name, x.status]));
+  assert.deepEqual(st(r.check), { intake: 'OPEN', seed: 'DONE', grants: 'OPEN', repository: 'CHECK', architecture: 'OPEN', requirements: 'OPEN', 'first tranche': 'OPEN', handover: 'OPEN' });
+  assert.match(readFileSync(join(n, 'requirements/README.md'), 'utf8'), /## Vision\n\n<!-- onboarding:/);
+  // the owner's words written: intake done; a module and its requirements: architecture and requirements done; nothing overwritten on a second run
+  writeFileSync(join(n, 'requirements/README.md'), '# Idea\n\n## Vision\n\nA place to meet.\n\n## Audiences\n\nNeighbours.\n\n## Initial requirements\n\n1. A list of meetings.\n');
+  writeFileSync(join(n, 'build/modules.json'), JSON.stringify({ modules: [{ id: 'meetings', layer: 1, paths: ['meetings/'], tests: ['meetings/test/'], uses: [] }] }));
+  writeFileSync(join(n, 'build/layers.md'), '# The layers\n\n| layer | name | contract | modules |\n| --- | --- | --- | --- |\n| 1 | Core | x | meetings |\n');
+  mkdirSync(join(n, 'build/requirements')); writeFileSync(join(n, 'build/requirements/meetings.md'), '# meetings\n');
+  const again = N.init({ product: n, mode: 'new', name: 'Idea', repo: 'o/proc', ref: 'main' });
+  assert.ok(again.kept.includes('requirements/README.md') && !again.written.includes('build/modules.json'));
+  assert.deepEqual([st(again.check).intake, st(again.check).architecture, st(again.check).requirements], ['DONE', 'DONE', 'DONE']);
+  // the check reads the process branch the project follows from its own CLAUDE.md, whatever branch this checkout is on
+  const ck = N.initCheck(N.repo(n), { repo: 'o/proc' }); assert.equal(st(ck).seed, 'DONE', JSON.stringify(ck[1]));
+  // a new project that already holds code is refused: it is converted instead
+  assert.throws(() => N.init({ product: mk({ 'app/main.py': 'print(1)\n' }), mode: 'new', repo: 'o/proc', ref: 'main' }), /--mode convert/);
+  // an existing project: surveyed, one legacy module per code directory, its old CLAUDE.md kept, its files never overwritten
+  const c = mk({ 'CLAUDE.md': '# Old rules\n', 'api/server.js': 'x\n', 'api/test/server.test.js': 'x\n', 'web/app.tsx': 'x\n', 'docs/intro.md': 'x\n', 'tool.py': 'x\n', 'package.json': '{}\n', '.github/workflows/ci.yml': 'x\n' });
+  const cv = N.init({ product: c, mode: 'convert', repo: 'o/proc', ref: 'main' });
+  assert.deepEqual(JSON.parse(readFileSync(join(c, 'build/modules.json'), 'utf8')).modules.map((m) => [m.id, m.legacy, m.paths[0]]), [['api', true, 'api/'], ['web', true, 'web/']]);
+  assert.equal(readFileSync(join(c, 'build/onboarding/CLAUDE-before.md'), 'utf8'), '# Old rules\n');
+  const sv = readFileSync(join(c, 'build/onboarding/survey.md'), 'utf8');
+  assert.match(sv, /`package\.json`/); assert.match(sv, /`api\/test\/`/); assert.match(sv, /`\.github\/workflows\/ci\.yml`/); assert.match(sv, /owned by no module yet[^\n]*`tool\.py`/);
+  assert.equal(st(cv.check).architecture, 'DONE'); assert.equal(st(cv.check).requirements, 'DONE');   // a legacy module carries none until it is extracted
+  assert.throws(() => N.init({ product: c, mode: 'x' }), /--mode new \| convert/);
+  // the onboarding session's start refuses the process repository itself
+  assert.throws(() => N.onboardStart({ product: N.PROCESS, session: L1 }), /not the process repository/);
+  assert.match(N.reading({ role: 'onboard' }).next, /proc onboard start --product/);
+});
+
+test('the grants: proven by `proc grants check` through the proxy, and a tranche opens only while they are held (PERMISSIONS §10)', async () => {
+  const w = world(), R = N.repo(w.bob.dir), at = '2026-10-29T17:00:00Z';
+  const res = (status, body, headers = {}) => ({ status, text: async () => JSON.stringify(body), headers: { get: (k) => headers[k.toLowerCase()] ?? null } });
+  const net = (gh, cf, site = 200) => async (url) => (url.includes('api.github.com') ? gh : url.includes('api.host.example') ? cf : site === 0 ? Promise.reject(Object.assign(new Error('x'), { cause: { code: 'ENOTFOUND' } })) : res(site, {}));
+  const appGh = res(200, { login: 'owner' }, { 'x-oauth-client-id': 'Iv23li', 'github-authentication-token-expiration': '2026-10-29 21:45:33 UTC' });
+  const cfOk = res(200, { result: { status: 'active' } });
+  const check = (fetch, x = {}) => N.grantsCheck({ product: w.bob.dir, branch: N.TRANCHE, now: at, fetch, ...x });
+  // no standing list in the product's settings: not held, and the opening refused with the reason
+  let r = await check(net(appGh, cfOk));
+  assert.equal(r.ok, false); assert.match(r.rows.find((x) => x.grant === 'standing list').detail, /missing from \.claude\/settings\.json/);
+  assert.match(N.grantsHeld(R, new Date(at)), /a grant is not held: standing list/);
+  // the list written as `proc shims` writes it, and the product's own services and addresses (build/grants.json): every
+  // row held; the app's own token is not judged by its short expiry
+  writeFileSync(join(w.bob.dir, N.GRANTS_PRODUCT), JSON.stringify({ services: [{ name: 'Hosting API', url: 'https://api.host.example/verify', active: 'result.status=active', expires: 'result.expires_on' }], urls: ['https://dev.example.app/'] }));
+  const standing = JSON.parse(readFileSync(join(N.PROCESS, 'permissions.json'), 'utf8'));
+  mkdirSync(join(w.bob.dir, '.claude'), { recursive: true });
+  writeFileSync(join(w.bob.dir, '.claude/settings.json'), JSON.stringify({ permissions: { allow: standing.allow, deny: standing.deny } }));
+  r = await check(net(appGh, cfOk), { urls: 'https://dev.example.workers.dev/' });
+  assert.deepEqual(r.rows.map((x) => [x.grant, x.ok]), [['standing list', true], ['push to tranche', true], ['GitHub API', true], ['Hosting API', true], ['reach https://dev.example.app/', true], ['reach https://dev.example.workers.dev/', true]]);
+  assert.match(r.rows[2].detail, /owner by the Claude app's token/);
+  assert.equal(N.grantsHeld(R, new Date(at)), null);
+  assert.match(N.grantsHeld(R, new Date('2026-10-31T17:00:00Z')), /over 24 hours ago/);
+  // a token of the process's own expiring within 14 days, an inactive or expiring service token, no credential, an unreachable release: each not held
+  const pat = res(200, { login: 'owner' }, { 'github-authentication-token-expiration': '2026-11-03 00:00:00 UTC' });
+  r = await check(net(pat, res(200, { result: { status: 'disabled' } }), 0), { urls: 'https://gone.example/' });
+  assert.deepEqual(r.rows.filter((x) => !x.ok).map((x) => x.grant), ['GitHub API', 'Hosting API', 'reach https://dev.example.app/', 'reach https://gone.example/']);
+  assert.match(r.rows[2].detail, /a token of its own, expiring 2026-11-03 00:00:00 UTC \(4 days\): renew/);
+  r = await check(net(appGh, res(200, { result: { status: 'active', expires_on: '2026-11-01T00:00:00Z' } })));
+  assert.match(r.rows.find((x) => x.grant === 'Hosting API').detail, /expiring 2026-11-01T00:00:00Z: renew/);
+  // the variables the list names: present or not, by name only
+  writeFileSync(join(w.bob.dir, N.GRANTS_PRODUCT), JSON.stringify({ variables: ['WALK_USER', 'WALK_PASS'] }));
+  r = await check(net(appGh, cfOk), { env: { WALK_USER: 'x' } });
+  assert.deepEqual(r.rows.filter((x) => x.grant.startsWith('variable')).map((x) => [x.grant, x.ok, x.detail]), [['variable WALK_USER', true, 'present'], ['variable WALK_PASS', false, 'not set in this environment']]);
+  r = await check(net(res(403, {}), cfOk));
+  assert.match(r.rows[2].detail, /GET \/user answered 403: no credential reaches api\.github\.com/);
+  assert.equal(r.ok, false);
 });
