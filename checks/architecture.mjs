@@ -1,4 +1,4 @@
-// Check 1, architecture (PROCESS-MECHANICS §8.1; P4): every product file is in exactly one module's
+// Check 1, architecture (rulebook REQ 1; P4): every product file is in exactly one module's
 // paths or tests, and every import is to the module itself or to a module earlier in the order that
 // it declares in `uses`. Usage: node checks/architecture.mjs <product-root> [module ...]
 // Named modules limit the check to the files those modules own, which is how a module job runs it.

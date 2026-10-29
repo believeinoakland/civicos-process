@@ -277,7 +277,7 @@ const fileText = (f, what) => (typeof f === 'string' && existsSync(f) ? readFile
 export function askOpen(o) {
   if (!NAME.test(o.from || '') || !SESSION.test(o.session || '') || !/^\d+$/.test(String(o.number || ''))) refuse('--from "<MODULE|LANE> #k" --session <id> --number <n> --message-file <f>');
   const R = repo(o.product), text = fileText(o.messageFile, '--message-file');
-  const kind = text.match(/^(QUESTION|REPORT)\b/)?.[1] ?? refuse('the message begins QUESTION or REPORT (mechanics §13)');
+  const kind = text.match(/^(QUESTION|REPORT)\b/)?.[1] ?? refuse('the message begins QUESTION or REPORT (PROTOCOL §2)');
   const all = asks(R);
   const dup = all.find((a) => a.from && a.from.who === o.from && a.from.number === Number(o.number));
   if (dup) refuse(`${o.from}'s ${kind} #${o.number} is already recorded as ${dup.id}: a repeated delivery, not a new request`);
@@ -372,7 +372,7 @@ export function askClose(o) {
   const commit = paths.length ? commitPush(R, TRANCHE, paths, `${a.id}: ${kind.toLowerCase()} folded${a.lane ? ` (${a.lane})` : ''}`) : null;
   a.Replied = { head: `${today()}${commit ? ` · ${commit}` : ''}`, body: reply }; a.Status = { head: 'CLOSED', body: '' }; delete a.Working;
   const sc = saveAsk(R, a, `${a.id}: closed`);
-  // the reply goes to the address git holds now (PROTOCOL §13): a lane's by its register id, else the job's by its module
+  // the reply goes to the address git holds now (PROTOCOL §1): a lane's by its register id, else the job's by its module
   const who = a.from.who.split(' #')[0];
   const to = lanes(R).some((l) => l.id === who && l.status === 'OPEN') ? addr({ product: o.product, lane: who }) : addr({ product: o.product, module: who.toLowerCase() });   // a closed lane's id is no lane (R-BOB-2-1)
   return { ask: a.id, commit: commit ?? sc, send: { session_id: to, message: `${reply}${commit ? `\n(merge ${TRANCHE} @ ${commit}: ${files.join(', ')})` : ''}` } };
@@ -585,7 +585,7 @@ const fmtRefusal = (r) => `# ${r.id} (transient)\n\n**Refused** · ${r.id} · ${
 export function refusalsOf(R, e = needEpoch(R)) { return stateList(R, 'refusals', e).map((p) => parseRefusal(stateRead(R, p, e))).filter(Boolean); }
 // Any role, the moment it is refused: one file on the state branch, named by the role's session name so two sessions never
 // write one file; `predicted` when `--act` names a row of the act table (an unpredicted refusal in a product run is a
-// process flaw, P3). The session then carries on with what does not depend on the act (mechanics §16).
+// process flaw, P3). The session then carries on with what does not depend on the act (PERMISSIONS §2.5).
 export function refused(o) {
   const R = repo(o.product);
   if (!o.act || !['hook', 'classifier', 'scope', 'platform'].includes(o.kind) || !o.reason) refuse('--act "<the one act, or an act-table id>" --kind hook|classifier|scope|platform --reason "<the refusal\'s words>"');
@@ -1126,7 +1126,7 @@ export function sizes(R, moduleIds = []) {
   for (const m of moduleIds) { try { const rs = readingSet(R, m); if (rs.bytes > MODULE_SET) out.push(`${m}'s own set is ${rs.bytes} bytes, over ${MODULE_SET} (SESSIONS §6)`); } catch { /* no such module */ } }
   return [...new Set(out)];
 }
-// The artifacts regenerated and verified (mechanics §14): { changed, stale }. Nothing is committed here.
+// The artifacts regenerated and verified (JOB-LIFE §4): { changed, stale }. Nothing is committed here.
 function regenerate(R) {
   const sh = (c) => spawnSync('sh', ['-c', c], { cwd: R.dir, encoding: 'utf8' }), list = artifacts(R), stale = [];
   for (const a of list) { sh(a.regen); if (sh(a.verify).status !== 0) stale.push(a.path); }

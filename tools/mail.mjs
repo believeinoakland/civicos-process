@@ -1,9 +1,9 @@
-// RETIRED IN PART by the process redesign (PROCESS-MECHANICS §13, revised; lane-process-redesign/DESIGN.md §2.3): BOB and
+// RETIRED IN PART by the process redesign (lane-process-redesign/DESIGN.md §2.3): BOB and
 // the jobs now talk by `send_message` and keep state through tools/proc.mjs. Once the redesign is adopted, only the
-// cross-account channel (the x-commands, §13.1) and the size functions proc.mjs reads (§17) are in use; the rest stays
+// cross-account channel (the x-commands, which the mechanics' cross-account channel entry describes) and the size functions proc.mjs reads (SESSIONS §6.3) are in use; the rest stays
 // for the running tranche until its close, and is then removed.
 //
-// The mailboxes between BOB and a module job (PROCESS-MECHANICS §13; bio K168). A message is a numbered entry in its
+// The mailboxes between BOB and a module job (bio K168). A message is a numbered entry in its
 // writer's own file in git; each side keeps a cursor, the last entry of the other side it has processed; a routine
 // carries no content, only "check your mailbox". So a late, duplicated, reordered or lost routine changes nothing: the
 // reader always reads everything past its cursor. This tool writes and reads the mailboxes and the addresses, so no
@@ -60,9 +60,9 @@ import { join, dirname, relative, resolve } from 'node:path';
 
 export const KINDS = { job: ['QUESTION', 'REPORT', 'COMPLETE', 'BLOCKED'], bob: ['START', 'ANSWER', 'CHANGE', 'RESUME'] };
 const QUIET_MS = 20 * 60e3;
-// mechanics §6 (bio K4976): a RUNNING window is at most this far ahead; a longer run is split into pieces, each pushed as it ends.
+// (bio K4976): a RUNNING window is at most this far ahead; a longer run is split into pieces, each pushed as it ends.
 export const RUNNING_MAX_MIN = 30;
-// mechanics §5.4 (bio K4976): QUIET is a job WORKING with no push for QUIET_MS, or RUNNING past its window (capped at
+// PROTOCOL §7 (bio K4976): QUIET is a job WORKING with no push for QUIET_MS, or RUNNING past its window (capped at
 // RUNNING_MAX_MIN from its last push, so a window set longer by an older tool cannot hide a dropped container).
 export function quietOf(state, idleMs, now) {
   if (idleMs < QUIET_MS) return false;
@@ -215,7 +215,7 @@ export function sizeGate(product, who, T) {
   if (who === 'job' && T) { const R = repo(product); if (fetchBranch(R, `tranche/${T}`)) ref = `origin/tranche/${T}`; }
   const over = oversize(product, ref, who === 'job' ? 'job' : 'bob');
   if (!over.length) return;
-  const tail = who === 'job' ? 'BOB prunes them; post BLOCKED with cause reading.' : 'prune them now (mechanics §17).';
+  const tail = who === 'job' ? 'BOB prunes them; post BLOCKED with cause reading.' : 'prune them now (SESSIONS §6.3).';
   throw new Error(`refused, documents over their limits: ${over.map(sizeText).join('; ')}; ${tail}`);
 }
 
@@ -290,8 +290,8 @@ export function state(o) {
   const { tranche: T, module: m } = o;
   let s = o.set;
   if (o.running !== undefined && !(Number(o.running) > 0 && Number(o.running) <= RUNNING_MAX_MIN))
-    throw new Error(`--running takes 1 to ${RUNNING_MAX_MIN} minutes (mechanics §6): split a longer run into pieces and push each as it ends`);
-  if (o.set && /^RUNNING\b/.test(o.set)) throw new Error('RUNNING is set only by --running <minutes> --what <command> (mechanics §6)');
+    throw new Error(`--running takes 1 to ${RUNNING_MAX_MIN} minutes: split a longer run into pieces and push each as it ends`);
+  if (o.set && /^RUNNING\b/.test(o.set)) throw new Error('RUNNING is set only by --running <minutes> --what <command>');
   if (o.running) s = `RUNNING until ${new Date(Date.now() + Number(o.running) * 60e3).toISOString().replace(/\.\d+Z$/, 'Z')} (${o.what || 'command'})`;
   if (!s || /·/.test(s)) throw new Error('--set <STATE> (no "·"), or --running <minutes> --what <command>');
   const R = repo(o.product), branch = branchOf('job', T, m);

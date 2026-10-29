@@ -207,7 +207,7 @@ test('size gate: a document 1 over its limit refuses every gated command, names 
       () => post({ ...J(w.job), as: 'job', kind: 'COMPLETE', body: 'c' }),
       () => inbox({ ...J(w.job), as: 'job' }),
     ];
-    for (const f of bobSide) assert.throws(f, (e) => named.test(e.message) && /prune them now \(mechanics §17\)/.test(e.message), `${path} ${unit}`);
+    for (const f of bobSide) assert.throws(f, (e) => named.test(e.message) && /prune them now \(SESSIONS §6\.3\)/.test(e.message), `${path} ${unit}`);
     // a job is refused only by its own reading set, the plan files; BOB's takeover set never refuses it (K5123)
     if (path.startsWith('build/plan/')) for (const f of jobSide) assert.throws(f, (e) => named.test(e.message) && /BOB prunes them; post BLOCKED with cause reading\./.test(e.message), `${path} ${unit}`);
     assert.deepEqual([snap(w.bob, `tranche/${T}`), snap(w.job, `job/${T}/alpha`)], before, 'nothing written');

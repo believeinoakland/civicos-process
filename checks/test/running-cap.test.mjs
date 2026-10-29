@@ -1,4 +1,4 @@
-// The RUNNING window's cap and the QUIET rule (mechanics §5.4, §6; bio K4976): a dropped container is caught within
+// The RUNNING window's cap and the QUIET rule (QUIET: PROTOCOL §7; bio K4976): a dropped container is caught within
 // RUNNING_MAX_MIN of the job's last push, whatever window its record states.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

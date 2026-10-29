@@ -196,7 +196,7 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
 
   // an ask BOB answers itself closes without a lane; one that needs Bob takes his decision only
   N.askOpen(o({ from: 'ALPHA #1', session: J1, number: 2, messageFile: f(w.base, 'q2.md', 'QUESTION #2: wording of R1?\n') }));
-  N.askRoute(o({ ask: 'A2', answer: true, reason: 'wording only (mechanics §7)' }));
+  N.askRoute(o({ ask: 'A2', answer: true, reason: 'wording only (DES 7)' }));
   assert.equal(N.askClose(o({ ask: 'A2', replyFile: f(w.base, 'r2.md', 'ANSWER: R1 means a + b.\n') })).send.session_id, J1);
   // a requester named like a CLOSED lane is the module's job (lane STATISTICS is closed; a job STATISTICS would be module statistics): routed by module
   assert.throws(() => N.askRoute(o({ ask: 'A2', lane: 'STATISTICS', reason: 'x' })), /already routed/);

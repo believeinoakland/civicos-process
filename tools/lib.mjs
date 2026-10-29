@@ -69,11 +69,11 @@ export function entriesOf(planText, layer, m) {
 export function artifacts(R) {
   const text = R.read('build/manifest.md') || '';
   const rows = artifactRows(text);
-  if (!rows.length && /^## Generated artifacts/m.test(text)) refuse('build/manifest.md has a Generated artifacts section but no row `| `<path>` | <owner> | `<regenerate>` | `<verify>` |` (mechanics §14)');
+  if (!rows.length && /^## Generated artifacts/m.test(text)) refuse('build/manifest.md has a Generated artifacts section but no row `| `<path>` | <owner> | `<regenerate>` | `<verify>` |` (PRODUCT-SUPPLIES)');
   return rows.map((r) => ({ ...r, path: r.paths.join(', ') }));
 }
 // A job's own run (tests and checks) sees the generated artifacts as its merge will make them: each is regenerated in
-// the working tree, the run made, and every artifact path put back to HEAD, so a job never commits one (mechanics §14;
+// the working tree, the run made, and every artifact path put back to HEAD, so a job never commits one (JOB-LIFE §4;
 // a new word key read by its test resolves before the merge regenerates the rows, bio K5583, BOB #327).
 export function withArtifacts(R, fn) {
   const list = artifacts(R), paths = list.flatMap((a) => a.paths);
@@ -173,7 +173,7 @@ export const reds = (t) => [...(t.failed || []), ...(t.noResult || []).map((x) =
 // refuses. A check's finding is compared without its line numbers, so a finding that only moved is the same finding.
 const norm = (c, l) => `${c}: ${l.replace(/^FAIL\s+/, '').replace(/:\d+(?::\d+)?\b/g, '').trim()}`;
 const WORDS_TABLE = 'docs/development/ux-substrate/screens/words.json';
-// The checks a module's work answers for (mechanics §8), scoped to the module where the check takes one.
+// The checks a module's work answers for (JOB-LIFE §4), scoped to the module where the check takes one.
 export function moduleChecks(R, m) {
   const names = ['format', 'architecture', 'coverage', 'fixtures', ...(existsSync(join(R.dir, WORDS_TABLE)) ? ['words'] : [])];
   const fails = new Set();

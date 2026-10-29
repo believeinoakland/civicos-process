@@ -1,4 +1,4 @@
-// Check 2, coverage (PROCESS-MECHANICS §8.2; P7): every live requirement id of a module is named by at
+// Check 2, coverage (rulebooks BLD 5, INT 2; P7): every live requirement id of a module is named by at
 // least one of that module's tests. A test names an id by writing it as a word (`R12`) anywhere in a
 // file under the module's `tests` paths, conventionally in the test's title.
 // Usage: node checks/coverage.mjs <product-root> [module ...]

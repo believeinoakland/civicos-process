@@ -1,5 +1,5 @@
-// Check 3, ownership (PROCESS-MECHANICS §8.3, §6; P7): a module job's diff touches only its module's
-// paths and tests, its own job record, and the `*(not yet met: T)*` marks of its own requirements file (struck, never written); a generated artifact the manifest lists (mechanics §14) is not judged. The one exception (mechanics §12.2): a module extracted
+// Check 3, ownership (rulebooks BLD 4, REQ 9; JOB-LIFE §3; P7): a module job's diff touches only its module's
+// paths and tests, its own job record, and the `*(not yet met: T)*` marks of its own requirements file (struck, never written); a generated artifact the manifest lists (rulebook REP 7) is not judged. The one exception (mechanics: legacy modules; rulebook REQ 9): a module extracted
 // from a legacy module may remove the moved code from that legacy module's files, and may rewire the
 // legacy code that called it: an added line there is either part of an import (or re-export) from the
 // job's own paths, or in a block of added lines that uses a name so imported. The legacy module's net
@@ -165,7 +165,7 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   const own = [...(m.paths || []), ...(m.tests || [])];
   const record = new RegExp(`^build/jobs/[A-Z]+\\d+[a-z]?/${moduleId.replace(/[-]/g, '\\-')}\\.md$`);
   const failures = [], added = [], edited = [];
-  // A generated artifact (mechanics §14) is no module's hand-written code: its committed copy is always the one the
+  // A generated artifact (rulebook REP 7) is no module's hand-written code: its committed copy is always the one the
   // merge regenerates, so a job's copy of it is never judged (bio K5583's revert of the word rows, BOB #327).
   const gen = generatedPaths(root);
   const tally = new Map(legacies.map((l) => [l.id, { added: 0, removed: 0 }]));

@@ -7,21 +7,23 @@
 | `CLAUDE.md`, under thirty lines | repository root | `proc shims`, from this list | attach the process repository; invoke your role's skill; the standing safety rules |
 | One skill, `neoprocess/SKILL.md`, invoked with the role as its argument (`neoprocess bob`, `job`, `lane`): it loads the role's rulebooks and registers the hooks, which read the role the start command recorded and refuse everything until one is | `.claude/skills/` | `proc shims` | never by hand; a check fails when it differs; the `civicos-*` skills are retired with the old process (Bob, 29 Oct) |
 | The canon index: mission, requirements, designs, by file | `requirements/README.md` | Bob with BOB | every module requirement cites the canon by section (P5) |
-| The manifest: where the canon, the build state, each layer's tests, the generated artifacts, the object storage for captures and the ROOT session live; Bob's accounts in order, so BOB names the next when it writes `MOVING` | `build/manifest.md` | BOB with Bob | |
+| The manifest: where the canon, the build state, each layer's tests, the generated artifacts, the object storage for captures and the ROOT session live; Bob's accounts in order, so BOB names the next when it writes `MOVING` | `build/manifest.md` | BOB with Bob | each row of the artifact table names the path (or several), its owner, the command that regenerates it and the command that verifies it; a manifest whose table the tool cannot parse is refused, never read as empty |
 | The layers, in order, each with its contract | `build/layers.md` | BOB with Bob | |
-| The modules in total order: id, layer, paths, tests, uses | `build/modules.json` | BOB with Bob (P4) | |
+| The modules in total order: id, layer, paths, tests, uses | `build/modules.json` | BOB with Bob (P4) | for an extracted module `from` names the legacy module or modules it is extracted from |
 | Each module's requirements, public and private parts | `build/requirements/<module>.md` | BOB (with Bob where meaning changes, P5) | small enough to read whole (P6) |
 | The product areas: each with the canon it owns, its modules, its rulebook | `build/areas.md` | BOB with Bob | every module in exactly one area |
 | One rulebook per product area, loaded by the paths of its modules | `.claude/rules/<area>.md` with `paths:` | BOB; Bob for policy | at most ten rules, one screen |
 | The lane register: id, area, charter, canon, status, live session | `build/lanes.md` | BOB (`proc lane …`) | the lanes the product's capabilities need, opened as the project goes |
 | Each lane's decisions | `build/lanes/<id>/decisions.md` | the lane | durable; cited as `L-<ID>-<n>` |
 | The product's own procedures: release, deploy, walks, a design channel | `build/situations/*.md` | BOB with Bob | named in the manifest; read whole when the situation arises |
-| The plans: the running round, the next, the archive | `build/plan/` | BOB, by `proc` | the Status, Jobs and Owed lines live on the state branch instead |
-| The metrics | `build/metrics/T<n>.csv` | BOB, by `proc … archived` | one commit per layer close |
+| `build/rulings.md` holds BOB's and Bob's rulings, one line each (GOV 7); it is the full log, searched, never read whole | `build/rulings.md` | BOB, by `proc ruling` | |
+| `build/rulings-product/<subject>.md` holds Bob's product rulings by subject, read whole by any work that touches the subject | `build/rulings-product/` | BOB | |
+| The plans: the running round, the next, the archive | `build/plan/` | BOB, by `proc` | the Status, Jobs and Owed lines live on the state branch instead; drafts that prepare later stages are `build/plan/draft-*.md` (P18) |
+| The metrics | `build/metrics/T<n>.csv` | BOB, by `proc … archived` | one commit per layer close; a row is `session,role,name,module,cache-read,cache-write,input,output,test runs,module lines,reviewed,note`, the role one of job, lane, BOB-final, refusal or defect, and a session's `BOB-final` row, where it has one, is its usage |
 | The standing list, as settings rules | `.claude/settings.json` | `proc shims`, from the process's `permissions.json` (Bob's, PERMISSIONS §6) | the gate fails on drift; whether a session may write it at seeding is dry-run row X4 |
 | The gate workflow | `.github/workflows/gate.yml` | `proc shims` | runs the process repository's checks on every pull request to `tranche` |
 | The repository settings: a ruleset on the fixed branch `tranche` with its two defaults only (no force push, no deletion; no required check and no pull-request rule, since either refuses every direct push, measured 29 Oct #5), and one on `main` requiring a pull request; no secret, because the process repository is public (BOB, 29 Oct; JOB-LIFE §4) | repository settings | **Bob, once** (an act only he can take, walked through: `SETUP-STEPS.md`) | the one setup step that is his (a session's write of repository settings is refused by the proxy, 29 Oct #5); fixed branch names so it is made once (JOB-LIFE §1); no merge queue and no auto-merge (JOB-LIFE §1, §12) |
 | Object storage for captures, with a 30-day expiry | the product's platform (bio: R2) | BOB | screenshots never enter git (`PROTOCOL.md` §7d) |
-| A register of Anthropic's terms, where the product uses the API | `build/terms/anthropic.md` | BOB with Bob | optional; the format check cites it (§8.4) |
+| A register of Anthropic's terms, where the product uses the API | `build/terms/anthropic.md` | BOB with Bob | optional; the format check cites it (`checks/README.md`) |
 
 What a product never supplies: a principle, a process rulebook, a tool, a hook, a check, or a copy of any process text (`proc shims` writes the few files that must sit in the product repository, and a check fails when they drift).

@@ -1,4 +1,4 @@
-// The cross-account channel (PROCESS-MECHANICS §13.1; bio K954): tools/mail.mjs's x-commands and checks/channels.mjs
+// The cross-account channel (mechanics: the cross-account channel; bio K954): tools/mail.mjs's x-commands and checks/channels.mjs
 // against a real remote. A bare origin holds `main` with the registry; one clone plays BOB, one UX-DESIGN, each
 // writing only its own mail branch (`mail/BOB`, `mail/UX-DESIGN`). The check's failures are made by hand-written
 // commits on a mail branch, each pushed as an ordinary fast-forward (and one forced, in a scratch remote only).
@@ -13,7 +13,7 @@ import { checkChannels } from '../channels.mjs';
 
 const g = (dir, ...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 const SB = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', SB2 = 'session_01CCCCCCCCCCCCCCCCCCCCCCCC', SU = 'session_01UUUUUUUUUUUUUUUUUUUUUUUU';
-const REGISTRY = `# Channels (PROCESS-MECHANICS §13.1)
+const REGISTRY = `# Channels (mechanics: the cross-account channel)
 
 | name | account | mail branch | outbox | letter | writes |
 | --- | --- | --- | --- | --- | --- |

@@ -444,9 +444,9 @@ test('format: the register named in the manifest is used; a product with no regi
   assert.deepEqual(checkFormat(named).failures, [], 'the manifest names a register that does not exist: skipped');
 });
 
-// P19, mechanics §8.4 (bio K3923): an entry of next.md names one of P19's hard reasons; current.md is not judged.
+// P19, rulebook PLN 2 (bio K3923): an entry of next.md names one of P19's hard reasons; current.md is not judged.
 const NEXT = (...lines) => `# Next\n\n**a**\n\n${lines.join('\n')}\n`;
-test('format: a next.md entry names a P19 hard reason; any other reason or none fails, naming line and id (§8.4, P19, K3923)', () => {
+test('format: a next.md entry names a P19 hard reason; any other reason or none fails, naming line and id (PLN 2, P19, K3923)', () => {
   const ok = NEXT(
     "- N1 · wait · hard reason: Bob's pending decision on the name",
     '- N2 · ship · hard reason: a deployment outside the tranche',
@@ -462,9 +462,9 @@ test('format: a next.md entry names a P19 hard reason; any other reason or none 
   assert.deepEqual(checkFormat(repo(base({ 'build/plan/current.md': cur })).root).failures, [], 'current.md is not judged');
 });
 
-// P19, mechanics §8.4 (bio K5015): a line of current.md, of the running fix round's plan file it names, or of the
+// P19, rulebook PLN 1 (bio K5015): a line of current.md, of the running fix round's plan file it names, or of the
 // handoff that defers work fails, naming file and line, unless it cites next.md.
-test('format: a deferring line in current.md, the named fix-round plan or the handoff fails unless it cites next.md (§8.4, P19, K5015)', () => {
+test('format: a deferring line in current.md, the named fix-round plan or the handoff fails unless it cites next.md (PLN 1, P19, K5015)', () => {
   const failures = (files) => checkFormat(repo(base(files)).root).failures;
   const cur = (...lines) => `# Current\n\n**a**\n\nSee build/plan/fix-round-9-T51.md and build/plan/archive/fix-round-1-T51.md.\n${lines.join('\n')}\n`;
   assert.deepEqual(failures({ 'build/plan/current.md': cur('Clean line.', 'Waits as an entry of next.md (N5), "next fix round" in words.') }), [], 'a line citing next.md passes');
@@ -503,7 +503,7 @@ test('format: a dated lane report from 2026-10-29 on without Evidence: fails, na
   assert.deepEqual(failures({ 'build/plan/other/HANDOFF.md': H('**P-28 · 2026-10-29** · none'), 'build/plan/beta/platform/NOTES.md': H('**P-28 · 2026-10-29** · none') }), [], 'no other file is judged');
 });
 
-// §8.6 (bio K3923): run.mjs runs the words check where the product has a word table.
+// rulebook BLD 5 (bio K3923): run.mjs runs the words check where the product has a word table.
 test('run.mjs: the words check runs where the product has words.json; a planted inline sentence fails it, exit 1', () => {
   const words = { 'docs/development/ux-substrate/screens/words.json': JSON.stringify({ words: [{ key: 'screen.home.title', en: 'Home' }] }) };
   const run = (files) => {
