@@ -1,6 +1,6 @@
 # neoProcess lane: handoff
 
-**From** · neoProcess #9 (`session_01RAN5eokHimRMfaJLQCXFwe`), the lane's address, 29 Oct. Before it #8 `session_01RAN5enj51ppe6dLgJskKM1`, #7 `session_01RAN5ektuonFFCrRnX4VvFj`, #6 `session_01RAN5emD7S5EJrZnC5QgPJC`. Branch `claude/modest-brahmagupta-vvaann` of `believeinoakland/neoprocess` (renamed from `civicos-process` 29 Oct 19:36Z by `proc repo rename`; an older clone sets its remote to the new name). The lane's work reaches `main` by its own pull requests (#38–#47); the branch continues from `main`.
+**From** · neoProcess #9 (`session_01RAN5eokHimRMfaJLQCXFwe`), the lane's address, 29 Oct. Before it #8 `session_01RAN5enj51ppe6dLgJskKM1`, #7 `session_01RAN5ektuonFFCrRnX4VvFj`, #6 `session_01RAN5emD7S5EJrZnC5QgPJC`. Branch `claude/modest-brahmagupta-vvaann` of `believeinoakland/neoprocess` (renamed from `civicos-process` 29 Oct 19:36Z by `proc repo rename`; an older clone sets its remote to the new name). Its work reaches `main` by its own pull requests; the branch continues from `main`.
 
 **Standing** · Bob, 29 Oct: keep working until there is no way to; nothing stops for him; a detail is never his (DES 1); plain words; PERMISSIONS §6 is his approval of all development and testing acts; every grant gathered before the work at one sitting (PERMISSIONS §10); one set of development tokens for every project, a token short of a permission replaced, never worked around (PERMISSIONS §9); **no API key, ever: development only under his subscriptions** (§9.3); the network level stays Full (§8.8); the process names no product. Commit messages in plain words (the classifier reads them). The lane starts its successor by `proc process handoff`; Bob only when the chain breaks, from the START file.
 
@@ -12,7 +12,7 @@ What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-
 
 - Certified: the process (N1), onboarding both ways (the toy #7, `neoprocess-x9` #9), X9, X10; the sitting complete but the acts below; DRYRUN §6 names the three rows only a product run proves.
 - This repository is `neoprocess` (#9, `proc repo rename` on the runner, verified; the toy's and x9's shims regenerated).
-- The sitting page: https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (steps 1–6 done or not needed; 7 his).
+- The sitting page: https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (steps 1–6 done; 7 his).
 
 ## What remains, in order
 
