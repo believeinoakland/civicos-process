@@ -14,7 +14,7 @@
 | the network policy | the environment's allowed hosts cover every host in the product's list | Bob, once per environment | — |
 | a workflow's secret or reviewer | each repository secret and environment the product's workflows name, set at setup; a required reviewer only where Bob's policy keeps one | Bob, or the process's token where its scope allows | — |
 | a resource of another account | none crosses accounts: pages, documents and sessions live on the account the process runs on (PERMISSIONS §10.6) | — | always |
-| an act only a person can take while a release is exercised (a code typed from an inbox, a sign-in) | named in the product's list with its alternative (an API key, a test identity), given at the sitting | Bob | — |
+| an act only a person can take while a release is exercised (a code typed from an inbox, a sign-in) | named in the product's list with its alternative (a test identity; never an API key: development runs only under Bob's subscriptions, PERMISSIONS §9.3), given at the sitting | Bob | — |
 
 Archiving finished sessions is not a grant: an idle session costs nothing (PROTOCOL §7), and Bob archives only if he wants to.
 
