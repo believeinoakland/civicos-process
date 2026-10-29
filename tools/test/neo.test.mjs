@@ -81,7 +81,7 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   assert.throws(() => N.laneOpen(o({ id: 'ARITH', area: 'arithmetic', charterFile: charter, canon: 'no/such.md' })), /no such file/);
   const lo = N.laneOpen(o({ id: 'ARITH', area: 'arithmetic', charterFile: charter, canon: 'build/requirements/alpha.md' }));
   assert.equal(lo.start.title, 'ARITH #1');
-  assert.match(lo.start.prompt, /^\/goal /);
+  assert.match(lo.start.prompt, /^\/goal Every ask routed to you reads DECIDED \(none open counts as met\)/);
   assert.equal(lo.start.model, 'claude-opus-5-5');
   assert.throws(() => N.laneOpen(o({ id: 'ARITH2', area: 'arithmetic', charterFile: charter })), /one lane, one area/);
   assert.deepEqual(N.lanes(N.repo(w.bob.dir)).map((l) => [l.id, l.status]), [['ARITH', 'OPEN']]);
@@ -137,6 +137,16 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   assert.match(ls.charter, /You decide what sum means/);
   assert.deepEqual(ls.asks.map((a) => a.id), ['A1']);
   assert.equal(N.readRole(lane.root).role, 'lane');
+  // the lane's own wait, recorded before it sends (PROTOCOL §2); BOB's queue lists it; cleared by WORKING
+  assert.equal(N.laneState({ product: lane.dir }).line, 'WORKING');
+  assert.throws(() => N.laneState({ product: lane.dir, set: 'DONE' }), /--set WORKING/);
+  N.laneState({ product: lane.dir, set: 'WAITING: does Statistics halve by alpha.sum?' });
+  assert.match(N.stateRead(R, 'lanes/ARITH.md'), /^\*\*Status\*\* · LIVE ARITH #1 session_01LL\S+ · WAITING: does Statistics/m);
+  assert.match(N.status(o()).queue.map((q) => q.item).join(';'), /ANSWER lane ARITH/);
+  assert.equal(N.addr(o({ lane: 'ARITH' })), L1);
+  N.laneState({ product: lane.dir, id: 'ARITH', set: 'WORKING' });
+  assert.doesNotMatch(N.status(o()).queue.map((q) => q.item).join(';'), /ANSWER lane/);
+  assert.throws(() => N.laneState(o({ id: 'NOPE' })), /no live session/);
   // the decision, from the lane's clone (one writer per file: the ask is BOB's, but the decision stage is recorded by BOB
   // from the lane's message; here BOB records it)
   assert.throws(() => N.askDecided(o({ ask: 'A1', answerFile: f(w.base, 'd0.md', 'I think 0.\n') })), /DECISION/);
