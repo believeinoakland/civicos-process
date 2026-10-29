@@ -7,15 +7,19 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { readModules, trackedFiles, pathMatches, requirementIds, requirementFiles, report } from './lib.mjs';
 
-// The tranche the plan names (`# Plan T<n>`), or null.
+// The tranche the plan names: `# Plan T<n>` (mechanics), or `# Plan: … N<n>` with the id last (neoProcess, JOB-LIFE §1); or null.
 function planTranche(root) {
   const f = join(root, 'build/plan/current.md');
-  return existsSync(f) ? readFileSync(f, 'utf8').match(/^# Plan (\S+)/m)?.[1] ?? null : null;
+  if (!existsSync(f)) return null;
+  const title = readFileSync(f, 'utf8').match(/^# Plan(:?) (.*)$/m);
+  if (!title) return null;
+  return title[1] ? title[2].match(/\b([A-Z]+\d+[a-z]?)\s*$/)?.[1] ?? null : title[2].split(/\s+/)[0];
 }
-// A module's job for the tranche has started: its record is on disk, or its job branch exists (local or origin).
+// A module's job for the tranche has started: its record is on disk, or its job branch exists (local or origin):
+// `job/<T>/<m>` under the mechanics, `job/<m>` under neoProcess (one job per module, JOB-LIFE §1).
 function jobStarted(root, T, m) {
   if (existsSync(join(root, `build/jobs/${T}/${m}.md`))) return true;
-  return [`refs/heads/job/${T}/${m}`, `refs/remotes/origin/job/${T}/${m}`].some((r) => { try { execFileSync('git', ['-C', root, 'rev-parse', '--verify', '-q', r], { stdio: 'ignore' }); return true; } catch { return false; } });
+  return [`refs/heads/job/${T}/${m}`, `refs/remotes/origin/job/${T}/${m}`, `refs/heads/job/${m}`, `refs/remotes/origin/job/${m}`].some((r) => { try { execFileSync('git', ['-C', root, 'rev-parse', '--verify', '-q', r], { stdio: 'ignore' }); return true; } catch { return false; } });
 }
 
 export function checkCoverage(root, only = []) {

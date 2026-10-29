@@ -125,6 +125,17 @@ test('coverage: the same id fails once the module\'s job record exists; an unmar
   assert.deepEqual(checkCoverage(unmarked.root, ['a']).failures, ['a: 2 of 3 live ids named by no test: R3 R4']);
 });
 
+test('coverage: neoProcess\'s plan title (`# Plan: … N1`, the id last) names the tranche, and its job branch `job/<m>` counts as started (JOB-LIFE §1)', () => {
+  const files = { ...AHEAD, 'build/plan/current.md': '# Plan: neoProcess dry run N1\n\n**Status** · OPEN.\n', 'build/requirements/a.md': REQ('- **R1** one\n- **R3** two *(not yet met: N1)*') };
+  const ahead = repo(base(files));
+  assert.deepEqual(checkCoverage(ahead.root, ['a']).failures, []);
+  assert.match(checkCoverage(ahead.root, ['a']).summary, /1 written ahead/);
+  ahead.g('branch', 'job/a');
+  assert.deepEqual(checkCoverage(ahead.root, ['a']).failures, ['a: 1 of 2 live ids named by no test: R3']);
+  const other = repo(base({ ...files, 'build/plan/current.md': '# Plan: neoProcess dry run N2\n' }));
+  assert.deepEqual(checkCoverage(other.root, ['a']).failures, ['a: 1 of 2 live ids named by no test: R3']);
+});
+
 test('ownership: own paths, own tests and own job record pass; another module\'s file fails', () => {
   const r = repo(base());
   r.commit({ 'src/b/more.mjs': 'x', 'test/b/more.test.mjs': 'x', 'build/jobs/T1/b.md': 'x', 'build/jobs/D1/b.md': 'x', 'build/jobs/T51b/b.md': 'x' });

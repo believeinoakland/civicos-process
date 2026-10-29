@@ -1,0 +1,55 @@
+# Certification of neoProcess (P3): the dry run N1
+
+One row per path PROTOCOL §10, JOB-LIFE §13 and DESIGN-STAGE §5 name. A row is PROVEN by what git and GitHub show (an ask file's stages, a PR's comments and checks, a state-branch line, a metrics row), never by a session's report (P20). PLANNED names the entry or act that drives it. The process is certified only when every row reads PROVEN, or names the reason it can only be proven in a product run and the check that will prove it there.
+
+## The protocol (PROTOCOL §10)
+
+| # | path | driven by | evidence | status |
+| --- | --- | --- | --- | --- |
+| P1 | a job's QUESTION answered by BOB alone | alpha N6 | the ask: Route `answered by BOB`, Replied, CLOSED | PLANNED |
+| P2 | a job's QUESTION asked of a lane, decided, folded into a requirement, replied as a CHANGE the job merges | alpha N1 → ARITH | the ask's four stages; `requirements/arithmetic.md` §3 and alpha R8 in one commit with the close; the job's merge of `tranche` | PLANNED |
+| P3 | a lane's QUESTION to another lane through BOB | stats N12 → STATS → ARITH | STATS's ask with its own `QUESTION #n` From line; ARITH's decision; STATS's decision | PLANNED |
+| P4 | an ask that needs Bob, held NEEDS BOB, closed citing his decision | stats N11 | the ask: Route `needs Bob`, Status NEEDS BOB, Decided `Bob`, Replied | PLANNED |
+| P5 | a successor BOB continuing an ASKED ask from its file | BOB handover with an ask ASKED | the ask's Asked line by BOB #1, Replied by BOB #2 | PLANNED |
+| P6 | a job's send_message to a lane refused by its hook | alpha N7 | the refusal text in alpha's report; no message in the lane's transcript | PLANNED |
+| P7 | a lane re-chartered by `neo lane charter` | BOB's act | the charter file and the `re-chartered` decision line | PLANNED |
+| P8 | two requests in one BOB turn, both found by `neo status`, handled in order | alpha N5 | one BOB turn's events; both asks' From lines; the order of their Route lines | PLANNED |
+| P9 | a worker's result recorded by the wake its completion sends, BOB's turn ended meanwhile | any dispatch | BOB's transcript: turn end, completion wake, `neo ask …` with the result | PLANNED |
+| P10 | a worker killed mid-task, seen by the failure notice, re-dispatched from the same brief | BOB's act | the Working line's two `since` times; one brief file | PLANNED |
+| P11 | a Working line past its due listed LATE and re-dispatched | BOB's act (`--due 1`) | `neo status` listing LATE; the re-dispatch | PLANNED |
+| P12 | a duplicate `neo ask decided` refused | BOB's act | the refusal; the ask unchanged | PLANNED |
+| P13 | a lane refreshed mid-ask, its successor finishing the ask from git | BOB's act (`lane route --context-pct 60`) | the lane's Status line with the new session; the decision by it | PLANNED |
+| P14 | BOB refreshed with a Working line out, its successor re-dispatching it | BOB handover | the takeover's acts; the second dispatch | PLANNED |
+| P15 | a move to a second account with an ask open, closed on the new account | only between Bob's two accounts | — | provable only with Bob's two accounts (PROTOCOL §15) |
+| P16 | a request whose message arrives before its record (RESEND, not acted on) | alpha N5 (`QUESTION #2`) | BOB's one-line RESEND; no ask for it | PLANNED |
+| P17 | a job's send_message refused by its hook while its record is unpushed | alpha N4 | the refusal text in alpha's report | PLANNED |
+| P18 | a message numbered the same as one already recorded, refused by `neo ask open` | alpha N5 (`QUESTION #1` again) | the refusal; one ask A<n> for the number | PLANNED |
+| P19 | a dormant lane started by `neo ask ask` from the register, the ask answered by the new session | stats N12 (STATS dormant) | STATS's Status line DORMANT then LIVE; the create_session printed by `ask ask` | PLANNED |
+| P20 | an epoch closed (state branch gone) and the next opened, every durable file on `tranche` | the close | `git ls-remote` without `state/E1`; `build/epochs.md`; the asks' text copied where cited | PLANNED |
+
+## The job's life (JOB-LIFE §13)
+
+| # | path | driven by | evidence | status |
+| --- | --- | --- | --- | --- |
+| J1 | a job started from a draft PR whose body is its START | every job | the PR body; the job's first commit after it | PLANNED |
+| J2 | the `**Met**` strike riding the job's own commit; ownership accepts it | alpha N1 (R8, R9), stats N10 (R10, R11) | the commit `<m> N1: met …` in the PR; the gate green on it | PLANNED |
+| J3 | the gate red on a branch and green after the fix | alpha N3 | the PR's check runs: one failure, then success | PLANNED |
+| J4 | a review decided "no review" with its reason | BOB on alpha or beta | the job's Review line `no review · …` | PLANNED |
+| J5 | a review decided "review" whose worker reports a gap, fixed and approved | stats N10 | the PR review REQUEST_CHANGES then APPROVE; the CHANGE; the second completion | PLANNED |
+| J6 | a merge by the queue waking BOB and recorded | every merge | the `pull_request.closed` event; the job's Merge line | PLANNED |
+| J7 | a CHANGE after the merge re-opening the job on a fresh branch and PR | alpha N1's answer, timed after its merge | two PRs for alpha; the REOPENED line; the second merge | PLANNED |
+| J8 | a queue run failing on the merged result (a user's test) and the job fixing it | beta N8 against alpha N2 | the merge_group check failure; the CHANGE to beta; beta's fix (class only) and second merge | PLANNED |
+| J9 | a job retired early by `neo job retire` and one at the layer's close | alpha early, beta at the close | the plan's owed lines; two metrics rows | PLANNED |
+| J10 | a tranche closed by the one PR to `main` | the close | the PR `N1: close`, merged by BOB; `tranche` gone | PLANNED |
+| J11 | a job that ends a turn with its record WORKING sent back by its goal without a message from BOB | beta N9 | beta's transcript: the Stop hook's refusals, then the goal's send-back | PLANNED |
+| J12 | whether a message whose first words are `/goal` sets the goal again after a wait | BOB, after alpha's first wait | alpha's `get_session` goal fields after the message | PLANNED |
+| J13 | the merge queue on `tranche`, the required checks, auto-merge queuing, the `merge_group` run (JOB-LIFE §12) | every merge | GitHub's queue page; the check runs on `merge_group` | PLANNED |
+
+## The Design stage (DESIGN-STAGE §5)
+
+| # | path | driven by | evidence | status |
+| --- | --- | --- | --- | --- |
+| D1 | a lane decision that changes a canon section, written by the lane, cited by a requirement | ARITH on alpha N1 | `requirements/arithmetic.md` §3 by the lane; alpha R8 citing it | PLANNED |
+| D2 | a lane decision that changes a rule: BOB rewrites the rulebook; before-and-after rendered where the rule is Bob's | ARITH's rule for empty lists | `.claude/rules/arithmetic.md` rule 3 rewritten by BOB; the decision line | PLANNED |
+| D3 | a decision that changes a requirement's meaning, held NEEDS BOB, folded after his decision, an entry sent to each user module | stats N11 | the ask; stats R1 as Bob decided; the CHANGE to stats (and to legacy's census if any) | PLANNED |
+| D4 | a decision line cited from a rulebook with the ask file gone | after the epoch closes | the rulebook's `L-ARITH-<n>`; no `asks/` anywhere | PLANNED |

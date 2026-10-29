@@ -1,6 +1,6 @@
 # neoProcess lane: handoff
 
-**From** · neoProcess #4 (`session_018BhcefACF9wymZAZpDS2Pz`), 2026-10-29. #3 (`session_018BhcedCh1TpUJaGQh5up8c`) handed off at 486,512 of 1,000,000 context tokens (49 %), usage 49,144,573 / 1,464,445 / 45,593 / 335,704 (cache-read / cache-write / input / output), read by #4 with `get_session`; still unarchived, as is #2 (`session_018BhceegtREhWFPW6rnCrDC`, ended idle at 50 %, usage 13,854,613 / 497,976 / 14,873 / 113,987). Archiving #2 and #3 is Bob's: the archive call is refused to sessions. All pushed on `claude/modest-brahmagupta-vvaann` (PR #36, draft).
+**From** · neoProcess #4 (`session_018BhcefACF9wymZAZpDS2Pz`), 2026-10-29. #3 (`session_018BhcedCh1TpUJaGQh5up8c`) handed off at 49 % of its window; usage 49,144,573 / 1,464,445 / 45,593 / 335,704 (cache-read / cache-write / input / output, from `get_session`). #2 (`session_018BhceegtREhWFPW6rnCrDC`) ended idle at 50 %, usage 13,854,613 / 497,976 / 14,873 / 113,987. Neither is archived: that is Bob's (the call is refused to sessions). All pushed on `claude/modest-brahmagupta-vvaann` (PR #36, draft).
 
 ## Read whole, and nothing else at start
 
@@ -17,7 +17,7 @@ The ten rulebooks are drafted in `rulebooks/` (32 KB together, each under 4 KB; 
 ## What remains, in order
 
 1. **Bob's setup act**, put to him in plain words by #4 on 29 Oct (awaiting his answer) from `SETUP-STEPS.md` (verified against GitHub's pages by `neo steps`, 26 labels), with the one decision it carries: the toy repository public in the organization, since GitHub offers a merge queue only there (DRYRUN §1); the same for `civicsmith` later. BOB makes the deploy key pair at that moment, or Bob makes the process repository public and no key is needed.
-2. **The dry run** (`DRYRUN.md`): every row of PROTOCOL §10, JOB-LIFE §13, DESIGN-STAGE §5 on the toy's own repository; the queue measured once Bob's ruleset exists (JOB-LIFE §12).
+2. **The dry run** (`DRYRUN.md`; the seed, plan, charters and rows in `n1/`, prepared by #4 and rehearsed on a scratch copy: checks and tests green) on the toy's own repository, once Bob's act exists; the queue measured there (JOB-LIFE §12).
 3. **The commit point**: `neo` takes the `proc` name; the old tool, skills and mechanics rewritten from these files; the rulebooks moved to `rulebooks/` at the root; the page final.
 
 ## Acts that are Bob's, when the time comes
