@@ -23,7 +23,7 @@ What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-
 1. **The next change here**: open and merge the lane's own pull request to `main` after it (as #42 was).
 2. **The rest of Bob's sitting** (PERMISSIONS §10): https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (steps 1–5 done: the four `JOURNEY_*` measured present by name 29 Oct 19:10Z, and **no AI key, ever**: development only under Bob's subscriptions, his words 19:30Z, PERMISSIONS §9.3; 6 not needed: the environment stays Full, Bob's decision 29 Oct (PERMISSIONS §8.8); 7 and the signing decision his; the page updated by #9). The product's grant list is written by the onboarding session into the product. X10 PROVEN (#8: the hosting token reads its own scope; PERMISSIONS §9).
 3. **Owed to certification** (DRYRUN §6), all provable only in a product run: a handover through ROOT to an open epoch, the `tranche open` refusal live, the words check.
-4. **The product**, by ONBOARDING's convert path, in the onboarding session Bob starts (step 7 of the page).
+4. **The product**, by ONBOARDING's convert path, in the onboarding session Bob starts (step 7 of the page); ONBOARDING is certified both ways (#9). Its first run proves the three rows DRYRUN §6 names as a product run's; a flaw there stops product work until fixed (P3).
 5. `dryrun/` refreshed from the toy, in a session with the toy attached (not this one: a second repository costs the standing list, PERMISSIONS §10.7; #8's decision).
 6. **The repository's name**: Bob (29 Oct, to #8) expected a fresh `neoProcess`; the record plans a rename of this one (README line 1), his act when he chooses; the texts naming the old name then follow (PROCESS-DESIGN's status line with his approval, GOV 3).
 
