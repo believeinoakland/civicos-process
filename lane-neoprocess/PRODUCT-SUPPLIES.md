@@ -19,7 +19,7 @@
 | The plans: the running round, the next, the archive | `build/plan/` | BOB, by `proc` | the Status, Jobs and Owed lines live on the state branch instead |
 | The metrics | `build/metrics/T<n>.csv` | BOB, by `proc … archived` | one commit per layer close |
 | The gate workflow | `.github/workflows/gate.yml` | `proc shims` | runs the process repository's checks on every PR and in the merge queue |
-| The rulesets: a merge queue and the required checks on the fixed branch `tranche`; one rule on `main` | repository settings | **Bob, once** (an act only he can take, walked through) | the one setup step that is his; fixed branch names because a queue cannot target a wildcard pattern (JOB-LIFE §1) |
+| The repository settings: a ruleset with a merge queue and the required checks on the fixed branch `tranche`, and one rule on `main`; **Allow auto-merge** switched on; one secret, the process repository's read-only deploy key (JOB-LIFE §4), unless the process repository is public | repository settings | **Bob, once** (an act only he can take, walked through) | the one setup step that is his (measured 29 Oct: a session's auto-merge is refused while the setting is off); fixed branch names because a queue cannot target a wildcard pattern (JOB-LIFE §1) |
 | Object storage for captures, with a 30-day expiry | the product's platform (bio: R2) | BOB | screenshots never enter git (`PROTOCOL.md` §7d) |
 | A register of Anthropic's terms, where the product uses the API | `build/terms/anthropic.md` | BOB with Bob | optional; the format check cites it (§8.4) |
 
