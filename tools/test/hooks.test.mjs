@@ -223,6 +223,10 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   assert.match(pre(bash('git push origin HEAD:tranche')), /neoProcess lane pushes only claude\/lane-x/);
   assert.match(pre(bash('git push --force origin claude/lane-x')), /force push/);
   assert.match(preReason('process', bash('git push origin x'), { ...ctx, branch: undefined }), /the branch its start recorded/);
+  // the word in a commit message is not a push; git's own options before the subcommand still are
+  assert.equal(pre(bash('git add -A && git commit -q -m "a missing push grant named before work relied on it"')), null);
+  assert.match(pre(bash('git -c core.x=1 push origin HEAD:main')), /nothing is pushed to main/);
+  assert.match(pre(bash('git --no-pager push --force origin claude/lane-x')), /force push/);
   // it starts no session and arms no timer; it opens and merges its own pull request, never reviews one
   assert.match(pre(tool(`${REMOTE}create_session`, { title: 'X #1' })), /starts no session/);
   assert.match(pre(tool(`${REMOTE}send_later`, {})), /arms no timer/);

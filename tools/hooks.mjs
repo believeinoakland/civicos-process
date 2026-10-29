@@ -16,8 +16,11 @@ import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead,
 import { stepsReason, lastAssistantText } from './lib.mjs';   // P20: steps for Bob verified against their source (`proc steps`)
 
 const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__';
-const FORCE = /\bgit\b[^|;&]*\bpush\b[^|;&]*(\s(-f|--force|--force-with-lease|--mirror|--delete|-d)\b|\s\+\S+|\s:\S)/;
-const PUSH = /\bgit\b[^|;&]*\bpush\b([^|;&]*)/;
+// A push is `push` as git's subcommand, after git's own options (`-C <dir>`, `-c <k=v>`, `--flag`), never the word in a
+// commit message (`git commit -m "… push …"` was refused as a push to its words, #7, 29 Oct).
+const GIT_SUB = String.raw`\bgit(?:\s+-[Cc]\s+\S+|\s+--?[\w-]+(?:=\S+)?)*\s+`;
+const FORCE = new RegExp(GIT_SUB + String.raw`push\b[^|;&]*(\s(-f|--force|--force-with-lease|--mirror|--delete|-d)\b|\s\+\S+|\s:\S)`);
+const PUSH = new RegExp(GIT_SUB + String.raw`push\b([^|;&]*)`);
 const REDIRECT = /(\d*>>?&\d+-?|&>>?\s*[^\s|;&]+|\d*>>?\s*[^\s|;&]+|<+\s*[^\s|;&]+)/g;
 // A hand merge, tag, branch, reset, rebase or pull request from a state branch (PROTOCOL §7d).
 const STATE_REF = /\bgit\b[^|;&]*\b(merge|tag|branch|checkout|switch|worktree|rebase|cherry-pick|reset|pull)\b[^|;&]*\bstate\//;
