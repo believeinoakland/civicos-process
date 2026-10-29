@@ -1378,7 +1378,8 @@ export function trancheClose(o) {
   }
   R.g(['push', '-q', 'origin', `HEAD:refs/heads/${TRANCHE}`]);
   const commit = planEdit(R, (p) => ({ ...owe(p, [`merge ${TRANCHE}`]), state: 'CLOSING' }), `${T}: CLOSING`);
-  return { tranche: T, head: R.g(['rev-parse', '--short', 'HEAD']), commit, pr: { ...ghRepo(R), title: `${T}: close`, head: TRANCHE, base: 'main', body: `The tranche ${T} closes: every round archived under build/plan/archive/, every job merged and archived, the checks green over the whole product.`, draft: false }, then: `create the PR, merge it with the GitHub merge tool once its checks are green (the one merge BOB makes), then neo tranche merged --sha <merge commit>` };
+  const tip = R.g(['rev-parse', 'HEAD']);
+  return { tranche: T, head: tip.slice(0, 7), commit, pr: { ...ghRepo(R), title: `${T}: close`, head: TRANCHE, base: 'main', body: `The tranche ${T} closes: every round archived under build/plan/archive/, every job merged and archived, the checks green over the whole product.`, draft: false }, merge: { tool: 'merge_pull_request', ...ghRepo(R), pullNumber: '<the PR\'s number>', merge_method: 'merge', expectedHeadSha: tip }, then: `create the PR, merge it by the printed call once it is mergeable (the hook passes it at CLOSING with expectedHeadSha the tranche's tip), then neo tranche merged --sha <merge commit>` };
 }
 // The close PR's merge recorded: the commit is on main and holds the tranche's tip; the plan CLOSED. The branch stays
 // (the ruleset refuses its deletion) and the next `tranche open` fast-forwards it.

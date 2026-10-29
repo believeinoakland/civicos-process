@@ -620,6 +620,7 @@ test('a tranche opened from main, a round opened and closed, the tranche closed 
   assert.deepEqual([tc.tranche, tc.pr.head, tc.pr.base, tc.pr.title, tc.pr.draft], ['T2', 'tranche', 'main', 'T2: close', false]);
   assert.equal(N.status(o()).bob.session, B1); assert.deepEqual(N.status(o()).owed, ['merge tranche']);
   assert.equal(N.parsePlan(N.stateRead(R, 'plan.md')).state, 'CLOSING');
+  assert.deepEqual([tc.merge.tool, tc.merge.merge_method, tc.merge.expectedHeadSha], ['merge_pull_request', 'merge', g2('rev-parse', 'origin/tranche')]);
   assert.throws(() => N.trancheClose(o()), /acts still owed/);
   assert.throws(() => N.trancheMerged(o({ sha: g2('rev-parse', 'origin/main') })), /is not in/);   // main's tip does not hold the tranche yet
   // the close PR merged (here: the merge made on main by hand) and recorded; the branch is gone; the epoch can close
