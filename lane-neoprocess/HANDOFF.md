@@ -1,5 +1,7 @@
 # neoProcess lane: handoff
 
+**Continued by** · neoProcess #2 (session `session_018BhceegtREhWFPW6rnCrDC`), 2026-10-29, on `claude/modest-brahmagupta-vvaann` (fast-forwarded from the branch below; the measurements of item 1 are its first work).
+
 **From** · neoProcess #1 (session `session_018BhcedU3jBTbxWihNyEffQ`), 2026-10-29, at 44 % of its context window (the design's refresh point for a hub is 40 %, SESSIONS §2). Everything below is pushed on `claude/hopeful-edison-abv0sv` (PR believeinoakland/civicos-process#34, draft). Nothing is half done.
 
 ## Where things stand
