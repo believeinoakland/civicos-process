@@ -1524,7 +1524,7 @@ export async function repoSetup(o) {
   };
   const calls = [['POST', '/user/repos', { name, description: 'built by neoProcess (PRODUCT-SUPPLIES.md)', private: !!o.private, auto_init: true }], ...RULESETS.map((r) => ['POST', `/repos/${owner}/${name}/rulesets`, r])];
   if (o.dryRun) return { repo: `${owner}/${name}`, calls };
-  const out = { repo: `${owner}/${name}`, token: token ? 'the process\'s own (NEOPROCESS_GITHUB_TOKEN)' : 'the proxy\'s', steps: [], refused: [], bob: [] };
+  const out = { repo: `${owner}/${name}`, token: token ? `the repository owner's (${(o.env || process.env).SECRET_NAME || 'NEOPROCESS_GITHUB_TOKEN'})` : 'the proxy\'s', steps: [], refused: [], bob: [] };
   const why = (c) => `${c.status}: ${String(c.json?.message || c.text || '').slice(0, 160)}`;
   const me = await call('GET', '/user'); if (me.status !== 200) refuse(`GET /user answered ${me.status}: no GitHub token reaches api.github.com (PERMISSIONS §9)`);
   if (me.json?.login !== owner) refuse(`the token is ${me.json?.login}'s, and --repo names ${owner}: a repository is made on the token's own account`);
@@ -1585,7 +1585,7 @@ export async function repoRename(o) {
     return { status: r.status, json, text };
   };
   const why = (c) => `${c.status}: ${String(c.json?.message || c.text || '').slice(0, 160)}`;
-  const out = { repo: `${owner}/${old}`, name: to, token: token ? 'the process\'s own (NEOPROCESS_GITHUB_TOKEN)' : 'the proxy\'s', steps: [], refused: [] };
+  const out = { repo: `${owner}/${old}`, name: to, token: token ? `the repository owner's (${(o.env || process.env).SECRET_NAME || 'NEOPROCESS_GITHUB_TOKEN'})` : 'the proxy\'s', steps: [], refused: [] };
   const me = await call('GET', '/user'); if (me.status !== 200) refuse(`GET /user answered ${me.status}: no GitHub token reaches api.github.com (PERMISSIONS §9)`);
   if (me.json?.login !== owner) refuse(`the token is ${me.json?.login}'s, and --repo names ${owner}: a repository is renamed on the token's own account`);
   const cur = await call('GET', `/repos/${owner}/${old}`);
@@ -1628,7 +1628,7 @@ export async function repoTransfer(o) {
     return { status: r.status, json, text };
   };
   const why = (c) => `${c.status}: ${String(c.json?.message || c.text || '').slice(0, 160)}`;
-  const out = { repo: `${owner}/${name}`, to, token: token ? 'the process\'s own (NEOPROCESS_GITHUB_TOKEN)' : 'the proxy\'s', steps: [], refused: [] };
+  const out = { repo: `${owner}/${name}`, to, token: token ? `the repository owner's (${(o.env || process.env).SECRET_NAME || 'NEOPROCESS_GITHUB_TOKEN'})` : 'the proxy\'s', steps: [], refused: [] };
   const me = await call('GET', '/user'); if (me.status !== 200) refuse(`GET /user answered ${me.status}: no GitHub token reaches api.github.com (PERMISSIONS §9)`);
   // the read-back first: after the move the new owner's token reads it (#10's note, 29 Oct)
   const there = await call('GET', `/repos/${to}/${name}`);
@@ -1672,7 +1672,7 @@ export async function repoShims(o) {
   };
   const why = (c) => `${c.status}: ${String(c.json?.message || c.text || '').slice(0, 160)}`;
   let P = {}; try { P = ghRepo(repo(PROCESS)); } catch { /* no remote: the fields stay unnamed */ }
-  const out = { repo: `${owner}/${name}`, token: token ? 'the process\'s own (NEOPROCESS_GITHUB_TOKEN)' : 'the proxy\'s', steps: [], refused: [] };
+  const out = { repo: `${owner}/${name}`, token: token ? `the repository owner's (${(o.env || process.env).SECRET_NAME || 'NEOPROCESS_GITHUB_TOKEN'})` : 'the proxy\'s', steps: [], refused: [] };
   if (!token) {
     out.ok = false;
     out.dispatch = { tool: 'actions_run_trigger', ...P, workflow_id: REPO_SHIMS_WORKFLOW, ref: 'main', inputs: { repo: `${owner}/${name}` } };

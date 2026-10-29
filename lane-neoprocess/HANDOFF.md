@@ -18,11 +18,11 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## What remains, in order
 
-1. **The move is done** (Bob, 23:00Z; read back over git: `civicsmith/civicsmith` `main` at `e5f7190`). Bob's rulings, relayed by his helper session (`session_01RAN5ejjuYNZmiep8zGD5YK`, data): `neobobkrause` never joins `civicsmith`; **one secret per owner** (PERMISSIONS §9.9, built by #12: the runner picks `NEOPROCESS_GITHUB_TOKEN_CIVICSMITH` for that organization; `NEOPROCESS_GITHUB_TOKEN` stays `neobobkrause`'s). On `main` and proven (DRYRUN §6); Bob told the name at 23:05Z. His act: the organization's token as that secret.
-2. **BOB's decision (P17), #12**: the dry-run repositories move to `neobobkrause`, beside the process (the helper's recommendation, confirmed): its token reaches them. Bob's hand act, twice (SETUP-STEPS "The move" step 2); then `repo-shims.yml` for each.
-3. **Then the lane**: `repo-setup.yml` and `repo-shims.yml` for `civicsmith/civicsmith`; a START for the onboarding session, which Bob starts on a Claude account connected as the organization's owner (sessions reach only their own account). A process flaw a product session finds comes to the lane as a report, or a pull request from a fork.
+1. **Done 29 Oct**: the product moved to `civicsmith/civicsmith` (Bob); one secret per owner, built and proven (#12, PERMISSIONS §9.9); Bob's `NEOPROCESS_GITHUB_TOKEN_CIVICSMITH` set (23:15Z, relayed by his helper session `session_01RAN5ejjuYNZmiep8zGD5YK`); the product's rulesets made and read back active (run 40971833961). `neobobkrause` never joins `civicsmith` (Bob's ruling).
+2. **BOB's decisions (P17), #12**: the dry-run repositories move to `neobobkrause` (Bob's hand act, twice), then `repo-shims.yml` for each. **No `repo-shims.yml` on `civicsmith/civicsmith`**: the convert path moves its old `CLAUDE.md` into `build/onboarding/` before writing the shims (ONBOARDING §2), which a refresh first would overwrite.
+3. **Next, Bob's**: the onboarding session (the page's step 7), started by him on a Claude account connected as the organization's owner, with `neobobkrause/neoprocess` (public) and `civicsmith/civicsmith`. Whether that account's session reaches the public process repository is measured at its start. A process flaw a product session finds reaches the lane as a report or a pull request from a fork.
 4. **The release-signing decision** (the page's foot): his.
-5. The sitting page: version 16 (#12): step 5 names the new secret.
+5. The sitting page: version 17 (#12): step 7 next.
 
 ## Acts only Bob can take
 
