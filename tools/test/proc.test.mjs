@@ -761,7 +761,12 @@ test('repo transfer moves a repository to another account on the runner with the
     return reply(500, { message: `unexpected ${method} ${path}` });
   };
   await assert.rejects(N.repoTransfer({ repo: 'nope', to: 'x' }), /--repo <owner\/name> --to <new owner>/);
+  // after the move the new owner's token reads it back (#10's note, 29 Oct): already owned, before any refusal
+  const r0 = await N.repoTransfer({ repo: 'alice/neoprocess', to: 'bob', fetch, env: {} });
+  assert.deepEqual([r0.ok, r0.moved, r0.steps], [true, true, ['already owned by bob: https://github.com/bob/neoprocess']]);
+  owner = 'other';
   await assert.rejects(N.repoTransfer({ repo: 'bob/neoprocess', to: 'bob', fetch, env: {} }), /the token is bob's already/);
+  owner = 'bob';
   await assert.rejects(N.repoTransfer({ repo: 'alice/neoprocess', to: 'robert', fetch, env: {} }), /the token is bob's, and --repo names alice/);
   // from a session: the proxy refuses the settings write; the dispatch and what follows are printed
   const r1 = await N.repoTransfer({ repo: 'bob/neoprocess', to: 'robert', fetch, env: {} });
@@ -818,6 +823,11 @@ test('repo shims regenerates a product\'s shims on the runner with the process\'
   // the product already holding them: already current, nothing pushed
   const r3 = await N.repoShims({ repo: 'bob/toy', checkout: runner.root, process: '/home/user/neoprocess', ref: 'main', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } });
   assert.deepEqual([r3.ok, r3.steps], [true, ['already current']]);
+  // a push the product refuses: the refusal carries git's own words (run 40958218527, 29 Oct #12, said nothing)
+  const other = w.clone('other');
+  g(w.origin, 'update-ref', '-d', `refs/heads/${N.SHIMS_BRANCH}`);   // else the same commit, made in the same second, is nothing to send
+  writeFileSync(join(w.origin, 'hooks', 'pre-receive'), '#!/bin/sh\necho "no: the test refuses the push"; exit 1\n', { mode: 0o755 });
+  await assert.rejects(N.repoShims({ repo: 'bob/toy', checkout: other.root, process: '/home/user/neoprocess', ref: 'main', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } }), /the push to shims was refused: .*no: the test refuses the push/);
   const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', N.REPO_SHIMS_WORKFLOW), 'utf8');
   assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\.NEOPROCESS_GITHUB_TOKEN \}\}/); assert.match(wf, /node tools\/proc\.mjs repo shims --repo "\$REPO" --checkout product/);
   assert.doesNotMatch(wf, /run:[\s\S]*\$\{\{ inputs\./);
