@@ -240,6 +240,18 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   assert.match(pre(tool(`${REMOTE}create_session`, { title: 'X #1' })), /could not be derived/);   // no repository at the fixture's root
   assert.throws(() => N.processSession(N.repo(N.PROCESS), undefined), /no branch recorded/);
   assert.match(N.processStartText(want, 'o/r'), /^# Starting neoProcess #\d+ \(written by `proc process handoff`/);
+  // after a rename or move of the process repository it pushes a product's regenerated shims: the product's URL named, the branch
+  // `shims` only, never the process repository itself (PERMISSIONS §9.5, §9.6; #11, 29 Oct)
+  assert.equal(preReason('process', bash('git -C ../x9 push -u https://github.com/o/x9 shims'), here), null);
+  assert.equal(preReason('process', bash('git push https://github.com/o/x9.git HEAD:shims'), here), null);
+  assert.match(preReason('process', bash('git push https://github.com/o/x9 HEAD:main'), here), /nothing is pushed to main/);
+  assert.match(preReason('process', bash('git push https://github.com/o/x9 fix'), here), /pushes only claude\/lane-x \(JOB-LIFE §11\), or a product's regenerated shims/);
+  assert.match(preReason('process', bash('git push https://github.com/o/x9 fix:shims'), here), /pushes only claude\/lane-x/);
+  assert.match(preReason('process', bash('git push origin shims'), here), /pushes only claude\/lane-x/);
+  assert.match(preReason('process', bash(`git push ${want.source_url} shims`), here), /pushes only claude\/lane-x/);
+  assert.match(pre(bash('git push https://github.com/o/x9 shims')), /pushes only claude\/lane-x/);   // the process remote unreadable at /nowhere
+  assert.match(preReason('process', bash('git push --force https://github.com/o/x9 shims'), here), /force push/);
+  assert.match(preReason('onboard', bash('git push https://github.com/o/x9 shims'), { ...here, role: 'onboard', branch: 'onboard' }), /pushes only onboard/);
   assert.match(pre(tool(`${REMOTE}send_later`, {})), /arms no timer/);
   assert.equal(pre(tool(`${GH}create_pull_request`, {})), null);
   assert.equal(pre(tool(`${GH}merge_pull_request`, {})), null);
