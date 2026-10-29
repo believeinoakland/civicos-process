@@ -67,3 +67,17 @@ The tool's merge on `tranche` (JOB-LIFE §6): the gate on a pull request, a bran
 - 14:39 **N1 CLOSED by BOB #3**: PR #11 `N1: close` merged as 3dcd423; `tranche merged`; `epoch close`, `state/E1` deleted by prune run 40893679821; rows P20, J10, D4, X3 and X1 PROVEN (evidence in `dryrun/N1/CERTIFICATION.md` here, since nothing is pushed to `tranche` after the merge). Every row of the certification reads PROVEN or names its product run (P15, X4, X6–X8).
 - 14:45 BOB #3 archived by #6 (10.9 M / 340 K / 162 / 25 K tokens; 21 min). The dry run's cost in BOB sessions: BOB #1 103 M cache-read, BOB #2 735 M, BOB #3 11 M.
 
+
+## 6. Certification of neoProcess #7's changes (GOV 5; 29 Oct 2026)
+
+Each path proven, or named as provable only in a product run with the check that will prove it. Suite 267 green on `731b070` and after.
+
+| path | status | evidence |
+| --- | --- | --- |
+| the neoProcess lane's start and its hooks (role `process`) | PROVEN | #7 started under it (`proc process start`), edited, tested, committed and wrote its branch only; a write elsewhere refused by the hook (the false positive of §4.24, fixed) |
+| `proc grants check` through the proxy | PROVEN | the process repository (the GitHub API as the Claude app; a service token active); the toy's clone (a missing write grant named, 403); the toy with write access (every row held) |
+| `tranche open` refuses without held grants | provable only in a product run | fixture test; the product's first `tranche open` after onboarding, refused or passed by its grants check |
+| the words check configured by the product (`build/words.json`) | provable only in a product run | fixture tests; the product's first gate after its `build/words.json` is written at onboarding |
+| `proc shims` reading the process's name from its remote | PROVEN | `proc init` on the toy wrote no drift against the toy's existing shims (`--ref main`) |
+| onboarding, convert path (`proc onboard start`, `proc init`, `init --check`, the seed pull request) | PROVEN | §4.25: believeinoakland/neoprocess-dryrun#13 merged by the onboarding role; the readback correct after fix 25 |
+| onboarding, new path | owed | a throwaway repository made by `proc repo setup` once the process's token is set (X9); the product does not use this path |
