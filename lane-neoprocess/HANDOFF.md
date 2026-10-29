@@ -25,4 +25,4 @@ What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-
 
 ## Acts only Bob can take (all at the one sitting)
 
-This repository's `.claude/settings.json` given the standing list (a session may not widen its own settings: refused as Self-Modification; his words in the session let it); the Claude GitHub app on all the account's repositories; the process's GitHub token and each service token as network secrets; the environment's hosts. When he chooses: the renames, the proposed principles, server-managed lists. Archiving old sessions is not needed.
+(Done 29 Oct: this repository's settings hold the standing list, on his words.) The Claude GitHub app on all the account's repositories; the process's GitHub token and each service token as network secrets; the environment's hosts. When he chooses: the renames, the proposed principles, server-managed lists. Archiving old sessions is not needed.
