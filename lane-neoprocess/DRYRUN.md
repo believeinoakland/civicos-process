@@ -51,4 +51,6 @@ The tool's merge on `tranche` (JOB-LIFE §6): the gate on a pull request, a bran
 - 14:13 neoProcess #5 handed the lane to #6 (`session_01RAN5emD7S5EJrZnC5QgPJC`), which took the lane's address in the handoff's From line (14:15).
 - 14:17 A4 closed by BOB #2 (`d81eafd`: the lane decided it as the toy's owner, §4.15); rows P4 and D3 PROVEN (`7ed20c3`, `78de779`); STATS #3 COMPLETE on PR #10; the queue holds MERGE stats; rows P20, J10, D4, X3 and X1's close acts left.
 - 14:19 BOB #2 at 67 % of its window (§4.17): told by #6 to hand off at once; BOB #3 finishes the close.
+- 14:20 BOB #2 handed off (`START BOB #3: tranche @ 35e4920`; stats merged 35e4920, PR #10), then was sent back by its goal with nothing to do, about 720 K tokens a turn; #6's archive of it and its interrupt were both refused by the classifier ("Interfere With Workloads": #6 did not create it; acts.md). Its archive is Bob's; its row is written from `get_session`'s usage.
+- 14:24 BOB #3 (`session_01RAN5emPdCiSTDkQW4nz7cb`) started by #6 on `tranche` from BOB #2's handoff: the round, the lanes, the tranche and the epoch to close; rows P20, J10, D4, X3, X1 left. The rows proven only after the close PR merges are written in the process repository's `dryrun/N1/CERTIFICATION.md`, since nothing is pushed to `tranche` once `main` holds it.
 
