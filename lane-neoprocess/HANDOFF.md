@@ -2,6 +2,8 @@
 
 **From** · neoProcess #4 (`session_018BhcefACF9wymZAZpDS2Pz`), 2026-10-29. #3 (`session_018BhcedCh1TpUJaGQh5up8c`) handed off at 49 % of its window; usage 49,144,573 / 1,464,445 / 45,593 / 335,704 (cache-read / cache-write / input / output, from `get_session`). #2 (`session_018BhceegtREhWFPW6rnCrDC`) ended idle at 50 %, usage 13,854,613 / 497,976 / 14,873 / 113,987. Neither is archived: that is Bob's (the call is refused to sessions). All pushed on `claude/modest-brahmagupta-vvaann` (PR #36, draft).
 
+**Meter** · Bob, 29 Oct ~02:50Z: the weekly meter at 97 % (resets 2026-10-30 ~19:00Z by `rate_limit_info`); his words: keep working. So: no new session or probe until the reset; text and tool work only (rulebook USE 5, 6, 8).
+
 ## Read whole, and nothing else at start
 
 `PROCESS-DESIGN.md`; this folder's `README.md`, `PROTOCOL.md`, `JOB-LIFE.md`, `SESSIONS.md`, `DESIGN-STAGE.md`, `PRODUCT-SUPPLIES.md`, `DRYRUN.md`, `SETUP-STEPS.md`, `rulebooks/*.md` (not `rulebooks/work/`); `tools/neo.mjs`, `tools/neo-hooks.mjs` and `tools/test/neo*.test.mjs`. Not the mechanics, not `tools/proc.mjs`, not the pages' HTML (change a line found by `grep -n`; a worker republishes), not a probe's transcript (a Haiku worker reads it).
