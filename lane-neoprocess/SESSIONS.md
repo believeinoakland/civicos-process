@@ -21,6 +21,10 @@ Picked by code from the kind of work (`proc layer start`, `proc lane open`, `pro
 
 Effort is Claude Code's level (`low`, `medium`, `high`, `xhigh`, `max`); `xhigh` and `max` are used only when a row above is raised by BOB on evidence, never by default.
 
+## 1a. The one skill
+
+A session starts on the product repository and invokes the one skill `neoprocess` with its role as the argument (`neoprocess bob`, `neoprocess job`, `neoprocess lane`), as the product's `CLAUDE.md` says. The skill shows the role's reading set (§3) and registers the hooks; the hooks call `tools/hooks.mjs <event>` and read the role from what the start command recorded (`proc takeover`, `proc job start`, `proc lane start`), refusing every act until a role is recorded, so the role is set by the record, never by which skill was invoked (Bob, 29 Oct: one skill, not three).
+
 ## 2. Context thresholds
 
 A refresh is triggered by `get_session`'s `context_usage`, read by the session's own command, never by a timer: BOB at 40 % of its window (Bob, bio K3671 lineage; mechanics §2), a job or a lane at half (§6), ROOT at 55 % (§2). The successor continues from git (`PROTOCOL.md` §7a).
