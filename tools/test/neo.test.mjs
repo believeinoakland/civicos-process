@@ -469,7 +469,9 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   // shims: the three files written from here; a hand edit is drift; CLAUDE.md under thirty lines
   const sh = N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess' });
   assert.deepEqual(sh.written.sort(), ['.claude/settings.json', '.claude/skills/neoprocess/SKILL.md', '.github/workflows/gate.yml', 'CLAUDE.md']);
-  assert.deepEqual(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).permissions.allow, JSON.parse(readFileSync(join(HERE, '..', '..', 'permissions.json'), 'utf8')).allow);   // the standing list, applied (PERMISSIONS §2.4)
+  const standing = JSON.parse(readFileSync(join(HERE, '..', '..', 'permissions.json'), 'utf8')), written = JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).permissions;
+  assert.deepEqual([written.allow, written.deny], [standing.allow, standing.deny]);   // the standing list, allow and deny, applied (PERMISSIONS §2.4, §8.2)
+  assert.ok(standing.deny.some((r) => /force/.test(r)) && !standing.allow.some((r) => /^Bash\(\*\)|^Agent$/.test(r)));   // the safety rules denied; no broad rule Auto would drop
   const skill = readFileSync(join(w.bob.root, '.claude/skills/neoprocess/SKILL.md'), 'utf8');
   assert.match(skill, /^---\nname: neoprocess\n/); assert.match(skill, /command: 'node "\/p\/neoProcess\/tools\/neo-hooks\.mjs" pre'/);
   assert.match(skill, /!`node "\/p\/neoProcess\/tools\/neo\.mjs" reading --role "\$ARGUMENTS" --product "toy"/);

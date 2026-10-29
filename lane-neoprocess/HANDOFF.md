@@ -1,6 +1,6 @@
 # neoProcess lane: handoff
 
-**From** · neoProcess #4 (`session_018BhcefACF9wymZAZpDS2Pz`), 2026-10-29. #3 (`session_018BhcedCh1TpUJaGQh5up8c`) handed off at 49 % of its window; usage 49,144,573 / 1,464,445 / 45,593 / 335,704 (cache-read / cache-write / input / output, from `get_session`). #2 (`session_018BhceegtREhWFPW6rnCrDC`) ended idle at 50 %, usage 13,854,613 / 497,976 / 14,873 / 113,987. Neither is archived: that is Bob's (the call is refused to sessions). All pushed on `claude/modest-brahmagupta-vvaann` (PR #36, draft).
+**From** · neoProcess #4 (`session_018BhcefACF9wymZAZpDS2Pz`), 2026-10-29 ~03:40Z, handed off at 47 % of its window for an account move (Bob's word); usage at the handoff 31,261,550 / 560,848 / 151,378 / 130,284 (cache-read / cache-write / input / output; the archive's final figures are Bob's to read). #3 (`session_018BhcedCh1TpUJaGQh5up8c`): 49 %, 49,144,573 / 1,464,445 / 45,593 / 335,704. #2 (`session_018BhceegtREhWFPW6rnCrDC`): 50 %, 13,854,613 / 497,976 / 14,873 / 113,987. All three unarchived, Bob's (a session cannot archive a parent). #5 is started by Bob from `START-5.md`. All pushed on `claude/modest-brahmagupta-vvaann` (PR #36, draft).
 
 **Meter** · Bob, 29 Oct ~02:50Z: the weekly meter at 97 % (resets 2026-10-30 ~19:00Z by `rate_limit_info`); his words: keep working. So: no new session or probe until the reset; text and tool work only (rulebook USE 5, 6, 8).
 
@@ -14,7 +14,7 @@ The design is here and on the page (https://claude.ai/artifact/7Jghdu6JV3beK58dk
 
 ## What remains, in order
 
-1. **Bob's setup act** (`SETUP-STEPS.md`, verified by `neo steps`): Bob decided 29 Oct the toy repository is public in the organization (GitHub offers a merge queue only there; the same for `civicsmith` later) and left the key question to BOB, which decided the process repository goes public, no secret. Creating the toy from a session was refused (404 on the organization endpoint), so steps 1–10 are his; once the toy exists, `add_repo` it and seed (`n1/SEED.md`).
+1. **Bob's setup act** (`SETUP-STEPS.md`, ten steps, verified by `neo steps`): Bob decided 29 Oct the toy is public in the organization; BOB decided the process repository goes public, no secret. Creating the toy from a session was refused (404), so the ten steps are his, on whichever account owns the organization; once the toy exists, `add_repo` it and seed (`n1/SEED.md`). Also next: `allowReason` in the hooks (PERMISSIONS §8.6).
 2. **The dry run** (`DRYRUN.md`; the seed, plan, charters and rows in `n1/`, prepared by #4 and rehearsed on a scratch copy: checks and tests green) on the toy's own repository, once Bob's act exists; the queue measured there (JOB-LIFE §12).
 3. **Permissions** (`PERMISSIONS.md`; Bob, 29 Oct: robust; his standing approval on record in §6; best practice and best of breed for every project under neoProcess): built by #4: `tools/acts.md`, `neo refused` / `refused routed` (queue item, metrics row), `permissions.json` applied by `neo shims`, the start self-check; rows X1–X5. Left: §8 written from Claude Code's permissions documentation (a reader was sent 29 Oct), REP 9–10 and GOV 9 rewritten at the commit point.
 4. **The commit point**: `neo` takes the `proc` name; the old tool, skills and mechanics rewritten from these files; the rulebooks moved to `rulebooks/` at the root; the page final.

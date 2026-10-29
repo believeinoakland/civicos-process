@@ -63,3 +63,7 @@ One row per path PROTOCOL §10, JOB-LIFE §13 and DESIGN-STAGE §5 name. A row i
 | X3 | the state-branch delete through the git proxy | `neo epoch close` | the branch gone, or the proxy's refusal and the design settled | PLANNED |
 | X4 | the toy's `.claude/settings.json` written by `neo shims` at seeding | the seed | the commit, or the classifier's refusal and Bob's commit | PLANNED |
 | X5 | a standing-list rule honoured where a permission prompt would otherwise stop a session | a job's act the list names | the act taken with no prompt | PLANNED |
+| X6 | `autoMode.allow` in the product's settings honoured by a cloud session in Auto | a job's routine act in Auto | the act taken with no classifier block | PLANNED |
+| X7 | the hook's `allow` clears a prompt in a cloud session (Accept edits) | a job's `neo` command | the command run with no prompt and no allow rule for it | PLANNED |
+| X8 | server-managed rules from the admin console reach a product's sessions | Bob's act, if he takes it | the toy's session with the repository file removed still approved | PLANNED, Bob's act |
+

@@ -1077,7 +1077,7 @@ export function shims(o) {
   // settings file is row X4 of the dry run (then Bob commits it once and this only checks drift).
   const standing = JSON.parse(readFileSync(join(PROCESS, 'permissions.json'), 'utf8'));
   const files = {
-    '.claude/settings.json': `${JSON.stringify({ permissions: { allow: standing.allow } }, null, 2)}\n`,
+    '.claude/settings.json': `${JSON.stringify({ permissions: { allow: standing.allow, deny: standing.deny || [] } }, null, 2)}\n`,
     'CLAUDE.md': `# Built by neoProcess
 
 The process is \`${name}\`, attached at \`${proc}\` (if it is missing, attach it with add_repo and clone it there). Nothing about the process is decided in this repository: it supplies what \`${proc}/PRODUCT-SUPPLIES.md\` lists, and nothing else.
