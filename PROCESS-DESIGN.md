@@ -1,6 +1,6 @@
 # The process principles
 
-**Status** · In force. Approved by Bob. History: `HISTORY.md`. These principles REPLACE the current process wholly; nothing in the old process survives unless it is derived from them. Their home is this repository, `believeinoakland/civicos-process` (P2). The restore point before the replacement is the branch `snapshot/pre-refactor-2026-09-25`: its parents are every branch tip of that moment, all kept reachable.
+**Status** · In force. Approved by Bob. History: `HISTORY.md`. These principles REPLACE the current process wholly; nothing in the old process survives unless it is derived from them. Their home is this repository, `neobobkrause/neoprocess` (P2). The restore point before the replacement is the branch `snapshot/pre-refactor-2026-09-25`: its parents are every branch tip of that moment, all kept reachable.
 
 **P1 · Purpose.** The process exists to put correct, working product behaviour that meets every defined requirement onto `main`. Nothing else is output. A rule, a record or a test has value only as far as it serves that.
 

@@ -786,6 +786,43 @@ test('repo transfer moves a repository to another account on the runner with the
   assert.doesNotMatch(wf, /run:[\s\S]*\$\{\{ inputs\./);
 });
 
+test('repo shims regenerates a product\'s shims on the runner with the process\'s token: pushed to its branch shims, the pull request to its main merged and read back; from a session the dispatch is printed (PERMISSIONS §9)', async () => {
+  const w = world({ noTranche: true }), runner = w.clone('runner');
+  let auth = null, posted = null, merged = false;
+  const fetch = async (url, init) => {
+    const path = url.replace('https://api.github.com', ''), method = init.method; auth = init.headers.Authorization ?? null;
+    const reply = (status, body) => ({ status, text: async () => JSON.stringify(body) });
+    if (path === '/user') return reply(200, { login: 'bob' });
+    if (path.startsWith('/repos/bob/toy/pulls?') && method === 'GET') return reply(200, []);
+    if (path === '/repos/bob/toy/pulls' && method === 'POST') { posted = JSON.parse(init.body); return reply(201, { number: 7, html_url: 'https://github.com/bob/toy/pull/7' }); }
+    if (path === '/repos/bob/toy/pulls/7/merge' && method === 'PUT') { merged = true; return reply(200, { merged: true, sha: 'abc1234' }); }
+    if (path === '/repos/bob/toy/pulls/7' && method === 'GET') return reply(200, { number: 7, merged });
+    return reply(500, { message: `unexpected ${method} ${path}` });
+  };
+  await assert.rejects(N.repoShims({ repo: 'nope' }), /--repo <owner\/name>/);
+  // from a session: the dispatch and what follows are printed; nothing is written
+  const r1 = await N.repoShims({ repo: 'bob/toy', fetch, env: {} });
+  assert.deepEqual([r1.ok, r1.steps, r1.token, auth], [false, [], 'the proxy\'s', null]);
+  assert.deepEqual([r1.dispatch.tool, r1.dispatch.workflow_id, r1.dispatch.ref, r1.dispatch.inputs], ['actions_run_trigger', N.REPO_SHIMS_WORKFLOW, 'main', { repo: 'bob/toy' }]);
+  assert.match(r1.then, /a second repository costs it its standing list.*proc shims.*branch shims.*merges it/);
+  // on the runner, with the token: the product's checkout is named; the shims written, pushed, the pull request merged and read back
+  await assert.rejects(N.repoShims({ repo: 'bob/toy', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } }), /--checkout <dir>/);
+  const r2 = await N.repoShims({ repo: 'bob/toy', checkout: runner.root, process: '/home/user/neoprocess', ref: 'main', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } });
+  assert.equal(auth, 'Bearer ghp_x');
+  assert.deepEqual([r2.ok, merged, posted.head, posted.base], [true, true, N.SHIMS_BRANCH, 'main']);
+  assert.match(r2.steps[0], /^pushed shims: \.claude\/settings\.json, CLAUDE\.md, /);
+  assert.match(r2.steps[1], /^pull request #7: /); assert.equal(r2.steps[2], 'merged: abc1234');
+  assert.equal(g(w.origin, 'rev-parse', '--verify', `refs/heads/${N.SHIMS_BRANCH}`).length, 40);
+  assert.match(g(w.origin, 'show', `refs/heads/${N.SHIMS_BRANCH}:CLAUDE.md`), /attached at `\/home\/user\/neoprocess` on its branch `main`/);
+  assert.equal(g(w.origin, 'log', '-1', '--format=%an', `refs/heads/${N.SHIMS_BRANCH}`), 'neoProcess');
+  // the product already holding them: already current, nothing pushed
+  const r3 = await N.repoShims({ repo: 'bob/toy', checkout: runner.root, process: '/home/user/neoprocess', ref: 'main', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } });
+  assert.deepEqual([r3.ok, r3.steps], [true, ['already current']]);
+  const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', N.REPO_SHIMS_WORKFLOW), 'utf8');
+  assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\.NEOPROCESS_GITHUB_TOKEN \}\}/); assert.match(wf, /node tools\/proc\.mjs repo shims --repo "\$REPO" --checkout product/);
+  assert.doesNotMatch(wf, /run:[\s\S]*\$\{\{ inputs\./);
+});
+
 test('onboarding: a new project seeded from nothing, an existing one converted, and where each stands (ONBOARDING §2, §3)', () => {
   const mk = (files) => {
     const base = mkdtempSync(join(tmpdir(), 'onboard-')), origin = join(base, 'origin.git'), dir = join(base, 'p');

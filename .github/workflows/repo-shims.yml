@@ -1,0 +1,39 @@
+name: repo shims
+# PERMISSIONS §9.5, §9.6: a product's shims regenerated after the process repository is renamed or moved, by `proc repo
+# shims` on GitHub's runner with the process's own token, the repository secret NEOPROCESS_GITHUB_TOKEN (Contents and
+# Pull requests: write over the owner's repositories; Bob's one act, set once). A cloud session cannot: a second
+# repository costs it its standing list, and the classifier refused the attach of a product (PERMISSIONS §10.7; #11,
+# #12), so `proc repo shims` from a session prints this workflow's dispatch, as `repo rename` prints repo-rename.yml's.
+# The product is checked out beside the process with the token (so the push to its branch `shims` carries it); the
+# command writes the shims, pushes them, opens the pull request to the product's `main` and merges it, then reads the
+# merge back. The inputs reach the command through the environment, never spliced into the script.
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "owner/name of the product whose shims are regenerated"
+        required: true
+jobs:
+  shims:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repo }}
+          token: ${{ secrets.NEOPROCESS_GITHUB_TOKEN }}
+          path: product
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: the product's shims written, pushed to its branch shims, the pull request to its main merged and read back (PERMISSIONS §9)
+        env:
+          NEOPROCESS_GITHUB_TOKEN: ${{ secrets.NEOPROCESS_GITHUB_TOKEN }}
+          REPO: ${{ inputs.repo }}
+        run: |
+          if [ -z "$NEOPROCESS_GITHUB_TOKEN" ]; then
+            echo "the repository secret NEOPROCESS_GITHUB_TOKEN is not set: Bob's one act (PERMISSIONS §9; the steps are in SETUP-STEPS.md)"
+            exit 1
+          fi
+          node tools/proc.mjs repo shims --repo "$REPO" --checkout product --process "/home/user/${GITHUB_REPOSITORY##*/}" --ref main --product .
