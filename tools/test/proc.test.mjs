@@ -716,6 +716,39 @@ test('repo setup makes a development repository and its two rulesets, idempotent
   assert.doesNotMatch(wf, /run:[\s\S]*\$\{\{ inputs\./);   // inputs reach the script through env, never spliced into it
 });
 
+test('repo rename renames a repository on the runner with the process\'s token and reads it back; from a session the dispatch is printed (PERMISSIONS §9)', async () => {
+  let name = 'civicos-process', auth = null;
+  const fetch = async (url, init) => {
+    const path = url.replace('https://api.github.com', ''), method = init.method; auth = init.headers.Authorization ?? null;
+    const reply = (status, body) => ({ status, text: async () => JSON.stringify(body) });
+    if (path === '/user') return reply(200, { login: 'bob' });
+    const m = path.match(/^\/repos\/bob\/([\w.-]+)$/);
+    if (m && method === 'GET') return m[1] === name ? reply(200, { name, html_url: `https://github.com/bob/${name}` }) : reply(404, { message: 'Not Found' });
+    if (m && method === 'PATCH') { if (!auth) return reply(403, { message: 'Repository settings writes are not permitted through this proxy' }); name = JSON.parse(init.body).name; return reply(200, { name, html_url: `https://github.com/bob/${name}` }); }
+    return reply(500, { message: `unexpected ${method} ${path}` });
+  };
+  await assert.rejects(N.repoRename({ repo: 'nope', name: 'x' }), /--repo <owner\/old> --name <new>/);
+  await assert.rejects(N.repoRename({ repo: 'alice/civicos-process', name: 'neoprocess', fetch, env: {} }), /the token is bob's/);
+  // from a session: the proxy refuses the settings write; the dispatch and what follows are printed
+  const r1 = await N.repoRename({ repo: 'bob/civicos-process', name: 'neoprocess', fetch, env: {} });
+  assert.deepEqual([r1.ok, r1.steps, r1.token], [false, [], 'the proxy\'s']);
+  assert.match(r1.refused.join(';'), /^PATCH \/repos\/bob\/civicos-process 403: Repository settings writes/);
+  assert.deepEqual([r1.dispatch.tool, r1.dispatch.workflow_id, r1.dispatch.ref, r1.dispatch.inputs], ['actions_run_trigger', N.REPO_RENAME_WORKFLOW, 'main', { repo: 'bob/civicos-process', name: 'neoprocess' }]);
+  assert.match(r1.then, /git remote set-url origin.*proc shims/);
+  // on the runner, with the token: renamed and read back under the new name; again: already named
+  const r2 = await N.repoRename({ repo: 'bob/civicos-process', name: 'neoprocess', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } });
+  assert.equal(auth, 'Bearer ghp_x');
+  assert.deepEqual([r2.ok, r2.steps, r2.dispatch], [true, ['renamed: https://github.com/bob/neoprocess', 'read back: bob/neoprocess'], undefined]);
+  const r3 = await N.repoRename({ repo: 'bob/neoprocess', name: 'neoprocess', fetch, env: {} });
+  assert.deepEqual([r3.ok, r3.steps], [true, ['already named neoprocess']]);
+  // on the runner a refusal is a refusal
+  name = 'other';
+  await assert.rejects(N.repoRename({ repo: 'bob/civicos-process', name: 'neoprocess', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } }), /with the process's token: GET \/repos\/bob\/civicos-process 404/);
+  const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', N.REPO_RENAME_WORKFLOW), 'utf8');
+  assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\.NEOPROCESS_GITHUB_TOKEN \}\}/); assert.match(wf, /node tools\/proc\.mjs repo rename --repo "\$REPO" --name "\$NAME"/);
+  assert.doesNotMatch(wf, /run:[\s\S]*\$\{\{ inputs\./);
+});
+
 test('onboarding: a new project seeded from nothing, an existing one converted, and where each stands (ONBOARDING §2, §3)', () => {
   const mk = (files) => {
     const base = mkdtempSync(join(tmpdir(), 'onboard-')), origin = join(base, 'origin.git'), dir = join(base, 'p');

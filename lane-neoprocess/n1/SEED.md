@@ -1,6 +1,6 @@
 # Seeding the toy repository for N1 (DRYRUN §2.1, expanded)
 
-Done by the dry run's BOB (on the toy's `main`, before the tranche opens), once Bob's setup act exists (`SETUP-STEPS.md`). `<proc>` is this process repository's checkout; `<name>` its GitHub name as it is then (`believeinoakland/civicos-process`, or `neoProcess` after Bob's rename).
+Done by the dry run's BOB (on the toy's `main`, before the tranche opens), once Bob's setup act exists (`SETUP-STEPS.md`). `<proc>` is this process repository's checkout; `<name>` its GitHub name as it is then (`believeinoakland/neoprocess` since the rename of 29 Oct 2026; `civicos-process` before it).
 
 1. Clone `believeinoakland/neoprocess-dryrun` (empty) and, inside it, copy `<proc>/dryrun/` to its root, then `<proc>/lane-neoprocess/n1/overlay/` over it (the overlay replaces `build/modules.json`, `build/manifest.md`, the three requirements files, and adds the canon, the areas and the two area rulebooks).
 2. Remove what belongs to the old mechanics' runs and not to this product: `build/plan/current.md` and `build/plan/archive/`, `build/jobs/`, `build/metrics/`, `cert/`, `d6/`, `RUNS.md`, `CERTIFICATION.md`. Then copy `<proc>/lane-neoprocess/n1/CERTIFICATION.md` to the root (every row PLANNED).

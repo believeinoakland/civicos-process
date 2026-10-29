@@ -1,0 +1,33 @@
+name: repo rename
+# PERMISSIONS §9: a repository renamed by `proc repo rename` on GitHub's runner with the process's own token, the
+# repository secret NEOPROCESS_GITHUB_TOKEN (Bob's one act, set once). A cloud session cannot write repository settings
+# (measured 29 Oct #5), so `proc repo rename` from a session prints this workflow's dispatch, as `repo setup` prints
+# repo-setup.yml's. The inputs reach the command through the environment, never spliced into the script.
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "owner/name of the repository as it is now"
+        required: true
+      name:
+        description: "its new name"
+        required: true
+jobs:
+  rename:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: the repository renamed, read back under the new name (PERMISSIONS §9)
+        env:
+          NEOPROCESS_GITHUB_TOKEN: ${{ secrets.NEOPROCESS_GITHUB_TOKEN }}
+          REPO: ${{ inputs.repo }}
+          NAME: ${{ inputs.name }}
+        run: |
+          if [ -z "$NEOPROCESS_GITHUB_TOKEN" ]; then
+            echo "the repository secret NEOPROCESS_GITHUB_TOKEN is not set: Bob's one act (PERMISSIONS §9; the steps are in SETUP-STEPS.md)"
+            exit 1
+          fi
+          node tools/proc.mjs repo rename --repo "$REPO" --name "$NAME" --product .
