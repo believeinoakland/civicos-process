@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../neo.mjs';
-import { preReason, stopReason, partialReadReason, allowReason } from '../neo-hooks.mjs';
+import { preReason, stopReason, partialReadReason, allowReason, askingBobReason } from '../neo-hooks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
 const B1 = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', J1 = 'session_01AAAAAAAAAAAAAAAAAAAAAAAA', L1 = 'session_01LLLLLLLLLLLLLLLLLLLLLLLL';
@@ -174,4 +174,9 @@ test('the hook pre-approves only the act table\'s acts for every role, every par
   assert.equal(ok('job', 'git commit -m x'), null);
   assert.equal(ok(null, 'git status'), null);
   assert.equal(allowReason('job', tool('Write', { file_path: 'x' }), { module: 'alpha' }), null);
+});
+
+test('a BOB\'s or a lane\'s turn never ends waiting on Bob (Bob, 29 Oct): the words are caught at the turn\'s end', () => {
+  for (const t of ['Tell me when you have done it and I will continue.', 'Reply "a" or "b".', 'Do you want me to go on?', 'I am waiting on your word.', 'Should I merge it?', 'Let me know which you prefer.']) assert.match(askingBobReason(t), /never ends a turn waiting on Bob/, t);
+  for (const t of ['Done: R1 now refuses an empty list; the job has the CHANGE. Next: the layer close.', 'Decided (DES 1): mean([]) refuses; reported.', 'A4 is routed to Bob (users: …; canon silent: …); the queue goes on.', '']) assert.equal(askingBobReason(t), null, t);
 });

@@ -201,7 +201,9 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   // a requester named like a CLOSED lane is the module's job (lane STATISTICS is closed; a job STATISTICS would be module statistics): routed by module
   assert.throws(() => N.askRoute(o({ ask: 'A2', lane: 'STATISTICS', reason: 'x' })), /already routed/);
   N.askOpen(o({ from: 'ARITH #1', session: L1, number: 1, messageFile: f(w.base, 'q3.md', 'QUESTION #1: may sum refuse a list over 1e6 elements? That changes R3\'s meaning.\n') }));
-  N.askRoute(o({ ask: 'A3', bob: true, reason: 'a change to what R3 means (P5)' }));
+  assert.throws(() => N.askRoute(o({ ask: 'A3', bob: true, reason: 'a change to what R3 means (P5)' })), /decide it yourself/);   // DES 1's test, by code (Bob, 29 Oct)
+  N.askRoute(o({ ask: 'A3', bob: true, reason: 'a change to what R3 means (P5)', users: 'a list over 1e6 elements would be refused at the product\'s edge', canonSilent: 'the canon names no size limit anywhere' }));
+  assert.match(N.parseAsk(N.stateRead(R, 'asks/A3.md')).Route.head, /^needs Bob · .* · users: a list over .* · canon silent: the canon names no size/);
   assert.match(N.status(o()).queue.map((q) => q.item).join(';'), /NEEDS BOB A3/);
   assert.throws(() => N.askDecided(o({ ask: 'A3', answerFile: f(w.base, 'd3.md', 'DECISION: no\n') })), /Bob's decision \(--bob\)/);
   assert.throws(() => N.askDecided(o({ ask: 'A2', bob: true, answerFile: f(w.base, 'd3.md', 'x\n') })), /only an ask that NEEDS BOB/);

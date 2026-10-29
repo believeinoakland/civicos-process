@@ -160,6 +160,14 @@ export function stopReason(role, ctx) {
   return why.length ? why.join('; ') : null;
 }
 export function refusalCount(last, why) { return why ? (last?.why ? (last.n || 0) + 1 : 1) : 0; }
+// Bob, 29 Oct: "you should not be stopping to involve me in these details"; a session told to keep going keeps going.
+// A BOB's or a lane's turn that ends on words waiting for Bob is refused: decide it (DES 1, GOV 2), or route it by
+// `neo ask route --bob --users --canon-silent` and go on with the queue. Code, not resolve (P16).
+const ASKING_BOB = /\b(waiting (on|for) (you|your (word|answer|reply|decision|go-ahead))|tell me when|let me know (when|if|whether|which)|reply ["“]?[a-z]["”]? or|answer ["“]?[a-z]["”]? or|do you want me to|would you like me to|should I\b|shall I\b|please (reply|answer|decide|confirm|choose|pick)|your call\b|up to you\b|once you (confirm|decide|answer|approve)|if you (approve|agree|prefer)\b)/i;
+export function askingBobReason(text) {
+  const m = String(text || '').match(ASKING_BOB);
+  return m ? `this turn ends waiting on Bob ("${m[0]}"): decide it and report it done (DES 1, GOV 2), or route it with \`neo ask route --bob --users --canon-silent\` and go on with the queue; a session never ends a turn waiting on Bob (Bob, 29 Oct; P17, P19)` : null;
+}
 
 function main() {
   const ev = process.argv[2];
@@ -176,6 +184,7 @@ function main() {
   if (ev === 'stop') {
     let why = null; try { why = stopReason(role, ctx); } catch (e) { why = `the stop check failed (${e.message}); fix the cause`; }
     if (!why && role === 'bob') { try { why = stepsReason(lastAssistantText(input), join(root, r.product || '.')); } catch (e) { why = `the steps check failed (${e.message}); fix the cause`; } }
+    if (!why && (role === 'bob' || role === 'lane')) { try { why = askingBobReason(lastAssistantText(input)); } catch { /* no text */ } }
     // The same refusal three times in a row lets the turn end, so a cause the session cannot clear never loops.
     const f = join(root, '.git', 'neo-stop.json');
     const last = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};

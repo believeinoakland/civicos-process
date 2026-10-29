@@ -19,7 +19,7 @@
 //   epoch open | epoch close
 //   takeover --name "BOB #n" --session <id>          status          handoff
 //   ask open --from "<MODULE|LANE> #k" --session <id> --number <n> --message-file <f>   (the sender's session name)
-//   ask route --ask A<n> (--answer | --lane <id> | --bob) --reason "<…>"
+//   ask route --ask A<n> (--answer | --lane <id> | --bob --users "<…>" --canon-silent "<…>") --reason "<…>"
 //   ask dispatch --ask A<n> --stage <question|reply> --brief-file <f> --due <minutes> [--by <name>] [--again [--why "<…>"]]
 //   ask ask --ask A<n> --question-file <f>        ask decided --ask A<n> --answer-file <f> [--bob]
 //   ask close --ask A<n> --reply-file <f> [--files <p1,p2>] [--decision "<one sentence>"]
@@ -283,7 +283,9 @@ export function askOpen(o) {
   const a = { id, From: { head: `${o.from} · ${o.session} · ${today()} · ${kind} #${o.number}`, body: text }, Status: { head: 'RECEIVED', body: '' } };
   return { ask: id, commit: saveAsk(R, a, `${id}: ${kind} #${o.number} from ${o.from}`) };
 }
-// BOB's route, in order: answer itself, ask a lane, bring to Bob (PROTOCOL §4).
+// BOB's route, in order: answer itself, ask a lane, bring to Bob (PROTOCOL §4). A route to Bob passes rulebook DES 1's
+// test here, by code (Bob, 29 Oct: nothing stops for him over a detail): `--users` names what changes for the product's
+// users, `--canon-silent` why no canon section answers it; without both, the request is BOB's or a lane's to decide.
 export function askRoute(o) {
   const R = repo(o.product), a = loadAsk(R, o.ask);
   if (a.Route) refuse(`${a.id} is already routed (${a.route})`);
@@ -291,7 +293,9 @@ export function askRoute(o) {
   const which = [o.answer && 'answered by BOB', o.lane && `asked of ${o.lane}`, o.bob && 'needs Bob'].filter(Boolean);
   if (which.length !== 1) refuse('exactly one of --answer | --lane <id> | --bob');
   if (o.lane && !lanes(R).some((l) => l.id === o.lane && l.status === 'OPEN')) refuse(`no open lane ${o.lane} in build/lanes.md`);
-  a.Route = { head: `${which[0]} · ${String(o.reason).replace(/\n/g, ' ')}`, body: '' };
+  const one = (x) => String(x || '').replace(/\n/g, ' ').trim();
+  if (o.bob && !(one(o.users).length > 10 && one(o.canonSilent).length > 10)) refuse('a request is Bob\'s only where it changes what the product does for its users and no canon section answers it (DES 1): --users "<what changes for the users>" --canon-silent "<why the canon does not answer it>"; without both, decide it yourself (or ask its lane) and report it done');
+  a.Route = { head: `${which[0]} · ${one(o.reason)}${o.bob ? ` · users: ${one(o.users)} · canon silent: ${one(o.canonSilent)}` : ''}`, body: '' };
   if (o.bob) a.Status = { head: 'NEEDS BOB', body: '' };
   return { ask: a.id, route: which[0], commit: saveAsk(R, a, `${a.id}: ${which[0]}`) };
 }
