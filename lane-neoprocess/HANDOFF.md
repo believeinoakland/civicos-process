@@ -15,7 +15,7 @@ The dry run N1 runs on `believeinoakland/neoprocess-dryrun` (public, Bob's perso
 ## What remains, in order
 
 1. **The run's close**: BOB #2's report, then archive it and keep its usage: the final BOB's row has no home after the merge (`bob archived` writes `tranche`, which is closed): record it in DRYRUN §5 and fix the tool at the commit point (flaw 16). Then `CERTIFICATION.md` from the toy's `main` into `dryrun/N1/`.
-2. **The commit point** (`COMMIT-POINT.md`, eight steps): only after the run closes, since the toy follows this branch. Step 5 needs a reader: list the mechanics' `§n · heading`, every citation `mechanics §n` by file:line outside fixtures and `dryrun/`, a table, the uncited sections.
+2. **The commit point** (`COMMIT-POINT.md`, eight steps): only after the run closes, since the toy follows this branch. Step 5's reader is done: `mechanics-citations.md` (156 citations in 45 files; §5.1, §5.6, §5.9, §11, §12, §12.5 never cited; four stale ones; `roles/` cites nothing by number).
 3. **Permissions**: REP 9–10 and GOV 9 rewritten for the permissions as built (PERMISSIONS §8); rows X1–X8 from the toy's certification.
 4. **The page** (v25) final at the commit point.
 
