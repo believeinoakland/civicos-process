@@ -31,3 +31,12 @@ The tool's merge on `tranche` (JOB-LIFE §6): the gate on a pull request, a bran
 9. **The metrics row's `reviewed` read the last Review line** (BOB #1, at layer 1's close: alpha's reviewed runs counted `no` after its unreviewed re-open). Fix: the job line keeps `Reviews` and `Merges` (each merge with the review count then), and the row reads `reviewed merges/merges`; alpha's N1 row stands as written (`no`), noted here.
 10. **A lane id equal to a module's name** (BOB #1, R-BOB-1-4: lane `STATS` against module `stats`): session names `<ID> #k` are one namespace for jobs and lanes, and the hook read the job `STATS #1` as the lane's. Fix: `neo lane open` refuses such an id; the seed's lane is `STATISTICS` (BOB #1 closed STATS and opened STATISTICS); `--dormant` opens a lane with no start owed.
 11. **A dormant lane's start was not owed by `ask ask`** (BOB #1, R-BOB-1-5), so the hook refused the printed create_session. Fix: `ask ask` owes `start lane <ID>` when it prints the start; `lane route` is the recovery for an ask already ASKED.
+
+## 5. The run's log (29 Oct 2026, UTC)
+
+- 05:55 BOB #1 started by #5 (`session_01RAN5eoszaGr1kRy9xrnNMK`, START-BOB.md); tranche N1 opened, epoch E1, ARITH #1 live, STATISTICS dormant.
+- 06:18 layer 1 running (PRs #4, #5); the lanes and jobs waiting on asks; BOB at 17 %.
+- 06:40 layer 1 CLOSED: alpha merged twice (PRs #4, #6), beta once (#5); both archived with rows; 19 rows PROVEN.
+- 07:00 BOB #1 handed over at 23 rows, with A6's worker out and A5 ASKED (rows P5, P14); BOB #2 (`session_01RAN5emQV3q3LnPm2Ft8oMN`) started by #5 from START-BOB.md; BOB #1 archived by #5 at 47 % of its window after 66 min (its row written by BOB #2).
+- A4 (mean([]), rows P4/D3) asked of Bob by #5 at 06:50; awaiting his a/b.
+
