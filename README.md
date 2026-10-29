@@ -1,4 +1,4 @@
-# neoProcess (repository `civicos-process`, to be renamed `neoProcess`)
+# neoProcess (repository `believeinoakland/neoprocess`; `civicos-process` until 29 Oct 2026, which GitHub redirects)
 
 A development process for any software product: its principles, its rulebooks, its design, its tool, its hooks and its checks. It is product-independent (P2): a product supplies what `PRODUCT-SUPPLIES.md` lists and nothing else. In force from 2026-10-29, certified on the dry run N1 (`dryrun/N1/CERTIFICATION.md`). Created by Bob on 2026-09-26; redesigned by the lane neoProcess, 28–29 Oct 2026 (`lane-neoprocess/`).
 

@@ -1,6 +1,6 @@
 # Build manifest (dry run)
 
-The dry run's toy product (PROCESS-MECHANICS §15). Its root is `dryrun/` in `believeinoakland/civicos-process`; pass `dryrun` as `<product>` to every check and to the metrics recorder.
+The dry run's toy product (PROCESS-MECHANICS §15). Its root is `dryrun/` in the process repository (`believeinoakland/neoprocess`; `civicos-process` until 29 Oct 2026); pass `dryrun` as `<product>` to every check and to the metrics recorder.
 
 ## Tests
 

@@ -37,6 +37,7 @@
 //   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
 //   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (tools/lib.mjs, P20)
 //   repo setup --repo <owner/name> [--private] [--dry-run]      (PERMISSIONS §9: the repository and its two rulesets; from a session it prints the workflow's dispatch)
+//   repo rename --repo <owner/old> --name <new>      (PERMISSIONS §9: a repository renamed on GitHub's runner; from a session it prints the dispatch)
 //   process start --branch <b> --session <id>      process handoff [--prepare]      (the neoProcess lane, in the process repository itself; the handoff prints its successor's create_session)
 //   grants check [--branch <b>] [--urls <u1,u2>]      (PERMISSIONS §10, GRANTS.md: proven before `tranche open`)
 //   init --mode <new|convert> [--name "<project>"] | init --check      onboard start --product <dir> --session <id>      (ONBOARDING.md)
@@ -1556,13 +1557,52 @@ export async function repoSetup(o) {
   return out;
 }
 
+// A repository renamed (Bob, 29 Oct: this repository becomes `neoprocess`): a settings write, which the proxy refuses from a
+// session (#5), so it runs on GitHub's runner by `repo-rename.yml` with the process's token (Administration: write), as
+// `repo setup` does. GitHub redirects the old name for git and the API, so clones and workflows naming it keep working;
+// the shims of every product name the process by its remote (`proc shims`), regenerated after a rename.
+export const REPO_RENAME_WORKFLOW = 'repo-rename.yml';
+export async function repoRename(o) {
+  const m = String(o.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/), to = String(o.name || '');
+  if (!m || !/^[\w.-]+$/.test(to)) refuse('--repo <owner/old> --name <new>');
+  const [, owner, old] = m, api = 'https://api.github.com', f = o.fetch || globalThis.fetch;
+  const token = (o.env || process.env).NEOPROCESS_GITHUB_TOKEN || null;
+  const call = async (method, path, body) => {
+    const r = await f(`${api}${path}`, { method, headers: { Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
+    const text = await r.text(); let json = null; try { json = JSON.parse(text); } catch { /* not json */ }
+    return { status: r.status, json, text };
+  };
+  const why = (c) => `${c.status}: ${String(c.json?.message || c.text || '').slice(0, 160)}`;
+  const out = { repo: `${owner}/${old}`, name: to, token: token ? 'the process\'s own (NEOPROCESS_GITHUB_TOKEN)' : 'the proxy\'s', steps: [], refused: [] };
+  const me = await call('GET', '/user'); if (me.status !== 200) refuse(`GET /user answered ${me.status}: no GitHub token reaches api.github.com (PERMISSIONS §9)`);
+  if (me.json?.login !== owner) refuse(`the token is ${me.json?.login}'s, and --repo names ${owner}: a repository is renamed on the token's own account`);
+  const cur = await call('GET', `/repos/${owner}/${old}`);
+  if (cur.status === 200 && cur.json?.name === to) { out.steps.push(`already named ${to}`); out.ok = true; return out; }
+  if (cur.status !== 200) { out.refused.push(`GET /repos/${owner}/${old} ${why(cur)}`); }
+  else {
+    const c = await call('PATCH', `/repos/${owner}/${old}`, { name: to });
+    if (c.status === 200 && c.json?.name === to) out.steps.push(`renamed: ${c.json.html_url}`);
+    else out.refused.push(`PATCH /repos/${owner}/${old} ${why(c)}`);
+  }
+  const back = await call('GET', `/repos/${owner}/${to}`);
+  out.ok = back.status === 200 && back.json?.name === to;
+  if (out.ok) out.steps.push(`read back: ${owner}/${to}`);
+  else {
+    if (token) refuse(`with the process's token: ${out.refused.join('; ') || `${owner}/${to} not read back`}`);
+    let P = {}; try { P = ghRepo(repo(PROCESS)); } catch { /* no remote */ }
+    out.dispatch = { tool: 'actions_run_trigger', ...P, workflow_id: REPO_RENAME_WORKFLOW, ref: 'main', inputs: { repo: `${owner}/${old}`, name: to } };
+    out.then = `a session cannot write this: the proxy refuses settings writes (measured 29 Oct #5). Dispatch the workflow above: it runs this command on GitHub's runner with the process's token (PERMISSIONS §9). Then read it back with this command; set every clone's remote to the new name (git remote set-url origin), and regenerate each product's shims (proc shims), which name the process by its remote.`;
+  }
+  return out;
+}
+
 // ---- the grants (PERMISSIONS §10; GRANTS.md): every grant the four stages need, proven held before a tranche opens ----
 // The tool's HTTP goes through the session's agent proxy, which injects each host's credential, and Node's fetch uses
 // HTTPS_PROXY only when NODE_USE_ENV_PROXY is set at its start (measured #7, 29 Oct: without it `GET /user` answered 403
 // and a hosting provider's token check failed; with it 200 as the Claude app, and the check passed), so main() restarts a network
 // command with it set. No credential is named or read here: a hand command naming one is refused by the classifier.
 export const GRANTS_FILE = 'proc-grants.json', GRANTS_PRODUCT = 'build/grants.json', GRANTS_FRESH_H = 24, EXPIRY_WARN_D = 14;
-const NETWORK = new Set(['repo setup', 'grants check']);
+const NETWORK = new Set(['repo setup', 'repo rename', 'grants check']);
 export async function grantsCheck(o) {
   const R = repo(o.product), f = o.fetch || globalThis.fetch, rows = [], now_ = o.now ? new Date(o.now) : new Date();
   const row = (grant, ok, detail) => rows.push({ grant, ok, detail });
@@ -1719,7 +1759,7 @@ export const COMMANDS = {
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
-  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'process start': processStart, 'process handoff': processHandoff, 'grants check': grantsCheck, init, 'onboard start': onboardStart,
+  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'repo rename': repoRename, 'process start': processStart, 'process handoff': processHandoff, 'grants check': grantsCheck, init, 'onboard start': onboardStart,
 };
 async function main() {
   const o = args(process.argv.slice(2));
