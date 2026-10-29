@@ -175,6 +175,8 @@ export function epochClose(o) {
   on(R, TRANCHE);
   const open = asks(R, e).filter((a) => a.status !== 'CLOSED').map((a) => `${a.id} ${a.status}`);
   if (open.length) refuse(`asks still open: ${open.join(', ')}`);
+  const unrouted = refusalsOf(R, e).filter((r) => r.status === 'OPEN').map((r) => r.id);
+  if (unrouted.length) refuse(`refusals still open: ${unrouted.join(', ')} (route each with \`proc refused routed\`, before the close PR merges: its row rides the PR; DRYRUN §4.21)`);
   const live = [...jobFiles(R, e), ...stateList(R, 'lanes', e)].map((p) => [p, stateRead(R, p, e) || '']).filter(([, t]) => /· LIVE |· (STARTING|WORKING|WAITING|BLOCKED|NEEDS BOB|COMPLETE|REOPENED|MERGED)/.test(t)).map(([p]) => p);
   if (live.length) refuse(`sessions still live on the state branch: ${live.join(', ')} (archive them and record it first)`);
   const plan = parsePlan(stateRead(R, 'plan.md', e) || '');

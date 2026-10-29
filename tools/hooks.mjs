@@ -12,7 +12,7 @@
 // `gh pr merge` and the merge tool are refused but for the call `proc merge` printed, so no push of BOB's can carry a job around the gate.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, jobBranch, jobFiles, lanes, TRANCHE } from './proc.mjs';
+import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE } from './proc.mjs';
 import { stepsReason, lastAssistantText } from './lib.mjs';   // P20: steps for Bob verified against their source (`proc steps`)
 
 const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__';
@@ -96,6 +96,10 @@ export function preReason(role, input, ctx) {
     // the close PR (rulebook INT 9): the merge tool's input names no base, so the one merge at CLOSING is the one whose
     // expected head is the tranche's tip, as `tranche close` printed it; a job branch's head is never that tip (DRYRUN §4.20)
     if (state === 'CLOSING') {
+      // a refusal still OPEN is routed first: its metrics row rides the close PR, since nothing is pushed to the tranche
+      // once main holds it (BOB #3's R-BOB-3-1 was left unrouted; DRYRUN §4.21)
+      let open = []; try { open = refusalsOf(R).filter((x) => x.status === 'OPEN').map((x) => x.id); } catch { /* none */ }
+      if (open.length) return `route the open refusal(s) first (\`proc refused routed\`): ${open.join(', ')}; the row rides the close PR, and nothing is pushed to the tranche after it merges (DRYRUN §4.21)`;
       R.fetch(TRANCHE); let tip = null; try { tip = R.g(['rev-parse', `origin/${TRANCHE}`]); } catch { /* none */ }
       if (tip && ti.merge_method === 'merge' && /^[0-9a-f]{7,40}$/.test(String(ti.expectedHeadSha || '')) && tip.startsWith(String(ti.expectedHeadSha))) return null;
     }

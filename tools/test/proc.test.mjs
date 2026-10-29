@@ -270,6 +270,9 @@ test('the epoch closes only when nothing is open, and the state branch is really
   assert.deepEqual(N.stateList(R, 'jobs'), ['jobs/alpha.md']);
   assert.throws(() => N.epochClose(o()), /sessions still live on the state branch: jobs\/alpha\.md/);
   N.stateWrite(R, { 'jobs/alpha.md': '**Status** · ALPHA #1 · session_01AAAAAAAAAAAAAAAAAAAAAAAA · ARCHIVED\n' }, 'alpha archived');
+  const rfo = N.refused(o({ act: 'x', kind: 'platform', reason: 'y' }));   // an open refusal holds the epoch (DRYRUN §4.21)
+  assert.throws(() => N.epochClose(o()), /refusals still open: R-BOB-1-1/);
+  N.refusedRouted(o({ id: rfo.refusal, route: 'z' }));
   const ec = N.epochClose(o());
   assert.equal(ec.epoch, 'E1'); assert.equal(ec.prune.deleted, true);
   assert.deepEqual(R.heads('refs/heads/state/*'), []);

@@ -93,6 +93,9 @@ test('the hooks: no role until recorded; BOB, a job and a lane each refused what
   // at CLOSING the close PR's merge passes as `tranche close` printed it: the expected head the tranche's tip (DRYRUN §4.20)
   const planNow = N.stateRead(N.repo(w.bob.dir), 'plan.md'), tipT = g(root, 'rev-parse', 'origin/tranche');
   N.stateWrite(N.repo(w.bob.dir), { 'plan.md': planNow.replace(/· OPEN ·/, '· CLOSING ·') }, 'closing');
+  const rfz = N.refused(o({ act: 'x', kind: 'platform', reason: 'y' }));   // an open refusal: the close merge waits on its route (DRYRUN §4.21)
+  assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 20, merge_method: 'merge', expectedHeadSha: tipT })), /route the open refusal\(s\) first.*R-BOB-1-1/);
+  N.refusedRouted(o({ id: rfz.refusal, route: 'z' }));
   assert.equal(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 20, merge_method: 'merge', expectedHeadSha: tipT })), null);
   assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 20, merge_method: 'merge' })), /expectedHeadSha the tranche's tip/);
   assert.match(pre(root, tool(`${GH}merge_pull_request`, { owner: 'o', repo: 'r', pullNumber: 20, merge_method: 'merge', expectedHeadSha: 'deadbeef' })), /only as `proc merge` printed it/);
