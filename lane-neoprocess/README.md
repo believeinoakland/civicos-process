@@ -1,6 +1,6 @@
 # Lane: neoProcess
 
-**Status** · Draft. Opened by Bob, 2026-10-28 (session neoProcess #1): the one named lane for re-architecting the development process, which until now was spread across BOB sessions and other lanes (PROCESS-REDESIGN, PROCESS-REPAIR). Nothing here is in force: a change reaches use only when Bob approves what is his (P17) and the change is certified on a dry run (P3).
+**Status** · Draft. Opened by Bob, 2026-10-28 (session neoProcess #1): the one named lane for re-architecting the development process, which until now was spread across BOB sessions and other lanes (PROCESS-REDESIGN, PROCESS-REPAIR). The process is named neoProcess on purpose and the `civicos` moniker is retired (Bob, 2026-10-29): the process repository will be `neoProcess`, the product's `civicsmith`. Nothing here is in force: a change reaches use only when Bob approves what is his (P17) and the change is certified on a dry run (P3).
 
 | file | what | rendered |
 | --- | --- | --- |

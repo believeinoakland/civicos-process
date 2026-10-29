@@ -1,11 +1,11 @@
 # What a product supplies to neoProcess
 
-**Status** · Draft, neoProcess #1, 2026-10-29. The checklist a second project fills in; everything else comes from the process repository (P2). The dry run's toy product (`dryrun/`) is the first "second project": it fills this list with the smallest possible product, and certifying the process on it is also the proof that the process is product-independent.
+**Status** · Draft, neoProcess #1, 2026-10-29. Names (Bob, 29 Oct): the process is neoProcess and its repository `neoProcess`; the `civicos` moniker is retired; Civicsmith's repository will be `civicsmith`. The checklist a second project fills in; everything else comes from the process repository (P2). The dry run's toy product (`dryrun/`) is the first "second project": it fills this list with the smallest possible product, and certifying the process on it is also the proof that the process is product-independent.
 
 | the product supplies | where | written by | notes |
 |---|---|---|---|
 | `CLAUDE.md`, under thirty lines | repository root | `proc shims`, from this list | attach the process repository; invoke your role's skill; the standing safety rules |
-| The role skills (`civicos-<role>/SKILL.md`) that load the role's rulebooks and register its hooks | `.claude/skills/` | `proc shims` | never by hand; a check fails when they differ |
+| The role skills (`neoprocess-<role>/SKILL.md`: `bob`, `job`, `lane`) that load the role's rulebooks and register its hooks | `.claude/skills/` | `proc shims` | never by hand; a check fails when they differ; the `civicos-*` names are retired with the old process (Bob, 29 Oct) |
 | The canon index: mission, requirements, designs, by file | `requirements/README.md` | Bob with BOB | every module requirement cites the canon by section (P5) |
 | The manifest: where the canon, the build state, each layer's tests, the generated artifacts, the object storage for captures and the ROOT session live | `build/manifest.md` | BOB with Bob | |
 | The layers, in order, each with its contract | `build/layers.md` | BOB with Bob | |
