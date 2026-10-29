@@ -104,11 +104,11 @@ export function pruneRef(R, ref) {
   if (r.status === 0) { try { R.g(['update-ref', '-d', `refs/remotes/origin/${ref}`]); } catch { /* none */ } return { ref, deleted: true }; }
   return { ref, deleted: false, dispatch: { tool: 'actions_run_trigger', ...ghRepo(R), workflow_id: 'prune.yml', ref: 'main', inputs: { ref } }, why: `the proxy refused the delete: ${(r.stderr || '').trim().split('\n').pop() || 'no reason given'}` };
 }
-// The one open state branch on origin: a `state/*` head whose epoch the log does not record closed (a closed epoch's
-// branch may linger until the prune workflow deletes it). None means no epoch is open.
+// The one open state branch on origin: a `state/*` head whose own `epoch.md` is not marked closed (`epoch close` marks it
+// before the delete, since a closed epoch's branch may linger until the prune workflow deletes it). None means no epoch is open.
 export function epoch(R) {
-  const closed = new Set([...(R.read('build/epochs.md') || '').matchAll(/^- (E\d+) · opened \S+ · closed /gm)].map((x) => x[1]));
-  const all = R.heads('refs/heads/state/*').map((b) => b.slice('state/'.length)).filter((e) => !closed.has(e));
+  const open = (e) => { R.fetch(stateBranch(e)); try { return !/^closed /m.test(R.g(['show', `origin/${stateBranch(e)}:epoch.md`])); } catch { return false; } };
+  const all = R.heads('refs/heads/state/*').map((b) => b.slice('state/'.length)).filter(open);
   if (all.length > 1) refuse(`more than one open state branch on origin (${all.map((e) => `state/${e}`).join(', ')}): close the old epoch first`);
   return all[0] ?? null;
 }
@@ -170,11 +170,12 @@ export function epochClose(o) {
   if (live.length) refuse(`sessions still live on the state branch: ${live.join(', ')} (archive them and record it first)`);
   const plan = parsePlan(stateRead(R, 'plan.md', e) || '');
   if (plan.owed.length) refuse(`acts still owed: ${plan.owed.join('; ')}`);
+  const marked = stateWrite(R, { 'epoch.md': `${stateRead(R, 'epoch.md', e) || `# ${e}`}\nclosed ${now()}\n` }, `${e} closes`, e);
   const prune = pruneRef(R, stateBranch(e));
   const log = R.read('build/epochs.md') || '';
   // Mid-tranche (an account move, a stop) the closed line is written now; at a tranche's close it is already in the close PR.
   R.write('build/epochs.md', log.replace(new RegExp(`^- ${e} · opened (\\S+)$`, 'm'), `- ${e} · opened $1 · closed ${today()}`));
-  return { epoch: e, prune, commit: commitPush(R, TRANCHE, ['build/epochs.md'], `epoch ${e} closes`) };
+  return { epoch: e, marked, prune, commit: commitPush(R, TRANCHE, ['build/epochs.md'], `epoch ${e} closes`) };
 }
 
 // ---- the plan's transient lines ----

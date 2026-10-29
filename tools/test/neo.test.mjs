@@ -249,8 +249,9 @@ test('the epoch closes only when nothing is open, and the state branch is really
   const ec = N.epochClose(o());
   assert.equal(ec.epoch, 'E1'); assert.equal(ec.prune.deleted, true);
   assert.deepEqual(R.heads('refs/heads/state/*'), []);
-  // a closed epoch's branch left behind (the proxy's refusal) does not count as open: the next epoch opens beside it
-  g(w.bob.root, 'push', '-q', 'origin', 'HEAD:refs/heads/state/E1');
+  // a closed epoch's branch left behind (the proxy's refusal) does not count as open: its epoch.md is marked closed
+  g(w.bob.root, 'push', '-q', 'origin', `${ec.marked}:refs/heads/state/E1`);   // the tip the close marked, as the proxy would leave it
+  assert.deepEqual(R.heads('refs/heads/state/*'), ['state/E1']);
   assert.throws(() => N.status(o()), /no epoch is open/);
   assert.match(readFileSync(join(w.bob.dir, 'build/epochs.md'), 'utf8'), /^- E1 · opened \S+ · closed \S+$/m);
   assert.throws(() => N.status(o()), /no epoch is open/);
