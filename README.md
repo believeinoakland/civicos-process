@@ -17,5 +17,5 @@ The development process for Civicsmith (`believeinoakland/bio`, to be `civicsmit
 | `checks/` | the checks the gate runs (`checks/README.md`) |
 | `.claude/skills/neoprocess/` | the one skill, invoked with the role as its argument |
 | `dryrun/` | the toy product; `dryrun/N1/` the certification of this process |
-| `lane-neoprocess/` | the lane's working files: the page for Bob (https://claude.ai/artifact/7Jghdu6JV3beK58dkZKPsd), the companion (https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E), the dry run's record, the commit point's plan, the handoff |
+| `lane-neoprocess/` | the lane's working files: the page for Bob (https://claude.ai/artifact/9XUojdyekJgrsMaxrEtdCR), the companion (https://claude.ai/artifact/ELZt9Q2V5xQccoeyXUSMZD), the dry run's record, the commit point's plan, the handoff |
 | `HISTORY.md` | revision history and provenance, not read in normal work |
