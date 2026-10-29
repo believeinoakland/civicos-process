@@ -16,7 +16,7 @@ jobs:
   rename:
     runs-on: ubuntu-latest
     steps:
-      - name: the secret of the target repository's owner (PERMISSIONS §9.9; Bob, 29 Oct: one secret per owner)
+      - name: "the secret of the target repository's owner (PERMISSIONS §9.9; Bob, 29 Oct, one secret per owner)"
         id: secret
         env:
           REPO: ${{ inputs.repo }}
