@@ -222,3 +222,206 @@ test('the epoch closes only when nothing is open, and the state branch is really
   assert.equal(durable, '');
   assert.ok(hashes.length > 0);
 });
+
+const J2 = 'session_01AAAAAAAAAAAAAAAAAAAAAAA2', J3 = 'session_01AAAAAAAAAAAAAAAAAAAAAAA3';
+test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with the marks struck, review, the queue\'s merge, re-open, retire, layer close, metrics', () => {
+  const w = world(), o = (x) => O(w, x), R = N.repo(w.bob.dir), g2 = (...a) => g(w.bob.root, ...a);
+  // the running plan and a requirement written ahead (not yet met), on the tranche
+  writeFileSync(join(w.bob.dir, 'build/plan/current.md'), '# Plan: test T1\n\n**Status** · OPEN.\n\n## Layer 1\n\n**alpha**\n- N1 · Add `twice(a) → number` (R6).\n\n**beta**\n- N2 · Say in a comment that total builds on alpha.sum. *(after alpha)*\n\n## Layer 2\n\n**stats**\n- N3 · Nothing yet.\n');
+  const req = join(w.bob.dir, 'build/requirements/alpha.md');
+  writeFileSync(req, readFileSync(req, 'utf8').replace('**sum(list) → number**', '**twice(a) → number**\n- **R6** Returns `add(a, a)`. *(not yet met: T1)*\n\n**sum(list) → number**'));
+  N.commitPush(R, N.TRANCHE, ['build/plan/current.md', 'build/requirements/alpha.md'], 'plan T1');
+  N.epochOpen(o()); N.takeover(o({ name: 'BOB #1', session: B1 }));
+
+  // layer start: lowest first; each job's branch at the tip, its START (the PR body), its session; everything owed
+  assert.throws(() => N.layerStart(o({ layer: 2 })), /layer 1 is OPEN/);
+  assert.throws(() => N.layerStart(o({ layer: 3 })), /no section/);
+  const ls = N.layerStart(o({ layer: 1 }));
+  assert.equal(ls.tranche, 'T1');
+  assert.deepEqual(ls.jobs.map((j) => [j.module, j.action]), [['alpha', 'create'], ['beta', 'create']]);
+  const a = ls.jobs[0];
+  assert.match(a.pr.body, /^START ALPHA #1 · T1 · layer 1 · module alpha\nEntries:\n- N1/);
+  assert.match(a.pr.body, /Read whole, by path: build\/requirements\/alpha\.md; build\/layers\.md; alpha\/src\/; alpha\/test\/\./);
+  assert.match(a.pr.body, /Messages from BOB's address[\s\S]*Push before you send; nothing to any branch but job\/alpha/);
+  assert.deepEqual([a.pr.draft, a.pr.base, a.pr.head, a.pr.title], [true, 'tranche', 'job/alpha', 'alpha T1 (ALPHA #1)']);
+  assert.match(a.session.prompt, /^\/goal `neo job state --module alpha/);
+  assert.deepEqual([a.session.model, a.session.effort, a.session.source_revision], ['claude-opus-5-5', 'high', 'job/alpha']);
+  assert.match(ls.jobs[1].pr.body, /build\/requirements\/alpha\.md \(Public\)/);   // beta uses alpha
+  assert.deepEqual(R.heads('refs/heads/job/*').sort(), ['job/alpha', 'job/beta']);
+  assert.equal(g2('rev-parse', 'origin/job/alpha'), g2('rev-parse', 'HEAD'));
+  let st = N.status(o());
+  assert.deepEqual(st.owed, ['open PR alpha', 'start alpha', 'open PR beta', 'start beta']);
+  assert.deepEqual(st.jobs.map((j) => [j.module, j.state, j.after]), [['alpha', 'STARTING', []], ['beta', 'STARTING', ['alpha']]]);
+  assert.throws(() => N.layerStart(o({ layer: 1 })), /name the modules/);
+  assert.throws(() => N.layerStart(o({ layer: 1, modules: 'alpha' })), /one job per module/);
+  assert.equal(N.jobPr(o({ module: 'alpha', number: 11 })).subscribe.pullNumber, 11);
+  N.jobPr(o({ module: 'beta', number: 12 }));
+  assert.throws(() => N.jobPr(o({ module: 'alpha', number: 13 })), /already has PR #11/);
+  assert.throws(() => N.jobStarted(o({ module: 'alpha', name: 'BETA #1', session: J1 })), /is ALPHA #1/);
+  N.jobStarted(o({ module: 'alpha', name: 'ALPHA #1', session: J1 }));
+  N.jobStarted(o({ module: 'beta', name: 'BETA #1', session: J2 }));
+  assert.deepEqual(N.status(o()).owed, []);
+  assert.equal(N.addr(o({ module: 'alpha' })), J1);
+
+  // the job's turn, from its own clone on job/alpha: start (the session must be recorded), a wait, the change
+  const alpha = w.clone('alpha'); g(alpha.root, 'checkout', '-q', 'job/alpha');
+  const jo = (x) => ({ product: alpha.dir, module: 'alpha', ...x });
+  assert.throws(() => N.jobStart(jo({ session: J2 })), /names session_01AAAAAAAAAAAAAAAAAAAAAAAA for alpha, not/);
+  const js = N.jobStart(jo({ session: J1 }));
+  assert.match(js.start, /^START ALPHA #1/); assert.deepEqual([js.pr, js.state, js.size], [11, 'WORKING', null]);
+  assert.deepEqual([N.readRole(alpha.root).role, N.readRole(alpha.root).module], ['job', 'alpha']);
+  assert.equal(N.jobState(jo({})).line, 'WORKING');
+  assert.throws(() => N.jobState(jo({ set: 'COMPLETE' })), /only by job complete/);
+  N.jobState(jo({ set: 'WAITING: may twice(Infinity) throw?' }));
+  assert.match(N.status(o()).queue.map((q) => q.item).join(';'), /^ANSWER alpha$/);
+  N.jobState(jo({ set: 'WORKING' }));
+  const src = join(alpha.dir, 'alpha/src/index.mjs');
+  writeFileSync(src, `${readFileSync(src, 'utf8')}\n// R6: add(a, a).\nexport function twice(a) {\n  return add(a, a);\n}\n`);
+  writeFileSync(join(alpha.dir, 'alpha/test/twice.test.mjs'), "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { twice } from '../src/index.mjs';\n\ntest('R6 twice(a) is add(a, a)', () => { assert.equal(twice(2), 4); assert.throws(() => twice('1'), TypeError); });\n");
+  const report = f(w.base, 'report.md', '**Met** · R6\n**Evidence**\n- `node --test alpha/test/*.test.mjs` → tests 4, pass 4\n- alpha/src/index.mjs:22\n');
+  assert.throws(() => N.jobComplete(jo({ reportFile: report })), /commit your module/);
+  g(alpha.root, 'add', '-A'); g(alpha.root, 'commit', '-q', '-m', 'alpha: twice');
+  assert.throws(() => N.jobComplete(jo({ reportFile: f(w.base, 'r-no.md', '**Met** · R9\n**Evidence**\n- x.mjs:1\n') })), /R9 is not in/);
+  assert.throws(() => N.jobComplete(jo({ reportFile: f(w.base, 'r-ev.md', '**Met** · none\nno evidence\n') })), /no `\*\*Evidence\*\*` section/);
+  // complete: R6's mark struck in the job's own commit, the gate green, the branch pushed, the comment and ready owed
+  const jc = N.jobComplete(jo({ reportFile: report }));
+  assert.ok(jc.tests.pass >= 4 && jc.tests.pass === jc.tests.tests, JSON.stringify(jc.tests));
+  assert.deepEqual(jc.acts.map((x) => x.tool), ['add_issue_comment', 'update_pull_request']);
+  assert.deepEqual([jc.acts[0].issue_number, jc.acts[1].pullNumber, jc.acts[1].draft], [11, 11, false]);
+  assert.match(jc.acts[0].body, /^\*\*Met\*\* · R6[\s\S]*\nTests: \d+\/\d+\. Checks: format, architecture, coverage, fixtures, ownership: no new finding\.\nSize: test runs 1, module lines \d+\. Head [0-9a-f]{7}\.$/);
+  assert.equal(g(alpha.root, 'log', '-1', '--format=%s'), 'alpha T1: met R6');
+  assert.doesNotMatch(g(alpha.root, 'show', 'HEAD:toy/build/requirements/alpha.md'), /not yet met: T1/);
+  assert.match(g(alpha.root, 'show', 'HEAD:toy/build/requirements/alpha.md'), /^- \*\*R6\*\* Returns `add\(a, a\)`\.$/m);
+  assert.equal(g(alpha.root, 'rev-parse', 'origin/job/alpha'), g(alpha.root, 'rev-parse', 'HEAD'));
+  assert.deepEqual(N.status(jo({})).gate, ['alpha owes: comment', 'alpha owes: ready']);   // the job's own gate
+  assert.equal(N.jobState(jo({})).line, 'COMPLETE (owed: comment; ready)');
+  assert.deepEqual(N.status(o()).queue, []);   // BOB: nothing yet, the job owes its acts
+  assert.throws(() => N.reviewDecide(o({ module: 'alpha', noReview: true, reason: 'x' })), /still owes/);
+  assert.equal(N.jobPosted(jo({ comment: 777 })).send, null);
+  const jp = N.jobPosted(jo({ ready: true }));
+  assert.equal(jp.send.session_id, B1); assert.match(jp.send.message, /^COMPLETE #1: alpha \(PR #11\)/);
+  assert.throws(() => N.jobPosted(jo({ ready: true })), /nothing cleared/);
+  assert.deepEqual(N.status(jo({})).gate, []);
+  assert.match(N.status(o()).queue.map((q) => q.item).join(';'), /^DECIDE REVIEW alpha$/);
+
+  // beta completes meanwhile: its PR stays a draft until alpha merges (the plan's order)
+  const beta = w.clone('beta'); g(beta.root, 'checkout', '-q', 'job/beta');
+  const bo = (x) => ({ product: beta.dir, module: 'beta', ...x });
+  N.jobStart(bo({ session: J2 }));
+  const bsrc = join(beta.dir, 'beta/src/index.mjs');
+  writeFileSync(bsrc, readFileSync(bsrc, 'utf8').replace('// beta: totals', '// beta (N2: built on alpha.sum): totals'));
+  g(beta.root, 'add', '-A'); g(beta.root, 'commit', '-q', '-m', 'beta: N2');
+  const bc = N.jobComplete(bo({ reportFile: f(w.base, 'rb.md', '**Met** · none\n**Evidence**\n- beta/src/index.mjs:1\n') }));
+  assert.deepEqual(bc.acts.map((x) => x.tool), ['add_issue_comment']);
+  assert.match(bc.then, /ready is owed after alpha/);
+  N.jobPosted(bo({ comment: 778 }));
+  assert.deepEqual(N.jobState(bo({})).owed, ['ready after alpha']);
+
+  // alpha: no review, the concerns listed; the merge printed and owed; the queue's merge recorded from its event
+  assert.throws(() => N.merge(o({ module: 'alpha' })), /decide the review first/);
+  const rd = N.reviewDecide(o({ module: 'alpha', noReview: true, reason: 'one small function, tested at the interface' }));
+  assert.deepEqual(rd.concerns, ['provided service changed (1 export line(s) differ)']);
+  assert.throws(() => N.reviewDecide(o({ module: 'alpha', review: true, reason: 'x' })), /is decided/);
+  assert.match(N.status(o()).queue.map((q) => q.item).join(';'), /^MERGE alpha$/);
+  const mg = N.merge(o({ module: 'alpha' }));
+  assert.deepEqual([mg.enable.tool, mg.enable.pullNumber, mg.enable.merge_method], ['enable_pr_auto_merge', 11, 'merge']);
+  assert.deepEqual(N.status(o()).owed, ['merge alpha']); assert.deepEqual(N.status(o()).queue, []);
+  assert.throws(() => N.merge(o({ module: 'alpha' })), /already queued/);
+  assert.throws(() => N.merged(o({ module: 'alpha', sha: g2('rev-parse', 'HEAD') })), /tip [0-9a-f]{7} is not in/);
+  g2('fetch', '-q', 'origin'); g2('merge', '-q', '--no-ff', '-m', 'alpha T1 (#11)', 'origin/job/alpha'); g2('push', '-q', 'origin', 'HEAD:tranche');   // the queue
+  const md = N.merged(o({ module: 'alpha', sha: g2('rev-parse', 'HEAD') }));
+  assert.equal(md.send.session_id, J1); assert.match(md.send.message, /^MERGED: alpha is on tranche at [0-9a-f]{7} \(PR #11\)/);
+  assert.deepEqual(md.ready.map((r) => [r.module, r.mark.pullNumber, r.mark.draft]), [['beta', 12, false]]);
+  assert.deepEqual(R.heads('refs/heads/job/*'), ['job/beta']);   // the merged branch is gone
+  assert.deepEqual(N.status(o()).owed, []);
+  assert.equal(N.jobState(o({ module: 'alpha' })).state, 'MERGED');
+  N.jobPosted(o({ module: 'beta', ready: true }));   // BOB marks it ready: the job is idle
+
+  // beta: a review dispatched, a gap found, the job fixes it and completes again (with the tranche merged in first)
+  const rv = N.reviewDecide(o({ module: 'beta', review: true, reason: 'the first user of alpha' }));
+  assert.deepEqual([rv.agent.run_in_background, rv.agent.model, rv.agent.effort], [true, 'claude-sonnet-5-5', 'high']);
+  assert.match(rv.agent.prompt, /^Brief review-beta · for BOB #1/); assert.match(rv.agent.prompt, /^Write your result to: .*neo-review-beta\.md$/m);
+  assert.match(rv.agent.prompt, /git -C \S+ show origin\/state\/E1:jobs\/beta\/report\.md/);
+  assert.match(N.status(o()).queue.map((q) => q.item).join(';'), /^REVIEWING beta$/);
+  assert.throws(() => N.merge(o({ module: 'beta' })), /not approved/);
+  assert.throws(() => N.reviewResult(o({ module: 'beta', resultFile: f(w.base, 'rr0.md', 'VERDICT · gaps\n- R1 · beta/src/index.mjs:5 · x · y\n') })), /DONE line/);
+  const rr = N.reviewResult(o({ module: 'beta', resultFile: f(w.base, 'rr1.md', 'VERDICT · gaps\n- R1 · beta/src/index.mjs:1 · the comment names N2, not the requirement · read it\nDONE review-beta · verdict\n') }));
+  assert.deepEqual([rr.post.event, rr.post.pullNumber, rr.send.session_id], ['REQUEST_CHANGES', 12, J2]);
+  assert.match(rr.send.message, /^CHANGE: the review found 1 gap/);
+  assert.deepEqual(N.status(o()).queue, []);
+  N.jobState(bo({ set: 'WORKING' }));
+  writeFileSync(bsrc, readFileSync(bsrc, 'utf8').replace('(N2: built on alpha.sum)', '(R1: built on alpha.sum)'));
+  g(beta.root, 'add', '-A'); g(beta.root, 'commit', '-q', '-m', 'beta: the gap');
+  const rb2 = f(w.base, 'rb2.md', '**Met** · none\n**Evidence**\n- beta/src/index.mjs:1\n');
+  assert.throws(() => N.jobComplete(bo({ reportFile: rb2 })), /merge tranche into your branch first/);
+  g(beta.root, 'fetch', '-q', 'origin'); g(beta.root, 'merge', '-q', '--no-edit', 'origin/tranche');
+  const bc2 = N.jobComplete(bo({ reportFile: rb2 }));
+  assert.deepEqual(bc2.acts.map((x) => x.tool), ['add_issue_comment', 'update_pull_request']);   // alpha is merged: ready at once
+  N.jobPosted(bo({ comment: 779, ready: true }));
+  assert.deepEqual([N.jobState(bo({})).runs, N.jobState(bo({})).review], [2, null]);
+  N.reviewDecide(o({ module: 'beta', noReview: true, reason: 'the gap is closed; re-reviewed for it only' }));
+  N.merge(o({ module: 'beta' }));
+  g2('fetch', '-q', 'origin'); g2('merge', '-q', '--no-ff', '-m', 'beta T1 (#12)', 'origin/job/beta'); g2('push', '-q', 'origin', 'HEAD:tranche');
+  N.merged(o({ module: 'beta', sha: g2('rev-parse', 'HEAD') }));
+  // a job's session replaced (JOB-LIFE §9): routed to a fresh one, recorded under the next number
+  assert.deepEqual(N.jobRoute(o({ module: 'beta' })), { action: 'message', session: J2 });
+  const jr = N.jobRoute(o({ module: 'beta', contextPct: 60 }));
+  assert.deepEqual([jr.action, jr.title, jr.archive, jr.model], ['create_session', 'BETA #2', J2, 'claude-opus-5-5']);
+  N.jobStarted(o({ module: 'beta', name: 'BETA #2', session: J3 }));
+  assert.deepEqual(N.status(o()).owed, []);
+
+  // a CHANGE after the merge re-opens alpha on a fresh branch and PR, in its session
+  assert.throws(() => N.jobReopen(o({ module: 'beta', changeFile: f(w.base, 'c0.md', 'x\n') })), /begins CHANGE/);
+  const ro = N.jobReopen(o({ module: 'alpha', changeFile: f(w.base, 'c1.md', 'CHANGE: R6 now also says twice(-0) is -0; prove it.\n') }));
+  assert.equal(ro.send.session_id, J1); assert.match(ro.pr.body, /^START ALPHA #1 · T1 · re-opened after its merge · module alpha\nEntries:\nCHANGE: R6/);
+  assert.deepEqual(R.heads('refs/heads/job/*'), ['job/alpha']);
+  assert.equal(g2('rev-parse', 'origin/job/alpha'), g2('rev-parse', 'HEAD'));
+  assert.deepEqual(N.status(o()).owed, ['open PR alpha']);
+  assert.equal(N.jobState(o({ module: 'alpha' })).state, 'REOPENED');
+  assert.throws(() => N.jobState(jo({ set: 'WORKING' })), /start it first/);
+  N.jobPr(o({ module: 'alpha', number: 13 }));
+  g(alpha.root, 'pull', '-q', '--no-rebase', 'origin', 'job/alpha');
+  assert.match(N.jobStart(jo({ session: J1 })).start, /^START ALPHA #1 · T1 · re-opened/);
+  const tfile = join(alpha.dir, 'alpha/test/twice.test.mjs');
+  writeFileSync(tfile, readFileSync(tfile, 'utf8').replace('assert.equal(twice(2), 4);', 'assert.equal(twice(2), 4); assert.ok(Object.is(twice(-0), -0));'));
+  g(alpha.root, 'add', '-A'); g(alpha.root, 'commit', '-q', '-m', 'alpha: -0');
+  const jc2 = N.jobComplete(jo({ reportFile: f(w.base, 'r2.md', '**Met** · none\n**Evidence**\n- alpha/test/twice.test.mjs:5\n') }));
+  assert.equal(jc2.acts[0].issue_number, 13);
+  N.jobPosted(jo({ comment: 780, ready: true }));
+  N.reviewDecide(o({ module: 'alpha', noReview: true, reason: 'a test line' }));
+  N.merge(o({ module: 'alpha' }));
+  g2('fetch', '-q', 'origin'); g2('merge', '-q', '--no-ff', '-m', 'alpha T1 (#13)', 'origin/job/alpha'); g2('push', '-q', 'origin', 'HEAD:tranche');
+  N.merged(o({ module: 'alpha', sha: g2('rev-parse', 'HEAD') }));
+
+  // retirement: alpha early (beta, its user, is merged), with its usage row; the layer closes with beta's archive owed
+  const rt = N.jobRetire(o({ module: 'alpha' }));
+  assert.equal(rt.archive.session_id, J1);
+  assert.deepEqual(N.status(o()).owed, ['archive alpha']);
+  assert.throws(() => N.epochClose(o()), /sessions still live/);
+  N.jobArchived(o({ module: 'alpha', session: J1, usage: JSON.stringify({ cache_read_tokens: 100, cache_write_tokens: 20, input_tokens: 3, output_tokens: 9 }) }));
+  assert.throws(() => N.jobArchived(o({ module: 'alpha', session: J1, usage: '{}' })), /already has its row/);
+  assert.equal(N.jobState(o({ module: 'alpha' })).state, 'ARCHIVED');
+  assert.throws(() => N.jobRetire(o({ module: 'alpha' })), /reads ARCHIVED/);
+  const lc = N.layerClose(o({ layer: 1 }));
+  assert.ok(lc.commit, 'the regenerated bundle is committed at the close');
+  assert.deepEqual(lc.archive.map((x) => [x.module, x.session]), [['beta', J3]]);
+  assert.throws(() => N.layerClose(o({ layer: 1 })), /is CLOSED/);
+  assert.deepEqual(N.status(o()).owed, ['archive beta']);
+  N.jobArchived(o({ module: 'beta', session: J3, usage: JSON.stringify({ cache_read_tokens: 50, cache_write_tokens: 5, input_tokens: 1, output_tokens: 2 }) }));
+  N.jobArchived(o({ module: 'beta', session: J2, name: 'BETA #1', usage: JSON.stringify({ cache_read_tokens: 40, cache_write_tokens: 4, input_tokens: 1, output_tokens: 1 }) }));   // the replaced session's row
+  assert.deepEqual(N.status(o()).owed, []);
+
+  // the next layer starts now (a mechanical job on Sonnet); a defect is a row naming its merge's review; BOB's own row
+  const l2 = N.layerStart(o({ layer: 2, mechanical: 'stats' }));
+  assert.deepEqual(l2.jobs.map((j) => [j.module, j.session.model, j.session.effort]), [['stats', 'claude-sonnet-5-5', 'medium']]);
+  assert.equal(N.defect(o({ module: 'beta', what: 'total([]) documented wrong' })).reviewed, 'no');
+  N.bobArchived(o({ name: 'BOB #0', session: B2, usage: JSON.stringify({ cache_read_tokens: 1, cache_write_tokens: 1, input_tokens: 1, output_tokens: 1 }) }));
+  const csv = readFileSync(join(w.bob.dir, 'build/metrics/T1.csv'), 'utf8');
+  assert.match(csv, /^session,role,name,module,cache-read,cache-write,input,output,test runs,module lines,reviewed,note\n/);
+  assert.match(csv, new RegExp(`^${J1},job,ALPHA #1,alpha,100,20,3,9,2,\\d+,no,$`, 'm'));
+  assert.match(csv, new RegExp(`^${J3},job,BETA #2,beta,50,5,1,2,2,\\d+,no,$`, 'm'));
+  assert.match(csv, new RegExp(`^${J2},job,BETA #1,beta,40,4,1,1,2,\\d+,no,replaced$`, 'm'));
+  assert.match(csv, /^,defect,BETA #1,beta,,,,,,,no,total\(\[\]\) documented wrong$/m);
+  assert.match(csv, new RegExp(`^${B2},BOB-final,BOB #0,,1,1,1,1,,,,$`, 'm'));
+  assert.throws(() => N.handoff(o()), /owed: open PR stats/);
+});

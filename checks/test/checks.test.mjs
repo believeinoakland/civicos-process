@@ -133,6 +133,20 @@ test('ownership: own paths, own tests and own job record pass; another module\'s
   assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, ["build/jobs/T1/a.md: outside b's paths, tests and job record", "src/a/index.mjs: outside b's paths, tests and job record"]);
 });
 
+test('ownership: a job strikes the not-yet-met marks of its own requirements file, and changes nothing else there (JOB-LIFE §3)', () => {
+  const r = repo(base({ 'build/requirements/b.md': REQ('- **R1** one *(not yet met: T1)*\n- **R2** two *(not yet met: T1, T2)*\n- **R3** three') }));
+  r.commit({ 'build/requirements/b.md': REQ('- **R1** one\n- **R2** two *(not yet met: T2)*\n- **R3** three') });
+  assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, []);
+  r.commit({ 'build/requirements/b.md': REQ('- **R1** one\n- **R2** two *(not yet met: T2)*\n- **R3** three, or so') });
+  assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, ['build/requirements/b.md:13: changed beyond striking a `*(not yet met: T)*` mark: - **R3** three, or so']);
+  r.commit({ 'build/requirements/b.md': REQ('- **R1** one *(not yet met: T1)*\n- **R2** two *(not yet met: T2)*\n- **R3** three, or so') });
+  assert.equal(checkOwnership(r.root, 'b', 'HEAD~1').failures.length, 1);   // a mark put back is written, not struck
+  r.commit({ 'build/requirements/b.md': REQ('- **R1** one *(not yet met: T1)*\n- **R2** two *(not yet met: T2)*\n- **R3** three, or so\n- **R4** four') });
+  assert.match(checkOwnership(r.root, 'b', 'HEAD~1').failures.join(';'), /1 line\(s\) added and 0 removed/);
+  r.commit({ 'build/requirements/a.md': REQ('- **R1** one *(not yet met: T1)*\n- **R2** two') });   // another module's file: never b's, marks or not
+  assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, ["build/requirements/a.md: outside b's paths, tests and job record"]);
+});
+
 test('ownership: an extracting module may remove from its legacy module, never add', () => {
   const r = repo(base());
   r.commit({ 'src/legacy.mjs': 'export const old = 1;\n' });
