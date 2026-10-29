@@ -36,7 +36,7 @@
 //   reading --role <bob|job|lane|root|process|onboard>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
 //   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
 //   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (tools/lib.mjs, P20)
-//   repo setup --repo <owner/name> [--private] [--dry-run]      (PERMISSIONS §9: the repository and its two rulesets)
+//   repo setup --repo <owner/name> [--private] [--dry-run]      (PERMISSIONS §9: the repository and its two rulesets; from a session it prints the workflow's dispatch)
 //   process start --branch <b> --session <id>      process handoff      (the neoProcess lane, in the process repository itself)
 //   grants check [--branch <b>] [--urls <u1,u2>]      (PERMISSIONS §10, GRANTS.md: proven before `tranche open`)
 //   init --mode <new|convert> [--name "<project>"] | init --check      onboard start --product <dir> --session <id>      (ONBOARDING.md)
@@ -1473,39 +1473,66 @@ export function ruling(o) {
   return { ruling: `K${k}`, commit: commitPush(R, TRANCHE, [log, ...files], `K${k}: ${one(o.text).slice(0, 60)}`) };
 }
 
-// PERMISSIONS §9: a development repository and its two rulesets (SETUP-STEPS) made by the tool with the process's own
-// GitHub token, once Bob has set the token on the environment and allowed this command by a permission rule, his act.
-// Idempotent: what exists is kept; the rulesets are read back as the proof. `o.fetch` is the fixture's; `--dry-run`
-// prints the calls and sends nothing.
+// PERMISSIONS §9: a development repository and its two rulesets (SETUP-STEPS), made by this command with the process's
+// own GitHub token. Measured 29 Oct (#8): from a cloud session no token can do it: the agent proxy binds every GitHub
+// API call to the session's configured repositories (`POST /user/repos` 403, the proxy's own message, whatever token)
+// and refuses repository-settings writes (the rulesets, #5); the GitHub MCP server's create answers GitHub's 403 for the
+// Claude app (`Resource not accessible by integration`). So the writes run on GitHub's runner: the process repository's
+// workflow `repo-setup.yml` runs this same command with the repository secret NEOPROCESS_GITHUB_TOKEN (Bob's one act, set
+// once), dispatched as `pruneRef` dispatches `prune.yml` (REP 4). From a session this command reads what exists and, for
+// the rest, prints that dispatch and Bob's hand steps (SETUP-STEPS); on the runner it writes, and a refusal there is a
+// refusal. Idempotent: what exists is kept; the rulesets read back active are the proof. `o.fetch` and `o.env` are the
+// fixture's; `--dry-run` prints the calls and sends nothing.
 export const RULESETS = [
   { name: 'tranche', target: 'branch', enforcement: 'active', conditions: { ref_name: { include: [`refs/heads/${TRANCHE}`], exclude: [] } }, rules: [{ type: 'deletion' }, { type: 'non_fast_forward' }] },
   { name: 'main', target: 'branch', enforcement: 'active', conditions: { ref_name: { include: ['refs/heads/main'], exclude: [] } }, rules: [{ type: 'deletion' }, { type: 'non_fast_forward' }, { type: 'pull_request', parameters: { required_approving_review_count: 0, dismiss_stale_reviews_on_push: false, require_code_owner_review: false, require_last_push_approval: false, required_review_thread_resolution: false } }] },
 ];
+export const REPO_SETUP_WORKFLOW = 'repo-setup.yml';
 export async function repoSetup(o) {
   const m = String(o.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/); if (!m) refuse('--repo <owner/name> [--private] [--dry-run]');
   const [, owner, name] = m, api = 'https://api.github.com', f = o.fetch || globalThis.fetch;
+  // the process's own token, read by name inside the tool only (PERMISSIONS §10.4): the workflow's run sets it from the
+  // repository secret; in a session it is absent, and the proxy supplies the credential it holds
+  const token = (o.env || process.env).NEOPROCESS_GITHUB_TOKEN || null;
   const call = async (method, path, body) => {
-    const r = await f(`${api}${path}`, { method, headers: { Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const r = await f(`${api}${path}`, { method, headers: { Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
     const text = await r.text(); let json = null; try { json = JSON.parse(text); } catch { /* not json */ }
-    return { status: r.status, json, text };
+    return { status: r.status, json, text, expires: r.headers?.get?.('github-authentication-token-expiration') ?? null };
   };
   const calls = [['POST', '/user/repos', { name, description: 'built by neoProcess (PRODUCT-SUPPLIES.md)', private: !!o.private, auto_init: true }], ...RULESETS.map((r) => ['POST', `/repos/${owner}/${name}/rulesets`, r])];
   if (o.dryRun) return { repo: `${owner}/${name}`, calls };
-  const out = { repo: `${owner}/${name}`, steps: [] };
+  const out = { repo: `${owner}/${name}`, token: token ? 'the process\'s own (NEOPROCESS_GITHUB_TOKEN)' : 'the proxy\'s', steps: [], refused: [], bob: [] };
+  const why = (c) => `${c.status}: ${String(c.json?.message || c.text || '').slice(0, 160)}`;
   const me = await call('GET', '/user'); if (me.status !== 200) refuse(`GET /user answered ${me.status}: no GitHub token reaches api.github.com (PERMISSIONS §9)`);
   if (me.json?.login !== owner) refuse(`the token is ${me.json?.login}'s, and --repo names ${owner}: a repository is made on the token's own account`);
+  if (token) out.expires = me.expires;   // the runner's log shows the token's expiry (GRANTS §3), never the token
   const exists = await call('GET', `/repos/${owner}/${name}`);
-  if (exists.status === 200) out.steps.push('repository exists');
-  else { const c = await call(...calls[0]); if (c.status !== 201) refuse(`POST /user/repos answered ${c.status}: ${c.text.slice(0, 200)} (a refusal: record it with proc refused --act "create_repository(process token)")`); out.steps.push(`repository created: ${c.json?.html_url}`); }
-  const have = await call('GET', `/repos/${owner}/${name}/rulesets`), names = new Set(Array.isArray(have.json) ? have.json.map((x) => x.name) : []);
-  for (const [i, r] of RULESETS.entries()) {
-    if (names.has(r.name)) { out.steps.push(`ruleset ${r.name} exists`); continue; }
-    const c = await call(...calls[i + 1]); if (c.status !== 201) refuse(`POST rulesets ${r.name} answered ${c.status}: ${c.text.slice(0, 200)} (a refusal: record it with proc refused --act "rulesets(process token)")`);
-    out.steps.push(`ruleset ${r.name} created`);
+  let have = exists.status === 200;
+  if (have) out.steps.push('repository exists');
+  else if (exists.status === 404) {
+    const c = await call(...calls[0]);
+    if (c.status === 201) { have = true; out.steps.push(`repository created: ${c.json?.html_url}`); }
+    else { out.refused.push(`POST /user/repos ${why(c)}`); out.bob.push(`the repository ${owner}/${name} (SETUP-STEPS step 1)`); }
+  } else { out.refused.push(`GET /repos/${owner}/${name} ${why(exists)}`); out.bob.push(`the repository ${owner}/${name} if it does not exist (SETUP-STEPS step 1); if it does, attach it (add_repo) so this session may read it`); }
+  if (!have) out.bob.push('the two rulesets (SETUP-STEPS steps 2–4)');   // nothing to read back yet
+  else {
+    const list = await call('GET', `/repos/${owner}/${name}/rulesets`), names = new Set(Array.isArray(list.json) ? list.json.map((x) => x.name) : []);
+    for (const [i, r] of RULESETS.entries()) {
+      if (names.has(r.name)) { out.steps.push(`ruleset ${r.name} exists`); continue; }
+      const c = await call(...calls[i + 1]);
+      if (c.status === 201) out.steps.push(`ruleset ${r.name} created`);
+      else { out.refused.push(`POST rulesets ${r.name} ${why(c)}`); out.bob.push(`ruleset ${r.name} (SETUP-STEPS ${r.name === 'tranche' ? 'steps 2–3' : 'step 4'})`); }
+    }
+    const back = await call('GET', `/repos/${owner}/${name}/rulesets`);
+    out.rulesets = (Array.isArray(back.json) ? back.json : []).map((x) => `${x.name} ${x.enforcement}`);
   }
-  const back = await call('GET', `/repos/${owner}/${name}/rulesets`);
-  out.rulesets = (Array.isArray(back.json) ? back.json : []).map((x) => `${x.name} ${x.enforcement}`);
-  for (const r of RULESETS) if (!out.rulesets.includes(`${r.name} active`)) refuse(`ruleset ${r.name} not read back active: ${out.rulesets.join(', ') || 'none'}`);
+  out.ok = RULESETS.every((r) => (out.rulesets || []).includes(`${r.name} active`));
+  if (!out.ok) {
+    if (token) refuse(`with the process's token: ${out.refused.join('; ') || `rulesets not read back active: ${(out.rulesets || []).join(', ') || 'none'}`}`);
+    let P = {}; try { P = ghRepo(repo(PROCESS)); } catch { /* no remote: the fields stay unnamed */ }
+    out.dispatch = { tool: 'actions_run_trigger', ...P, workflow_id: REPO_SETUP_WORKFLOW, ref: 'main', inputs: { repo: `${owner}/${name}`, private: String(!!o.private) } };
+    out.then = `a session cannot write this: the proxy binds the GitHub API to the session's repositories and refuses settings writes (measured 29 Oct #8). Dispatch the workflow above: it runs this command on GitHub's runner with the process's token, the repository secret NEOPROCESS_GITHUB_TOKEN (Bob's one act, PERMISSIONS §9). Then attach ${owner}/${name} (add_repo) and run this command again to read the result back. Without the secret, Bob's hand steps (SETUP-STEPS): ${out.bob.join('; ')}.`;
+  }
   return out;
 }
 
@@ -1632,7 +1659,7 @@ export function initCheck(R, o = {}) {
     step(1, 'intake', canon != null && !canon.includes(ONBOARD_MARK), canon == null ? 'requirements/README.md' : 'the vision, audiences and first requirements in requirements/README.md (a marker is left)', 'the owner, with the session'),
     step(2, 'seed', seed.every(has) && !drift.length, [...seed.filter((p) => !has(p)), ...drift].join('; '), 'BOB (`proc init`)'),
     step(3, 'grants', has('build/grants.json') && !grantsHeld(R), grantsHeld(R) || 'build/grants.json', 'the list BOB; the sitting the owner (PERMISSIONS §10)'),
-    step(4, 'repository', null, 'the two rulesets, read back by `proc repo setup --repo <owner/name>`', 'the tool, or the owner once (SETUP-STEPS)'),
+    step(4, 'repository', null, 'the two rulesets, read back by `proc repo setup --repo <owner/name>` (made by the process\'s repo-setup workflow, which it dispatches)', 'the tool, or the owner once (SETUP-STEPS)'),
     step(5, 'architecture', mods.length > 0 && !noLayer.length, mods.length ? `modules missing from build/layers.md: ${noLayer.join(', ')}` : 'no module in build/modules.json', 'the owner for capability-carrying layers and modules; BOB the rest (P4)'),
     step(6, 'requirements', mods.length > 0 && !noReq.length, noReq.length ? `no build/requirements/<id>.md for ${noReq.join(', ')}` : 'no module yet', 'BOB, with the owner where meaning changes (P5)'),
     step(7, 'first tranche', planned, 'an entry in build/plan/next.md', 'BOB'),

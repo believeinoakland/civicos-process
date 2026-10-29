@@ -659,10 +659,11 @@ test('a tranche opened from main, a round opened and closed, the tranche closed 
   assert.throws(() => N.bobArchived(o({ ...lastBob, tranche: 'T2' })), /already has its row/);
 });
 
-test('repo setup makes a development repository and its two rulesets, idempotently, and reads them back (PERMISSIONS §9)', async () => {
+test('repo setup makes a development repository and its two rulesets, idempotently, and reads them back; from a session the proxy refuses the writes and the workflow\'s dispatch is printed (PERMISSIONS §9)', async () => {
   const log = [], made = { repo: false, rulesets: [] };
+  let auth = null;
   const fetch = async (url, init) => {
-    const path = url.replace('https://api.github.com', ''), method = init.method; log.push(`${method} ${path}`);
+    const path = url.replace('https://api.github.com', ''), method = init.method; log.push(`${method} ${path}`); auth = init.headers.Authorization ?? null;
     const reply = (status, body) => ({ status, text: async () => JSON.stringify(body) });
     if (path === '/user') return reply(200, { login: 'bob' });
     if (method === 'GET' && path === '/repos/bob/toy') return made.repo ? reply(200, { name: 'toy' }) : reply(404, { message: 'Not Found' });
@@ -675,19 +676,44 @@ test('repo setup makes a development repository and its two rulesets, idempotent
   const dry = await N.repoSetup({ repo: 'bob/toy', dryRun: true });
   assert.deepEqual(dry.calls.map((c) => `${c[0]} ${c[1]}`), ['POST /user/repos', 'POST /repos/bob/toy/rulesets', 'POST /repos/bob/toy/rulesets']);
   assert.deepEqual(dry.calls[0][2], { name: 'toy', description: 'built by neoProcess (PRODUCT-SUPPLIES.md)', private: false, auto_init: true });
-  await assert.rejects(N.repoSetup({ repo: 'alice/toy', fetch }), /the token is bob's/);
-  const r1 = await N.repoSetup({ repo: 'bob/toy', fetch });
+  await assert.rejects(N.repoSetup({ repo: 'alice/toy', fetch, env: {} }), /the token is bob's/);
+  // on GitHub's runner, the process's own token read by name (never in a session): created, the rulesets made, read back active
+  const r1 = await N.repoSetup({ repo: 'bob/toy', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } });
+  assert.equal(auth, 'Bearer ghp_x');
   assert.deepEqual(r1.steps, ['repository created: https://github.com/bob/toy', 'ruleset tranche created', 'ruleset main created']);
-  assert.deepEqual(r1.rulesets, ['tranche active', 'main active']);
+  assert.deepEqual([r1.ok, r1.rulesets, r1.token, r1.dispatch], [true, ['tranche active', 'main active'], 'the process\'s own (NEOPROCESS_GITHUB_TOKEN)', undefined]);
   assert.deepEqual(made.rulesets.map((r) => [r.name, r.conditions.ref_name.include[0], r.rules.map((x) => x.type)]), [['tranche', 'refs/heads/tranche', ['deletion', 'non_fast_forward']], ['main', 'refs/heads/main', ['deletion', 'non_fast_forward', 'pull_request']]]);
   assert.equal(made.rulesets[1].rules[2].parameters.required_approving_review_count, 0);
-  const r2 = await N.repoSetup({ repo: 'bob/toy', fetch });   // again: nothing remade
-  assert.deepEqual(r2.steps, ['repository exists', 'ruleset tranche exists', 'ruleset main exists']);
+  // again, from a session (no token of its own: the proxy's): nothing remade, everything read back
+  const r2 = await N.repoSetup({ repo: 'bob/toy', fetch, env: {} });
+  assert.equal(auth, null);
+  assert.deepEqual([r2.steps, r2.ok, r2.token, r2.dispatch], [['repository exists', 'ruleset tranche exists', 'ruleset main exists'], true, 'the proxy\'s', undefined]);
   assert.equal(log.filter((l) => l.startsWith('POST')).length, 3);
-  // a refusal on the way is a refusal, named for the record
-  const refusing = async (url, init) => (init.method === 'POST' ? { status: 403, text: async () => 'Repository settings writes are not permitted through this proxy' } : fetch(url, init));
-  made.rulesets = []; made.repo = true;
-  await assert.rejects(N.repoSetup({ repo: 'bob/toy', fetch: refusing }), /POST rulesets tranche answered 403: Repository settings writes.*proc refused --act "rulesets\(process token\)"/);
+  // from a session the proxy refuses the writes (29 Oct #8: the creation bound to the session's repositories, the
+  // rulesets as settings writes): nothing is worked around; the workflow's dispatch and Bob's hand steps are printed
+  const proxy = async (url, init) => (init.method === 'POST' ? { status: 403, text: async () => JSON.stringify({ message: url.endsWith('/user/repos') ? 'This GitHub API path is not available: sessions are bound to their configured repositories.' : 'Repository settings writes are not permitted through this proxy' }) } : fetch(url, init));
+  made.rulesets = [];
+  const r3 = await N.repoSetup({ repo: 'bob/toy', fetch: proxy, env: {} });
+  assert.deepEqual([r3.ok, r3.steps, r3.rulesets], [false, ['repository exists'], []]);
+  assert.match(r3.refused.join(';'), /^POST rulesets tranche 403: Repository settings writes.*;POST rulesets main 403/);
+  assert.deepEqual(r3.bob, ['ruleset tranche (SETUP-STEPS steps 2–3)', 'ruleset main (SETUP-STEPS step 4)']);
+  assert.deepEqual([r3.dispatch.tool, r3.dispatch.workflow_id, r3.dispatch.ref, r3.dispatch.inputs], ['actions_run_trigger', N.REPO_SETUP_WORKFLOW, 'main', { repo: 'bob/toy', private: 'false' }]);
+  assert.ok(r3.dispatch.owner && r3.dispatch.repo, 'the process repository, read from its remote');
+  assert.match(r3.then, /NEOPROCESS_GITHUB_TOKEN.*add_repo.*SETUP-STEPS/);
+  made.repo = false;
+  const r4 = await N.repoSetup({ repo: 'bob/toy', fetch: proxy, env: {}, private: true });
+  assert.match(r4.refused.join(';'), /^POST \/user\/repos 403: This GitHub API path is not available/);
+  assert.deepEqual([r4.bob, r4.rulesets, r4.dispatch.inputs.private], [['the repository bob/toy (SETUP-STEPS step 1)', 'the two rulesets (SETUP-STEPS steps 2–4)'], undefined, 'true']);
+  // a repository this session may not read (not configured for it): no write is tried; the dispatch and the attach are named
+  const bound = async (url, init) => (/\/repos\/bob\/toy/.test(url) ? { status: 403, text: async () => JSON.stringify({ message: 'sessions are bound to their configured repositories' }) } : fetch(url, init));
+  const r5 = await N.repoSetup({ repo: 'bob/toy', fetch: bound, env: {} });
+  assert.match(r5.refused.join(';'), /^GET \/repos\/bob\/toy 403/); assert.match(r5.bob[0], /add_repo/); assert.equal(r5.ok, false);
+  // on the runner a refusal is a refusal, named for the record
+  await assert.rejects(N.repoSetup({ repo: 'bob/toy', fetch: proxy, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } }), /with the process's token: POST \/user\/repos 403/);
+  // the workflow that runs it on GitHub's runner is in the process repository: dispatchable, the secret by name, the command
+  const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', N.REPO_SETUP_WORKFLOW), 'utf8');
+  assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\.NEOPROCESS_GITHUB_TOKEN \}\}/); assert.match(wf, /node tools\/proc\.mjs repo setup --repo "\$REPO"/);
+  assert.doesNotMatch(wf, /run:[\s\S]*\$\{\{ inputs\./);   // inputs reach the script through env, never spliced into it
 });
 
 test('onboarding: a new project seeded from nothing, an existing one converted, and where each stands (ONBOARDING §2, §3)', () => {
