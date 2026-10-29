@@ -211,3 +211,37 @@ test('a BOB\'s or a lane\'s turn never ends waiting on Bob (Bob, 29 Oct): the wo
   for (const t of ['Tell me when you have done it and I will continue.', 'Reply "a" or "b".', 'Do you want me to go on?', 'I am waiting on your word.', 'Should I merge it?', 'Let me know which you prefer.']) assert.match(askingBobReason(t), /never ends a turn waiting on Bob/, t);
   for (const t of ['Done: R1 now refuses an empty list; the job has the CHANGE. Next: the layer close.', 'Decided (DES 1): mean([]) refuses; reported.', 'A4 is routed to Bob (users: …; canon silent: …); the queue goes on.', '']) assert.equal(askingBobReason(t), null, t);
 });
+
+test('the neoProcess lane has its own start and pushes only its branch (neoProcess #7, 29 Oct: no start command fitted the lane that maintains the hooks)', () => {
+  const ctx = { role: 'process', branch: 'claude/lane-x', session: L1, root: '/nowhere', product: '.' };
+  const pre = (input) => preReason('process', input, ctx);
+  // before a role: the start command passes the hook
+  assert.equal(preReason(null, bash('node tools/proc.mjs process start --branch claude/lane-x --session s'), {}), null);
+  // its own branch only; never main, a state branch, another branch or a force
+  assert.equal(pre(bash('git push -u origin claude/lane-x')), null);
+  assert.match(pre(bash('git push origin HEAD:main')), /nothing is pushed to main/);
+  assert.match(pre(bash('git push origin HEAD:tranche')), /neoProcess lane pushes only claude\/lane-x/);
+  assert.match(pre(bash('git push --force origin claude/lane-x')), /force push/);
+  assert.match(preReason('process', bash('git push origin x'), { ...ctx, branch: undefined }), /the branch its start recorded/);
+  // it starts no session and arms no timer; it opens and merges its own pull request, never reviews one
+  assert.match(pre(tool(`${REMOTE}create_session`, { title: 'X #1' })), /starts no session/);
+  assert.match(pre(tool(`${REMOTE}send_later`, {})), /arms no timer/);
+  assert.equal(pre(tool(`${GH}create_pull_request`, {})), null);
+  assert.equal(pre(tool(`${GH}merge_pull_request`, {})), null);
+  assert.match(pre(tool(`${GH}pull_request_review_write`, {})), /never opens, reviews or merges/);
+  // the act table's pre-approval reads its branch
+  assert.match(allowReason('process', bash('git push -u origin claude/lane-x'), ctx), /neoProcess lane/);
+  assert.equal(allowReason('process', bash('git push origin tranche'), ctx), null);
+  // no product gate to read; past half its window the turn ends only with its handoff marked
+  assert.equal(stopReason('process', ctx), null);
+  assert.match(contextReason('process', 600_000, ctx, 1_000_000), /proc process handoff/);
+  assert.equal(contextReason('process', 400_000, ctx, 1_000_000), null);
+  // the start refuses outside the process repository and on main; its reading set is the lane's
+  const w = world();
+  assert.throws(() => N.processStart({ product: w.bob.dir, branch: 'claude/lane-x', session: L1 }), /works in the process repository/);
+  assert.throws(() => N.processStart({ product: N.PROCESS, branch: 'main', session: L1 }), /never main/);
+  assert.throws(() => N.processStart({ product: N.PROCESS, session: L1 }), /--branch/);
+  const r = N.reading({ role: 'process' });
+  assert.deepEqual(r.files.map((x) => x.book).filter(Boolean), ['design', 'governance', 'sessions']);
+  assert.match(r.next, /proc process start --branch/);
+});

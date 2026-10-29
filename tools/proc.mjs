@@ -33,10 +33,11 @@
 //   review result --module <m> --result-file <f>      merge --module <m> --head <sha> --gate <conclusion>      merged --module <m> --sha <commit>
 //   job reopen --module <m> --change-file <f>      job retire --module <m>      job archived --module <m> --session <id> --usage <json>
 //   defect --module <m> --what "<…>"      bob archived --name "BOB #n" --session <id> --usage <json> [--tranche <T>]
-//   reading --role <bob|job|lane|root>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
+//   reading --role <bob|job|lane|root|process>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
 //   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
 //   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (tools/lib.mjs, P20)
 //   repo setup --repo <owner/name> [--private] [--dry-run]      (PERMISSIONS §9: the repository and its two rulesets)
+//   process start --branch <b> --session <id>      process handoff      (the neoProcess lane, in the process repository itself)
 //   refused --act "<act or act-table id>" --kind hook|classifier|scope|platform --reason "<…>" [--by "<ROLE #k>"]      refused routed --id R-<role>-<n> --route "<…>"
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
@@ -457,6 +458,38 @@ export function laneStart(o) {
   writeRole(R, { role: 'lane', product: R.rel('.'), session: o.session, name: l.name, lane: o.id, epoch: e });
   const row = lanes(R).find((x) => x.id === o.id);
   return { charter: R.read(row.charter), canon: row.canon, asks: asks(R, e).filter((a) => a.lane === o.id && a.status === 'ASKED').map((a) => ({ id: a.id, question: a.Asked.body })), check: selfcheck(R, TRANCHE) };
+}
+// The neoProcess lane's first command (SESSIONS §1a): the session that maintains the process repository itself, which has
+// no state branch, no BOB and no tranche, so no other start command can record its role (neoProcess #7, 29 Oct: the
+// hooks refused every act of the lane that maintains them). The role is recorded on the lane's branch, never main; the
+// command checks that branch out itself, since the hook refuses a checkout before a role is recorded. It prints the
+// lane's handoff, whose reading section names the rest of the set.
+export const PROCESS_LANE = 'lane-neoprocess';
+export function processStart(o) {
+  if (!SESSION.test(o.session || '') || !o.branch) refuse('--branch <the lane\'s branch> --session <id>');
+  const R = repo(o.product);
+  if (resolve(R.root) !== resolve(PROCESS)) refuse(`the neoProcess lane works in the process repository (${PROCESS}), not ${R.root}`);
+  if (o.branch === 'main' || o.branch.startsWith('state/')) refuse(`the lane works on its own branch, never ${o.branch}: main takes its work only by a pull request`);
+  if (R.branch() !== o.branch) {
+    if (R.g(['status', '--porcelain', '--untracked-files=no'])) refuse(`uncommitted changes on ${R.branch()}: commit or drop them before the lane checks out ${o.branch}`);
+    R.fetch(o.branch);
+    let tip = null; try { tip = R.g(['rev-parse', `origin/${o.branch}`]); } catch { /* a new branch, made at HEAD */ }
+    R.g(tip ? ['checkout', '-q', '-B', o.branch, '--track', `origin/${o.branch}`] : ['checkout', '-q', '-b', o.branch]);
+  }
+  writeRole(R, { role: 'process', product: '.', session: o.session, name: 'NEOPROCESS', branch: o.branch });
+  const h = R.read(`${PROCESS_LANE}/HANDOFF.md`);
+  return { role: 'process', branch: o.branch, text: `${h ?? `(${PROCESS_LANE}/HANDOFF.md not found)`}\nNext: put your session id (${o.session}) in the handoff's From line and push to ${o.branch}; read whole what its reading section names (P20); continue from "What remains".\n` };
+}
+// The neoProcess lane's refresh past half its window (rulebook SES 5): the handoff, naming the outgoing session in its
+// From line, committed and pushed, then marked for the Stop hook, which then lets the turn end.
+export function processHandoff(o) {
+  const R = repo(o.product), me = readRole(R.root);
+  if (me?.role !== 'process') refuse('only the neoProcess lane, recorded by `proc process start`, hands off this way');
+  const u = unpushed(R); if (u.length) refuse(`not at a clean point: ${u.join('; ')}`);
+  const h = R.read(`${PROCESS_LANE}/HANDOFF.md`) || '';
+  if (!h.includes(me.session)) refuse(`${PROCESS_LANE}/HANDOFF.md does not name you (${me.session}) as the session it is from`);
+  writeFileSync(join(R.root, '.git', 'proc-handoff.json'), JSON.stringify({ session: me.session, at: now() }));
+  return { handoff: `${PROCESS_LANE}/HANDOFF.md`, at: R.g(['rev-parse', '--short', 'HEAD']), next: 'end the turn; Bob starts the successor from the START file the handoff names' };
 }
 // Bob's suggestion, or BOB's own: the charter rewritten in place, with a decision line saying why.
 export function laneCharter(o) {
@@ -1103,15 +1136,15 @@ export function bobArchived(o) {
 
 // ---- the reading sets and their budgets (SESSIONS §3, §6), the gate (JOB-LIFE §4), the shims (PRODUCT-SUPPLIES) ----
 
-export const PROCESS_TEXT = { root: 26 * 1024, bob: 55 * 1024, job: 26 * 1024, lane: 26 * 1024 };
-const ROLE_BOOKS = { root: ['governance', 'sessions', 'usage'], bob: null, job: ['building', 'integration', 'sessions'], lane: ['design', 'governance', 'sessions'] };
-const START_CMD = { bob: 'proc takeover --name "BOB #<n>" --session <your session id>', job: 'proc job start --module <m> --session <your session id>', lane: 'proc lane start --id <ID> --session <your session id>', root: 'proc status' };
+export const PROCESS_TEXT = { root: 26 * 1024, bob: 55 * 1024, job: 26 * 1024, lane: 26 * 1024, process: 26 * 1024 };
+const ROLE_BOOKS = { root: ['governance', 'sessions', 'usage'], bob: null, job: ['building', 'integration', 'sessions'], lane: ['design', 'governance', 'sessions'], process: ['design', 'governance', 'sessions'] };
+const START_CMD = { bob: 'proc takeover --name "BOB #<n>" --session <your session id>', job: 'proc job start --module <m> --session <your session id>', lane: 'proc lane start --id <ID> --session <your session id>', root: 'proc status', process: 'proc process start --branch <the lane\'s branch> --session <your session id>' };
 // The rulebooks' home is `rulebooks/`; until the ten are written there, the lane's drafts stand in.
 export function rulebooksDir() { for (const d of ['rulebooks', 'lane-neoprocess/rulebooks']) if (existsSync(join(PROCESS, d))) return join(PROCESS, d); return null; }
 const allBooks = (dir) => (dir ? readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)).sort() : []);
 // A role's process text, whole, with its size against its budget; printed by the one skill, then the start command.
 export function reading(o) {
-  const role = String(o.role || '').trim().toLowerCase(); if (!(role in ROLE_BOOKS)) refuse('--role bob | job | lane | root');
+  const role = String(o.role || '').trim().toLowerCase(); if (!(role in ROLE_BOOKS)) refuse('--role bob | job | lane | root | process');
   const dir = rulebooksDir(), books = ROLE_BOOKS[role] ?? allBooks(dir);
   const files = [{ path: join(PROCESS, 'PROCESS-DESIGN.md') }, ...books.map((b) => ({ path: join(dir || PROCESS, `${b}.md`), book: b }))];
   for (const f of files) { f.text = existsSync(f.path) ? readFileSync(f.path, 'utf8') : null; f.bytes = f.text ? Buffer.byteLength(f.text) : 0; }
@@ -1490,13 +1523,13 @@ export const COMMANDS = {
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
-  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup,
+  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'process start': processStart, 'process handoff': processHandoff,
 };
 async function main() {
   const o = args(process.argv.slice(2));
   const name = [o._.slice(0, 2).join(' '), o._[0]].find((n) => COMMANDS[n]) ?? refuse(`unknown command: ${o._.join(' ')}`);
   const r = await COMMANDS[name](o);
-  console.log(typeof r === 'string' ? r : name === 'reading' ? r.text : JSON.stringify(r, null, 2));
+  console.log(typeof r === 'string' ? r : name === 'reading' || name === 'process start' ? r.text : JSON.stringify(r, null, 2));
   if (r && r.ok === false) process.exit(1);
 }
 if (import.meta.url === `file://${process.argv[1]}`) {
