@@ -895,7 +895,9 @@ export function reviewResult(o) {
   if (verdict === 'gaps' && !gaps.length) refuse('VERDICT · gaps with no `- R<id> · …` line');
   const review = j.review.replace(/ · working since .*$/, ` · ${verdict === 'approve' ? 'approved' : `gaps: ${gaps.length}`} · ${today()}`);
   const commit = stateWrite(R, { [jobPath(m)]: fmtJob(m, { ...j, review }), [`jobs/${m}/review.md`]: text }, `${m}: review ${verdict}`);
-  const out = { commit, verdict, post: { tool: 'pull_request_review_write', ...ghRepo(R), pullNumber: j.pr, method: 'create', event: verdict === 'approve' ? 'APPROVE' : 'REQUEST_CHANGES', body: text } };
+  // Posted as a COMMENT review carrying the verdict: GitHub refuses REQUEST_CHANGES and APPROVE on one's own pull request,
+  // and every session is Bob's one user (BOB #1's R-BOB-1-3, 29 Oct); the approval the merge reads is the Review line.
+  const out = { commit, verdict, post: { tool: 'pull_request_review_write', ...ghRepo(R), pullNumber: j.pr, method: 'create', event: 'COMMENT', body: `${verdict === 'approve' ? 'APPROVED by the review' : 'CHANGES REQUESTED by the review'} (${review.split(' · ')[1]})\n\n${text}` } };
   if (verdict === 'gaps') out.send = { session_id: j.session, message: `CHANGE: the review found ${gaps.length} gap(s) against your requirements; fix each, then complete again:\n${gaps.join('\n')}` };
   return out;
 }

@@ -21,7 +21,7 @@ Every act the process takes, per role: the route the tool uses, the relation it 
 | `create_pull_request(draft job PR)` | BOB | the call `neo layer start` or `job reopen` printed | the GitHub app's scope on the product repository; the head one commit past the base (GitHub refuses an empty PR: measured 29 Oct #5 by BOB #1, R-BOB-1-1, fixed by the opening commit) | N1 |
 | `add_issue_comment(own PR report)` | job | the call `neo job complete` printed | its own PR, while the comment is owed | N1 |
 | `update_pull_request(own PR ready)` | job, BOB | the call `neo job complete` or `neo merged` printed | its own PR, while the act is owed | N1 |
-| `pull_request_review_write` | BOB | the call `neo review result` printed | none measured | N1 |
+| `pull_request_review_write(COMMENT)` | BOB | the call `neo review result` printed | a COMMENT review only: REQUEST_CHANGES and APPROVE are refused on one's own pull request, and every session is Bob's one user (BOB #1's R-BOB-1-3, 29 Oct) | 2026-10-29 #5 (refused as REQUEST_CHANGES; COMMENT is N1) |
 | `update_pull_request_branch(job PR behind tranche)` | BOB | `neo merge` | none measured; GitHub merges the tranche into the job's branch | — (N1) |
 | `merge_pull_request(job PR)` | BOB | the call `neo merge` printed (the gate green on the tip, the tip holding the tranche) | the hook allows it while the job's Merge line reads `merging` | — (N1) |
 | `git push(tranche, direct)` | BOB, lane | `commitPush` | no required check and no pull-request rule on `tranche`: either refuses every direct push, the branch's creation included (measured 29 Oct #5 on the toy: "Required status check gate is expected") | 2026-10-29 #5 |

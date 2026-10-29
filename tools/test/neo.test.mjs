@@ -409,7 +409,8 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   assert.throws(() => N.merge(o({ module: 'beta' })), /not approved/);
   assert.throws(() => N.reviewResult(o({ module: 'beta', resultFile: f(w.base, 'rr0.md', 'VERDICT · gaps\n- R1 · beta/src/index.mjs:5 · x · y\n') })), /DONE line/);
   const rr = N.reviewResult(o({ module: 'beta', resultFile: f(w.base, 'rr1.md', 'VERDICT · gaps\n- R1 · beta/src/index.mjs:1 · the comment names N2, not the requirement · read it\nDONE review-beta · verdict\n') }));
-  assert.deepEqual([rr.post.event, rr.post.pullNumber, rr.send.session_id], ['REQUEST_CHANGES', 12, J2]);
+  assert.deepEqual([rr.post.event, rr.post.pullNumber, rr.send.session_id], ['COMMENT', 12, J2]);   // one's own PR takes neither REQUEST_CHANGES nor APPROVE
+  assert.match(rr.post.body, /^CHANGES REQUESTED by the review \(the first user of alpha\)\n\nVERDICT · gaps/);
   assert.match(rr.send.message, /^CHANGE: the review found 1 gap/);
   assert.deepEqual(N.status(o()).queue, []);
   N.jobState(bo({ set: 'WORKING' }));
