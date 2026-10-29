@@ -15,7 +15,7 @@ What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-
 
 ## What remains, in order
 
-1. **Once Bob has set the secret**: dispatch again; attach `believeinoakland/neoprocess-x9` (`add_repo`); `proc repo setup` reads the rulesets back; acts.md rows X9; then ONBOARDING's new path on it (then `proc process start` again), DRYRUN §6's owed row.
+1. **Once Bob has set the secret** (#9 dispatched again at 18:34Z: run 40932142495 stopped at the missing secret in 12 s, so it was not set then; the run list shows when it is): dispatch again; attach `believeinoakland/neoprocess-x9` (`add_repo`); `proc repo setup` reads the rulesets back; acts.md rows X9; then ONBOARDING's new path on it (then `proc process start` again), DRYRUN §6's owed row.
 2. **The rest of Bob's sitting** (PERMISSIONS §10): https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (steps 1, 2, 4 done; 3 open: the secret; 5–7 his). The product's grant list is written by the onboarding session into the product. X10 PROVEN (#8: the hosting token reads its own scope; PERMISSIONS §9).
 3. **Owed to certification** (DRYRUN §6): a handover to an open epoch, the `tranche open` refusal live (the product's first run); the runner's run (once the secret is set).
 4. **The product**, by ONBOARDING's convert path, in the onboarding session Bob starts (step 7 of the page).
