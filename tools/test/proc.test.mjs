@@ -681,7 +681,7 @@ test('repo setup makes a development repository and its two rulesets, idempotent
   const r1 = await N.repoSetup({ repo: 'bob/toy', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } });
   assert.equal(auth, 'Bearer ghp_x');
   assert.deepEqual(r1.steps, ['repository created: https://github.com/bob/toy', 'ruleset tranche created', 'ruleset main created']);
-  assert.deepEqual([r1.ok, r1.rulesets, r1.token, r1.dispatch], [true, ['tranche active', 'main active'], 'the process\'s own (NEOPROCESS_GITHUB_TOKEN)', undefined]);
+  assert.deepEqual([r1.ok, r1.rulesets, r1.token, r1.dispatch], [true, ['tranche active', 'main active'], 'the repository owner\'s (NEOPROCESS_GITHUB_TOKEN)', undefined]);
   assert.deepEqual(made.rulesets.map((r) => [r.name, r.conditions.ref_name.include[0], r.rules.map((x) => x.type)]), [['tranche', 'refs/heads/tranche', ['deletion', 'non_fast_forward']], ['main', 'refs/heads/main', ['deletion', 'non_fast_forward', 'pull_request']]]);
   assert.equal(made.rulesets[1].rules[2].parameters.required_approving_review_count, 0);
   // again, from a session (no token of its own: the proxy's): nothing remade, everything read back
