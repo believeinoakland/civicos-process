@@ -142,6 +142,7 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   const aa = N.askAsk(o({ ask: 'A1', questionFile: f(w.base, 'q1.md', 'Does the arithmetic area define sum([]) as 0 or as a refusal? Alpha needs it for R3.\n') }));
   assert.equal(aa.start.title, 'ARITH #1');
   assert.equal(aa.send.session_id, '<the new session>');
+  assert.ok(N.status(o()).owed.includes('start lane ARITH'), 'the dormant lane\'s start is owed, so the hook passes the printed create_session (R-BOB-1-5)');
   assert.throws(() => N.askAsk(o({ ask: 'A1', questionFile: brief })), /already asked/);
   st = N.status(o());
   assert.equal(st.working.length, 0);

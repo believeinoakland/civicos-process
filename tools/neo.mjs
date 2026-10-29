@@ -317,6 +317,7 @@ export function askAsk(o) {
   const l = parseLane(stateRead(R, `lanes/${a.lane}.md`) || '');
   const message = `QUESTION ${a.id} from ${parsePlan(stateRead(R, 'plan.md') || '').bob?.name ?? 'BOB'}:\n${q}`;
   if (l.session) return { ask: a.id, commit, send: { session_id: l.session, message } };
+  planEdit(R, (p) => owe(p, [`start lane ${a.lane}`]), `owed: start lane ${a.lane} (asked ${a.id})`);   // the hook passes the printed call only while the start is owed (R-BOB-1-5)
   return { ask: a.id, commit, start: laneSession(R, a.lane), then: `neo lane started --id ${a.lane} --name "<the title>" --session <id>, then send`, send: { session_id: '<the new session>', message } };
 }
 // The lane's decision (or Bob's, with --bob) recorded verbatim.
