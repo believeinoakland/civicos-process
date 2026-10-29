@@ -1,4 +1,4 @@
-# Bob's setup act (done 29 Oct 2026; read back from GitHub's API by #5)
+# Bob's setup act (done 29 Oct 2026 for the toy; read back from GitHub's API by #5). From the next repository on, the tool's act with the process's own token (PERMISSIONS §9, `proc repo setup`), once that token is set and measured (row X9); the steps below are the fallback.
 
 **What exists.** `believeinoakland/neoprocess-dryrun`, public, owned by Bob's personal account (GitHub's API: owner type `User`; so no merge queue, which GitHub offers only on a repository owned by an organization, and no bypass actors). Two rulesets, both Active: `tranche` (target `tranche`: restrict deletions, block force pushes, and the required check `gate`, which must go, below) and `main` (target `main`: restrict deletions, block force pushes, a pull request required with zero approvals). `civicos-process` is public (its visibility read 29 Oct). **Allow auto-merge** is off and stays off: the process does not use it (JOB-LIFE §12). The Claude GitHub app reaches the toy (this session attached it).
 

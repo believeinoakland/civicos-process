@@ -36,6 +36,7 @@
 //   reading --role <bob|job|lane|root>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
 //   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
 //   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (tools/lib.mjs, P20)
+//   repo setup --repo <owner/name> [--private] [--dry-run]      (PERMISSIONS §9: the repository and its two rulesets)
 //   refused --act "<act or act-table id>" --kind hook|classifier|scope|platform --reason "<…>" [--by "<ROLE #k>"]      refused routed --id R-<role>-<n> --route "<…>"
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
@@ -1432,6 +1433,42 @@ export function ruling(o) {
   return { ruling: `K${k}`, commit: commitPush(R, TRANCHE, [log, ...files], `K${k}: ${one(o.text).slice(0, 60)}`) };
 }
 
+// PERMISSIONS §9: a development repository and its two rulesets (SETUP-STEPS) made by the tool with the process's own
+// GitHub token, once Bob has set the token on the environment and allowed this command by a permission rule, his act.
+// Idempotent: what exists is kept; the rulesets are read back as the proof. `o.fetch` is the fixture's; `--dry-run`
+// prints the calls and sends nothing.
+export const RULESETS = [
+  { name: 'tranche', target: 'branch', enforcement: 'active', conditions: { ref_name: { include: [`refs/heads/${TRANCHE}`], exclude: [] } }, rules: [{ type: 'deletion' }, { type: 'non_fast_forward' }] },
+  { name: 'main', target: 'branch', enforcement: 'active', conditions: { ref_name: { include: ['refs/heads/main'], exclude: [] } }, rules: [{ type: 'deletion' }, { type: 'non_fast_forward' }, { type: 'pull_request', parameters: { required_approving_review_count: 0, dismiss_stale_reviews_on_push: false, require_code_owner_review: false, require_last_push_approval: false, required_review_thread_resolution: false } }] },
+];
+export async function repoSetup(o) {
+  const m = String(o.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/); if (!m) refuse('--repo <owner/name> [--private] [--dry-run]');
+  const [, owner, name] = m, api = 'https://api.github.com', f = o.fetch || globalThis.fetch;
+  const call = async (method, path, body) => {
+    const r = await f(`${api}${path}`, { method, headers: { Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const text = await r.text(); let json = null; try { json = JSON.parse(text); } catch { /* not json */ }
+    return { status: r.status, json, text };
+  };
+  const calls = [['POST', '/user/repos', { name, description: 'built by neoProcess (PRODUCT-SUPPLIES.md)', private: !!o.private, auto_init: true }], ...RULESETS.map((r) => ['POST', `/repos/${owner}/${name}/rulesets`, r])];
+  if (o.dryRun) return { repo: `${owner}/${name}`, calls };
+  const out = { repo: `${owner}/${name}`, steps: [] };
+  const me = await call('GET', '/user'); if (me.status !== 200) refuse(`GET /user answered ${me.status}: no GitHub token reaches api.github.com (PERMISSIONS §9)`);
+  if (me.json?.login !== owner) refuse(`the token is ${me.json?.login}'s, and --repo names ${owner}: a repository is made on the token's own account`);
+  const exists = await call('GET', `/repos/${owner}/${name}`);
+  if (exists.status === 200) out.steps.push('repository exists');
+  else { const c = await call(...calls[0]); if (c.status !== 201) refuse(`POST /user/repos answered ${c.status}: ${c.text.slice(0, 200)} (a refusal: record it with proc refused --act "create_repository(process token)")`); out.steps.push(`repository created: ${c.json?.html_url}`); }
+  const have = await call('GET', `/repos/${owner}/${name}/rulesets`), names = new Set(Array.isArray(have.json) ? have.json.map((x) => x.name) : []);
+  for (const [i, r] of RULESETS.entries()) {
+    if (names.has(r.name)) { out.steps.push(`ruleset ${r.name} exists`); continue; }
+    const c = await call(...calls[i + 1]); if (c.status !== 201) refuse(`POST rulesets ${r.name} answered ${c.status}: ${c.text.slice(0, 200)} (a refusal: record it with proc refused --act "rulesets(process token)")`);
+    out.steps.push(`ruleset ${r.name} created`);
+  }
+  const back = await call('GET', `/repos/${owner}/${name}/rulesets`);
+  out.rulesets = (Array.isArray(back.json) ? back.json : []).map((x) => `${x.name} ${x.enforcement}`);
+  for (const r of RULESETS) if (!out.rulesets.includes(`${r.name} active`)) refuse(`ruleset ${r.name} not read back active: ${out.rulesets.join(', ') || 'none'}`);
+  return out;
+}
+
 // ---- command line ----
 
 export function args(argv) {
@@ -1453,15 +1490,15 @@ export const COMMANDS = {
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
-  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted,
+  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup,
 };
-function main() {
+async function main() {
   const o = args(process.argv.slice(2));
   const name = [o._.slice(0, 2).join(' '), o._[0]].find((n) => COMMANDS[n]) ?? refuse(`unknown command: ${o._.join(' ')}`);
-  const r = COMMANDS[name](o);
+  const r = await COMMANDS[name](o);
   console.log(typeof r === 'string' ? r : name === 'reading' ? r.text : JSON.stringify(r, null, 2));
   if (r && r.ok === false) process.exit(1);
 }
 if (import.meta.url === `file://${process.argv[1]}`) {
-  try { main(); } catch (e) { if (e instanceof Refused) { console.error(`REFUSED: ${e.message}`); process.exit(1); } throw e; }
+  main().catch((e) => { if (e instanceof Refused) { console.error(`REFUSED: ${e.message}`); process.exit(1); } throw e; });
 }

@@ -654,3 +654,34 @@ test('a tranche opened from main, a round opened and closed, the tranche closed 
   assert.equal(existsSync(join(w.bob.dir, 'build/metrics/T3.csv')), false);
   assert.throws(() => N.bobArchived(o({ ...lastBob, tranche: 'T2' })), /already has its row/);
 });
+
+test('repo setup makes a development repository and its two rulesets, idempotently, and reads them back (PERMISSIONS §9)', async () => {
+  const log = [], made = { repo: false, rulesets: [] };
+  const fetch = async (url, init) => {
+    const path = url.replace('https://api.github.com', ''), method = init.method; log.push(`${method} ${path}`);
+    const reply = (status, body) => ({ status, text: async () => JSON.stringify(body) });
+    if (path === '/user') return reply(200, { login: 'bob' });
+    if (method === 'GET' && path === '/repos/bob/toy') return made.repo ? reply(200, { name: 'toy' }) : reply(404, { message: 'Not Found' });
+    if (method === 'POST' && path === '/user/repos') { made.repo = true; return reply(201, { html_url: 'https://github.com/bob/toy' }); }
+    if (method === 'GET' && path === '/repos/bob/toy/rulesets') return reply(200, made.rulesets.map((r) => ({ name: r.name, enforcement: r.enforcement })));
+    if (method === 'POST' && path === '/repos/bob/toy/rulesets') { made.rulesets.push(JSON.parse(init.body)); return reply(201, {}); }
+    return reply(500, { message: `unexpected ${method} ${path}` });
+  };
+  await assert.rejects(N.repoSetup({ repo: 'nope' }), /--repo <owner\/name>/);
+  const dry = await N.repoSetup({ repo: 'bob/toy', dryRun: true });
+  assert.deepEqual(dry.calls.map((c) => `${c[0]} ${c[1]}`), ['POST /user/repos', 'POST /repos/bob/toy/rulesets', 'POST /repos/bob/toy/rulesets']);
+  assert.deepEqual(dry.calls[0][2], { name: 'toy', description: 'built by neoProcess (PRODUCT-SUPPLIES.md)', private: false, auto_init: true });
+  await assert.rejects(N.repoSetup({ repo: 'alice/toy', fetch }), /the token is bob's/);
+  const r1 = await N.repoSetup({ repo: 'bob/toy', fetch });
+  assert.deepEqual(r1.steps, ['repository created: https://github.com/bob/toy', 'ruleset tranche created', 'ruleset main created']);
+  assert.deepEqual(r1.rulesets, ['tranche active', 'main active']);
+  assert.deepEqual(made.rulesets.map((r) => [r.name, r.conditions.ref_name.include[0], r.rules.map((x) => x.type)]), [['tranche', 'refs/heads/tranche', ['deletion', 'non_fast_forward']], ['main', 'refs/heads/main', ['deletion', 'non_fast_forward', 'pull_request']]]);
+  assert.equal(made.rulesets[1].rules[2].parameters.required_approving_review_count, 0);
+  const r2 = await N.repoSetup({ repo: 'bob/toy', fetch });   // again: nothing remade
+  assert.deepEqual(r2.steps, ['repository exists', 'ruleset tranche exists', 'ruleset main exists']);
+  assert.equal(log.filter((l) => l.startsWith('POST')).length, 3);
+  // a refusal on the way is a refusal, named for the record
+  const refusing = async (url, init) => (init.method === 'POST' ? { status: 403, text: async () => 'Repository settings writes are not permitted through this proxy' } : fetch(url, init));
+  made.rulesets = []; made.repo = true;
+  await assert.rejects(N.repoSetup({ repo: 'bob/toy', fetch: refusing }), /POST rulesets tranche answered 403: Repository settings writes.*proc refused --act "rulesets\(process token\)"/);
+});
