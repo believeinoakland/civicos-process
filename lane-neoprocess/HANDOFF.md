@@ -1,24 +1,28 @@
 # neoProcess lane: handoff
 
-**From** · neoProcess #7 (`session_01RAN5ektuonFFCrRnX4VvFj`), the lane's address (DRYRUN §4.22). Before it: #6 (`session_01RAN5emD7S5EJrZnC5QgPJC`), 2026-10-29 16:15Z, at 47 % of its window (a lane refreshes at half, SES 5); usage at 15:52Z 47,384,441 / 1,919,019 / 3,283 / 395,789 (cache-read / cache-write / input / output; final figures in its archive, Bob's). #5 (`session_01RAN5emC6AY4niGLmqFz54m`): 59 %, 99,506,947 / 1,492,301 / 59,012 / 240,316. #4 (`session_018BhcefACF9wymZAZpDS2Pz`): 47 %, 31,261,550 / 560,848 / 151,378 / 130,284. #3 (`session_018BhcedCh1TpUJaGQh5up8c`): 49 %, 49,144,573 / 1,464,445 / 45,593 / 335,704. #2 (`session_018BhceegtREhWFPW6rnCrDC`): 50 %, 13,854,613 / 497,976 / 14,873 / 113,987. #7 is started by Bob from `START-7.md`; it puts its own session id here. All pushed on `claude/modest-brahmagupta-vvaann`; `main` holds the commit point (PR #36, `ffc8302`); the branch is ahead of `main` by the steps after it (merged by the next PR).
+**From** · neoProcess #7 (`session_01RAN5ektuonFFCrRnX4VvFj`), the lane's address, 29 Oct. Before it #6 `session_01RAN5emD7S5EJrZnC5QgPJC` (#2–#6's usage: their archives, Bob's). Branch `claude/modest-brahmagupta-vvaann`, restarted from `main` after PR #37 merged.
 
-**Standing** · Bob, 29 Oct: keep working until there is no way to; nothing stops for him (P19, GOV 2, code); a detail is never his (DES 1); plain words; his approval of all development and testing acts is PERMISSIONS §6; the process holds development tokens of its own (PERMISSIONS §9). Write commit messages and comments in plain words about what the code does: the auto-mode classifier reads a command's text, and twice refused #6's commands whose text discussed the classifier itself.
+**Standing** · Bob, 29 Oct: keep working until there is no way to; nothing stops for him; a detail is never his (DES 1); plain words; PERMISSIONS §6 is his approval of all development and testing acts; every grant gathered before the work at one sitting (PERMISSIONS §10); the process names no product: no product's names, accounts or hosts in this repository. Commit messages in plain words about what the code does: the classifier reads a command's text. Start: `/neoprocess process`, then `proc process start --branch <this branch> --session <id>`.
 
-## Read whole, and nothing else at start
+## Read whole at start
 
-`CLAUDE.md`, `PROCESS-DESIGN.md`, `rulebooks/*.md`, `PROTOCOL.md`, `JOB-LIFE.md`, `SESSIONS.md`, `DESIGN-STAGE.md`, `PERMISSIONS.md`, `PRODUCT-SUPPLIES.md`, `SETUP-STEPS.md`, `PROCESS-MECHANICS.md`; this folder's `README.md`, `DRYRUN.md`, `COMMIT-POINT.md`; `tools/proc.mjs`, `tools/hooks.mjs`, `tools/acts.md`, `tools/test/proc.test.mjs`, `tools/test/hooks.test.mjs`. Not `tools/lib.mjs` or `tools/mail.mjs`, not the pages' HTML, not HISTORY.md, not a transcript.
+What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-SUPPLIES.md`, `SESSIONS.md`, `lane-neoprocess/DRYRUN.md` §4; `tools/proc.mjs`, `tools/hooks.mjs`, `tools/acts.md`, `tools/test/proc.test.mjs`, `tools/test/hooks.test.mjs`. Not HISTORY.md, not a transcript.
 
-## Where things stand
+## What #7 did (suite 267 green, all pushed)
 
-**neoProcess is in force**: certified on the dry run N1 (`dryrun/N1/CERTIFICATION.md`, DRYRUN §5), the commit point taken and merged to `main` on 29 Oct (COMMIT-POINT §2 steps 1–7; HISTORY.md's entry). Twenty-one flaws fixed with tests; suite 263 green. The toy follows `main` (neoprocess-dryrun#12). The pages are at v26 under new links (README). `proc repo setup` is built and tested on a fixture, not yet measured live (X9). BOB #2 of the run (`session_01RAN5emQV3q3LnPm2Ft8oMN`) is idle, its archive Bob's.
+- **The lane's own start** (DRYRUN §4.22): role `process`, `proc process start`, `proc process handoff`.
+- **Grants** (PERMISSIONS §10): `GRANTS.md`; `proc grants check`; `tranche open` refuses without a pass in the last day; the tool's HTTP goes through the proxy (`NODE_USE_ENV_PROXY`; before, no credential reached it: measured).
+- **No product in the process**: the words check reads `build/words.json`; `proc shims` reads the process's name from its remote; the texts lost the product's names.
+- **Onboarding** (`ONBOARDING.md`): `proc init --mode new|convert`, `init --check`, role `onboard`, `proc onboard start`. Measured on the first product's local clone: `init --check` in 1 s; steps 1, 5–7 DONE; seed, grants, handover OPEN.
 
 ## What remains, in order
 
-1. **The process's tokens** (PERMISSIONS §9): when Bob has set the GitHub token as a network secret and allowed `proc repo setup` by rule, measure X9 on a throwaway repository and record the result in §9 and `acts.md`; X10, the Cloudflare token's scope, from Bob's reading or a grant of *User API Tokens: Read*.
-2. **Step 8, the product** (`bio`, to be `civicsmith`): its repository and rulesets by `proc repo setup` (or SETUP-STEPS as the fallback), `proc shims` on it by its first BOB from a ROOT Bob starts (SESSIONS §3a); `build/rulings-active.md` retires there (DESIGN-STAGE §3); its lanes opened as PRODUCT-SUPPLIES lists; the first real tranche, where X5–X8 and X11 are proven.
-3. **Merge this branch to `main`** by one PR when the steps above change the tool (the suite green).
-4. `dryrun/` as the suite's fixture is refreshed from the toy when the tests are next touched (COMMIT-POINT step 7).
+1. **Bob's sitting** (PERMISSIONS §10): one walkthrough of every grant only he gives, from GRANTS §1 and the product's grant list. A worker read that list from the product on 29 Oct; it is not committed here (the process may not hold it: Bob; classifier "Out-of-Place Publication") and is written into the product as `build/GRANTS.md`, `build/grants.json` at item 3, re-read by the same brief (workflows, deploy configs, `build/situations/`, the variables its code reads). Then X9, X10 (PERMISSIONS §9).
+2. **Certify #7's changes on a dry run** (P3): `grants check` and the `tranche open` refusal on the toy; onboarding both ways (a throwaway new project; the toy converted). The process role is proven by #7 itself.
+3. **The product**, by ONBOARDING's convert path: `init`, the grant list, the rulesets; the owner starts its ROOT.
+4. **Merge this branch to `main`** by one PR once 2 holds.
+5. `dryrun/` refreshed from the toy when the tests are next touched.
 
-## Acts only Bob can take (nothing waits on them)
+## Acts only Bob can take (all at the one sitting)
 
-A GitHub token for the process as a network secret on the environment, and the permission rule allowing `proc repo setup`, once (PERMISSIONS §9); the Claude app's access to a new repository; a ROOT on a new account at a move; the renames (`neoProcess`, `civicsmith`); archiving neoProcess #2–#6 and BOB #2 on his accounts; the toy's `seed-*`/`probe-*` branches; the proposed principles (the amended P17, P21–P23 on the page), when he chooses; the server-managed permission lists (PERMISSIONS §7), if he wants them.
+This repository's `.claude/settings.json` given the standing list (a session may not widen its own settings: refused as Self-Modification; his words in the session let it); the Claude GitHub app on all the account's repositories; the process's GitHub token and each service token as network secrets; the environment's hosts. When he chooses: the renames, the proposed principles, server-managed lists. Archiving old sessions is not needed.
