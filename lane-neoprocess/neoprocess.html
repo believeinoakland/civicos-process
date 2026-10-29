@@ -287,7 +287,7 @@ figcaption { font-size: 14px; color: var(--muted); }
   </table></div>
 
   <h3>The job's life, as a pull request</h3>
-  <p>Decided and written in the lane's record (<code>JOB-LIFE.md</code>). In plain words: each job is one pull request from its branch to the tranche branch, opened as a draft with the job's instructions as its body, so the pull request is the job's record: its report is a comment, its review is the review, its checks are the gate, and its merge carries the report into history. The gate is run by GitHub on every pull request and again by the merge queue on the merged result, with the tests of every module that uses the changed one, so no session runs it by hand and none can merge around it. Whether a fresh reviewer is worth its cost is BOB's call per merge, with the reasons that make it worth it listed and the decision written down; a reviewer is a fresh worker that never saw the job and reports only gaps against the requirements. Green and (where decided) approved, the pull request goes into the queue, which merges in order; the merge wakes BOB. A job is complete on the record when its pull request is merged and nothing more can reach it this round, and its session is retired then, with its usage read into the metrics. Layers and the tranche branch stay, because they are the dependency order and the rule that <code>main</code> does not move while a tranche runs. Four pieces of GitHub behaviour are to be measured before the dry run relies on them. <span class="chip who">BOB's · decided</span> <span class="pp">P7 P8 P10 P11 P12</span></p>
+  <p>Decided and written in the lane's record (<code>JOB-LIFE.md</code>). In plain words: each job is one pull request from its branch to the tranche branch, opened as a draft with the job's instructions as its body, so the pull request is the job's record: its report is a comment, its review is the review, its checks are the gate, and its merge carries the report into history. The gate is run by GitHub on every pull request and again by the merge queue on the merged result, with the tests of every module that uses the changed one, so no session runs it by hand and none can merge around it. Whether a fresh reviewer is worth its cost is BOB's call per merge, with the reasons that make it worth it listed and the decision written down; a reviewer is a fresh worker that never saw the job and reports only gaps against the requirements. Green and (where decided) approved, the pull request goes into the queue, which merges in order; the merge wakes BOB. A job is complete on the record when its pull request is merged and nothing more can reach it this round, and its session is retired then, with its usage read into the metrics. Layers and the tranche branch stay, because they are the dependency order and the rule that <code>main</code> does not move while a tranche runs. The branch names become fixed (<code>tranche</code>, <code>job/&lt;module&gt;</code>) rather than numbered, because GitHub's documentation says a merge queue cannot sit on a wildcard branch pattern; with fixed names the queue and the required checks are set up once, by you, and never again. Three pieces of GitHub behaviour are still to be measured before the dry run relies on them. <span class="chip who">BOB's · decided</span> <span class="pp">P7 P8 P10 P11 P12</span></p>
   <div class="tbl" style="margin-top:12px"><table>
     <thead><tr><th>Foundation</th><th>What it holds</th><th>Principles</th></tr></thead>
     <tbody>
@@ -329,18 +329,20 @@ figcaption { font-size: 14px; color: var(--muted); }
   </table></div>
 
   <h3>What one rulebook looks like</h3>
-  <p>A draft of the Integration area, to show the shape. Codification writes the real one, and every rule in it is either one you hold today or one marked proposed in §8.</p>
+  <p>A draft of the Integration area, to show the shape. Two rulebooks are now written in full as the trial of "ten rules on one screen": Sessions and Integration, in the lane's folder (<code>rulebooks/</code>). Each holds ten real rules, each naming its principle, whose it is and what code enforces it, in 2.7 and 2.9 KB; the limit of 4 KB holds with room, and no rule had to be made vague to fit. The Integration draft below is the trial's text as it now stands.</p>
   <div class="rulebook">
     <header><span class="id">INT</span><h3 style="margin:0">Integration · work counts only when it is merged and proven</h3></header>
     <ol>
       <li>Done means merged. A job is done when its work is merged into the round's tranche branch; a tranche is done when its branch is merged to <code>main</code> (P12).<span class="who">BOB'S · CODE</span></li>
-      <li>Each module's tests prove each of its requirements at its interface. A test that cannot fail does not count, and a check refuses it (P7, P11).<span class="who">YOURS · CODE</span></li>
-      <li>Every merge passes the gate first: ownership, the module's and its users' tests, the checks, the build. Code runs the gate; no session runs it by hand (P7, P16).<span class="who">BOB'S · CODE</span></li>
-      <li>Every merge is reviewed against the module's requirements by a fresh reviewer that never saw the job. It reports only correctness gaps; each is fixed, or answered with evidence, before the merge (P7, P20).<span class="who">BOB'S · PROPOSED</span></li>
-      <li>Green, reviewed work merges in module order, by code. No session merges by hand (P12).<span class="who">BOB'S · CODE</span></li>
-      <li>Work that fails the gate or the review goes back to its job, or to a fresh session for that module if the job has ended (P8).<span class="who">BOB'S · CODE</span></li>
-      <li>A layer closes when every one of its jobs is merged, and the next layer starts at once (P10, P19).<span class="who">BOB'S · CODE</span></li>
-      <li>A tranche closes by one pull request to <code>main</code>, after <code>main</code> is merged in. The full regression runs only at a release or when you ask (P11, P12).<span class="who">YOURS</span></li>
+      <li>Each requirement is proven by a test at the module's interface that checks full compliance; a test that cannot fail does not count, and a check refuses it (P7, P11).<span class="who">YOURS · CODE</span></li>
+      <li>The gate runs in CI on every pull request and again on the merged result: ownership, the module's tests and its users', the checks, the artifacts, the size limits. No session runs it by hand and none merges around it (P7, P16).<span class="who">BOB'S · CODE</span></li>
+      <li>Before a merge BOB decides whether a review is worth its cost, from the listed reasons, and writes the decision; a reviewer is a fresh worker that never saw the job and reports only gaps against the requirements (your direction; P20).<span class="who">BOB'S · CODE</span></li>
+      <li>A green and, where decided, approved pull request merges by the queue in arrival order; an order the plan names holds by keeping the later one a draft until the earlier has merged (P12).<span class="who">BOB'S · CODE</span></li>
+      <li>A red is never merged: the job fixes it, or BOB re-scopes the entry with the job. A red the tranche already had is inherited and named, not owned (P7).<span class="who">BOB'S · CODE</span></li>
+      <li>A layer closes when every one of its pull requests is merged and the checks pass once over the whole product; the next layer starts at once (P10, P19).<span class="who">BOB'S · CODE</span></li>
+      <li>A job is retired when its work is complete on the record: merged, and nothing more can reach it this round. Its usage is read into the metrics as it is retired (your definition; P14).<span class="who">YOURS · CODE</span></li>
+      <li>A tranche closes by one pull request to <code>main</code>, after <code>main</code> is merged in; <code>main</code> never moves while a tranche runs. The full regression runs only at a release or when you ask (P11, P12).<span class="who">YOURS · CODE</span></li>
+      <li>Every defect found in a merged module is a metrics row naming the module, the round and whether its merge was reviewed, so the review decision is tuned by evidence (P14).<span class="who">BOB'S · CODE</span></li>
     </ol>
   </div>
 </section>
@@ -459,11 +461,11 @@ figcaption { font-size: 14px; color: var(--muted); }
   <h3>Still to draft (BOB's)</h3>
   <ol class="steps">
     <li><s>The job's life as a pull request</s>: drafted 29 Oct (<code>JOB-LIFE.md</code>), with layers, the tranche branch and rounds kept; four GitHub behaviours to measure.</li>
-    <li>The ten rulebooks written in full, every ruling accounted for: kept, folded, coded, superseded or retired. The largest piece, mostly worker-sized.</li>
-    <li>The Sessions rules: the model-and-effort table, what each role reads, the standard brief for a worker.</li>
+    <li>The ten rulebooks written in full, every ruling accounted for: kept, folded, coded, superseded or retired. The largest piece, mostly worker-sized; it needs the product repository's ruling log. <em>Two of ten written as the trial, 29 Oct: Sessions and Integration, 2.7 and 2.9 KB, ten real rules each.</em></li>
+    <li><s>The Sessions rules</s>: drafted 29 Oct (<code>SESSIONS.md</code>): the model-and-effort table, the reading set per role with its budget (about 55 KB always-read for BOB, 26 KB for a job, against 97 KB when the process last worked well), the worker brief template.</li>
     <li>The tool rebuilt to this protocol: asks, lanes, epochs, the state branch, captures to storage, the hooks, CI and branch protection.</li>
-    <li>The Design stage's loop: how a lane's decision becomes a requirement (P5, with you where meaning changes).</li>
-    <li>What a second project must supply, as a checklist, and a trial of a tiny second project on the process.</li>
+    <li><s>The Design stage's loop</s>: drafted 29 Oct (<code>DESIGN-STAGE.md</code>): a decision changes a canon section (the lane writes it), a rule (BOB rewrites the rulebook) or a requirement's meaning (BOB with you); each lane keeps a durable line per decision, cited as <code>L-UX-12</code>, never a ruling number.</li>
+    <li><s>What a second project must supply</s>: the checklist is drafted 29 Oct (<code>PRODUCT-SUPPLIES.md</code>); the dry run's toy product is the first second project, so certifying the process on it is also the product-independence trial. One setup act is yours per product: the merge queue and required checks on the fixed <code>tranche</code> branch, once.</li>
     <li>The transition from today's process: the stop, the migration, T53 (the companion page).</li>
   </ol>
   <h3>Measured, and still assumed</h3>

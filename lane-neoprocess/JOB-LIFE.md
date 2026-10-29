@@ -8,7 +8,7 @@ The canon: only module jobs change module code, and every requirement is proven 
 
 ## 1. Branches, and what survives a merge queue
 
-`main` ← `tranche/T<n>` ← `job/T<n>/<module>`, as today. The tranche branch survives because P12 requires it: `main` does not move while a tranche runs, so the merge queue's target is the tranche branch, never `main`. GitHub's rulesets put a merge queue and required checks on any branch pattern, so `tranche/*` carries both; `main` keeps its one rule, the close PR merged by BOB once the plan reads CLOSING (§5.7 today). **Layers survive** because they are the dependency order (P4, P10): a layer's jobs are the only open PRs, they own disjoint files, and the next layer's branches do not exist until the layer closes. Within a layer the queue merges in arrival order; where the plan names an order (A before B), B's PR stays a draft until A has merged, and `proc` marks it ready. The queue's own CI run on the merged result is what catches a cross-module break that neither job's branch could see (the tests of a module's users, P11).
+`main` ← `tranche` ← `job/<module>`. The tranche branch survives because P12 requires it: `main` does not move while a tranche runs, so the merge queue's target is the tranche branch, never `main`. **The branch names are fixed**, not numbered: GitHub's documentation (read 2026-10-29) says a merge queue "cannot be enabled with branch protection rules that use wildcard characters in the branch name pattern", so a queue on `tranche/T<n>` would need a new rule per tranche, an admin act of Bob's each time. With one branch named `tranche`, created from `main` at a tranche's open and deleted after its close PR merges (its tip stays reachable as the merge commit on `main`, and the archived plan carries the tranche id), the queue and the required checks are set once, by Bob, and never again. A job's branch is `job/<module>` for the same reason (one job per module at a time, P8), deleted after its merge and recreated by a re-open (§7). The tranche id lives in the plan, the PR titles and the merge commits, not in branch names. `main` keeps its one rule: the close PR, merged by BOB once the plan reads CLOSING (§5.7 today). **Layers survive** because they are the dependency order (P4, P10): a layer's jobs are the only open PRs, they own disjoint files, and the next layer's branches do not exist until the layer closes. Within a layer the queue merges in arrival order; where the plan names an order (A before B), B's PR stays a draft until A has merged, and `proc` marks it ready. The queue's own CI run on the merged result is what catches a cross-module break that neither job's branch could see (the tests of a module's users, P11).
 
 ## 2. One job, one pull request
 
@@ -22,7 +22,7 @@ Unchanged in substance from `roles/JOB.md`: read whole; a question is `WAITING:`
 
 ## 4. The gate is CI
 
-The required checks on `tranche/*` are the same scripts the job ran locally, run by GitHub Actions on the PR and again by the merge queue on the merged result: ownership against the merge base, the module's tests, the tests of every module that uses it, the seven checks scoped to the module, the artifact regeneration with its verification, and the size limits (§17). The process repository is checked out by the workflow beside the product (a deploy key or a public read, a tooling item). No session runs the gate by hand and no session can merge around it: the ruleset refuses a merge without the checks, and BOB's hook refuses `gh pr merge`, a hand merge and any push to the tranche branch.
+The required checks on `tranche` are the same scripts the job ran locally, run by GitHub Actions on the PR and again by the merge queue on the merged result: ownership against the merge base, the module's tests, the tests of every module that uses it, the seven checks scoped to the module, the artifact regeneration with its verification, and the size limits (§17). The process repository is checked out by the workflow beside the product (a deploy key or a public read, a tooling item). No session runs the gate by hand and no session can merge around it: the ruleset refuses a merge without the checks, and BOB's hook refuses `gh pr merge`, a hand merge and any push to the tranche branch.
 
 ## 5. Review, by judgment
 
@@ -30,11 +30,11 @@ On a job's `COMPLETE`, `proc review decide --module <m>` prints BOB's inputs and
 
 ## 6. Merge
 
-`proc merge --module <m>` refuses unless the PR is ready, its checks are green, and the review (if one was decided) is approved; then it enables auto-merge into the queue and ends. The queue merges, the PR's merge event wakes BOB (the subscription), and `proc merged --module <m>` records the merge on the state branch and tells the job (`MERGED`). Nothing is committed to the tranche branch at a merge beyond the merge itself: the marks are already in the job's commits, the report is in the merge commit, the ruling line per merge is retired with the log. A queue run that fails removes the PR from the queue; the failed-check event wakes BOB, which sends the job a `CHANGE` with the failing check, and the job, still live, fixes and completes again.
+`proc merge --module <m>` refuses unless the PR is ready, its checks are green, and the review (if one was decided) is approved; then it enables auto-merge ("merge when ready", which GitHub's documentation describes as the way a pull request that cannot enter the queue at once is queued when its requirements are met; read 2026-10-29) and ends. The queue merges, the PR's merge event wakes BOB (the subscription), and `proc merged --module <m>` records the merge on the state branch and tells the job (`MERGED`). Nothing is committed to the tranche branch at a merge beyond the merge itself: the marks are already in the job's commits, the report is in the merge commit, the ruling line per merge is retired with the log. A queue run that fails removes the PR from the queue; the failed-check event wakes BOB, which sends the job a `CHANGE` with the failing check, and the job, still live, fixes and completes again.
 
 ## 7. A change after the merge
 
-A `CHANGE` that reaches a merged job (P10) re-opens it in the same session: `proc job reopen` recreates `job/T<n>/<module>` at the tranche tip (the old branch is merged, so it is deleted and made afresh, never force-pushed), opens a new draft PR whose body is the CHANGE, and the job goes round again. The module still has one job (P8) and one open PR at a time.
+A `CHANGE` that reaches a merged job (P10) re-opens it in the same session: `proc job reopen` recreates `job/<module>` at the tranche tip (the old branch is merged, so it is deleted and made afresh, never force-pushed), opens a new draft PR whose body is the CHANGE, and the job goes round again. The module still has one job (P8) and one open PR at a time.
 
 ## 8. Complete on the record, and retirement
 
@@ -54,7 +54,7 @@ Today's, plus: `send_message` only to BOB's address; `gh pr merge`, `gh pr ready
 
 ## 12. Measured before the dry run relies on it
 
-A merge queue and required checks on a `tranche/*` ruleset; auto-merge enabling a queued PR from a session; a PR's merge and check-failure events waking the subscribed session; the Actions workflow reading the process repository. Each is a probe like the four of 28 Oct.
+A merge queue and required checks on the fixed `tranche` branch (documented: a queue needs a branch name without wildcards, and re-runs the required checks on the PR applied to the latest target, 2026-10-29); auto-merge enabling a queued PR from a session; a PR's merge and check-failure events waking the subscribed session; the Actions workflow reading the process repository. Each is a probe like the four of 28 Oct.
 
 ## 13. What the dry run proves (P3, §15)
 
