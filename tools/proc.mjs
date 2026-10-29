@@ -1619,7 +1619,9 @@ export function initCheck(R, o = {}) {
   let mods = []; try { mods = JSON.parse(R.read('build/modules.json') || '{}').modules || []; } catch { /* unreadable */ }
   const layers = R.read('build/layers.md') || '';
   const seed = ['requirements/README.md', 'build/manifest.md', 'build/layers.md', 'build/modules.json', 'build/GRANTS.md', 'build/grants.json'];
-  let drift = ['not checked']; try { drift = shims({ ...o, check: true }).drift; } catch (e) { drift = [e.message]; }
+  // drift against the process branch the project says it follows (its CLAUDE.md, as `proc shims` wrote it), not this checkout's
+  const ref = o.ref || (R.read('CLAUDE.md') || '').match(/on its branch `([^`]+)`/)?.[1];
+  let drift = ['not checked']; try { drift = shims({ ...o, product: R.dir, ...(ref ? { ref } : {}), check: true }).drift; } catch (e) { drift = [e.message]; }
   const noReq = mods.filter((m) => !m.legacy && !has(`build/requirements/${m.id}.md`)).map((m) => m.id);
   const noLayer = mods.filter((m) => !new RegExp(`\\b${m.id.replace(/[-]/g, '\\-')}\\b`).test(layers)).map((m) => m.id);
   const next = R.read('build/plan/next.md') || '', planned = /^\s*(- |\*\*)/m.test(next.split('\n').slice(1).join('\n')) || has('build/plan/current.md');

@@ -714,6 +714,8 @@ test('onboarding: a new project seeded from nothing, an existing one converted, 
   const again = N.init({ product: n, mode: 'new', name: 'Idea', repo: 'o/proc', ref: 'main' });
   assert.ok(again.kept.includes('requirements/README.md') && !again.written.includes('build/modules.json'));
   assert.deepEqual([st(again.check).intake, st(again.check).architecture, st(again.check).requirements], ['DONE', 'DONE', 'DONE']);
+  // the check reads the process branch the project follows from its own CLAUDE.md, whatever branch this checkout is on
+  const ck = N.initCheck(N.repo(n), { repo: 'o/proc' }); assert.equal(st(ck).seed, 'DONE', JSON.stringify(ck[1]));
   // a new project that already holds code is refused: it is converted instead
   assert.throws(() => N.init({ product: mk({ 'app/main.py': 'print(1)\n' }), mode: 'new', repo: 'o/proc', ref: 'main' }), /--mode convert/);
   // an existing project: surveyed, one legacy module per code directory, its old CLAUDE.md kept, its files never overwritten

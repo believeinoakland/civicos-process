@@ -18,7 +18,7 @@ What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-
 ## What remains, in order
 
 1. **Bob's sitting** (PERMISSIONS §10): one walkthrough of every grant only he gives, from GRANTS §1 and the product's grant list. A worker read that list from the product on 29 Oct; it is not committed here (the process may not hold it: Bob; classifier "Out-of-Place Publication") and is written into the product as `build/GRANTS.md`, `build/grants.json` at item 3, re-read by the same brief (workflows, deploy configs, `build/situations/`, the variables its code reads). Then X9, X10 (PERMISSIONS §9).
-2. **Certify #7's changes on a dry run** (P3): `grants check` and the `tranche open` refusal on the toy; onboarding both ways (a throwaway new project; the toy converted). The process role is proven by #7 itself.
+2. **Certify #7's changes on a dry run** (P3): the convert path is proven on the toy (DRYRUN §4.25, PR #13 there); still owed: the new path on a throwaway repository (needs the process's token, X9), a handover to an open epoch, the `tranche open` refusal live. The process role is proven by #7 itself.
 3. **The product**, by ONBOARDING's convert path: `init`, the grant list, the rulesets; the owner starts its ROOT.
 4. **Merge this branch to `main`** by one PR once 2 holds.
 5. `dryrun/` refreshed from the toy when the tests are next touched.
