@@ -39,6 +39,7 @@
 //   repo setup --repo <owner/name> [--private] [--dry-run]      (PERMISSIONS §9: the repository and its two rulesets; from a session it prints the workflow's dispatch)
 //   repo rename --repo <owner/old> --name <new>      (PERMISSIONS §9: a repository renamed on GitHub's runner; from a session it prints the dispatch)
 //   repo transfer --repo <owner/name> --to <new owner>      (PERMISSIONS §9: a repository moved to another account on GitHub's runner; the new owner accepts the email)
+//   repo shims --repo <owner/name> [--checkout <dir>] [--process <path>] [--ref <branch>]      (PERMISSIONS §9: a product's shims regenerated on GitHub's runner, its pull request merged; from a session it prints the dispatch)
 //   process start --branch <b> --session <id>      process handoff [--prepare]      (the neoProcess lane, in the process repository itself; the handoff prints its successor's create_session)
 //   grants check [--branch <b>] [--urls <u1,u2>]      (PERMISSIONS §10, GRANTS.md: proven before `tranche open`)
 //   init --mode <new|convert> [--name "<project>"] | init --check      onboard start --product <dir> --session <id>      (ONBOARDING.md)
@@ -1640,6 +1641,62 @@ export async function repoTransfer(o) {
   return out;
 }
 
+// A product's shims regenerated after the process repository is renamed or moved (PERMISSIONS §9.5, §9.6): the shims name
+// the process by its remote, so each product's drift after a rename or a move. A session cannot regenerate them: a second
+// repository costs it its standing list and the attach of a product was refused by the classifier (#11, #12; PERMISSIONS
+// §10.7). So it runs on GitHub's runner by `repo-shims.yml` with the process's token (Contents and Pull requests: write
+// over the owner's repositories), where the product is checked out beside the process: `proc shims` written into it,
+// committed on its branch `shims`, pushed, the pull request to its `main` opened and merged by the API, the merge read
+// back. From a session the dispatch is printed. The branch `shims` is the one the lane's own hook rule names (shimsPush).
+export const REPO_SHIMS_WORKFLOW = 'repo-shims.yml', SHIMS_BRANCH = 'shims';
+export async function repoShims(o) {
+  const m = String(o.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/);
+  if (!m) refuse('--repo <owner/name> [--checkout <the product\'s checkout, on the runner>] [--process <path>] [--ref <branch>]');
+  const [, owner, name] = m, api = 'https://api.github.com', f = o.fetch || globalThis.fetch;
+  const token = (o.env || process.env).NEOPROCESS_GITHUB_TOKEN || null;
+  const call = async (method, path, body) => {
+    const r = await f(`${api}${path}`, { method, headers: { Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
+    const text = await r.text(); let json = null; try { json = JSON.parse(text); } catch { /* not json */ }
+    return { status: r.status, json, text };
+  };
+  const why = (c) => `${c.status}: ${String(c.json?.message || c.text || '').slice(0, 160)}`;
+  let P = {}; try { P = ghRepo(repo(PROCESS)); } catch { /* no remote: the fields stay unnamed */ }
+  const out = { repo: `${owner}/${name}`, token: token ? 'the process\'s own (NEOPROCESS_GITHUB_TOKEN)' : 'the proxy\'s', steps: [], refused: [] };
+  if (!token) {
+    out.ok = false;
+    out.dispatch = { tool: 'actions_run_trigger', ...P, workflow_id: REPO_SHIMS_WORKFLOW, ref: 'main', inputs: { repo: `${owner}/${name}` } };
+    out.then = `a session regenerates no product's shims: a second repository costs it its standing list, and the classifier refused the attach (PERMISSIONS §10.7; #11, #12). Dispatch the workflow above: on GitHub's runner, with the process's token, it checks the product out, writes its shims (proc shims), pushes them to its branch ${SHIMS_BRANCH}, opens the pull request to its main and merges it; the run's log is the proof (its last lines name the merged pull request, or "already current").`;
+    return out;
+  }
+  const dir = o.checkout || refuse('--checkout <dir>: on the runner the product is checked out first (repo-shims.yml)');
+  const R = repo(dir);
+  const me = await call('GET', '/user'); if (me.status !== 200) refuse(`GET /user answered ${me.status}: no GitHub token reaches api.github.com (PERMISSIONS §9)`);
+  const procName = P.owner && P.repo ? `${P.owner}/${P.repo}` : refuse('the process repository\'s remote could not be read');
+  const sh = shims({ product: dir, process: o.process || PROCESS, repo: procName, ref: o.ref || 'main' });
+  if (!sh.written.length) { out.steps.push('already current'); out.ok = true; return out; }
+  R.g(['checkout', '-q', '-B', SHIMS_BRANCH]);
+  R.g(['add', '--', ...sh.written]);   // shims writes at the product's root
+  R.g(['-c', 'user.name=neoProcess', '-c', 'user.email=neoprocess@users.noreply.github.com', 'commit', '-q', '-m', `shims regenerated by proc repo shims: the process is ${procName}, branch ${o.ref || 'main'}`]);
+  try { R.g(['push', '-q', 'origin', `HEAD:refs/heads/${SHIMS_BRANCH}`]); }
+  catch (e) { refuse(`with the process's token: the push to ${SHIMS_BRANCH} was refused (${String(e.message).split('\n')[0]}); a stale ${SHIMS_BRANCH} branch on the product that its main does not hold is deleted by its prune workflow first`); }
+  out.steps.push(`pushed ${SHIMS_BRANCH}: ${sh.written.join(', ')}`);
+  const open = await call('GET', `/repos/${owner}/${name}/pulls?head=${owner}:${SHIMS_BRANCH}&base=main&state=open`);
+  let pr = open.status === 200 && Array.isArray(open.json) ? open.json[0] : null;
+  if (!pr) {
+    const c = await call('POST', `/repos/${owner}/${name}/pulls`, { title: `shims regenerated: the process is ${procName}`, head: SHIMS_BRANCH, base: 'main', body: `Written by \`proc repo shims\` on GitHub's runner (PERMISSIONS §9.5, §9.6): ${sh.written.join(', ')}.` });
+    if (c.status !== 201) refuse(`with the process's token: POST /repos/${owner}/${name}/pulls ${why(c)}`);
+    pr = c.json;
+  }
+  out.steps.push(`pull request #${pr.number}: ${pr.html_url}`);
+  const mg = await call('PUT', `/repos/${owner}/${name}/pulls/${pr.number}/merge`, { merge_method: 'merge' });
+  if (mg.status !== 200 || !mg.json?.merged) refuse(`with the process's token: PUT /repos/${owner}/${name}/pulls/${pr.number}/merge ${why(mg)}`);
+  const back = await call('GET', `/repos/${owner}/${name}/pulls/${pr.number}`);
+  out.ok = back.status === 200 && back.json?.merged === true;
+  if (!out.ok) refuse(`with the process's token: #${pr.number} not read back merged (${why(back)})`);
+  out.steps.push(`merged: ${mg.json.sha}`);
+  return out;
+}
+
 // ---- the grants (PERMISSIONS §10; GRANTS.md): every grant the four stages need, proven held before a tranche opens ----
 // The tool's HTTP goes through the session's agent proxy, which injects each host's credential, and Node's fetch uses
 // HTTPS_PROXY only when NODE_USE_ENV_PROXY is set at its start (measured #7, 29 Oct: without it `GET /user` answered 403
@@ -1803,7 +1860,7 @@ export const COMMANDS = {
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
-  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'repo rename': repoRename, 'repo transfer': repoTransfer, 'process start': processStart, 'process handoff': processHandoff, 'grants check': grantsCheck, init, 'onboard start': onboardStart,
+  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'repo rename': repoRename, 'repo transfer': repoTransfer, 'repo shims': repoShims, 'process start': processStart, 'process handoff': processHandoff, 'grants check': grantsCheck, init, 'onboard start': onboardStart,
 };
 async function main() {
   const o = args(process.argv.slice(2));
