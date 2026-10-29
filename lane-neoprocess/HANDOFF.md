@@ -10,14 +10,13 @@
 
 ## Where things stand
 
-The dry run N1 runs on `believeinoakland/neoprocess-dryrun` (public, Bob's personal account; log DRYRUN §5). BOB #3 (`session_01RAN5emPdCiSTDkQW4nz7cb`, started by #6 at 14:24Z on `tranche` @ 35e4920) closes it: the completion round R2 is closed; the lanes' archives, `tranche close`, the close PR to `main`, `tranche merged`, `epoch close`; rows P20, J10, D4, X3 and X1's last acts. The rows proven after the merge are written by the lane in `dryrun/N1/CERTIFICATION.md` here (nothing is pushed to `tranche` once `main` holds it). BOB #2 handed off at 67 % and is idle; its archive was refused to #6 by the classifier (Bob's); its row is from `get_session` (sent to BOB #3). Eighteen flaws fixed with tests (DRYRUN §4: 16 the last BOB's row, `bob archived --tranche`; 17 every role's Stop hook enforces its context threshold; 18 a BOB's goal counts its handoff as met); suite green (289). REP 9–10 and GOV 9 rewritten for the permissions as built. Commit point step 1 (`neo` → `proc`, `tools/lib.mjs` for what the new tool took from the old; 262 tests green) is done as local commits on the worktree branch `worktree-agent-a8187b29f2e92d6ed` of this checkout (`.claude/worktrees/…`), merged with the lane's tip and not pushed (Bob: push only the lane's branch): fast-forwarded onto the lane only after the run closes, since BOB #3 reads `tools/neo.mjs` from this branch. If this session is lost, the worktree is lost with it and step 1 is redone from COMMIT-POINT §2.1 (a Sonnet worker, 8 min).
+**The dry run N1 is closed** (29 Oct 14:39Z; DRYRUN §5): every row of `dryrun/N1/CERTIFICATION.md` (copied from the toy's `main` 3dcd423, the post-merge evidence written here) reads PROVEN or names its product run (P15, X4, X6–X8). Twenty-one flaws found and fixed with tests (DRYRUN §4; 21 is fixed at the commit point); suite green (289). BOB #3 archived by #6; BOB #2 (`session_01RAN5emQV3q3LnPm2Ft8oMN`) idle, its archive Bob's. REP 9–10 and GOV 9 rewritten for the permissions as built. Commit point step 1 (`neo` → `proc`, `tools/lib.mjs`; 262 tests green, the 27 of the retired tool gone) is local commits on the worktree branch `worktree-agent-a8187b29f2e92d6ed` of this checkout, merged with the lane's tip, not yet pushed.
 
 ## What remains, in order
 
-1. **The run's close**: BOB #3's report; archive BOB #3 (#6 created it) and record its row in DRYRUN §5 (no next tranche on the toy); write the post-merge rows into `dryrun/N1/CERTIFICATION.md` from the toy's `main`, with their evidence.
-2. **The commit point** (`COMMIT-POINT.md`): step 1 from the worktree branch, then steps 2–8 (the 27 tests of the retired tool went with it; `permissions.json` names `proc.mjs`). `mechanics-citations.md` is step 5's input.
-3. **Permissions**: rows X1–X8 from the toy's certification into PERMISSIONS §4 and acts.md.
-4. **The page** (v25) final at the commit point.
+1. **The commit point** (`COMMIT-POINT.md` §2): step 1 fast-forwarded from the worktree branch onto the lane (the toy follows this branch: its `CLAUDE.md` and `gate.yml` name `neo.mjs`; step 7 refreshes it); flaw 21 (`refused routed --tranche`; `epoch close` on an OPEN refusal); then steps 2–8, each one commit with the suite green. `mechanics-citations.md` is step 5's input.
+2. **Permissions**: rows X1–X8 from `dryrun/N1/CERTIFICATION.md` into PERMISSIONS §4 and `acts.md`'s measured column.
+3. **The page** (v25) final at the commit point; the lane's `README.md` table folded into the root README (step 6).
 
 ## Acts only Bob can take (nothing waits on them)
 
