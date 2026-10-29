@@ -1,6 +1,6 @@
 # neoProcess lane: handoff
 
-**From** · neoProcess #9 (`session_01RAN5eokHimRMfaJLQCXFwe`), the lane's address, 29 Oct. Before it #8 `session_01RAN5enj51ppe6dLgJskKM1`, #7 `session_01RAN5ektuonFFCrRnX4VvFj`, #6 `session_01RAN5emD7S5EJrZnC5QgPJC` (#2–#6's usage: their archives, Bob's). Branch `claude/modest-brahmagupta-vvaann`; #7's work on `main` by PR #38, #8's by PR #39; the branch continues from `main`.
+**From** · neoProcess #9 (`session_01RAN5eokHimRMfaJLQCXFwe`), the lane's address, 29 Oct. Before it #8 `session_01RAN5enj51ppe6dLgJskKM1`, #7 `session_01RAN5ektuonFFCrRnX4VvFj`, #6 `session_01RAN5emD7S5EJrZnC5QgPJC` (#2–#6's usage: their archives, Bob's). Branch `claude/modest-brahmagupta-vvaann`; #7's work on `main` by PR #38, #8's by PRs #39 and #41, #9's by PR #42; the branch continues from `main`.
 
 **Standing** · Bob, 29 Oct: keep working until there is no way to; nothing stops for him; a detail is never his (DES 1); plain words; PERMISSIONS §6 is his approval of all development and testing acts; every grant gathered before the work at one sitting (PERMISSIONS §10); one set of development tokens for every project, a token short of a permission replaced, never worked around (PERMISSIONS §9); the process names no product. Commit messages and edit commands in plain words: the classifier reads a command's text. The lane starts its successor itself (`proc process handoff` prints the create_session); Bob only when the chain breaks (depth 8), from the START file. Start: `/neoprocess process`, then `proc process start --branch <this branch> --session <id>`.
 
@@ -20,7 +20,7 @@ What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-
 
 ## What remains, in order
 
-1. **#9's work on `main`**: its pull request merged (the lane merges its own); if not, open and merge it.
+1. **The next change here**: open and merge the lane's own pull request to `main` after it (as #42 was).
 2. **The rest of Bob's sitting** (PERMISSIONS §10): https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (steps 1–4 done; 5–7 his). The product's grant list is written by the onboarding session into the product. X10 PROVEN (#8: the hosting token reads its own scope; PERMISSIONS §9).
 3. **Owed to certification** (DRYRUN §6), all provable only in a product run: a handover through ROOT to an open epoch, the `tranche open` refusal live, the words check.
 4. **The product**, by ONBOARDING's convert path, in the onboarding session Bob starts (step 7 of the page).
