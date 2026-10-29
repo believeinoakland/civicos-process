@@ -125,12 +125,37 @@ test('coverage: the same id fails once the module\'s job record exists; an unmar
   assert.deepEqual(checkCoverage(unmarked.root, ['a']).failures, ['a: 2 of 3 live ids named by no test: R3 R4']);
 });
 
+test('coverage: neoProcess\'s plan title (`# Plan: … N1`, the id last) names the tranche, and its job branch `job/<m>` counts as started (JOB-LIFE §1)', () => {
+  const files = { ...AHEAD, 'build/plan/current.md': '# Plan: neoProcess dry run N1\n\n**Status** · OPEN.\n', 'build/requirements/a.md': REQ('- **R1** one\n- **R3** two *(not yet met: N1)*') };
+  const ahead = repo(base(files));
+  assert.deepEqual(checkCoverage(ahead.root, ['a']).failures, []);
+  assert.match(checkCoverage(ahead.root, ['a']).summary, /1 written ahead/);
+  ahead.g('branch', 'job/a');
+  assert.deepEqual(checkCoverage(ahead.root, ['a']).failures, ['a: 1 of 2 live ids named by no test: R3']);
+  const other = repo(base({ ...files, 'build/plan/current.md': '# Plan: neoProcess dry run N2\n' }));
+  assert.deepEqual(checkCoverage(other.root, ['a']).failures, ['a: 1 of 2 live ids named by no test: R3']);
+});
+
 test('ownership: own paths, own tests and own job record pass; another module\'s file fails', () => {
   const r = repo(base());
   r.commit({ 'src/b/more.mjs': 'x', 'test/b/more.test.mjs': 'x', 'build/jobs/T1/b.md': 'x', 'build/jobs/D1/b.md': 'x', 'build/jobs/T51b/b.md': 'x' });
   assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, []);
   r.commit({ 'src/a/index.mjs': 'changed', 'build/jobs/T1/a.md': 'x' });
   assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, ["build/jobs/T1/a.md: outside b's paths, tests and job record", "src/a/index.mjs: outside b's paths, tests and job record"]);
+});
+
+test('ownership: a job strikes the not-yet-met marks of its own requirements file, and changes nothing else there (JOB-LIFE §3)', () => {
+  const r = repo(base({ 'build/requirements/b.md': REQ('- **R1** one *(not yet met: T1)*\n- **R2** two *(not yet met: T1, T2)*\n- **R3** three') }));
+  r.commit({ 'build/requirements/b.md': REQ('- **R1** one\n- **R2** two *(not yet met: T2)*\n- **R3** three') });
+  assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, []);
+  r.commit({ 'build/requirements/b.md': REQ('- **R1** one\n- **R2** two *(not yet met: T2)*\n- **R3** three, or so') });
+  assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, ['build/requirements/b.md:13: changed beyond striking a `*(not yet met: T)*` mark: - **R3** three, or so']);
+  r.commit({ 'build/requirements/b.md': REQ('- **R1** one *(not yet met: T1)*\n- **R2** two *(not yet met: T2)*\n- **R3** three, or so') });
+  assert.equal(checkOwnership(r.root, 'b', 'HEAD~1').failures.length, 1);   // a mark put back is written, not struck
+  r.commit({ 'build/requirements/b.md': REQ('- **R1** one *(not yet met: T1)*\n- **R2** two *(not yet met: T2)*\n- **R3** three, or so\n- **R4** four') });
+  assert.match(checkOwnership(r.root, 'b', 'HEAD~1').failures.join(';'), /1 line\(s\) added and 0 removed/);
+  r.commit({ 'build/requirements/a.md': REQ('- **R1** one *(not yet met: T1)*\n- **R2** two') });   // another module's file: never b's, marks or not
+  assert.deepEqual(checkOwnership(r.root, 'b', 'HEAD~1').failures, ["build/requirements/a.md: outside b's paths, tests and job record"]);
 });
 
 test('ownership: an extracting module may remove from its legacy module, never add', () => {
@@ -419,9 +444,9 @@ test('format: the register named in the manifest is used; a product with no regi
   assert.deepEqual(checkFormat(named).failures, [], 'the manifest names a register that does not exist: skipped');
 });
 
-// P19, mechanics §8.4 (bio K3923): an entry of next.md names one of P19's hard reasons; current.md is not judged.
+// P19, rulebook PLN 2 (bio K3923): an entry of next.md names one of P19's hard reasons; current.md is not judged.
 const NEXT = (...lines) => `# Next\n\n**a**\n\n${lines.join('\n')}\n`;
-test('format: a next.md entry names a P19 hard reason; any other reason or none fails, naming line and id (§8.4, P19, K3923)', () => {
+test('format: a next.md entry names a P19 hard reason; any other reason or none fails, naming line and id (PLN 2, P19, K3923)', () => {
   const ok = NEXT(
     "- N1 · wait · hard reason: Bob's pending decision on the name",
     '- N2 · ship · hard reason: a deployment outside the tranche',
@@ -437,9 +462,9 @@ test('format: a next.md entry names a P19 hard reason; any other reason or none 
   assert.deepEqual(checkFormat(repo(base({ 'build/plan/current.md': cur })).root).failures, [], 'current.md is not judged');
 });
 
-// P19, mechanics §8.4 (bio K5015): a line of current.md, of the running fix round's plan file it names, or of the
+// P19, rulebook PLN 1 (bio K5015): a line of current.md, of the running fix round's plan file it names, or of the
 // handoff that defers work fails, naming file and line, unless it cites next.md.
-test('format: a deferring line in current.md, the named fix-round plan or the handoff fails unless it cites next.md (§8.4, P19, K5015)', () => {
+test('format: a deferring line in current.md, the named fix-round plan or the handoff fails unless it cites next.md (PLN 1, P19, K5015)', () => {
   const failures = (files) => checkFormat(repo(base(files)).root).failures;
   const cur = (...lines) => `# Current\n\n**a**\n\nSee build/plan/fix-round-9-T51.md and build/plan/archive/fix-round-1-T51.md.\n${lines.join('\n')}\n`;
   assert.deepEqual(failures({ 'build/plan/current.md': cur('Clean line.', 'Waits as an entry of next.md (N5), "next fix round" in words.') }), [], 'a line citing next.md passes');
@@ -478,7 +503,7 @@ test('format: a dated lane report from 2026-10-29 on without Evidence: fails, na
   assert.deepEqual(failures({ 'build/plan/other/HANDOFF.md': H('**P-28 · 2026-10-29** · none'), 'build/plan/beta/platform/NOTES.md': H('**P-28 · 2026-10-29** · none') }), [], 'no other file is judged');
 });
 
-// §8.6 (bio K3923): run.mjs runs the words check where the product has a word table.
+// rulebook BLD 5 (bio K3923): run.mjs runs the words check where the product has a word table.
 test('run.mjs: the words check runs where the product has words.json; a planted inline sentence fails it, exit 1', () => {
   const words = { 'docs/development/ux-substrate/screens/words.json': JSON.stringify({ words: [{ key: 'screen.home.title', en: 'Home' }] }) };
   const run = (files) => {

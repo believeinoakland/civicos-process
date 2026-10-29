@@ -1,5 +1,5 @@
-// Check 3, ownership (PROCESS-MECHANICS §8.3, §6; P7): a module job's diff touches only its module's
-// paths and tests and its own job record; a generated artifact the manifest lists (mechanics §14) is not judged. The one exception (mechanics §12.2): a module extracted
+// Check 3, ownership (rulebooks BLD 4, REQ 9; JOB-LIFE §3; P7): a module job's diff touches only its module's
+// paths and tests, its own job record, and the `*(not yet met: T)*` marks of its own requirements file (struck, never written); a generated artifact the manifest lists (rulebook REP 7) is not judged. The one exception (mechanics: legacy modules; rulebook REQ 9): a module extracted
 // from a legacy module may remove the moved code from that legacy module's files, and may rewire the
 // legacy code that called it: an added line there is either part of an import (or re-export) from the
 // job's own paths, or in a block of added lines that uses a name so imported. The legacy module's net
@@ -127,6 +127,35 @@ export function judgeLegacyFile(root, ref, head, file, own) {
   return { failures, added, edited, count, removed };
 }
 
+// The job strikes its own marks (JOB-LIFE §3; P7): in `build/requirements/<module>.md` a job may remove a
+// `*(not yet met: T)*` mark, or one tranche from a mark's list, on the lines of the ids its report meets, and nothing
+// else: every changed line, marks aside, reads as it did, and a mark after the change names only tranches it named before.
+const MARK = /\s*\*\(not yet met:([^)]*)\)\*/g;
+const marksOf = (line) => [...line.matchAll(MARK)].flatMap((x) => x[1].split(/[\s,;]+/).filter(Boolean));
+const bare = (line) => line.replace(MARK, '').replace(/\s+/g, ' ').trim();
+export function strikeFailures(root, ref, head, file) {
+  const diff = git(root, ['diff', '-U0', '--no-renames', '--relative', `${ref}...${head}`, '--', file]);
+  const failures = [];
+  let gone = [], added = [], n = 0;
+  const judge = () => {
+    if (!gone.length && !added.length) return;
+    if (gone.length !== added.length) { failures.push(`${file}:${n}: ${added.length} line(s) added and ${gone.length} removed; a job only strikes its \`*(not yet met: T)*\` marks here`); }
+    else for (let i = 0; i < gone.length; i++) {
+      const before = marksOf(gone[i]), after = marksOf(added[i]);
+      if (bare(gone[i]) !== bare(added[i]) || after.some((x) => !before.includes(x)) || after.length >= before.length) failures.push(`${file}:${n + i}: changed beyond striking a \`*(not yet met: T)*\` mark: ${added[i].trim()}`);
+    }
+    gone = []; added = [];
+  };
+  for (const line of diff.split('\n')) {
+    const h = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if (h) { judge(); n = Number(h[1]); continue; }
+    if (line.startsWith('+') && !line.startsWith('+++')) added.push(line.slice(1));
+    else if (line.startsWith('-') && !line.startsWith('---')) gone.push(line.slice(1));
+  }
+  judge();
+  return failures;
+}
+
 export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   const state = readModules(root);
   const m = state.modules.find((x) => x.id === moduleId);
@@ -136,7 +165,7 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   const own = [...(m.paths || []), ...(m.tests || [])];
   const record = new RegExp(`^build/jobs/[A-Z]+\\d+[a-z]?/${moduleId.replace(/[-]/g, '\\-')}\\.md$`);
   const failures = [], added = [], edited = [];
-  // A generated artifact (mechanics §14) is no module's hand-written code: its committed copy is always the one the
+  // A generated artifact (rulebook REP 7) is no module's hand-written code: its committed copy is always the one the
   // merge regenerates, so a job's copy of it is never judged (bio K5583's revert of the word rows, BOB #327).
   const gen = generatedPaths(root);
   const tally = new Map(legacies.map((l) => [l.id, { added: 0, removed: 0 }]));
@@ -147,6 +176,7 @@ export function checkOwnership(root, moduleId, base, head = 'HEAD') {
   for (const line of lines) {
     const [a, r, file] = line.split('\t');
     if (own.some((p) => pathMatches(p, file)) || record.test(file) || isGenerated(gen, file)) continue;
+    if (file === `build/requirements/${moduleId}.md`) { failures.push(...strikeFailures(root, ref, head, file)); continue; }
     const legacy = legacies.find((l) => (l.paths || []).some((p) => pathMatches(p, file)));
     if (legacy) {
       const t = tally.get(legacy.id);

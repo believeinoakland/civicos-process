@@ -1,0 +1,26 @@
+# The commit point: neoProcess replaces the old process (P3, item 4 of the handoff)
+
+**Status** · Plan, neoProcess #5, 29 Oct 2026, drafted while the dry run waited on A4; taken by #6 from 14:50Z the same day, the run closed at 14:39Z. Done: steps 1 (1e36cb5, with flaw 21 at b799295), 2 (8af335f), 3 (7a9ebff), 4's moves (eceb6c3); the suite 262 green at each. Taken only once every row of the toy's `CERTIFICATION.md` reads PROVEN or names why it can only be proven in a product run (DRYRUN §2.5), and only with the toy's run closed: the toy follows this branch (`CLAUDE.md`, `gate.yml` with `--ref`), so no rename happens while a session of the run is live.
+
+## 1. What the survey shows (29 Oct)
+
+The old process is: `PROCESS-MECHANICS.md` (58 KB), `roles/{ROOT,BOB,JOB}.md`, `situations/*.md` (nine), the skills `.claude/skills/civicos-{bob,job}`, `tools/proc.mjs` (74 KB) and `tools/hooks.mjs` (13 KB), `checks/*.mjs` (which name `proc.mjs` and mechanics sections in their text), `dryrun/` with its old runs (`RUNS.md`, `build/jobs/D*`, `cert/`, `d6/`), `CLAUDE.md`, `README.md`, `HISTORY.md`. `tools/neo.mjs` still imports from `proc.mjs`: `entriesOf, runTests, moduleChecks, withArtifacts, evidenceItems, history, modules, artifacts, allChecks, reds, EVIDENCE_FORMS, EVIDENCE_ITEM, stepsCmd`; `neo-hooks.mjs` imports `stepsReason, lastAssistantText` from `hooks.mjs`.
+
+## 2. The order, each step one commit with the suite green (`node --test checks/test/*.test.mjs tools/test/*.test.mjs`)
+
+1. **The tool takes the name.** The functions `neo.mjs` imports move into it (or into `tools/lib.mjs`, read by the checks too); `tools/neo.mjs` → `tools/proc.mjs`, `tools/neo-hooks.mjs` → `tools/hooks.mjs`, the tests likewise; the old files retire. The command name in every text is `proc` (the rulebooks already say `proc`). `shims` writes `proc.mjs` paths; `--ref main` becomes the default once this branch is merged.
+2. **The rulebooks move** to `rulebooks/` at the root (ten files; `rulebooksDir()` already prefers it). `rulebooks/work/` stays in the lane as history. REP 9–10 and GOV 9 rewritten for the permissions as built (PERMISSIONS §8; handoff item 3). The format check's rulebook limits (SES 4) run on the new path.
+3. **The skills.** One skill `neoprocess` for every role, as `shims` writes it for a product, written here too (this repository is its own product at the process level: BOB sessions of the process run on it). `civicos-bob` and `civicos-job` retire (Bob, 29 Oct). The lane skills' `!` lines call `proc reading --role`.
+4. **The roles and situations.** `roles/*.md` and `situations/*.md` are replaced by the rulebooks plus `PROTOCOL.md`, `JOB-LIFE.md`, `SESSIONS.md`, `DESIGN-STAGE.md`, `PERMISSIONS.md`, `PRODUCT-SUPPLIES.md`, `SETUP-STEPS.md`, moved from the lane to the root (their `Status` lines read "in force from <date>, certified on N1"). What a situation file held that no rulebook or design file holds is listed by a reader and either folded or named retired, each in one line of `HISTORY.md`.
+5. **The mechanics.** `PROCESS-MECHANICS.md` is rewritten from the files above: a short index (which file governs what, by rulebook area), and only what none of them says. Every citation `mechanics §n` in the checks' text, the tests and the design files is re-pointed by one pass (a worker with a script, P7's mechanical pass), the suite green after it. A reader listed the sections cited before the rewrite so none is lost: `mechanics-citations.md` (29 Oct, Sonnet; 156 citations in 45 files, the table by section, six sections never cited, four citations already stale).
+6. **`CLAUDE.md`, `README.md`**: the three-line start (the principles; your role's rulebooks by `proc reading`; the start command), the lane's `README.md` table folded into the root README. `HISTORY.md` gets the commit point's entry: the dry run's certification (`CERTIFICATION.md` copied from the toy's `main` into `dryrun/N1/`), the thirteen flaws (DRYRUN §4), the measurements (acts.md).
+7. **The toy** follows `main`: `shims --ref main` on the toy's `main` by one PR after this branch merges, and `dryrun/` here is refreshed from the toy's `main` (the N1 overlay becomes the toy).
+8. **The product** (`bio`, to be `civicsmith`): Bob's setup act (SETUP-STEPS, the two rulesets), then `proc shims` on it by its first BOB; `build/rulings-active.md` retires there (DESIGN-STAGE §3); its lanes opened as PRODUCT-SUPPLIES lists.
+
+## 3. What Bob decides (P17), and when
+
+Nothing in the order above: it is tooling, files and wording. His acts: the rulesets on each product repository (SETUP-STEPS); the repositories' names (`neoProcess`, `civicsmith`: renames, when he chooses); the principles' trimming (his words of 29 Oct: later). He sees the rendered before-and-after of any YOURS rule the rewrite of REP 9–10 and GOV 9 touches.
+
+## 4. Size
+
+A session's work of two or three hours with a Haiku reader for the mechanics' citations; done by this lane (or its successor) on this branch, merged to `main` by one PR with the suite green, after which the old branch and PR #36's draft close. The restore point before it: the branch tip before step 1, named in `HISTORY.md` (as `snapshot/pre-refactor-2026-09-25` names the last).

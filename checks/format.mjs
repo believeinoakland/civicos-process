@@ -1,11 +1,11 @@
-// Check 4, format (PROCESS-MECHANICS §8.4; P4, P5, P15): the build state's files parse, every id they
+// Check 4, format (rulebooks PLN 1-2, REQ 3; P4, P5, P15): the build state's files parse, every id they
 // reference exists, and every module's `paths` and `tests` entry names a file or directory in the product tree.
-// Also (§16, §9; P15, P17): every ruling numbered after APPROVALS_LAST_EXEMPT that records Bob's approval of a
+// Also (retired by PERMISSIONS §2.4; P15, P17): every ruling numbered after APPROVALS_LAST_EXEMPT that records Bob's approval of a
 // refused act states its standing-list decision.
-// Also (N656, bio K1763; P15, P17; a proposed revision until certified, §15): where the product keeps a register of
+// Also (N656, bio K1763; P15, P17; a proposed revision until certified, rulebook GOV 5): where the product keeps a register of
 // Anthropic's terms, every statement of a limit on Anthropic's accounts, plans or terms cites a register id or a ruling of Bob's.
-// Also (P19, mechanics §8.4; bio K3923): every entry of `build/plan/next.md` names one of P19's hard reasons.
-// Also (P19, mechanics §8.4; bio K5015): in `build/plan/current.md`, the running fix round's plan file(s) it names
+// Also (P19, rulebook PLN 2; bio K3923): every entry of `build/plan/next.md` names one of P19's hard reasons.
+// Also (P19, rulebook PLN 1; bio K5015): in `build/plan/current.md`, the running fix round's plan file(s) it names
 // (`build/plan/fix-round-*.md` that exist, so not the archived ones) and `build/handoff.md`, a line that defers work
 // ("next fix round", "next round", "a later round", "later tranche", "deferred to") fails unless it cites `next.md`:
 // work that waits is an entry of `next.md` only, and plan text names dependencies, never "later".
@@ -44,7 +44,7 @@ function pathExists(root, tracked) {
   };
 }
 
-// The approvals revision (bio K1177, `next.md` P1; P15, P17, mechanics §16): a ruling records Bob's approval of a refused act
+// The approvals revision (bio K1177, `next.md` P1; P15, P17): a ruling records Bob's approval of a refused act
 // when it says `approved` and cites §16 or names the permission check (`permission`, `auto-mode` or `safety check`).
 // It must state `standing list: added <rule>` (the settings.json rule in backticks) or `standing list: not added (<why>)`. The rulings up to and including
 // K1181 predate the rule and are exempt.
@@ -69,7 +69,7 @@ function approvalRulings(root, lastExempt) {
   return out;
 }
 
-// N656 (bio K1763 (5), K1762 (2); P15, P17; a proposed revision until certified, §15): every statement of a limit on
+// N656 (bio K1763 (5), K1762 (2); P15, P17; a proposed revision until certified, rulebook GOV 5): every statement of a limit on
 // Anthropic's accounts, plans or terms cites the register (`AT-n`, `U-n`) or a ruling of Bob's (a K id with "Bob's").
 // The register's path is read from `build/manifest.md` (a row naming Anthropic and a backticked `build/….md`), else
 // `build/terms/anthropic.md`; a product with no register skips the arm. Scope: `build/requirements/*.md`, the plan's
@@ -77,7 +77,7 @@ function approvalRulings(root, lastExempt) {
 // `docs/architecture/*.md`. A sentence is read with its code spans removed; fenced code blocks are skipped.
 export const TERMS_FIRST_RULING = 1764;
 
-// P19, mechanics §8.4 (bio K3923): "An entry added to `next.md` while a tranche runs names one of P19's three reasons
+// P19, rulebook PLN 2 (bio K3923): "An entry added to `next.md` while a tranche runs names one of P19's three reasons
 // (Bob's pending decision, a deployment or measurement outside the tranche, something outside the product not yet
 // existing); any other reason fails." Each entry line of `build/plan/next.md` (one line each) carries `hard reason: `
 // and the text after it begins with one of NEXT_REASONS. No other plan file is judged.
@@ -97,7 +97,7 @@ function nextReasons(root) {
   });
   return out;
 }
-// P19, mechanics §8.4 (bio K5015): a line that defers work, outside `next.md`, cites `next.md`.
+// P19, rulebook PLN 1 (bio K5015): a line that defers work, outside `next.md`, cites `next.md`.
 export const DEFERRAL = /\b(?:next fix round|next round|a later round|later tranche|deferred to)\b/i;
 export function deferralFiles(root) {
   const files = ['build/plan/current.md', 'build/handoff.md'];
@@ -316,7 +316,7 @@ export function checkFormat(root, { approvalsLastExempt = APPROVALS_LAST_EXEMPT,
     for (const n of layers) failures.push(`build/layers.md: layer ${n} has no row`);
   } else failures.push('build/layers.md: missing');
 
-  // Requirements files: one per module, the sections of mechanics §3, each id once.
+  // Requirements files: one per module, the sections of rulebook REQ 3, each id once.
   let reqFiles = 0;
   for (const id of requirementFiles(root)) {
     reqFiles++;

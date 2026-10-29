@@ -1,0 +1,173 @@
+<title>Civicsmith on neoProcess</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: the companion to the neoProcess page, same column and tokens; what Civicsmith supplies, what BOB #333 measured, the order of work. */
+:root {
+  --bg: #f5f6f8; --surface: #ffffff; --fg: #1b2330; --muted: #5c6673; --line: #d6dbe2;
+  --accent: #1f5f8b; --accent-soft: #e3edf5;
+  --draft: #9a6208; --draft-soft: #f8efdc;
+  --canon: #2a6f4e; --canon-soft: #e1f0e8;
+  --bad: #a93a2e; --bad-soft: #f7e5e2;
+  --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11161c; --surface: #182029; --fg: #e4e9ef; --muted: #9ba7b5; --line: #2b3641;
+  --accent: #7fb6e0; --accent-soft: #1a2d3d;
+  --draft: #e5aa47; --draft-soft: #2f2615;
+  --canon: #6fc39a; --canon-soft: #172b21;
+  --bad: #ef8a7c; --bad-soft: #321c19; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11161c; --surface: #182029; --fg: #e4e9ef; --muted: #9ba7b5; --line: #2b3641;
+  --accent: #7fb6e0; --accent-soft: #1a2d3d;
+  --draft: #e5aa47; --draft-soft: #2f2615;
+  --canon: #6fc39a; --canon-soft: #172b21;
+  --bad: #ef8a7c; --bad-soft: #321c19; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 17.5px; line-height: 1.6; }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 44px 96px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 48px; }
+header.top { display: grid; gap: 14px; }
+.eyebrow { font: 600 12px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 800 clamp(34px, 6vw, 50px)/1.02 var(--display); margin: 0; letter-spacing: -.02em; text-wrap: balance; }
+h2 { font: 700 26px/1.2 var(--display); margin: 0 0 14px; letter-spacing: -.01em; text-wrap: balance; }
+h2 .n { color: var(--muted); font-weight: 500; margin-right: 10px; }
+h3 { font: 700 18px/1.3 var(--display); margin: 22px 0 8px; text-wrap: balance; }
+p { margin: 0 0 12px; max-width: 70ch; }
+section > p:last-child, section > ol:last-child { margin-bottom: 0; }
+.lede { font-size: 20px; max-width: 64ch; color: var(--muted); }
+strong { font-weight: 600; }
+code { font-family: var(--mono); font-size: .84em; background: var(--accent-soft); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chip { display: inline-block; font: 600 10.5px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 3px; vertical-align: middle; white-space: nowrap; }
+.chip.draft { color: var(--draft); background: var(--draft-soft); }
+.chip.gap { color: var(--bad); background: var(--bad-soft); }
+.status { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--draft); border-radius: 4px; padding: 18px 22px; display: grid; gap: 10px; }
+.status p { margin: 0; max-width: none; }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; line-height: 1.45; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 11.5px/1.3 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--bg); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.k { font-weight: 600; white-space: nowrap; font-family: var(--display); }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+.kpi .n { font: 600 25px/1.1 var(--mono); font-variant-numeric: tabular-nums; }
+.kpi .l { font-size: 14px; color: var(--muted); line-height: 1.4; }
+.kpi.b .n { color: var(--bad); }
+.callout { background: var(--bad-soft); border-radius: 4px; padding: 14px 16px; max-width: 70ch; }
+.callout p { margin: 0; max-width: none; }
+ol.steps { margin: 0; padding-left: 24px; display: grid; gap: 8px; max-width: 70ch; }
+.decisions { display: grid; gap: 14px; }
+.decision { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 18px 20px; display: grid; gap: 10px; }
+.decision h3 { margin: 0; }
+.decision ul { margin: 0; padding-left: 20px; display: grid; gap: 7px; }
+.rec { color: var(--canon); font-weight: 600; }
+.sources { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; max-width: 72ch; }
+.small { font-size: 14.5px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Companion to neoProcess · neoProcess #1–#6 · v26 · 29 October 2026</div>
+  <h1>Civicsmith on neoProcess</h1>
+  <p class="lede">What the first product supplies to the process, what BOB #333 measured on it on 28 October, and the order of work back to T53. Everything here is about <code>believeinoakland/bio</code>; nothing here is a rule of the process.</p>
+</header>
+
+<section class="status" aria-label="Status">
+  <p><strong>Where the figures come from.</strong> Every measurement on this page is BOB #333's, taken on <code>tranche/T53</code> at <code>e5a5c870</code> and reported in its <a href="https://claude.ai/artifact/J8E73nE7Y4qNczAVPTB5Sn" target="_blank" rel="noopener">Civicsmith Rulebook</a>. This session did not open the product repository; the figures are carried, not verified. The process itself is on the <a href="https://claude.ai/artifact/7Jghdu6JV3beK58dkZKPsd" target="_blank" rel="noopener">neoProcess page</a>. It has been in force since 29 October, certified on a dry run on a toy repository, not on Civicsmith (neoProcess §9); every figure here is from before that.</p>
+</section>
+
+<section>
+  <h2><span class="n">1</span>What Civicsmith supplies</h2>
+  <p>The process asks a product for its canon, its build state, its areas and its own procedures (neoProcess §7). Civicsmith's build state is already in <code>build/</code> of its repository, with its manifest naming where everything lives. Its ten product areas follow its doctrine, not its build order. Each owns its canon documents and its modules; a module's job gets its area's rules by path. The lane column shows the lanes Civicsmith has today, which are its own: a project's lanes follow its capabilities, and BOB defines them as the project goes (neoProcess §2).</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Area</th><th>What it covers</th><th>Canon it owns</th><th>Lane</th><th>Layers</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Mission &amp; scope</td><td>Who Civicsmith serves, its values and limits, what each release includes, no jurisdiction written into the product.</td><td>Roadmap §§1–12; Design Requirements</td><td>none</td><td class="num">all</td></tr>
+      <tr><td class="k">Teams, members &amp; trust</td><td>Founding a team, members and administrators, capabilities, invitations, sign-in, credentials, keys and signatures.</td><td>Membership Architecture v2; Authority and Trust</td><td>none</td><td class="num">1, 2, 11</td></tr>
+      <tr><td class="k">The record</td><td>Storage, ids, the one write path, promotion and its checks, audit and purge, invariants, the bundle format, provenance.</td><td>State Rules; Bundle format; Intake Doctrine (provenance)</td><td>none</td><td class="num">1–3</td></tr>
+      <tr><td class="k">Intake &amp; reading</td><td>Every way material comes in (web, files, mail, registers), file safety, every file type and size, OCR, extraction, content.</td><td>Intake Doctrine; Content Framework Part I; the capture and format designs</td><td>FILES</td><td class="num">1, 3, 4</td></tr>
+      <tr><td class="k">Civic knowledge</td><td>What the record means: entities, people, events, money, connections, law, standards, duties, local facts, jurisdiction profiles, calculations; grades, declared bias, search that says where absence was found.</td><td>Content Framework Part II; Declared Bias; Capability Ladders</td><td>CAPABILITIES</td><td class="num">1, 5</td></tr>
+      <tr><td class="k">Investigation</td><td>The inquiry, findings, basis versions, strength, contradiction, steps and questions, the group's intent and progress, reevaluation.</td><td>Investigation; Case Making (inquiry)</td><td>INVESTIGATION-DESIGN</td><td class="num">6, 7</td></tr>
+      <tr><td class="k">The assistant &amp; AI</td><td>What AI does and never does, providers and accounts, the catalogue and the gate, runs and their rules, a team's AI costs, Anthropic's terms.</td><td>Assistant and AI Roles; Investigative Session</td><td>AI-DESIGN</td><td class="num">2, 6, 11</td></tr>
+      <tr><td class="k">Publication &amp; action</td><td>What the group stands behind and how it leaves; standards, determinations, consequences, actions, filings, escalation, deadlines with their basis; watching the response.</td><td>Publication; Case Making (case); Action v0.2</td><td>none</td><td class="num">8–10</td></tr>
+      <tr><td class="k">Experience &amp; words</td><td>Every screen, journey and word; the word tables, translations, the design stream's decisions, accessibility.</td><td>Interaction Constructs; the UI principles; the design stream's substrate</td><td>UX-DESIGN</td><td class="num">1, 11</td></tr>
+      <tr><td class="k">Platform &amp; operations</td><td>The Cloudflare platform, service levels, performance and time budgets, memory limits, the instance keeping itself current, installation and distribution.</td><td>Distribution; Technical Architecture Decisions; Scheduler; Multi-instance Isolation</td><td>PLATFORM</td><td class="num">1, 10, 11</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small" style="margin-top:10px">Sorting the 200-odd modules into these areas is packaging, BOB's to do during codification (P17). Today's nine product-ruling files and the doctrine paragraphs inside <code>layers.md</code> fold into the areas, each line accounted for. A lane that spans several areas, as CAPABILITIES did, is split.</p>
+</section>
+
+<section>
+  <h2><span class="n">2</span>What BOB #333 measured on 28 October</h2>
+  <div class="kpis">
+    <div class="kpi"><div class="n">5,782</div><div class="l">rulings in 34 days (4.7 MB), about 650 naming Bob</div></div>
+    <div class="kpi"><div class="n">8.1 MB</div><div class="l">module requirements in 191 files; median 36 KB, 55 over 50 KB</div></div>
+    <div class="kpi"><div class="n">17 of 21</div><div class="l">jobs checked that ran on a cheaper model than their plan row named, with no ruling recording it</div></div>
+    <div class="kpi b"><div class="n">19 in 20</div><div class="l">defects found in 20 merged T53 jobs by one independent reviewer</div></div>
+  </div>
+  <h3>The audit</h3>
+  <p>An independent Opus reviewer checked 20 merged T53 jobs against their requirements without seeing the jobs' conversations. It found 19 defects, under every model. The model followed the kind of work (Haiku had word conversions, Sonnet behaviour changes, Opus whole new modules), so the per-model rates compare different work, and three Opus jobs is too few for a rate.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Model</th><th>Jobs</th><th>Lines changed</th><th>Defects</th><th>Jobs with one</th><th>Per 1,000 lines</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Haiku</td><td class="num">9</td><td class="num">827</td><td class="num">5</td><td class="num">4 of 9</td><td class="num">6.0</td></tr>
+      <tr><td class="k">Sonnet</td><td class="num">8</td><td class="num">3,094</td><td class="num">10</td><td class="num">7 of 8</td><td class="num">3.2</td></tr>
+      <tr><td class="k">Opus</td><td class="num">3</td><td class="num">5,905</td><td class="num">4</td><td class="num">3 of 3</td><td class="num">0.7</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout" style="margin-top:12px"><p><strong>The most serious finding is a privacy defect in mail-door.</strong> A message sent again after a member brought it in has its private bytes stored again, and they are never deleted (<code>index.mjs:375</code>, <code>:384</code>, confirmed by the reviewer with a test). The rule it breaks: private bytes are held only until bring-in or for 14 days.</p></div>
+  <p style="margin-top:12px"><strong>Other findings.</strong> money had three tests named for R39–R41 with empty bodies, which passed and counted as coverage (its open job has since replaced them). civil-time marks R31 met, but its "spans two fiscal years" answer does not name the government asked about. register-readers runs out of memory on large registers keyed by content, against its R1. Ten of the 94 rulings since K5700 correct an earlier BOB act; BOB merged three jobs whose reports claimed work the merge does not contain.</p>
+  <p><strong>What it shows.</strong> The gate checks that a test names each requirement, not that it proves it. The Integration rulebook's rules 2 and 4 (neoProcess §5) close that gap. The audit cost about 36,000 tokens per job and did all 20 in 28 minutes. Each defect becomes an entry for its module in T53's completion round, mail-door's first; placing them changes no code, so it does not cross your stop.</p>
+</section>
+
+<section>
+  <h2><span class="n">3</span>The order of work</h2>
+  <ol class="steps">
+    <li>The process on the neoProcess page is in force since 29 October (its §9); the stop on product work stays until step 6.</li>
+    <li><strong>Codify.</strong> For each area, a worker reads that area's sources whole and drafts its rulebook, accounting for every ruling in its slice: kept as a rule, folded into a requirement or design, made code, superseded by a named rule, or retired with its reason. BOB reviews every line; you read only the rules that are yours, area by area, rendered.</li>
+    <li><strong>Trim the requirements</strong> to what each module does now, so every job can read its own whole (P6). History and citation chains go to the archive.</li>
+    <li><strong><s>Rebuild the tooling to the rulebooks</s></strong>: done at the commit point, 29 October (neoProcess §9). A pull request per job; the gate and the reviewer in CI; the merge by the tool (<code>tools/proc.mjs</code>, with the hooks <code>tools/hooks.mjs</code>), since GitHub offers a merge queue only to an organization's repository; one skill, <code>neoprocess</code>, that loads each role's areas; path-scoped product rules; size limits checked in CI. PROCESS-REPAIR's bundles-out-of-git and R2 work carries straight in.</li>
+    <li><strong>Clean the repository in place.</strong> Screenshots, bundles and finished records leave the working tree; history stays untouched. The repository keeps its address, because every team's copy checks <code>believeinoakland/bio</code>'s <code>main</code> for update notices and the installer fetches each release from it; a brand-new repository would cut every team off. A rename to <code>civicsmith</code>, when you choose, keeps them working, because GitHub redirects a renamed repository. BOB #333 estimates a 150 MB checkout afterwards, against 723 MB on 28 October.</li>
+    <li><strong><s>Prove it</s></strong> with a dry run (P3): done 29 October on the toy repository, 40 rows proven, 21 flaws found and fixed with tests (neoProcess §9). Then the two rulesets on this repository, yours, once (SETUP-STEPS); then resume T53: layer 5's last two jobs, the audit's defects, then layer 6.</li>
+  </ol>
+  <p style="margin-top:12px">BOB #333's estimate is about a week of elapsed time, not measured. The merge at each job's completion, one tool command after the gate, also answers most of the waiting your slowdown analysis measured: finished jobs queued for BOB to merge by hand.</p>
+
+  <h3>Decisions here</h3>
+  <div class="decisions">
+    <div class="decision">
+      <h3>A · The product areas</h3>
+      <ul>
+        <li><span class="rec">Recommended:</span> the ten above.</li>
+        <li>The same, with changes you name.</li>
+        <li>Fewer and broader; each rulebook longer or coarser.</li>
+      </ul>
+    </div>
+    <div class="decision">
+      <h3>B · The order of work</h3>
+      <ul>
+        <li><span class="rec">Recommended:</span> build the new process and clean the repository in place together, prove it, then resume T53.</li>
+        <li>A brand-new repository under the same name, the current one renamed to an archive. A clean history, but every version tag the installer fetches must be carried across, and this environment cannot push tags, so that part needs you on GitHub.</li>
+        <li>Resume T53 now on the old process while the new one is built. Faster product work, on the process you have stopped, with the audit's defects still getting through.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="small" style="margin-top:12px">By P17 the order of work is BOB's except for the stop on product work, which is yours; it is put to you because lifting the stop decides it.</p>
+</section>
+
+<section>
+  <h2><span class="n">4</span>Sources</h2>
+  <ol class="sources">
+    <li>BOB #333, <a href="https://claude.ai/artifact/J8E73nE7Y4qNczAVPTB5Sn" target="_blank" rel="noopener">Civicsmith Rulebook</a>, 28 Oct 2026, read whole: every figure, the audit table, the product areas and the order of work are from it.</li>
+    <li><code>lane-neoprocess/DRYRUN.md</code>, 29 Oct 2026, for the dry run and the commit point named in §3.</li>
+    <li>The audit's full report, which BOB #333 cites and this session has not seen.</li>
+    <li>Your analysis, <a href="https://claude.ai/artifact/Rw9FsHdPS7muc68mDtKzVW" target="_blank" rel="noopener">Civicsmith Merge Slowdown</a>, as BOB #333 cites it.</li>
+  </ol>
+</section>
+</div>

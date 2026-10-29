@@ -1,4 +1,4 @@
-// Shared reading of a product repository's build state (PROCESS-MECHANICS §1, §8).
+// Shared reading of a product repository's build state (PRODUCT-SUPPLIES; JOB-LIFE §4).
 // Every check takes the product repository's root and reads only what is committed there.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
@@ -8,7 +8,7 @@ export function git(root, args) {
   return execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', maxBuffer: 256 << 20 });
 }
 
-// The product's generated artifacts (mechanics §14): rows of build/manifest.md's table
+// The product's generated artifacts (PRODUCT-SUPPLIES): rows of build/manifest.md's table
 // `| \`<path>\`[, \`<path>\`…] | <owner> | \`<regenerate>\` | \`<verify>\` |`, in the table's order.
 export function artifactRows(text) {
   return [...String(text || '').matchAll(/^\| (`[^`|]+`(?:, `[^`|]+`)*) \| [^|]+ \| `([^`]+)` \| `([^`]+)` \|$/gm)].map((x) => ({ paths: [...x[1].matchAll(/`([^`]+)`/g)].map((y) => y[1]), regen: x[2], verify: x[3] }));
@@ -35,7 +35,7 @@ export function pathMatches(p, file) {
   return p.endsWith('/') ? file.startsWith(p) : file === p;
 }
 
-// Who owns a file. Ruling (BOB #38, 2026-09-26): "exactly one owner" (P4, mechanics §1) is read as
+// Who owns a file. Ruling (BOB #38, 2026-09-26): "exactly one owner" (P4, rulebook REQ 1) is read as
 // the MOST SPECIFIC matching path: a legacy module's directory may contain an extracted module's
 // directory (bio-plane/test/ holds bio-plane/test/m/<module>/). Two modules claiming the same
 // path is an error, reported by the format check.

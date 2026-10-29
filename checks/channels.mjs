@@ -1,4 +1,4 @@
-// The channels check (PROCESS-MECHANICS §8.5, §13.1; P15; bio K954): over each mail branch's history, an entry once
+// The channels check (mechanics: the cross-account channel; P15; bio K954): over each mail branch's history, an entry once
 // pushed is never rewritten or removed, entry numbers rise by one, and a cursor never moves backwards.
 // It reads the registry `build/channels.md` in the product's working tree; with none, there is nothing to check.
 // For each row it fetches the mail branch from origin (when there is one), and fails if the branch's new tip does not

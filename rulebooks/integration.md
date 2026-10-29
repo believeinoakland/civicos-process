@@ -1,0 +1,14 @@
+# INT · Integration · work counts only when it is merged and proven
+
+In force from 2026-10-29, certified on N1. At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
+
+1. Done means merged: a job when its pull request is merged into the tranche branch, a tranche when its branch is merged to `main`. (P12) BOB'S · CODE: `proc` reads the merge from GitHub, never from a report.
+2. Each requirement of a module is proven by a test at its interface that checks full compliance; a test that cannot fail does not count, and a check refuses it. (P7, P11) YOURS · CODE: the coverage check; the cannot-fail check (planned, JOB-LIFE §4).
+3. The gate runs in CI on every pull request and again on the merged result: ownership, the module's tests and its users', the checks, the artifacts, the size limits. No session runs it by hand and none merges around it. (P7, P16) BOB'S · CODE: `proc merge` merges only a green tip that holds the tranche; every hook refuses any other merge.
+4. Before a merge BOB decides whether a review is worth its cost, from the listed reasons (a new module, a changed provided service, a sensitive path, a large diff, thin evidence, a third completion), and writes the decision; a reviewer is a fresh worker that never saw the job and reports only gaps against the requirements. (Bob, 28 Oct; P20) BOB'S · CODE: `proc review decide`; the review posted on the pull request.
+5. A green, current and, where decided, approved pull request is merged by the tool as results arrive; a tip behind the tranche is updated first; an order the plan names holds by keeping the later one a draft until the earlier has merged. (P12) BOB'S · CODE: `proc merge`.
+6. A red is never merged: the job fixes it, or BOB re-scopes the entry with the job. A red the tranche already had is inherited and named, not owned. (P7) BOB'S · CODE: `proc job complete` and the gate refuse a new red.
+7. A layer closes when every one of its pull requests is merged and the checks pass once over the whole product; the next layer starts at once. (P10, P19) BOB'S · CODE: `proc layer close`, `proc layer start`.
+8. A job is retired when its work is complete on the record: merged, and nothing more can reach it this round; the layer's close is the sure case. Its usage is read into the metrics as it is retired. (Bob, 28 Oct; P14) YOURS (the definition) · CODE: `proc job retire`, `proc layer close`.
+9. A tranche closes by one pull request to `main`, after `main` is merged into the tranche branch; `main` never moves while a tranche runs (the full regression is rulebook REL 4). (P12) YOURS · CODE: BOB's hook allows the merge only once the plan reads CLOSING.
+10. Every defect found in a merged module is a metrics row that names the module, the round and whether its merge was reviewed, so the review decision is tuned by evidence. (P14) BOB'S · CODE: `proc defect`.

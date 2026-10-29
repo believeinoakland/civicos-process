@@ -1,5 +1,4 @@
-// Grammar validators for the build state's records (dryrun/cert/SUITE.md §0, §4 item 2; PROCESS-MECHANICS §2, §6,
-// §10, §13, §16): a job record, the plan's Status line, a message's first line, a handoff, and the metrics CSV.
+// Grammar validators for the build state's records (dryrun/cert/SUITE.md §0, §4 item 2; the K164 grammar of the retired mechanics): a job record, the plan's Status line, a message's first line, a handoff, and the metrics CSV.
 // Each validator returns { errors: [...], ...parsed }; an empty `errors` is a pass. `strict` requires the grammar of the
 // K164 mechanics exactly (envelopes with ids, handled marks, Size lines naming their session); the pre-K164 corpus is
 // judged non-strict.

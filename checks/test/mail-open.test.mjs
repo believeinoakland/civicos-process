@@ -1,4 +1,4 @@
-// A COMPLETE job behind BOB's newest entry reads OPEN (mechanics §5.4, §5.5; bio K5171, plan item 83): `mail check` must
+// A COMPLETE job behind BOB's newest entry reads OPEN (bio K5171, plan item 83): `mail check` must
 // not show a job as merely complete while a START or CHANGE of BOB's is unread, or a BOB merges and archives it.
 // A scratch product repo with a bare origin: tranche/T1 holds the plan and BOB's mailboxes, each job its own branch.
 import { test } from 'node:test';

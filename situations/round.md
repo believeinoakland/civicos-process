@@ -1,8 +1,0 @@
-# Situation: opening a tranche or a round (P10, P12, P18, P19)
-
-**A round's scope is fixed when it opens.** A tranche runs as rounds R1, R2, …: each a plan file of entries grouped by module under `## Layer <n>` headings, modules within a layer as `**<module>**` followed by its entries. Work found while a round runs goes to the running job of its module; else to the START of its module's job in a layer not yet started (add it to that module's entries before `proc layer start`); else into the next round's plan, which opens the moment this one closes. Nothing found waits for another tranche, and no running round is re-planned.
-
-- **Open a tranche:** none while an archived plan reads CLOSING and `main` is behind it. Create `tranche/T<n>` from `main` with a plain push; write the plan's Status line by `proc takeover`; tell Bob in one line what it covers. Every plan opens with its legacy census: each legacy module with the entry that retires it, or the hard reason it stays (P19).
-- **Write the round's plan** from the work that remains (P19): every entry that can safely be done; for each one left out, its one hard reason (Bob's pending decision, a deployment or measurement outside the round, something outside the product). Keep a round's plan under 51,200 bytes (mechanics §17); a larger set is two rounds.
-- **Open it:** `proc round open --round R<k> --plan <file>`. Then start its lowest layer (`situations/layer.md`).
-- **Alongside (P18):** while a round runs, draft the next round's plan and the requirements its modules need; bulk reading to workers. Never touch `main`, a running job's module, or the requirements a running job reads.

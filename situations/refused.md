@@ -1,6 +1,0 @@
-# Situation: any refusal (P17; mechanics §16)
-
-- **A process hook refused:** its reason names the rule and the route that does the act (usually a `proc` command). Take that route; never the same act another way.
-- **A permission or safety check refused an act on the product's code, the tranche or job branches, or its test deployments,** and the product owner's standing approval covers it (bio K5120, K5293): take it again once as one plain command citing that approval; never relay it to Bob. Refused again: it is a blocker; record it.
-- **Anything else only Bob can clear:** never work around it (by another tool, a script, a worker or a later turn). Record `NEEDS BOB: <the one act>, <why>` in the handoff (yours) or the job's record (a job), carry on with what does not depend on it, and tell Bob at once in one line: the session's name and link, and the approval to type there. Never approve for him. His approval is recorded as a ruling that says `approved`, cites §16, and states `standing list: added <rule>` or `standing list: not added (<why>)`.
-- **Before an act on `main` or another party's branch,** search the product's rulings for a refusal of that act; if one exists and no standing-list rule covers it, ask Bob first.
