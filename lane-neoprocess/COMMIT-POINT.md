@@ -1,6 +1,6 @@
 # The commit point: neoProcess replaces the old process (P3, item 4 of the handoff)
 
-**Status** · Plan, neoProcess #5, 29 Oct 2026, drafted while the dry run waits on A4. Taken only once every row of the toy's `CERTIFICATION.md` reads PROVEN or names why it can only be proven in a product run (DRYRUN §2.5), and only with the toy's run closed: the toy follows this branch (`CLAUDE.md`, `gate.yml` with `--ref`), so no rename happens while a session of the run is live.
+**Status** · Plan, neoProcess #5, 29 Oct 2026, drafted while the dry run waited on A4; taken by #6 from 14:50Z the same day, the run closed at 14:39Z. Done: steps 1 (1e36cb5, with flaw 21 at b799295), 2 (8af335f), 3 (7a9ebff), 4's moves (eceb6c3); the suite 262 green at each. Taken only once every row of the toy's `CERTIFICATION.md` reads PROVEN or names why it can only be proven in a product run (DRYRUN §2.5), and only with the toy's run closed: the toy follows this branch (`CLAUDE.md`, `gate.yml` with `--ref`), so no rename happens while a session of the run is live.
 
 ## 1. What the survey shows (29 Oct)
 
