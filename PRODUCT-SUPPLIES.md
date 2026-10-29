@@ -7,7 +7,7 @@
 | `CLAUDE.md`, under thirty lines | repository root | `proc shims`, from this list | attach the process repository; invoke your role's skill; the standing safety rules |
 | One skill, `neoprocess/SKILL.md`, invoked with the role as its argument (`neoprocess bob`, `job`, `lane`): it loads the role's rulebooks and registers the hooks, which read the role the start command recorded and refuse everything until one is | `.claude/skills/` | `proc shims` | never by hand; a check fails when it differs; the `civicos-*` skills are retired with the old process (Bob, 29 Oct) |
 | The canon index: mission, requirements, designs, by file | `requirements/README.md` | Bob with BOB | every module requirement cites the canon by section (P5) |
-| The manifest: where the canon, the build state, each layer's tests, the generated artifacts, the object storage for captures and the ROOT session live | `build/manifest.md` | BOB with Bob | |
+| The manifest: where the canon, the build state, each layer's tests, the generated artifacts, the object storage for captures and the ROOT session live; Bob's accounts in order, so BOB names the next when it writes `MOVING` | `build/manifest.md` | BOB with Bob | |
 | The layers, in order, each with its contract | `build/layers.md` | BOB with Bob | |
 | The modules in total order: id, layer, paths, tests, uses | `build/modules.json` | BOB with Bob (P4) | |
 | Each module's requirements, public and private parts | `build/requirements/<module>.md` | BOB (with Bob where meaning changes, P5) | small enough to read whole (P6) |

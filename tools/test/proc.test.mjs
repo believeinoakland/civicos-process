@@ -590,6 +590,7 @@ test('a tranche opened from main, a round opened and closed, the tranche closed 
   g2('rm', '-q', '-r', 'toy/build/plan'); g2('commit', '-q', '-m', 'no plan'); g2('push', '-q', 'origin', 'HEAD:main');   // the toy's old plans are not this test's
   const plan = f(w.base, 'plan.md', '# Plan: test T2\n\n**Status** · OPEN.\n\n## Layer 1\n\n**alpha**\n- N1 · A line.\n');
   assert.throws(() => N.trancheOpen(o({ planFile: f(w.base, 'bad.md', '# Plan: no id\n\n## Layer 1\n') })), /names the tranche/);
+  assert.throws(() => N.trancheOpen(o({ planFile: f(w.base, 'big.md', `# Plan: test T9\n\n## Layer 1\n\n**alpha**\n- N1 · ${'x'.repeat(N.PLAN_LIMIT)}\n`) })), /limit is 51200/);   // SESSIONS §6.3
   const to = N.trancheOpen(o({ planFile: plan }));
   assert.deepEqual([to.tranche, to.round, to.layers, R.branch()], ['T2', 1, [1], 'tranche']);
   assert.equal(g2('rev-parse', 'origin/tranche'), g2('rev-parse', 'HEAD'));
