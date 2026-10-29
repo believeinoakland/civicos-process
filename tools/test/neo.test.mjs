@@ -630,9 +630,18 @@ test('a tranche opened from main, a round opened and closed, the tranche closed 
   assert.throws(() => N.trancheMerged(o({ sha: g2('rev-parse', 'origin/main') })), /no epoch is open/);
   assert.equal(g2('rev-parse', 'origin/tranche'), g2('rev-parse', 'origin/main^2'));   // nothing pushed to the tranche after its merge: the epoch's end rode the close PR
   assert.match(g2('show', 'origin/main:toy/build/epochs.md'), /^- E1 · opened \S+ · closed \S+ with T2$/m);
+  // the tranche's last BOB, archived by ROOT after the merge: nothing may be pushed to the closed tranche (DRYRUN §4.16)
+  const lastBob = { name: 'BOB #1', session: B1, usage: JSON.stringify({ cache_read_tokens: 7, cache_write_tokens: 6, input_tokens: 5, output_tokens: 4 }) };
+  assert.throws(() => N.bobArchived(o({ ...lastBob, tranche: 'T2' })), /tranche is closed \(on main whole\)/);
   // the next tranche: the branch fast-forwarded to main (a merged tranche is on main whole), the new plan current
   const t3 = N.trancheOpen(o({ planFile: f(w.base, 'p3.md', '# Plan: test T3\n\n**Status** · OPEN.\n\n## Layer 1\n\n**alpha**\n- N3 · x\n') }));
   assert.deepEqual([t3.tranche, t3.round, t3.from], ['T3', 1, g2('rev-parse', '--short', 'origin/main')]);
   assert.equal(g2('rev-parse', 'origin/tranche~1'), g2('rev-parse', 'origin/main'));
   assert.match(readFileSync(join(w.bob.dir, 'build/plan/current.md'), 'utf8'), /^# Plan: test T3/);
+  // ...so the next tranche's BOB writes it, under the tranche it worked in, once
+  assert.throws(() => N.bobArchived(o({ ...lastBob, tranche: 'nope' })), /a tranche id/);
+  N.bobArchived(o({ ...lastBob, tranche: 'T2' }));
+  assert.match(readFileSync(join(w.bob.dir, 'build/metrics/T2.csv'), 'utf8'), new RegExp(`^${B1},BOB-final,BOB #1,,7,6,5,4,,,,$`, 'm'));
+  assert.equal(existsSync(join(w.bob.dir, 'build/metrics/T3.csv')), false);
+  assert.throws(() => N.bobArchived(o({ ...lastBob, tranche: 'T2' })), /already has its row/);
 });

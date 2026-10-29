@@ -159,6 +159,36 @@ export function stopReason(role, ctx) {
   }
   return why.length ? why.join('; ') : null;
 }
+// P13, rulebook SES 5: BOB past 40 % of its window, a job or a lane past half, ends a turn only with its refresh recorded
+// (BOB #2 of N1 ran to 67 % while BOB's own threshold was text: DRYRUN §4.17). The context is the last assistant turn's
+// input (fresh, cache read and cache write) in the transcript; the window is the model's, 1,000,000 unless
+// NEO_CONTEXT_WINDOW says otherwise. BOB's refresh is its handoff (`neo handoff` marks it for its session); a job's or a
+// lane's is the wait `BLOCKED: context`, which BOB's queue lists as UNBLOCK and answers by `neo job route` / `lane route`.
+export const THRESHOLD = { bob: 0.4, job: 0.5, lane: 0.5 };
+export const WINDOW = Number(process.env.NEO_CONTEXT_WINDOW) || 1_000_000;
+export function contextUsed(input) {
+  if (typeof input?.transcript_path !== 'string') return null;
+  let lines; try { lines = readFileSync(input.transcript_path, 'utf8').split('\n'); } catch { return null; }
+  for (let i = lines.length - 1; i >= 0; i--) {
+    let r; try { r = JSON.parse(lines[i]); } catch { continue; }
+    const u = r?.message?.usage;
+    if (u && !r.isSidechain && (r.type === 'assistant' || r.message.role === 'assistant')) return (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+  }
+  return null;
+}
+export function contextReason(role, used, ctx, window = WINDOW) {
+  if (!(role in THRESHOLD) || !(used > THRESHOLD[role] * window)) return null;
+  const pct = Math.round((100 * used) / window), limit = Math.round(100 * THRESHOLD[role]), at = `you are at ${pct} % of your window, past ${limit} % (P13; rulebook SES 5)`;
+  if (role === 'bob') {
+    const f = join(ctx.root, '.git', 'neo-handoff.json');
+    if (existsSync(f) && JSON.parse(readFileSync(f, 'utf8')).session === ctx.session) return null;
+    return `${at}: refresh now: run \`neo handoff --next "<the next step>"\` at a clean point and send ROOT the START line it prints, then take no further act`;
+  }
+  const R = R_of(ctx);
+  const line = role === 'job' ? parseJob(stateRead(R, `jobs/${ctx.module}.md`) || '')?.state : stateRead(R, `lanes/${ctx.lane}.md`)?.match(/· (BLOCKED: .*)$/m)?.[1];
+  if (/^BLOCKED: context/.test(line || '')) return null;
+  return `${at}: record it, \`neo ${role === 'job' ? 'job' : 'lane'} state --set "BLOCKED: context (${pct} %)"\`, push, and send BOB one line; BOB starts your successor, which continues from git`;
+}
 export function refusalCount(last, why) { return why ? (last?.why ? (last.n || 0) + 1 : 1) : 0; }
 // Bob, 29 Oct: "you should not be stopping to involve me in these details"; a session told to keep going keeps going.
 // A BOB's or a lane's turn that ends on words waiting for Bob is refused: decide it (DES 1, GOV 2), or route it by
@@ -185,6 +215,7 @@ function main() {
     let why = null; try { why = stopReason(role, ctx); } catch (e) { why = `the stop check failed (${e.message}); fix the cause`; }
     if (!why && role === 'bob') { try { why = stepsReason(lastAssistantText(input), join(root, r.product || '.')); } catch (e) { why = `the steps check failed (${e.message}); fix the cause`; } }
     if (!why && (role === 'bob' || role === 'lane')) { try { why = askingBobReason(lastAssistantText(input)); } catch { /* no text */ } }
+    if (!why && role) { try { why = contextReason(role, contextUsed(input), ctx); } catch (e) { why = `the context check failed (${e.message}); fix the cause`; } }
     // The same refusal three times in a row lets the turn end, so a cause the session cannot clear never loops.
     const f = join(root, '.git', 'neo-stop.json');
     const last = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};

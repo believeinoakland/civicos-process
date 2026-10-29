@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../neo.mjs';
-import { preReason, stopReason, partialReadReason, allowReason, askingBobReason } from '../neo-hooks.mjs';
+import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason } from '../neo-hooks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
 const B1 = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', J1 = 'session_01AAAAAAAAAAAAAAAAAAAAAAAA', L1 = 'session_01LLLLLLLLLLLLLLLLLLLLLLLL';
@@ -146,6 +146,25 @@ test('the hooks: no role until recorded; BOB, a job and a lane each refused what
   assert.match(pre(lane.root, bash('git push origin HEAD:job/alpha')), /a lane pushes only tranche/);
   assert.match(pre(lane.root, tool(`${REMOTE}create_session`, { title: 'X #1' })), /starts no session/);
   assert.equal(stopReason('lane', ctxOf(lane.root)), null);
+
+  // past its threshold a session ends a turn only with its refresh recorded (P13; SES 5; DRYRUN §4.17): the context is the
+  // last assistant turn's input in the transcript, a subagent's turns aside
+  const tr = f(w.base, 't.jsonl', [{ type: 'user', message: { role: 'user', content: 'x' } }, { type: 'assistant', message: { role: 'assistant', usage: { input_tokens: 2, cache_read_input_tokens: 640000, cache_creation_input_tokens: 9998 } } }, { type: 'assistant', isSidechain: true, message: { role: 'assistant', usage: { input_tokens: 1, cache_read_input_tokens: 5, cache_creation_input_tokens: 0 } } }, { type: 'system' }].map((x) => JSON.stringify(x)).join('\n'));
+  assert.equal(contextUsed({ transcript_path: tr }), 650000);
+  assert.equal(contextUsed({}), null);
+  assert.equal(contextReason('bob', 390000, ctxOf(root)), null);
+  assert.match(contextReason('bob', 650000, ctxOf(root)), /at 65 % of your window, past 40 %.*neo handoff/);
+  N.handoff(o({ next: 'the layer close' }));   // the refresh recorded for BOB #1's session
+  assert.equal(contextReason('bob', 650000, ctxOf(root)), null);
+  assert.equal(contextReason('job', 450000, ctxOf(alpha.root)), null);
+  assert.match(contextReason('job', 650000, ctxOf(alpha.root)), /past 50 %.*neo job state --set "BLOCKED: context \(65 %\)"/);
+  N.jobState({ product: alpha.dir, module: 'alpha', set: 'BLOCKED: context (65 %)' });
+  assert.equal(contextReason('job', 650000, ctxOf(alpha.root)), null);
+  assert.match(N.status(o()).queue.map((q) => q.item).join(';'), /UNBLOCK alpha/);
+  assert.match(contextReason('lane', 650000, ctxOf(lane.root)), /neo lane state --set "BLOCKED: context/);
+  N.laneState({ product: lane.dir, set: 'BLOCKED: context (65 %)' });
+  assert.equal(contextReason('lane', 650000, ctxOf(lane.root)), null);
+  assert.equal(contextReason('lane', 650000, ctxOf(lane.root), 2000000), null);   // a larger window: 33 %
 });
 
 test('the hook pre-approves only the act table\'s acts for every role, every part of the command one (PERMISSIONS §8.6)', () => {

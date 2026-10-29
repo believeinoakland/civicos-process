@@ -32,7 +32,7 @@
 //   job posted --module <m> [--comment <id>] [--ready]      review decide --module <m> (--review | --no-review) --reason "<…>"
 //   review result --module <m> --result-file <f>      merge --module <m> --head <sha> --gate <conclusion>      merged --module <m> --sha <commit>
 //   job reopen --module <m> --change-file <f>      job retire --module <m>      job archived --module <m> --session <id> --usage <json>
-//   defect --module <m> --what "<…>"      bob archived --name "BOB #n" --session <id> --usage <json>
+//   defect --module <m> --what "<…>"      bob archived --name "BOB #n" --session <id> --usage <json> [--tranche <T>]
 //   reading --role <bob|job|lane|root>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
 //   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
 //   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (the old tool's, P20)
@@ -626,7 +626,10 @@ export function handoff(o) {
   if (prose.split('\n').length > 10) refuse('the prose part is at most ten lines: what no file says');
   const n = Number(st.bob?.name.split('#')[1] || 0) + 1;
   const text = `HANDOFF for BOB #${n} · ${today()} · ${TRANCHE} @ ${R.g(['rev-parse', '--short', 'HEAD'])} · epoch ${st.epoch}\nQueue (in order):\n${st.queue.map((q) => `- ${q.item}: ${q.detail}`).join('\n') || '- none'}\nOut:\n${st.working.map((w) => `- ${w.ask} ${w.stage} by ${w.by}, due ${w.due}${w.late ? ' LATE' : ''}`).join('\n') || '- none'}\nLanes: ${st.lanes.map((l) => `${l.id} ${l.live ? l.name : 'DORMANT'}`).join('; ') || 'none'}\nNext: ${o.next || 'consume the queue from `neo status`'}\n${prose ? `${prose}\n` : ''}`;
-  return { text: sized(text, 'the handoff'), start: `START BOB #${n}: ${TRANCHE} @ ${R.g(['rev-parse', '--short', 'HEAD'])}` };
+  sized(text, 'the handoff');
+  // the refresh recorded for this session: BOB's Stop hook lets a turn past 40 % of its window end (rulebook SES 5)
+  const me = readRole(R.root); if (me?.role === 'bob') writeFileSync(join(R.root, '.git', 'neo-handoff.json'), JSON.stringify({ session: me.session, at: now() }));
+  return { text, start: `START BOB #${n}: ${TRANCHE} @ ${R.g(['rev-parse', '--short', 'HEAD'])}` };
 }
 
 // ---- the job's life (JOB-LIFE): one job, one pull request; the gate by the old tool's functions ----
@@ -1072,12 +1075,22 @@ export function jobArchived(o) {
   if (j.session === o.session) { saveJob(R, m, { ...j, state: 'ARCHIVED' }, `${m}: ARCHIVED`); planEdit(R, (p) => clear(p, `archive ${m}`), `${m} archived`); }
   return { commit };
 }
-// A predecessor BOB archived (takeover's act): its BOB-final row.
+// A predecessor BOB archived (takeover's act): its BOB-final row, under the tranche it worked in (rulebook USE 2). The
+// tranche's last BOB is archived by ROOT after the close PR merged, when nothing may be pushed to the tranche (it is on
+// `main` whole, JOB-LIFE §1): its row is written by the next tranche's BOB with `--tranche <T>`, the closed one's id
+// (DRYRUN §4.16: N1's last BOB had no home).
 export function bobArchived(o) {
-  if (!NAME.test(o.name || '') || !/^BOB /.test(o.name) || !SESSION.test(o.session || '')) refuse('--name "BOB #<n>" --session <id> --usage <json>');
+  if (!NAME.test(o.name || '') || !/^BOB /.test(o.name) || !SESSION.test(o.session || '')) refuse('--name "BOB #<n>" --session <id> --usage <json> [--tranche <T>]');
   const R = repo(o.product), u = typeof o.usage === 'string' ? JSON.parse(o.usage) : o.usage || {};
   on(R, TRANCHE);
-  const { id: T } = tranche(R), csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
+  if (!R.read(PLAN)) {
+    R.fetch('main', TRANCHE);
+    let closed = false; try { R.g(['merge-base', '--is-ancestor', `origin/${TRANCHE}`, 'origin/main']); closed = true; } catch { /* a tranche between rounds */ }
+    if (closed) refuse(`${TRANCHE} is closed (on main whole): nothing is pushed to it until the next tranche opens; its BOB writes this row then, with --tranche <the closed tranche's id>`);
+  }
+  if (o.tranche !== undefined && !/^[A-Z]+\d+[a-z]?$/.test(String(o.tranche))) refuse('--tranche <T>, a tranche id such as N1');
+  const T = o.tranche || (R.read(PLAN) ? tranche(R).id : archivedTranche(R) ?? refuse('no running plan and no archived one: --tranche <T>')), csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
+  if (cur.split('\n').some((l) => l.startsWith(`${o.session},`))) refuse(`${o.session} already has its row in ${csv}`);
   R.write(csv, `${cur}${[o.session, 'BOB-final', o.name, '', u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', '', '', '', ''].join(',')}\n`);
   return { commit: commitPush(R, TRANCHE, [csv], `metrics ${T}: ${o.name} archived`) };
 }

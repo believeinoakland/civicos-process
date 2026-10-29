@@ -37,7 +37,7 @@ A session starts on the product repository and invokes the one skill `neoprocess
 
 ## 2. Context thresholds
 
-A refresh is triggered by `get_session`'s `context_usage`, read by the session's own command, never by a timer: BOB at 40 % of its window (Bob, bio K3671 lineage; mechanics §2), a job or a lane at half (§6), ROOT at 55 % (§2). The successor continues from git (`PROTOCOL.md` §7a).
+A refresh is triggered by the session's context, never by a timer: BOB at 40 % of its window (Bob, bio K3671 lineage; mechanics §2), a job or a lane at half (§6), ROOT at 55 % (§2). The successor continues from git (`PROTOCOL.md` §7a). **By code** (DRYRUN §4.17: BOB #2 ran to 67 % while BOB's own threshold was text): every role's Stop hook reads the context from the transcript (the last assistant turn's input: fresh, cache read and cache write; the same figure `get_session` reports as `context_usage`) and refuses the turn's end past the threshold until the refresh is recorded: BOB's by `proc handoff`, a job's or a lane's by `BLOCKED: context`, which BOB answers with `proc job route` / `lane route` (`--context-pct`). ROOT, the parent of every BOB, also reads a BOB's `get_session` at each of its reports.
 
 ## 3. Reading sets, by role
 
