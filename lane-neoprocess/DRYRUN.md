@@ -33,6 +33,7 @@ The tool's merge on `tranche` (JOB-LIFE §6): the gate on a pull request, a bran
 11. **A dormant lane's start was not owed by `ask ask`** (BOB #1, R-BOB-1-5), so the hook refused the printed create_session. Fix: `ask ask` owes `start lane <ID>` when it prints the start; `lane route` is the recovery for an ask already ASKED.
 12. **A closed lane's id still named a lane in the tool** (BOB #2, R-BOB-2-1: `ask close` routed the reply for STATS #1 to the closed lane STATS). Fix: only an OPEN lane's id is a lane, in `ask route`, `ask close` and `lane open`'s session text; the hook already read it so.
 13. **A job's clone started on a detached HEAD** at its branch's tip (STATS #2, R-STATS-2-1): `job start` refused, and the hook refuses a checkout before a role is recorded. Fix: the start commands (`job start`, `lane start`, `takeover`) make the branch at a detached tip themselves.
+14. **A BOB blocked on Bob was looped by its goal** (BOB #2, 08:08–13:45Z: 588 goal iterations, a command each turn, so the evaluator never stopped): the START's goal named no wait state for BOB. Fix: the goal counts a queue holding only NEEDS BOB / RELAY TO BOB items, relayed to the lane, as met (START-BOB.md); the rule for every role's goal (SESSIONS §1b): a wait that is another party's to end is a terminal state.
 
 ## 5. The run's log (29 Oct 2026, UTC)
 
