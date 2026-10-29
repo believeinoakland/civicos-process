@@ -1622,13 +1622,16 @@ export const ONBOARD_MARK = '<!-- onboarding:';
 const ONBOARD_BRANCH = 'onboard';
 const CODE_FILE = /\.(m?[jt]sx?|cjs|py|rb|go|rs|java|kt|swift|cs|cpp|cc|c|h|hpp|php|scala|ex|exs|clj|dart|lua|sh|sql|vue|svelte)$/;
 const NOT_CODE_DIR = /^(\.|build$|docs?$|requirements$|node_modules$|dist$|vendor$)/;
+export const NOT_PRODUCT = ['build/', 'requirements/', '.claude/', '.github/', 'CLAUDE.md', 'README.md'];
 function skeleton(name, legacy) {
   const m = (what) => `${ONBOARD_MARK} ${what} -->`;
   return {
     'requirements/README.md': `# ${name}: the canon index\n\nWhat the product is for, whom it serves and what it must do; every module requirement cites a section here (P5). Written with the owner at onboarding (ONBOARDING §2, step 1).\n\n## Vision\n\n${m("the owner's vision, in his words")}\n\n## Audiences\n\n${m('each audience, and what it needs from the product')}\n\n## Initial requirements\n\n${m('the first requirements, each numbered, each one a behaviour a test can confirm')}\n\n## Designs\n\nNone yet.\n`,
     'build/manifest.md': `# Build manifest\n\n${name}: where the canon, the build state, each layer's tests and the generated artifacts live (PRODUCT-SUPPLIES).\n\n## Canon\n\n\`requirements/README.md\`.\n\n## Tests\n\n${m("how each module's tests are run, and each layer's")}\n`,
     'build/layers.md': `# The layers\n\n| layer | name | contract | modules |\n| --- | --- | --- | --- |\n${legacy.length ? `| 1 | Legacy | The existing code, held whole until extracted (ONBOARDING §2, step 5). | ${legacy.map((x) => x.id).join(', ')} |\n` : ''}`,
-    'build/modules.json': `${JSON.stringify({ not_product: ['build/', 'requirements/'], modules: legacy }, null, 2)}\n`,
+    // the shims and the root's README are not product files: the architecture check would fail the first gate on them
+    // (the new-path dry run, #9, 29 Oct: `CLAUDE.md: owned by no module`; DRYRUN §4.28)
+    'build/modules.json': `${JSON.stringify({ not_product: NOT_PRODUCT, modules: legacy }, null, 2)}\n`,
     'build/areas.md': '# The product areas\n\n| area | canon | modules | rulebook |\n| --- | --- | --- | --- |\n',
     'build/rulings.md': '# Rulings\n\nOne line each: `K<n> · date · area · ruling · why` (GOV 7).\n',
     'build/plan/next.md': '# Next\n\nThe work prepared for the coming tranche (P18); each entry names its module.\n',

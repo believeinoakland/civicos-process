@@ -8,6 +8,11 @@
 
 What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-SUPPLIES.md`, `SESSIONS.md`, `SETUP-STEPS.md`, `lane-neoprocess/DRYRUN.md` §4, §6; `tools/proc.mjs`, `tools/hooks.mjs`, `tools/acts.md`, `tools/test/proc.test.mjs`, `tools/test/hooks.test.mjs`. Not HISTORY.md, not a transcript.
 
+## What #9 did (suite 267 green)
+
+- **X9 PROVEN**: Bob set `NEOPROCESS_GITHUB_TOKEN` (18:40Z); run 40933605400 made `believeinoakland/neoprocess-x9` and its rulesets; read back from the session; acts.md, DRYRUN §6, PERMISSIONS §9, SETUP-STEPS say so. The token has no expiry.
+- **Onboarding, new path, PROVEN** on it (DRYRUN §4, §6): seed PR neoprocess-x9#1 merged by the onboarding role; `init --check` DONE but the handover. Flaw 28 fixed with a test (the shims were product files to the architecture check).
+
 ## What #8 did (suite 267 green)
 
 - **X9 measured** (PERMISSIONS §9; DRYRUN §4.26; acts.md): from a session no token reaches repository creation or rulesets: the proxy binds the GitHub API to the session's repositories and injects the Claude app's token; the GitHub MCP create answers GitHub's 403 for the app. Route: `.github/workflows/repo-setup.yml` runs `proc repo setup` on GitHub's runner with Bob's token as the process repository's Actions secret `NEOPROCESS_GITHUB_TOKEN`; from a session the command reads and prints the dispatch (tested), PR #39 merged; the dispatch from `main` measured (204; the run stopped at the missing secret).
@@ -15,13 +20,13 @@ What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-
 
 ## What remains, in order
 
-1. **X9 PROVEN** (#9, 18:44Z, the secret set by Bob): run 40933605400 made `believeinoakland/neoprocess-x9` and its rulesets; read back from the session, the repository attached; acts.md and DRYRUN §6 updated. Next: ONBOARDING's new path on it (`proc onboard start`, then `proc process start` again), DRYRUN §6's last owed row.
-2. **The rest of Bob's sitting** (PERMISSIONS §10): https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (steps 1, 2, 4 done; 3 open: the secret; 5–7 his). The product's grant list is written by the onboarding session into the product. X10 PROVEN (#8: the hosting token reads its own scope; PERMISSIONS §9).
-3. **Owed to certification** (DRYRUN §6): a handover to an open epoch, the `tranche open` refusal live (the product's first run); the runner's run (once the secret is set).
+1. **#9's work on `main`**: its pull request merged (the lane merges its own); if not, open and merge it.
+2. **The rest of Bob's sitting** (PERMISSIONS §10): https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (steps 1–4 done; 5–7 his). The product's grant list is written by the onboarding session into the product. X10 PROVEN (#8: the hosting token reads its own scope; PERMISSIONS §9).
+3. **Owed to certification** (DRYRUN §6), all provable only in a product run: a handover through ROOT to an open epoch, the `tranche open` refusal live, the words check.
 4. **The product**, by ONBOARDING's convert path, in the onboarding session Bob starts (step 7 of the page).
 5. `dryrun/` refreshed from the toy, in a session with the toy attached (not this one: a second repository costs the standing list, PERMISSIONS §10.7; #8's decision).
 6. **The repository's name**: Bob (29 Oct, to #8) expected a fresh `neoProcess`; the record plans a rename of this one (README line 1), his act when he chooses; the texts naming the old name then follow (PROCESS-DESIGN's status line with his approval, GOV 3).
 
 ## Acts only Bob can take (all at the one sitting)
 
-Done 29 Oct: this repository's settings hold the standing list; the GitHub app reaches every repository; the hosting token is set on the environment. Still his: the GitHub token as the secret `NEOPROCESS_GITHUB_TOKEN` (SETUP-STEPS 1–4; the one he set on the environment reaches nothing); the walk identities and an AI key on the environment; the hosts if Custom; the product's onboarding session; the reviewer for development cuts; the rename.
+Done 29 Oct: this repository's settings hold the standing list; the GitHub app reaches every repository; the hosting token is set on the environment. Done 18:40Z: the GitHub token as the secret `NEOPROCESS_GITHUB_TOKEN`. Still his: the walk identities and an AI key on the environment; the hosts if Custom; the product's onboarding session; the reviewer for development cuts; the rename.

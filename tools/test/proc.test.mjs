@@ -732,6 +732,8 @@ test('onboarding: a new project seeded from nothing, an existing one converted, 
   const st = (c) => Object.fromEntries(c.map((x) => [x.name, x.status]));
   assert.deepEqual(st(r.check), { intake: 'OPEN', seed: 'DONE', grants: 'OPEN', repository: 'CHECK', architecture: 'OPEN', requirements: 'OPEN', 'first tranche': 'OPEN', handover: 'OPEN' });
   assert.match(readFileSync(join(n, 'requirements/README.md'), 'utf8'), /## Vision\n\n<!-- onboarding:/);
+  assert.deepEqual(JSON.parse(readFileSync(join(n, 'build/modules.json'), 'utf8')).not_product, N.NOT_PRODUCT);   // the shims are not product files (DRYRUN §4.28)
+  assert.ok(N.NOT_PRODUCT.includes('.claude/') && N.NOT_PRODUCT.includes('.github/') && N.NOT_PRODUCT.includes('CLAUDE.md'));
   // the owner's words written: intake done; a module and its requirements: architecture and requirements done; nothing overwritten on a second run
   writeFileSync(join(n, 'requirements/README.md'), '# Idea\n\n## Vision\n\nA place to meet.\n\n## Audiences\n\nNeighbours.\n\n## Initial requirements\n\n1. A list of meetings.\n');
   writeFileSync(join(n, 'build/modules.json'), JSON.stringify({ modules: [{ id: 'meetings', layer: 1, paths: ['meetings/'], tests: ['meetings/test/'], uses: [] }] }));
