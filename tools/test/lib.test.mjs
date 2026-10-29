@@ -91,7 +91,7 @@ test('a test run never gives "no result" without its cause; a runaway test fails
   assert.deepEqual([r.tests, r.pass, r.failed], [5, 2, ['a red']]);
   assert.deepEqual(r.noResult.map((x) => [x.name, x.cause]).sort(), [['heap.test.mjs', 'out of heap (over its 64 MB cap)'], ['killed.test.mjs', 'killed (SIGKILL)']]);
   assert.deepEqual(P.reds(r).sort(), ['NO RESULT heap.test.mjs', 'NO RESULT killed.test.mjs', 'a red']);
-  assert.ok(existsSync(r.report) && r.report.includes('.git/civicos-runs/'));
+  assert.ok(existsSync(r.report) && r.report.includes('.git/proc-runs/'));
   assert.ok(r.peaks.length && r.peaks.every((p) => / \d+ MB$/.test(p)));
   // a process over its memory cap is killed by proc's watch and named, whatever holds the memory (here, outside the heap)
   const big = f('big.test.mjs', "test('outside the heap', async () => { const k = []; for (;;) { k.push(Buffer.alloc(32 << 20, 1)); await new Promise((r) => setTimeout(r, 20)); } });");

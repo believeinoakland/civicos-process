@@ -36,6 +36,8 @@ function product(files) {
     }),
     'build/ops.json': JSON.stringify({ alpha: 'owner', beta: 'owner', gamma: 'owner', delta: 'owner', epsilon: 'owner', zeta: 'owner' }),
     'docs/development/ux-substrate/screens/words.json': JSON.stringify(WORDS),
+    // the product's words configuration (checks/words.mjs): the process names none of these paths or modules itself
+    'build/words.json': JSON.stringify({ table: 'docs/development/ux-substrate/screens/words.json', reads: 'docs/development/ux-substrate/screens/words-reads.json', rows: 'bio-plane/src/setup-words/rows.mjs', unreviewed: 'bio-plane/src/setup-words/words-unreviewed.json', baseline: 'build/tests-english-baseline.json', opDeclarations: 'bio-plane/src/op-declarations/index.mjs', marker: 'localize', wordsModule: 'setup-words', declModules: ['op-declarations', 'op-capabilities'], drawnPrefix: 'screens-', drawnModules: ['interface-shell', 'wizard-scripts', 'site', 'installer', 'installer-steps'] }),
     'src/setup-words/index.mjs': 'export const x = "This module holds all the English there is.";\n',
     'src/viol/index.mjs': [
       'import { word } from "../setup-words/index.mjs";',

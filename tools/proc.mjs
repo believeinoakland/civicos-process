@@ -1232,7 +1232,9 @@ export function gateCmd(o) {
 // The process repository is public (BOB, 29 Oct), so its checkout needs no key or secret (JOB-LIFE §4). No merge queue:
 // the tool merges a green, current pull request (JOB-LIFE §6), so the workflow runs on pull requests only.
 export function shims(o) {
-  const R = repo(o.product), proc = o.process || '/home/user/neoProcess', name = o.repo || 'believeinoakland/neoProcess', rel = R.rel('.');
+  // the process's own place and name, read from its checkout and its remote, never written into the tool (Bob, 29 Oct)
+  const remoteName = () => { try { return execFileSync('git', ['-C', PROCESS, 'remote', 'get-url', 'origin'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim().replace(/\.git$/, '').split(/[/:]/).slice(-2).join('/'); } catch { return null; } };
+  const R = repo(o.product), proc = o.process || PROCESS, name = o.repo || remoteName() || refuse('--repo <owner/name>: the process repository\'s remote could not be read'), rel = R.rel('.');
   const ref = o.ref || (() => { try { const b = execFileSync('git', ['-C', PROCESS, 'rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); return b === 'HEAD' ? 'main' : b; } catch { return 'main'; } })();
   const hook = (ev) => `node "${proc}/tools/hooks.mjs" ${ev}`;
   const supplies = 'PRODUCT-SUPPLIES.md';   // at the root since the commit point

@@ -260,8 +260,8 @@ function laneEvidence(root, from = EVIDENCE_FROM) {
   return out;
 }
 
-// N656 (K1763) is opt-in until certified by its dry run (P3; dryrun/CERTIFICATION.md TC1): CIVICOS_TERMS_CHECK=1.
-export function checkFormat(root, { approvalsLastExempt = APPROVALS_LAST_EXEMPT, terms: withTerms = process.env.CIVICOS_TERMS_CHECK === '1' } = {}) {
+// N656 (K1763) is opt-in until certified by its dry run (P3; dryrun/CERTIFICATION.md TC1): PROC_TERMS_CHECK=1.
+export function checkFormat(root, { approvalsLastExempt = APPROVALS_LAST_EXEMPT, terms: withTerms = process.env.PROC_TERMS_CHECK === '1' } = {}) {
   const terms = withTerms ? termsClaims(root) : { failures: [], skipped: true };
   const failures = [...conflictMarkers(root), ...rulingIds(root), ...approvalRulings(root, approvalsLastExempt), ...nextReasons(root), ...deferrals(root), ...laneEvidence(root), ...terms.failures];
   let tracked = [];
