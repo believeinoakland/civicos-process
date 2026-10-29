@@ -81,6 +81,7 @@ Each path proven, or named as provable only in a product run with the check that
 | the words check configured by the product (`build/words.json`) | provable only in a product run | fixture tests; the product's first gate after its `build/words.json` is written at onboarding |
 | `proc shims` reading the process's name from its remote | PROVEN | `proc init` on the toy wrote no drift against the toy's existing shims (`--ref main`) |
 | onboarding, convert path (`proc onboard start`, `proc init`, `init --check`, the seed pull request) | PROVEN | §4.25: believeinoakland/neoprocess-dryrun#13 merged by the onboarding role; the readback correct after fix 25 |
-| `proc repo setup` from a session | PROVEN refused, the route decided | #8: the proxy's 403 inside the command, the classifier passing it; the dispatch of `repo-setup.yml` printed (§4.26) |
-| `repo-setup.yml` on GitHub's runner | provable once Bob sets the secret `NEOPROCESS_GITHUB_TOKEN` (SETUP-STEPS) | the run's log: the repository and its rulesets read back active (X9) |
+| `proc repo setup` from a session | PROVEN refused, the route decided | #8: the proxy's 403 inside the command; the dispatch of `repo-setup.yml` printed (§4.26) |
+| the dispatch of `repo-setup.yml` from `main` | PROVEN | #8: 204 by `actions_run_trigger` after PR #39; run 40928404311 stopped at its first step, naming the missing secret, in 12 s |
+| `repo-setup.yml` on GitHub's runner with the secret | provable once Bob sets `NEOPROCESS_GITHUB_TOKEN` (SETUP-STEPS) | the run's log: the repository and its rulesets read back active (X9) |
 | onboarding, new path | owed | a throwaway repository made by the workflow once the secret is set (X9), or by Bob's hand steps; the product does not use this path |
