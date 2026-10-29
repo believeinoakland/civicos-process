@@ -2,8 +2,8 @@
 
 Area rulebook, trial draft (neoProcess #3, 2026-10-29). At most ten rules, one screen, each checkable. Tags: YOURS (Bob's policy) or BOB'S; CODE names what enforces it, TEXT means nothing does.
 
-1. Bob decides only policy and doctrine, what a requirement means, the high-level architecture (layers; modules that carry product capability) and UX. Every lower-level matter is BOB's: decided without asking, recorded once, reported to Bob as done. (P17; K2055, K1257) YOURS · TEXT.
-2. A question to Bob comes with an explanation he can follow, options and a recommendation, and only after BOB checks he has not already answered it. When unsure whose a question is, BOB decides by P17 and says which way it read it. (P17; K1913, K2009) YOURS · TEXT.
+1. Bob decides only policy and doctrine, the high-level architecture (layers; modules that carry product capability), UX, and a requirement by DES 1's test. Every lower-level matter, a module's or an area's edge case included, is BOB's: decided without asking, recorded once, reported to Bob as done. (P17; K2055, K1257; Bob, 29 Oct) YOURS · TEXT.
+2. A question to Bob comes with an explanation he can follow, options and a recommendation, and only after BOB checks that neither he nor the canon has already answered it. When unsure whose a question is, BOB decides it by P17 and says which way it read it; no work waits on him for a detail. (P17; K1913, K2009) YOURS · TEXT.
 3. A principle changes only after Bob has seen the exact change, rendered, and approved it in words; an answer to another question is not approval. (P16; K1258) YOURS · TEXT.
 4. Any other process text (mechanics, tools, rulebooks) is BOB's to change. Every rule names the principle it serves, and none is added in reaction to an incident unless a principle yields it. (P16; K5036, K113) YOURS · TEXT.
 5. A process change is certified before product work uses it: checked against the principles, then proven on a dry-run tranche, each path in the certification list proven or named as provable only in a product run, with the check that will prove it. A meaningful flaw stops product work until then. (P3; mechanics §15; K111) BOB'S · TEXT.

@@ -48,7 +48,7 @@ On each request BOB decides, in this order, and writes the `Route` line:
 
 1. **Answer itself** when the request is BOB's by mechanics §7: wording of a requirement without a change of meaning, routing a flaw to its module, sequencing, ownership, tooling, tests, branches, or any detail of P17. Most requests end here; the requester is told the answer, not that BOB made it.
 2. **Ask a lane** when the request needs a design decision inside a lane's area (the area's canon, its construct designs, its rules). The lane is found from the project's lane register (§7). A request that spans two areas becomes two asks, one per lane, and BOB composes the reply.
-3. **Bring to Bob** when the request is Bob's by P17 (a change to what a requirement means, doctrine, high-level architecture, UX, policy), whether or not a lane was asked first: a lane's decision may itself name what is Bob's. BOB puts it to Bob with an explanation, options and a recommendation; the ask reads `NEEDS BOB` meanwhile.
+3. **Bring to Bob** when the request is Bob's by P17 (doctrine, policy, high-level architecture, UX, or a requirement by rulebook DES 1's test: what the product does for its users, unanswered by the canon), whether or not a lane was asked first: a lane's decision may itself name what is Bob's. BOB puts it to Bob with an explanation, options and a recommendation; the ask reads `NEEDS BOB` meanwhile, and nothing else waits on it. A doubtful case is BOB's: it decides, records which way it read it, and reports (Bob, 29 Oct: details never stop for him).
 
 The requester never learns which route was taken unless the answer needs it (a decision of Bob's is cited as his).
 

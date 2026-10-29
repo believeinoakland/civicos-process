@@ -21,4 +21,4 @@ The design is here and on the page (https://claude.ai/artifact/7Jghdu6JV3beK58dk
 
 ## Acts that are Bob's, when the time comes
 
-Archive neoProcess #2–#4 (first account). The `neoProcess`, `civicsmith` and `neoprocess-dryrun` repositories; on each product repository, once: the two rulesets (SETUP-STEPS), nothing else (no queue, no auto-merge, no secret); a ROOT on a new account at a move. Probe branches `probe/N2-*` to delete by BOB.
+Only what the platform refuses a session (nothing waits on any of it; Bob, 29 Oct: details never stop for him): the two rulesets on each product repository, once (SETUP-STEPS); the Claude app's access to a new repository; a ROOT on a new account at a move; the repository renames. Housekeeping he may do or leave: archiving neoProcess #2–#4 on the first account, deleting the toy's `seed-*`/`probe-*` branches.

@@ -9,7 +9,7 @@ One row per path PROTOCOL §10, JOB-LIFE §13 and DESIGN-STAGE §5 name. A row i
 | P1 | a job's QUESTION answered by BOB alone | alpha N6 | the ask: Route `answered by BOB`, Replied, CLOSED | PLANNED |
 | P2 | a job's QUESTION asked of a lane, decided, folded into a requirement, replied as a CHANGE the job merges | alpha N1 → ARITH | the ask's four stages; `requirements/arithmetic.md` §3 and alpha R8 in one commit with the close; the job's merge of `tranche` | PLANNED |
 | P3 | a lane's QUESTION to another lane through BOB | stats N12 → STATISTICS → ARITH | STATISTICS's ask with its own `QUESTION #n` From line; ARITH's decision; STATISTICS's decision | PLANNED |
-| P4 | an ask that needs Bob, held NEEDS BOB, closed citing his decision | stats N11 | the ask: Route `needs Bob`, Status NEEDS BOB, Decided `Bob`, Replied | PLANNED |
+| P4 | an ask that needs Bob, held NEEDS BOB, closed citing his decision (on the toy, its owner the lane decides as Bob: DRYRUN §4.15) | stats N11 | the ask: Route `needs Bob`, Status NEEDS BOB, Decided `Bob`, Replied | PLANNED |
 | P5 | a successor BOB continuing an ASKED ask from its file | BOB handover with an ask ASKED | the ask's Asked line by BOB #1, Replied by BOB #2 | PLANNED |
 | P6 | a job's send_message to a lane refused by its hook | alpha N7 | the refusal text in alpha's report; no message in the lane's transcript | PLANNED |
 | P7 | a lane re-chartered by `neo lane charter` | BOB's act | the charter file and the `re-chartered` decision line | PLANNED |

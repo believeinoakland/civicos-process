@@ -15,7 +15,7 @@ A lane answers an ask with a `DECISION` (`PROTOCOL.md` §5): the decision, its r
 ## 2. The fold, in order
 
 1. `proc ask decided` records the decision verbatim (§3 of the protocol).
-2. BOB classifies what it changes (one or more of the three above) and, for a requirement whose meaning changes, brings it to Bob rendered: the ask reads `NEEDS BOB` until he decides. A wording-only change is BOB's (§7) and needs no wait.
+2. BOB classifies what it changes (one or more of the three above) and, for a requirement that is Bob's by rulebook DES 1's test (what the product does for its users, unanswered by the canon), brings it to Bob rendered: the ask reads `NEEDS BOB` until he decides, and nothing else waits. A change the canon answers, an edge case, a service's detail or a wording-only change is BOB's (§7) and needs no wait.
 3. The change is written in its home **before** the requester is answered (`proc ask close` refuses otherwise): the canon section by the lane, the rulebook by BOB, the requirement by BOB citing the canon section (P5: requirements cite the canon by section).
 4. For a requirement change, BOB adds an entry for every module that uses the changed service: to its running job as a `CHANGE`, to the START of a job not yet started, or to the completion round (P10); never to another tranche but for P19's reasons.
 5. The requester gets `ANSWER` or `CHANGE` in its own terms (the requirement or entry as it now reads).
