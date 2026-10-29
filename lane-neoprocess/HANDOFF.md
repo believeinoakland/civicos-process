@@ -6,7 +6,7 @@
 
 ## Read whole at start
 
-What the start prints; `PERMISSIONS.md`, `GRANTS.md`, `ONBOARDING.md`, `PRODUCT-SUPPLIES.md`, `SESSIONS.md`, `SETUP-STEPS.md`, `lane-neoprocess/DRYRUN.md` §4, §6; `tools/proc.mjs`, `tools/hooks.mjs`, `tools/acts.md`, `tools/test/proc.test.mjs`, `tools/test/hooks.test.mjs`. 
+What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md`, `tools/acts.md`; then only what the step in hand changes, whole: a tool section (`tools/proc.mjs` has a usage header; `grep -n '^export' ` lists its functions), its test, a design file (Bob, 29 Oct, to #10: the set of 409 KB put the start at 26 % of the window; SESSIONS §6).
 
 ## Where it stands (29 Oct; suite 268 green)
 
