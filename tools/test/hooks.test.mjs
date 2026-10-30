@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../proc.mjs';
-import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason } from '../hooks.mjs';
+import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason, issueReason, laneStopReason } from '../hooks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
 const B1 = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', J1 = 'session_01AAAAAAAAAAAAAAAAAAAAAAAA', L1 = 'session_01LLLLLLLLLLLLLLLLLLLLLLLL';
@@ -212,7 +212,7 @@ test('a BOB\'s or a lane\'s turn never ends waiting on Bob (Bob, 29 Oct): the wo
   for (const t of ['Done: R1 now refuses an empty list; the job has the CHANGE. Next: the layer close.', 'Decided (DES 1): mean([]) refuses; reported.', 'A4 is routed to Bob (users: …; canon silent: …); the queue goes on.', '']) assert.equal(askingBobReason(t), null, t);
 });
 
-test('the neoProcess lane has its own start and pushes only its branch (neoProcess #7, 29 Oct: no start command fitted the lane that maintains the hooks)', () => {
+test('the neoProcess lane has its own start and pushes only its branch (neoProcess #7, 29 Oct: no start command fitted the lane that maintains the hooks)', async () => {
   const ctx = { role: 'process', branch: 'claude/lane-x', session: L1, root: '/nowhere', product: '.' };
   const pre = (input) => preReason('process', input, ctx);
   // before a role: the start command passes the hook
@@ -252,22 +252,26 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   assert.match(pre(bash('git push https://github.com/o/x9 shims')), /pushes only claude\/lane-x/);   // the process remote unreadable at /nowhere
   assert.match(preReason('process', bash('git push --force https://github.com/o/x9 shims'), here), /force push/);
   assert.match(preReason('onboard', bash('git push https://github.com/o/x9 shims'), { ...here, role: 'onboard', branch: 'onboard' }), /pushes only onboard/);
-  assert.match(pre(tool(`${REMOTE}send_later`, {})), /arms no timer/);
+  assert.match(pre(tool(`${REMOTE}send_later`, {})), /arms only its backstop/);   // its one timer (Bob, 30 Oct)
+  assert.equal(pre(tool(`${REMOTE}send_later`, { delay_minutes: 60, message: N.BACKSTOP_MESSAGE })), null);
+  assert.match(preReason('bob', tool(`${REMOTE}send_later`, {}), ctx) ?? '', /^$/);
+  assert.match(preReason('lane', tool(`${REMOTE}send_later`, { delay_minutes: 60, message: N.BACKSTOP_MESSAGE }), ctx), /arms no timer/);
   assert.equal(pre(tool(`${GH}create_pull_request`, {})), null);
   assert.equal(pre(tool(`${GH}merge_pull_request`, {})), null);
   assert.match(pre(tool(`${GH}pull_request_review_write`, {})), /never opens, reviews or merges/);
   // the act table's pre-approval reads its branch
   assert.match(allowReason('process', bash('git push -u origin claude/lane-x'), ctx), /neoProcess lane/);
   assert.equal(allowReason('process', bash('git push origin tranche'), ctx), null);
-  // no product gate to read; past half its window the turn ends only with its handoff marked
-  assert.equal(stopReason('process', ctx), null);
+  // no product gate to read, but its issues read and acknowledged and its backstop due (Bob, 30 Oct); past half its window
+  // the turn ends only with its handoff marked
+  assert.match(stopReason('process', ctx), /process issues are not read.*no backstop is due/);
   assert.match(contextReason('process', 600_000, ctx, 1_000_000), /proc process handoff` and create your successor with the call it prints/);
   assert.equal(contextReason('process', 400_000, ctx, 1_000_000), null);
   // the start refuses outside the process repository and on main; its reading set is the lane's
   const w = world();
-  assert.throws(() => N.processStart({ product: w.bob.dir, branch: 'claude/lane-x', session: L1 }), /works in the process repository/);
-  assert.throws(() => N.processStart({ product: N.PROCESS, branch: 'main', session: L1 }), /never main/);
-  assert.throws(() => N.processStart({ product: N.PROCESS, session: L1 }), /--branch/);
+  await assert.rejects(N.processStart({ product: w.bob.dir, branch: 'claude/lane-x', session: L1 }), /works in the process repository/);
+  await assert.rejects(N.processStart({ product: N.PROCESS, branch: 'main', session: L1 }), /never main/);
+  await assert.rejects(N.processStart({ product: N.PROCESS, session: L1 }), /--branch/);
   const r = N.reading({ role: 'process' });
   assert.deepEqual(r.files.map((x) => x.book).filter(Boolean), ['design', 'governance', 'sessions']);
   assert.match(r.next, /proc process start --branch/);
@@ -285,4 +289,74 @@ test('an onboarding session pushes only the project\'s onboard branch, opens and
   assert.match(pre(tool(`${REMOTE}create_session`, { title: 'ROOT #1' })), /starts no session/);
   assert.equal(stopReason('onboard', ctx), null);
   assert.match(contextReason('onboard', 600_000, ctx, 1_000_000), /proc init --check/);
+});
+
+// Bob, 30 Oct ("Go with A"): every project raises a process flaw as an issue on the process repository; the lane reads the
+// open issues at its start and each backstop, acknowledges each, and closes it naming the fix's commit on main.
+test('process issues: filed by any role only as `proc issue` printed it; the lane reads, acknowledges and closes them; a product session never edits the process', async () => {
+  const w = world(), own = N.processRepo(), root = w.bob.root;
+  writeFileSync(join(root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'bob', product: 'toy', session: B1, name: 'BOB #1' }));
+  const ctx = ctxOf(root), rep = f(w.base, 'report.md', 'The gate runs node 22; the product pins 26.\n');
+  // filing: the call printed, for the process repository only, the reporter named in the body
+  const r = N.issueFile({ product: w.bob.dir, title: 'The gate ignores the product\'s node version', file: rep });
+  assert.equal(r.tool, `${GH}issue_write`); assert.deepEqual([r.call.method, r.call.owner, r.call.repo], ['create', own.owner, own.repo]);
+  assert.match(r.call.body, /^The gate runs node 22; the product pins 26\.\n\n\*\*Filed by\*\* · BOB #1 \(bob, session_01B+\) on [\w.-]+\/[\w.-]+, by `proc issue`, \d{4}-\d\d-\d\d\./);
+  assert.throws(() => N.issueFile({ product: w.bob.dir, file: rep }), /--title/);
+  // the hook passes exactly that call, and pre-approves it; a changed title, another method or a stale record is refused
+  assert.equal(issueReason('bob', r.call, ctx), null);
+  assert.equal(preReason('bob', tool(`${GH}issue_write`, r.call), ctx), null);
+  assert.match(allowReason('bob', tool(`${GH}issue_write`, r.call), ctx), /the call `proc issue` printed/);
+  assert.match(issueReason('bob', { ...r.call, title: 'x' }, ctx), /only as `proc issue/);
+  assert.match(issueReason('bob', r.call, ctx, Date.now() + 31 * 60e3), /within 30 minutes/);
+  assert.match(issueReason('bob', { method: 'update', owner: own.owner, repo: own.repo, issue_number: 1, state: 'closed' }, ctx), /only the neoProcess lane changes a process issue/);
+  assert.equal(issueReason('bob', { method: 'create', owner: 'someone', repo: 'else', title: 't' }, ctx), undefined);   // not the process's
+  assert.equal(allowReason('bob', tool(`${GH}issue_write`, { ...r.call, title: 'x' }), ctx), null);
+  // GOV 5: no role but the lane edits a file of the process checkout
+  for (const role of ['bob', 'job', 'lane', 'root', 'onboard']) assert.match(preReason(role, tool('Edit', { file_path: join(N.PROCESS, 'tools', 'hooks.mjs') }), { ...ctx, module: 'alpha' }), /never changed in place.*proc issue/, role);
+  assert.equal(preReason('process', tool('Edit', { file_path: join(N.PROCESS, 'tools', 'hooks.mjs') }), { role: 'process', root: N.PROCESS, branch: 'x' }), null);
+  assert.equal(preReason('bob', tool('Write', { file_path: join(w.bob.dir, 'notes.md') }), ctx), null);
+  assert.equal(preReason('bob', tool('Write', { file_path: `${N.PROCESS}-other/x.md` }), ctx), null);   // a sibling directory is not the checkout
+  // the lane's reading of the issues: pull requests dropped, NEW until a comment of the lane's, the read kept for the Stop hook
+  const api = `https://api.github.com/repos/${own.owner}/${own.repo}`;
+  const fake = (comments) => async (url) => ({ status: 200, text: async () => JSON.stringify(url === `${api}/issues?state=open&per_page=100`
+    ? [{ number: 7, title: 'a flaw', user: { login: 'civicsmith' }, created_at: '2026-10-30T01:00:00Z', comments: 1, html_url: 'u7' }, { number: 8, title: 'a PR', pull_request: {}, user: { login: 'x' } }, { number: 9, title: 'quiet', user: { login: 'y' }, created_at: '2026-10-30T02:00:00Z', comments: 0, html_url: 'u9' }]
+    : url === `${api}/issues/7/comments?per_page=100` ? comments : []) });
+  const a = await N.openIssues({ fetch: fake([{ body: 'thanks' }]) });
+  assert.deepEqual(a.issues.map((i) => [i.number, i.state, i.by]), [[7, 'NEW', 'civicsmith'], [9, 'NEW', 'y']]);
+  const b = await N.openIssues({ fetch: fake([{ body: `${N.LANE_MARK}acknowledged, today.` }]) });
+  assert.deepEqual(b.issues.map((i) => i.state), ['ACKNOWLEDGED', 'NEW']);
+  const down = await N.openIssues({ fetch: async () => ({ status: 403, text: async () => '{}' }) });
+  assert.equal(down.ok, false); assert.match(down.error, /answered 403/);
+  // the lane's Stop hook: the issues read, every one acknowledged, a backstop due
+  const lane = mkdtempSync(join(tmpdir(), 'lane-')); execFileSync('git', ['init', '-q', lane]);
+  const lctx = { role: 'process', root: lane, session: L1, branch: 'x' }, keep = (name, v) => writeFileSync(join(lane, '.git', name), JSON.stringify(v));
+  assert.match(laneStopReason(lctx), /issues are not read.*no backstop is due/);
+  keep(N.ISSUES_FILE, a); assert.match(laneStopReason(lctx), /issue\(s\) #7, #9 not acknowledged/);
+  keep(N.ISSUES_FILE, { ...b, issues: b.issues.slice(0, 1) }); assert.match(laneStopReason(lctx), /^no backstop is due/);
+  keep(N.BACKSTOP_FILE, { due: new Date(Date.now() + 60e3).toISOString() }); assert.equal(laneStopReason(lctx), null);
+  keep(N.ISSUES_FILE, down); assert.match(laneStopReason(lctx), /could not be read \(GET .* answered 403\)/);
+  assert.match(N.backstopReason({ message: N.BACKSTOP_MESSAGE, delay_minutes: 600 }), /30 to 240/);
+  assert.match(N.backstopReason({ message: 'later', delay_minutes: 60 }), /arms only its backstop/);
+  assert.match(allowReason('process', tool(`${REMOTE}send_later`, { message: N.BACKSTOP_MESSAGE, delay_minutes: 60 }), lctx), /backstop/);
+  // acknowledging and closing are the lane's, each printed; a close names a commit already on main
+  assert.throws(() => N.issueAck({ product: w.bob.dir, number: 7, note: 'x' }), /only the neoProcess lane/);
+  assert.throws(() => N.issueClose({ product: w.bob.dir, number: 7, commit: 'HEAD', note: 'x' }), /only the neoProcess lane/);
+  writeFileSync(join(root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'process', product: '.', session: L1, name: 'NEOPROCESS', branch: 'x' }));
+  const ack = N.issueAck({ product: w.bob.dir, number: 7, note: 'Fixed by the next certified change.' });
+  assert.ok(ack.call.body.startsWith(`${N.LANE_MARK}acknowledged, `)); assert.equal(ack.call.issue_number, 7);
+  g(root, 'commit', '-q', '--allow-empty', '-m', 'a fix not on main');
+  assert.throws(() => N.issueClose({ product: w.bob.dir, number: 7, commit: 'HEAD', note: 'x' }), /not on main yet/);
+  assert.throws(() => N.issueClose({ product: w.bob.dir, number: 7, commit: 'nope', note: 'x' }), /not a commit here/);
+  const main = g(root, 'rev-parse', 'origin/main'), c = N.issueClose({ product: w.bob.dir, number: 7, commit: main, note: 'The gate reads the product\'s version.' });
+  assert.deepEqual(c.calls.map((x) => x.tool), [`${GH}add_issue_comment`, `${GH}issue_write`]);
+  assert.match(c.calls[0].call.body, new RegExp(`^\\*\\*neoProcess lane\\*\\* · fixed by ${main} on main`));
+  const np = N.issueClose({ product: w.bob.dir, number: 9, notPlanned: true, note: 'A question, answered here.' });
+  assert.equal(np.calls[1].call.state_reason, 'not_planned'); assert.match(np.calls[0].call.body, /closed with no change: not a process flaw/);
+  const dup = N.issueClose({ product: w.bob.dir, number: 9, duplicateOf: 7, note: 'Same flaw.' });
+  assert.deepEqual([dup.calls[1].call.state_reason, dup.calls[1].call.duplicate_of], ['duplicate', 7]);
+  assert.throws(() => N.issueClose({ product: w.bob.dir, number: 9, note: 'x' }), /--commit/);
+  N.issueClose({ product: w.bob.dir, number: 7, commit: main, note: 'The gate reads the product\'s version.' });
+  const pctx = ctxOf(root);
+  assert.equal(issueReason('process', c.calls[1].call, pctx), null);
+  assert.match(issueReason('process', { ...c.calls[1].call, issue_number: 8 }, pctx), /only as `proc issue close` printed it/);
 });
