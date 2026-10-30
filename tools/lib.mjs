@@ -386,9 +386,23 @@ export function turnEvidence(rows, limit = EVIDENCE_LIMIT) {
     if (!t.trim() || /^Stop hook feedback/.test(t)) continue;
     parts.push(`[a message to the session]\n${t}`);
   }
+  // Issue 115 (the lane's turn of 30 Oct, #19): a whole session's evidence was 308,000 characters and the window held the newest
+  // 120,000, so the turn's decisive acts (an archive refused, a message delivered) were cut and true claims about them
+  // refused, ten judge runs for one message. Over the limit, every tool output is first shrunk to a head and a tail, in
+  // steps, so what the session ran and the result lines survive across the whole session; the oldest is cut only when
+  // the shrunk evidence is still over.
   let out = parts.join('\n\n');
+  for (const cap of EVIDENCE_CAPS) { if (out.length <= limit) break; out = parts.map((p) => shrinkPart(p, cap)).join('\n\n'); }
   if (out.length > limit) out = `[earlier evidence cut: older than this is unknown to the judge]\n${out.slice(out.length - limit)}`;
   return out;
+}
+export const EVIDENCE_CAPS = [6000, 3000, 1500];
+// A tool's output shrunk to its head and its tail (the result line is usually last), the cut named; acts and messages
+// to the session are left whole (an act is already at most 600 characters).
+export function shrinkPart(part, cap) {
+  if (!part.startsWith("[a tool's output]") || part.length <= cap) return part;
+  const head = Math.floor(cap * 2 / 3), tail = cap - head;
+  return `${part.slice(0, head)}\n[… ${part.length - cap} characters of this output cut …]\n${part.slice(part.length - tail)}`;
 }
 export function evidencePrompt(message, evidence) {
   return `You check one message before it reaches Bob, the human who oversees AI sessions that build software under a process called neoProcess. Bob reads only this message. A session wrote it at the end of its turn. Rule (P20): the message says only what the session read or measured; it translates, never adds.

@@ -741,6 +741,24 @@ test('the evidence check: what the session was told, ran and saw, never its own 
   const ev = turnEvidence(rows);
   assert.equal(ev, "[a message to the session]\nRun the suite.\n\n[the session ran Bash]\n{}\n\n[a tool's output]\npass 38, fail 2");
   assert.match(turnEvidence(rows, 20), /^\[earlier evidence cut: older than this is unknown to the judge\]\n.{20}$/s);
+  // the lane's turn of 30 Oct (#19): over the limit, every tool output is shrunk to a head and a tail first, so the
+  // session's earliest acts and every result line survive; the oldest is cut only when the shrunk evidence is still over
+  const big = (id, text) => [
+    { type: 'assistant', message: { role: 'assistant', content: [{ type: 'tool_use', id, name: 'Read', input: { f: id } }] } },
+    { type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: [{ type: 'text', text }] }] } },
+  ];
+  const long = [
+    { type: 'assistant', message: { role: 'assistant', content: [{ type: 'tool_use', id: 's', name: 'mcp__claude-code-remote__send_message', input: { session_id: 'x' } }] } },
+    { type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 's', content: [{ type: 'text', text: '{"status":"delivered"}' }] }] } },
+    ...big('r1', 'A'.repeat(50_000) + ' END ONE'), ...big('r2', 'B'.repeat(50_000) + ' END TWO'),
+  ];
+  const shrunk = turnEvidence(long, 20_000);
+  assert.doesNotMatch(shrunk, /^\[earlier evidence cut/);
+  assert.match(shrunk, /\[the session ran mcp__claude-code-remote__send_message\]\n\{"session_id":"x"\}\n\n\[a tool's output\]\n\{"status":"delivered"\}/);
+  assert.match(shrunk, /characters of this output cut …\]\n[A]+ END ONE/);
+  assert.match(shrunk, / END TWO$/);
+  assert.ok(shrunk.length <= 20_000, String(shrunk.length));
+  assert.match(turnEvidence(long, 2_000), /^\[earlier evidence cut: older than this is unknown to the judge\]\n/);   // still over at the smallest cap
   const p = evidencePrompt('38 of 40 passed.', ev);
   assert.match(p, /<<<EVIDENCE\n\[a message to the session\]\nRun the suite\.[\s\S]*<<<MESSAGE\n38 of 40 passed\.\nMESSAGE>>>/);
   const out = (v) => JSON.stringify({ result: `Here: ${JSON.stringify(v)}` });

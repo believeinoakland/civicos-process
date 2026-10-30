@@ -316,7 +316,7 @@ The route within reach once the display event failed (#18, 15:4xZ): the draft is
 | a refused draft is a file, not a message; the passed text lets the turn end; another text does not; a job cannot say | PROVEN in fixture | `say`, `saidPassed`, `hooks.mjs stop` run as a process |
 | the transcript found; the fresh reader's prompt from the skill, the verdict read | PROVEN in fixture | `transcriptOf`, `freshReaderReason` |
 | live: a bad draft refused without a model run; a good one judged by both models against this session's transcript | PROVEN | #18, 15:40Z: the first answered the plain-words fault at once; the second `ok`, `judged`, `transcript: read`, in 19 s |
-| live: the Stop hook lets the said text end the turn without judging it again | NOT YET | #18's next turn end, written with `proc say` |
+| live: the Stop hook lets the said text end the turn without judging it again | PROVEN | #18's last turn, read from its transcript by #19: `proc say` answered `ok` at 16:16:23Z, the same text was sent at 16:16:34Z, the turn's result came at 16:16:36Z (`end_turn`), no Stop refusal between; one message in the transcript |
 
 ## 25. Certification of issue 111's fix (GOV 5; 30 Oct 2026, #18)
 
@@ -328,7 +328,7 @@ Issue 111 (the lane, at its first wake): every hook was registered by the two sk
 | the process repository's own settings written from the standing list and the hooks | PROVEN | `proc shims --product .` at 16:0xZ (the classifier refused a compound command that also rewrote the allow list; the plain command passed); the file read back by the suite |
 | the hooks live again from the settings file, without a restart | PROVEN | #18, 16:0xZ: the partial read `sed -n 1,2p PROCESS-DESIGN.md` passed at 15:48Z (hooks gone) and was refused by the pre hook right after the settings were written |
 | the hooks live after a resume | NOT YET | #18's next wake (its backstop): the stop record written at the turn's end, a partial read refused |
-| the products' settings regenerated; their running sessions told | NOT YET | `repo-shims.yml` on civicsmith/civicsmith after this merge; BOB #341 told |
+| the products' settings regenerated; their running sessions told | PROVEN | `repo-shims.yml` dispatched 16:0xZ: civicsmith/civicsmith `main` 1fa6608 (its PR #62) and `tranche` 0455f6c (16:03:33Z) read back with the five hook events beside SessionStart; BOB #341 told at 16:0xZ (delivered), with the word for ROOT |
 
 The lane's own settings file had carried rules outside the standing list (`Edit`/`Write` on the two repositories, `rm .git/hooks/*`, old mail commands); the regeneration keeps only `permissions.json` and the hooks, as a product's does. A refused `Edit` is then the classifier's call, as for every product session.
 
@@ -341,3 +341,13 @@ Issue 113 (Civicsmith's BOB #341, on Bob's question why the money job still ran 
 | an added name and a new block change no user; a redefined or dropped name, a dropped block, change theirs; a default export every one | PROVEN in fixture | `usersOfChange` on alpha, eleven steps |
 | the background refusal names two hours | PROVEN in fixture | the hook's message |
 | a product job with only added exports runs none of its unnamed users | NOT YET | Civicsmith's next such job (`usersOfChange` in its `job complete`) |
+
+## 27. Certification of issue 115's fix (GOV 5; 30 Oct 2026, #19)
+
+Issue 115 (the lane, #19): the evidence judge (`hooks.mjs evidence`, `proc say`) is given the whole session's messages and tool calls, the newest 120,000 characters kept; a lane turn that read the act table, a page of scheduled tasks and a predecessor's transcript (308,000 characters of evidence in all) pushed its own decisive acts out of the window, and the judge refused four true claims about them, ten runs for one message (the predecessor's last message: seven). Now `turnEvidence` shrinks every tool output to a head and a tail (caps 6,000, 3,000, 1,500 characters, in steps) before it cuts the oldest, so what the session ran and each result line survive across the session; the oldest is cut only when the shrunk evidence is still over the limit. Checked against the principles: P20 (the judge sees the acts, not the bulk of their outputs; a cut is still named), SES 9 (Bob's message carries what was measured instead of losing it to a rewrite), P13 (fewer judge runs per message; the limit, and so the cost of a run, unchanged), P16 (nothing changes in what is refused).
+
+| path | status | evidence |
+| --- | --- | --- |
+| a long transcript keeps its earliest act and every result line; the cut comes only past the smallest cap | PROVEN in fixture | `turnEvidence` with two 50,000-character outputs under a 20,000 limit: the first act and its `delivered` result kept, both `END` lines kept, no cut; under 2,000 the cut named (`tools/test/hooks.test.mjs`) |
+| this session's own transcript fits the judge's window with the fix | PROVEN | #19, 16:3xZ: 387 rows, 320,765 characters whole; the window 115,920, no cut; every act of the turn in it (the archive, the switch-off, the message to BOB and its `delivered`, the backstop, the issue calls) |
+| live: a message naming an act from early in the turn passes the judge in one run | NOT YET | #19's next message to Bob, written with `proc say` |
