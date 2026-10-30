@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../proc.mjs';
+import { versionCommand, processHead } from '../platform.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
 const B1 = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', B2 = 'session_01BBBBBBBBBBBBBBBBBBBBBBB2', J1 = 'session_01AAAAAAAAAAAAAAAAAAAAAAAA', L1 = 'session_01LLLLLLLLLLLLLLLLLLLLLLLL';
@@ -557,7 +558,7 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   N.jobArchived(o({ module: 'stats', session: S1, unmeasured: 'retired on a stale process' }));
   const reopened = N.jobRoute(o({ module: 'stats' }));
   assert.deepEqual([reopened.action, reopened.title, reopened.archive], ['create_session', 'STATS #2', S1]);
-  assert.match(reopened.prompt, /Your first act, before anything else: run `git -C \/home\/user\/neoprocess .*PROCESS STALE/);
+  assert.ok(reopened.prompt.includes(`Your first act, before anything else: run \`${versionCommand(processHead(N.PROCESS))}\`.`));
   assert.equal(N.jobState(o({ module: 'stats' })).state, 'REOPENED');
 });
 
