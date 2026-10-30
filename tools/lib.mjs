@@ -371,7 +371,7 @@ export function plainReason(message) {
 // every tool call and tool result in the transcript, newest kept when over the limit; never its own words, which are not
 // evidence (#14's round 1, 30 Oct: without its calls, "I tried to open that file" was refused).
 // The model is the one a hook can run: `claude -p`, no tools, under the session's subscription (acts.md `claude -p`).
-export const EVIDENCE_LIMIT = 120_000, EVIDENCE_MODEL = 'claude-sonnet-5-5';
+export const EVIDENCE_LIMIT = 160_000, EVIDENCE_MODEL = 'claude-sonnet-5-5';   // issue 115 follow-up (#19, 30 Oct): a long turn (888 rows, 419,000 characters) still cut at 120,000 with caps down to 1,500; the limit raised and the caps taken further down before the oldest is cut
 const blockText = (c) => (typeof c === 'string' ? c : Array.isArray(c) ? c.map((b) => (typeof b === 'string' ? b : b?.type === 'text' ? b.text : b?.type === 'tool_result' ? blockText(b.content) : '')).filter(Boolean).join('\n') : '');
 export function turnEvidence(rows, limit = EVIDENCE_LIMIT) {
   const parts = [];
@@ -396,7 +396,7 @@ export function turnEvidence(rows, limit = EVIDENCE_LIMIT) {
   if (out.length > limit) out = `[earlier evidence cut: older than this is unknown to the judge]\n${out.slice(out.length - limit)}`;
   return out;
 }
-export const EVIDENCE_CAPS = [6000, 3000, 1500];
+export const EVIDENCE_CAPS = [6000, 3000, 1500, 700, 300];
 // A tool's output shrunk to its head and its tail (the result line is usually last), the cut named; acts and messages
 // to the session are left whole (an act is already at most 600 characters).
 export function shrinkPart(part, cap) {
