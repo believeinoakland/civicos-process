@@ -13,7 +13,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { ROOT_BOB_FILE, repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, processTriggerReason, REFRESH_FILE, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN, WORKERS_FILE, runningWorkers } from './proc.mjs';
+import { ROOT_BOB_FILE, repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, processTriggerReason, REFRESH_FILE, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN, WORKERS_FILE, TOOKOVER_FILE, runningWorkers } from './proc.mjs';
 import { resolve, sep } from 'node:path';
 import { stepsReason, lastAssistantText, plainReason, BOB_READS, evidenceReason, EVIDENCE_MODEL } from './lib.mjs';
 import { spawnSync } from 'node:child_process';   // P20: steps for Bob verified against their source (`proc steps`)
@@ -162,6 +162,7 @@ export function preReason(role, input, ctx) {
     // issue 90 (Bob, 30 Oct): a retiring BOB keeps its session until its workers have finished and it has released itself
     if (role === 'root' && tool === `${REMOTE}archive_session`) {
       let r = null; try { r = parsePlan(stateRead(R_of(ctx), 'plan.md') || '').retiring.find((x) => x.session === ti.session_id); } catch { /* no epoch: nothing retiring */ }
+      if (r?.state === 'released') { let bob = null; try { bob = parsePlan(stateRead(R_of(ctx), 'plan.md') || '').bob; } catch { /* unread */ } if (!bob || bob.session === ti.session_id) return `${r.name} is released, but no successor has taken over on the record: archive it once the new BOB has sent "TOOK OVER BOB #<n>" (issue 104; Bob, 30 Oct)`; }
       if (r?.state === 'running') return `${r.name} is retiring and may still be finishing its workers: archive it once it sends "RELEASED ${r.name}" (its Retiring line then reads released); if get_session reads it failed or archived, \`proc bob release --session ${r.session} --failed "<what get_session reads>"\` first (PROTOCOL §7a)`;
     }
     if ([`${REMOTE}create_session`, `${REMOTE}create_trigger`, `${REMOTE}fire_trigger`, `${REMOTE}send_later`].includes(tool)) return `a ${role} starts no session and arms no timer (rulebook SES 1)`;
@@ -257,6 +258,8 @@ export function stopReason(role, ctx) {
   const R = R_of(ctx), st = status({ product: R.dir });
   const why = [...st.gate];
   if (role === 'bob') {   // issue 90: a retiring BOB stays while its workers run, and releases itself once none does
+    const tk = record(ctx, TOOKOVER_FILE);   // issue 104: the takeover reported to ROOT by message before the first turn ends
+    if (tk && tk.session === ctx.session && !tk.sent) why.push(`your takeover is not reported to ROOT: send_message the ROOT session your start prompt names the line \`proc takeover\` printed ("${tk.message.slice(0, 40)}…")`);
     const r = parsePlan(stateRead(R, 'plan.md') || '').retiring.find((x) => x.session === ctx.session);
     if (r?.state === 'running' && (runningWorkers(ctx.root, ctx.session) || []).length === 0) why.push(`you are retiring and none of your workers runs: record any result not yet recorded, then \`proc bob release\` and send ROOT the line it prints (PROTOCOL §7a)`);
   }
@@ -361,6 +364,7 @@ function main() {
       if (input.tool_name === `${REMOTE}list_triggers` || (input.tool_name === `${REMOTE}update_trigger` && ti.enabled === false)) w.switchedOff = new Date().toISOString();   // looked, and switched off what it found
       if (input.tool_name === `${REMOTE}send_message`) w.tell = (w.tell || []).filter((x) => x !== ti.session_id);
       writeFileSync(f, JSON.stringify(w)); } catch { /* no refresh owed */ } }
+    if (role === 'bob' && input.tool_name === `${REMOTE}send_message` && /^TOOK OVER BOB #\d+/.test(String(input.tool_input?.message || ''))) { try { const f = join(root, '.git', TOOKOVER_FILE), w = JSON.parse(readFileSync(f, 'utf8')); writeFileSync(f, JSON.stringify({ ...w, sent: new Date().toISOString() })); } catch { /* none owed */ } }
     if (role === 'process' && input.tool_name === `${REMOTE}send_later`) { try { writeFileSync(join(root, '.git', BACKSTOP_FILE), JSON.stringify({ due: new Date(Date.now() + Number(input.tool_input?.delay_minutes) * 60e3).toISOString() })); } catch { /* not a git checkout */ } }
     if (ok) console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `PROCESS: ${ok}` } }));
     return;

@@ -276,3 +276,13 @@ Issue 101 (Civicsmith; Bob: "start the jobs with an initial prompt that tell it 
 | a job archived unmerged started again; one merged (branch held or gone) refused | PROVEN in fixture | `jobRoute` on stats (REOPENED, STATS #2, the version line) and alpha |
 | the refresh's owed acts held by the Stop hook | PROVEN in fixture | `laneStopReason` with and without them |
 | Civicsmith's four jobs restarted on the commit named | NOT YET | BOB #340, after this merge |
+
+## 22. Certification of issue 104's fix (GOV 5; 30 Oct 2026, #17)
+
+Issue 104 (Civicsmith's BOB #340): ROOT, woken only by a message, waited for a takeover confirmation no BOB sends, so the released BOB #339 sat unarchived. Bob's ruling (30 Oct, his words): "ROOT should retire an old BOB only after the old session has confirmed that its workers have all completed their work and the new BOB has reported that it's taken over." Now `proc takeover` prints a `send_message` to ROOT (`TOOK OVER BOB #n from BOB #n-1 …`) and records it owed; BOB's Stop hook refuses the turn's end until it is sent; ROOT's hook passes the archive only once the Retiring line reads released AND the plan's Status names a different BOB (the takeover on the record); ROOT's text names both. Checked against P13 (the old session ends promptly), P14 (its usage row no longer waits), P16, P17 (Bob's words quoted, GOV 8). Suite green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| takeover prints the TOOK OVER message; BOB's turn cannot end until it is sent | PROVEN in fixture | `t2.tell`, `stopReason('bob')` before and after the record |
+| ROOT's archive refused while released but no takeover recorded; passed once both | PROVEN in fixture | `preReason('root', archive_session)` with the plan's Status set back and forth |
+| a live product handover (RELEASED, TOOK OVER, archived by ROOT) | NOT YET | Civicsmith's BOB #341 |
