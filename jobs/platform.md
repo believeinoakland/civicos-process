@@ -1,8 +1,7 @@
 # platform (transient)
 
-**Status** · PLATFORM #1 · session_01RAN5enucmXTQSLEYL3QPrK · WORKING · PR #127
-**Runs** · 1
-**Owed** · none
+**Status** · PLATFORM #1 · session_01RAN5enucmXTQSLEYL3QPrK · COMPLETE · PR #127
+**Runs** · 2
+**Owed** · comment; ready
 **Model** · opus
-**Review** · review · a new module extracted from the legacy tool, the first layer under this process version (INT 4: new module; first completion) · concerns: diff of 663 lines (over 400); provided service changed (23 export line(s) differ) · gaps: 7 · 2026-10-30
 **Reviews** · 1
