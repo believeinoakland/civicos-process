@@ -545,7 +545,8 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   assert.deepEqual(sh.written.sort(), ['.claude/settings.json', '.claude/skills/neoprocess-reader/SKILL.md', '.claude/skills/neoprocess/SKILL.md', '.github/workflows/gate.yml', '.github/workflows/prune.yml', 'CLAUDE.md']);
   assert.match(readFileSync(join(w.bob.root, '.github/workflows/prune.yml'), 'utf8'), /workflow_dispatch:[\s\S]*git push origin --delete "\$r"/);
   const standing = JSON.parse(readFileSync(join(HERE, '..', '..', 'permissions.json'), 'utf8')), written = JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).permissions;
-  assert.deepEqual([written.allow, written.deny], [standing.allow, standing.deny]);   // the standing list, allow and deny, applied (PERMISSIONS §2.4, §8.2)
+  assert.deepEqual([written.allow, written.deny], [standing.allow, standing.deny]);
+  assert.deepEqual(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).env, { CLAUDE_CODE_STOP_HOOK_BLOCK_CAP: '4' });   // a turn refused four times in a row ends   // the standing list, allow and deny, applied (PERMISSIONS §2.4, §8.2)
   assert.ok(standing.deny.some((r) => /force/.test(r)) && !standing.allow.some((r) => /^Bash\(\*\)|^Agent$/.test(r)));   // the safety rules denied; no broad rule Auto would drop
   const skill = readFileSync(join(w.bob.root, '.claude/skills/neoprocess/SKILL.md'), 'utf8');
   assert.match(skill, /^---\nname: neoprocess\n/); assert.match(skill, /command: 'node "\/p\/neoProcess\/tools\/hooks\.mjs" pre'/);
