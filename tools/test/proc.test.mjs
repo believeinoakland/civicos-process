@@ -1085,6 +1085,17 @@ test('issue 90: a retiring BOB keeps its session until its workers have finished
   assert.deepEqual(plan().retiring, [{ name: 'BOB #1', session: B1, state: 'released' }]);
   assert.equal(plan().bob.name, 'BOB #2');
   assert.equal(preReason('root', archive, { root: r.root, product: 'toy' }), null);
+  // issue 104 (Bob, 30 Oct): the new BOB reports its takeover to ROOT by message, owed by its Stop hook; ROOT archives the
+  // old one only once it is released AND the takeover is on the record
+  assert.match(t2.tell.message, /^TOOK OVER BOB #2 from BOB #1 \(session_\w+\); archive it once it has sent RELEASED BOB #1$/);
+  assert.match(stopReason('bob', { ...N.readRole(b2.root), root: b2.root }) || '', /your takeover is not reported to ROOT: send_message/);
+  writeFileSync(join(b2.root, '.git', N.TOOKOVER_FILE), JSON.stringify({ session: B2, message: t2.tell.message, sent: 'x' }));
+  assert.doesNotMatch(stopReason('bob', { ...N.readRole(b2.root), root: b2.root }) || '', /not reported to ROOT/);
+  const R0 = N.repo(w.bob.dir);
+  N.planEdit(R0, (p) => ({ ...p, bob: { name: 'BOB #1', session: B1 } }), 'test: no takeover yet');
+  assert.match(preReason('root', archive, { root: r.root, product: 'toy' }), /BOB #1 is released, but no successor has taken over on the record: archive it once the new BOB has sent "TOOK OVER BOB #<n>"/);
+  N.planEdit(R0, (p) => ({ ...p, bob: { name: 'BOB #2', session: B2 } }), 'test: takeover back');
+  assert.equal(preReason('root', archive, { root: r.root, product: 'toy' }), null);
   assert.equal(N.bobRelease(o()).already, true);
   // ROOT releases a retiring BOB only as failed, read from get_session
   writeFileSync(join(root, '.git', N.ROLE_FILE), JSON.stringify({ ...N.readRole(root), session: B2, name: 'BOB #2' }));

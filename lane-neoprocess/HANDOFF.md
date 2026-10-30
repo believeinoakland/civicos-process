@@ -19,14 +19,13 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## What remains, in order
 
-1. **Issue 96 (Bob's act pending)**: done: threshold 40 %; the hook passes the lane's one-shot task (successor's starter, or a probe) and one `fire_trigger` within 30 minutes. Measured (DRYRUN §19): a session-made task's session has no lineage, but no repository, connector or `create_session`. Asked of Bob (13:44Z, steps verified): make once on claude.ai/code/routines the task "neoProcess lane successor" (repository neobobkrause/neoprocess, environment BIO, Opus 5.5, GitHub connector, API trigger, the prompt: check out the lane's branch, follow the newest START file's fenced block). When it exists (`list_triggers`): make `proc process handoff` print `fire_trigger` of it (found by name) instead of `create_session`, the hook pass it; measure its first session's depth, checkout and settings; then close 96. Until then the handoff is the old `create_session` (depth +1; #17 is depth 1 of 8). Remove the unused `starterPrompt`/`probeChild` then.
-2. **Issue 98** (Civicsmith's layer 5 stopped on it): the shims' start line fast-forwards an existing clean copy; role starts refuse a copy they cannot bring to main; shims written to `tranche` too (4473097). NOT YET: a new Civicsmith job reports its copy at c1ab817 or later (BOB #340 told, 14:0xZ). Then close 98.
-3. **Issue 95**: closed (e18b275). The `--unmeasured` route unproven on the product (QUERY-LANGUAGE #1 was archived by ROOT).
-Done 30 Oct: issues 84, 86, 88, 90, 92, 93, 95.
-4. **Civicsmith**: BOB #340 (session_01RAN5ekHqfZFXcxU3eB9Ecf) since about 13:5xZ. Still to read: a job taking in its old branch (§15); a merge over BOB's records (§16).
-5. **Issue 61 stays open** (DRYRUN §9): the evidence check is live (`judge3.sh`).
-6. The dry-run repositories' move to `neobobkrause` (Bob's hand act, the page's step 8), then `repo-shims.yml` for each. **The release-signing decision** (the page's foot): his.
+1. **Read the products' answers**: Civicsmith's BOB #340 (`session_01RAN5ekHqfZFXcxU3eB9Ecf`) was told (14:2xZ) the commit its jobs must hold (32edb22 or later) and the restart (`proc job route` on an ARCHIVED unmerged job, issue 103). Each job's first act prints PROCESS OK or STALE (issue 101). Close 98 when a new Civicsmith session reports its copy current; the live handover of BOB #341 proves issue 104 (RELEASED, TOOK OVER, archived by ROOT): then close 104.
+2. **Issue 102** (Bob sees every refused draft): measure whether any hook can run before the message reaches Bob's view; else a rule that a rewrite says only what changed, and a test.
+3. **Issue 96 (Bob's act pending)**: threshold 40 % and the hook's one-shot task are done; a session-made task's session has no repository, connector or `create_session` (DRYRUN §19), so Bob makes the task "neoProcess lane successor" once on claude.ai/code/routines (steps sent 13:44Z: repository neobobkrause/neoprocess, environment BIO, Opus, GitHub connector, API trigger, prompt: check out the lane's branch, follow the newest START file). When `list_triggers` shows it: `proc process handoff` prints its `fire_trigger`, the hook passes it, the first session's depth is read; then close 96 and drop `starterPrompt`/`probeChild`. Until then the handoff is `create_session` (#17 is depth 1 of 8).
+4. **Refresh acts** (Bob, 30 Oct): `proc process start` of a successor lists them and the Stop hook holds them: the predecessor archived (#17 archived #16 by hand at 14:1xZ), its backstop off, each product's BOB told the address. Unproven live: #18's start.
+Done 30 Oct: issues 84, 86, 88, 90, 92, 93, 95, 101, 103 (DRYRUN §15-22).
+5. **Issue 61 stays open** (DRYRUN §9). 6. The dry-run repositories' move to `neobobkrause` (Bob's hand act), then `repo-shims.yml` for each; **the release-signing decision**: his.
 
 ## Acts only Bob can take
 
-Done 29-30 Oct: every grant of the sitting; `civicsmith` a collaborator here. Still his: item 1's task on claude.ai; item 6.
+Done 29-30 Oct: every grant of the sitting; `civicsmith` a collaborator here. Still his: item 3's task on claude.ai; item 6.

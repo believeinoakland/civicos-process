@@ -212,7 +212,7 @@ export function parsePlan(text) {
   return { state: s?.[1] ?? null, bob: s ? { name: s[2], session: s[3] } : null, owed, layers, retiring };
 }
 const fmtPlan = (p) => `# Plan (transient)\n\n**Status** · ${p.state} · ${p.bob.name} · ${p.bob.session}\n**Owed** · ${p.owed.join('; ') || 'none'}\n${Object.keys(p.layers || {}).length ? `**Layers** · ${Object.entries(p.layers).map(([l, s]) => `${l} ${s}`).join('; ')}\n` : ''}${(p.retiring || []).length ? `**Retiring** · ${p.retiring.map((r) => `${r.name} ${r.session} ${r.state}`).join('; ')}\n` : ''}`;
-function planEdit(R, edit, message) {
+export function planEdit(R, edit, message) {
   const p = parsePlan(stateRead(R, 'plan.md') || '');
   const next = edit(p);
   // an owed start for a lane no longer open is stale (a lane closed before its first session, R-BOB-1-4): dropped here
@@ -241,13 +241,22 @@ export function takeover(o) {
   writeRole(R, { role: 'bob', product: R.rel('.'), session: o.session, name: o.name, epoch: e });
   const st = status(o), check = selfcheck(R, TRANCHE);
   const acts = [];
+  // Issue 104 (Bob, 30 Oct: "ROOT should retire an old BOB only after the old session has confirmed that its workers have all
+  // completed their work and the new BOB has reported that it's taken over"): the takeover is reported to ROOT by message,
+  // since ROOT wakes only on one; BOB's Stop hook holds the turn until it is sent (TOOKOVER_FILE), and ROOT's hook passes
+  // the predecessor's archive only once both its RELEASED line and this takeover are on the state branch.
+  let tell = null;
+  if (before.bob && before.bob.session !== o.session) {
+    tell = { tool: 'send_message', session_id: o.root || '<the ROOT session your start prompt names>', message: `TOOK OVER ${o.name} from ${before.bob.name} (${before.bob.session}); archive it once it has sent RELEASED ${before.bob.name}` };
+    try { writeFileSync(join(R.root, '.git', TOOKOVER_FILE), JSON.stringify({ session: o.session, message: tell.message })); } catch { /* not a git checkout */ }
+  }
   if (before.bob && before.bob.session !== o.session) acts.push(`ROOT archives ${before.bob.name} ${before.bob.session} once it is released (its workers finished, \`proc bob release\`); then, from the usage ROOT sends: proc bob archived --name "${before.bob.name}" --session ${before.bob.session} --usage '<archive_session usage json>'`);
   const finishing = new Set((before.retiring || []).filter((r) => r.state === 'running').flatMap((r) => [r.name, r.session]));   // issue 90: still alive, finishing its own
   for (const w of st.working.filter((x) => x.by && x.by !== o.name && x.by !== o.session)) acts.push(finishing.has(w.by) ? `${w.ask} (${w.stage}) is out under ${w.by}, which is retiring and finishing its workers: leave it to it (PROTOCOL §7a)` : `re-dispatch ${w.ask} (${w.stage}) from its brief: it was out under ${w.by}, which is replaced (PROTOCOL §7a)`);
   // issue 74: the rest of BOB's set (SESSIONS §3), named with its size; the state branch's lines and asks are in the queue above
   const manifest = R.read('build/manifest.md') || '', channel = manifest.match(/^\*\*Channel\*\* · `?([^`\s]+)`?/m)?.[1];
   const set = [PLAN, 'build/manifest.md', ...(channel ? [channel] : []), 'build/areas.md', 'build/lanes.md'].map((f) => { const t = R.read(f); return { file: f, bytes: t === null ? null : Buffer.byteLength(t) }; });
-  return { commit, previous: before.bob, queue: st.queue, working: st.working, acts, check, read: { whole: set.filter((x) => x.bytes !== null), absent: set.filter((x) => x.bytes === null).map((x) => x.file), with: 'every open ask on the state branch (`proc status`)' } };
+  return { commit, previous: before.bob, tell, queue: st.queue, working: st.working, acts, check, read: { whole: set.filter((x) => x.bytes !== null), absent: set.filter((x) => x.bytes === null).map((x) => x.file), with: 'every open ask on the state branch (`proc status`)' } };
 }
 
 // ---- asks (PROTOCOL §3–§6) ----
@@ -604,7 +613,7 @@ export function rootStart(o) {
   const R = repo(o.product), e = epoch(R);
   writeRole(R, { role: 'root', product: R.rel('.'), session: o.session, name: o.name || 'ROOT', ...(e ? { epoch: e } : {}) });
   const plan = e ? parsePlan(stateRead(R, 'plan.md', e) || '') : null;
-  return { role: 'root', epoch: e, process: processRefresh(o.processDir), bob: plan?.bob ?? null, next: plan?.bob ? `BOB is ${plan.bob.name} (${plan.bob.session}); when it sends "START BOB #<n>: ${TRANCHE} @ <commit>", run \`proc root bob --n <n> --commit <commit>\` and make the call it prints; archive the BOB it replaces only once that BOB sends "RELEASED BOB #<n>" (its workers finished: issue 90), then send its usage to the new BOB` : `no BOB is recorded${e ? '' : ' and no epoch is open'}: start the first with \`proc root bob --n <n> --branch <the branch the build continues on>\` and make the call it prints; that BOB opens the epoch` };
+  return { role: 'root', epoch: e, process: processRefresh(o.processDir), bob: plan?.bob ?? null, next: plan?.bob ? `BOB is ${plan.bob.name} (${plan.bob.session}); when it sends "START BOB #<n>: ${TRANCHE} @ <commit>", run \`proc root bob --n <n> --commit <commit>\` and make the call it prints; archive the BOB it replaces only once that BOB has sent "RELEASED BOB #<n>" (its workers finished: issue 90) and the new BOB has sent "TOOK OVER BOB #<n+1>" (issue 104; Bob, 30 Oct), then send its usage to the new BOB` : `no BOB is recorded${e ? '' : ' and no epoch is open'}: start the first with \`proc root bob --n <n> --branch <the branch the build continues on>\` and make the call it prints; that BOB opens the epoch` };
 }
 const bobGoal = (R) => `/goal The run has ended, or the queue \`proc status --product ${R.rel('.')}\` prints holds only what waits on Bob and that was sent to ROOT, or your handoff was sent to ROOT, or you cannot start and your last message tells Bob why and what would let you; everything committed and pushed.`;
 export function rootBob(o) {
@@ -1017,7 +1026,7 @@ export function handoff(o) {
 }
 // The background tasks the session's Stop hook saw running at its last turn's end, plus every worker started since
 // (the PreToolUse hook adds it): measured #16, 30 Oct, the Stop hook's input lists them as `background_tasks`.
-export const WORKERS_FILE = 'proc-workers.json';
+export const WORKERS_FILE = 'proc-workers.json', TOOKOVER_FILE = 'proc-tookover.json';
 export const runningWorkers = (root, session) => { try { const w = JSON.parse(readFileSync(join(root, '.git', WORKERS_FILE), 'utf8')); return w.session === session ? w.running : null; } catch { return null; } };
 // issue 90: a retiring BOB released once none of its workers runs (BOB, its own), or one that failed (ROOT, from get_session)
 export function bobRelease(o) {
