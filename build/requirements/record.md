@@ -11,10 +11,10 @@ The git record every role reads and writes: the durable tranche branch, the tran
 ### Provides
 
 **repo(root) → R**
-- **R1** Opens a product checkout and answers its git plumbing (read a file at a ref, list, fetch, push, heads), its relative paths and its remote name; every other module reaches git only through it. (REC-1)
+- **R1** Opens a product checkout and answers its git plumbing (read a file at a ref, list, fetch, push, heads), its relative paths and its remote name; every other module reaches git only through it *(not yet met: N2 — the checks (`architecture`, N2-12) and the legacy files reach git through it as their jobs rewire them; record's own `tools/mail.mjs` in this job)*. (REC-1)
 
 **stateRead(R, path, epoch) / stateList / stateWrite(R, files, message) → commit**
-- **R2** Reads and writes the epoch's orphan state branch by plumbing, with no checkout and no second worktree; a write is one commit of the files given, pushed, and retried once with a fetch and a merge on a lost race, never a force. (REC-1, REC-2)
+- **R2** Reads and writes the epoch's orphan state branch by plumbing, with no checkout and no second worktree; a write is one commit of the files given, pushed; on a lost race it is re-applied on the tip the other writer left (a bounded number of times, then refused), never a force and never a loss of the other writer's files. (REC-1, REC-2)
 
 **epochOpen(R) / epochClose(R)**
 - **R3** Opens the next epoch's state branch empty and logs its label on the tranche; closes it only when no ask is open, and deletes it by the route `platform` names (the prune workflow where the proxy refuses). (REC-1)
@@ -33,7 +33,7 @@ The git record every role reads and writes: the durable tranche branch, the tran
 - **R8** Writes a remote act as done only from the call's result passed in, never from the request; there is no function that records a request. (REC-5)
 
 **addr(R, who) → session id**
-- **R9** Reads a party's address from `main` of the process repository or from the product's tranche at the moment of use, never from a side branch or a message. (REC-6)
+- **R9** Reads a party's address at the moment of use from the record alone: the process's parties from `main` of the process repository (never the product's own `main`), the product's parties from its tranche or its epoch's state branch; never from a side branch, a mail branch or a message. (REC-6; the state branch is the product's transient record, REC-1)
 
 **stop(R, why, choices) / resume(R, version)**
 - **R10** Writes `STOPPED <why> · <version>` with each unmerged job's choice (complete-allowed or abandoned), and `RESUMED <version>`, in the plan's Status line; every role's `status` shows them. (PLN-5; REC-7)
@@ -49,7 +49,7 @@ The git record every role reads and writes: the durable tranche branch, the tran
 
 ### Invariants
 
-- **R12** Record writes never touch a module's paths or tests, and the gate's trigger paths exclude every record path, so a record write never costs a job a gate run. (REC-4)
+- **R12** Record writes never touch a module's paths or tests: a test proves `paths()` disjoint from every module's paths and tests in `build/modules.json`; the gate's trigger paths exclude every record path (`gate`, N2-23, reads `paths()`), so a record write never costs a job a gate run. (REC-4)
 - **R13** A session's reads are a matter of record: `status` prints the reading set with sizes; the report names what was read; the transcript is the evidence. (REC-8)
 
 ### Satisfies
