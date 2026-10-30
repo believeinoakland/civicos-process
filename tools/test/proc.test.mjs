@@ -896,18 +896,26 @@ test('repo shims regenerates a product\'s shims on the runner with the process\'
   assert.equal(auth, 'Bearer ghp_x');
   assert.deepEqual([r2.ok, merged, posted.head, posted.base], [true, true, N.SHIMS_BRANCH, 'main']);
   assert.match(r2.steps[0], /^pushed shims: \.claude\/settings\.json, CLAUDE\.md, /);
-  assert.match(r2.steps[1], /^pull request #7: /); assert.equal(r2.steps[2], 'merged: abc1234');
+  assert.match(r2.steps[1], /^pull request #7: /); assert.equal(r2.steps[2], 'merged: abc1234'); assert.equal(r2.steps[3], 'no tranche: nothing to carry there');
   assert.equal(g(w.origin, 'rev-parse', '--verify', `refs/heads/${N.SHIMS_BRANCH}`).length, 40);
   assert.match(g(w.origin, 'show', `refs/heads/${N.SHIMS_BRANCH}:CLAUDE.md`), /attached at `\/home\/user\/neoprocess` on its branch `main`/);
   assert.equal(g(w.origin, 'log', '-1', '--format=%an', `refs/heads/${N.SHIMS_BRANCH}`), 'neoProcess');
   // the product already holding them: already current, nothing pushed
   const r3 = await N.repoShims({ repo: 'bob/toy', checkout: runner.root, process: '/home/user/neoprocess', ref: 'main', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } });
-  assert.deepEqual([r3.ok, r3.steps], [true, ['already current']]);
+  assert.deepEqual([r3.ok, r3.steps], [true, ['already current', 'no tranche: nothing to carry there']]);
   // a push the product refuses: the refusal carries git's own words (run 40958218527, 29 Oct #12, said nothing)
   const other = w.clone('other');
   g(w.origin, 'update-ref', '-d', `refs/heads/${N.SHIMS_BRANCH}`);   // else the same commit, made in the same second, is nothing to send
   writeFileSync(join(w.origin, 'hooks', 'pre-receive'), '#!/bin/sh\necho "no: the test refuses the push"; exit 1\n', { mode: 0o755 });
   await assert.rejects(N.repoShims({ repo: 'bob/toy', checkout: other.root, process: '/home/user/neoprocess', ref: 'main', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } }), /the push to shims was refused: .*no: the test refuses the push/);
+  // issue 98: a running tranche gets the same files by a direct commit on its tip, since every job branch opens from it
+  const t = world(), tr = t.clone('runner'), before = g(t.origin, 'rev-parse', `refs/heads/${N.TRANCHE}`);
+  merged = false; const r4 = await N.repoShims({ repo: 'bob/toy', checkout: tr.root, process: '/home/user/neoprocess', ref: 'main', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } });
+  assert.match(r4.steps.at(-1), new RegExp(`^${N.TRANCHE}: \\.claude/settings\\.json.* at [0-9a-f]{7}$`));
+  assert.equal(g(t.origin, 'rev-parse', `refs/heads/${N.TRANCHE}^`), before);   // one commit on the tip, nothing else moved
+  assert.match(g(t.origin, 'show', `refs/heads/${N.TRANCHE}:CLAUDE.md`), /attached at `\/home\/user\/neoprocess` on its branch `main`/);
+  const r5 = await N.repoShims({ repo: 'bob/toy', checkout: tr.root, process: '/home/user/neoprocess', ref: 'main', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } });
+  assert.equal(r5.steps.at(-1), `${N.TRANCHE} already current`);
   const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', N.REPO_SHIMS_WORKFLOW), 'utf8');
   assert.match(wf, /^on:\n  workflow_dispatch:\n    inputs:\n      repo:/m); assert.match(wf, /NEOPROCESS_GITHUB_TOKEN: \$\{\{ secrets\[steps\.secret\.outputs\.name\] \}\}/); assert.match(wf, /node tools\/proc\.mjs repo shims --repo "\$REPO" --checkout product/);
   assert.ok(!wf.split(/\n(?=      - )/).flatMap((st) => st.split(/\n        run: \|\n/).slice(1)).some((b) => b.includes('${{ inputs.')), 'an input spliced into a script');
