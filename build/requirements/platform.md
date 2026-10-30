@@ -15,7 +15,7 @@ What the hosting platform (Claude Code cloud sessions, GitHub through the agent 
 - **R2** Every row carries the date it was last confirmed; `constraints({ olderThan })` lists the rows not confirmed since, so a stale row is seen at each layer run: the layer close (`integration`, N2-28) calls it and prints the rows. (PLT-12)
 
 **acts() → rows**
-- **R3** Answers the acts the process depends on, each with its measured pass count and the role that takes it: `create_session` by a parent at depth 0 or 1, `send_message`, `get_session`, `list_events`, `send_later` to oneself, pull request creation, update, comment and merge by a printed call, `actions_run_trigger` of a workflow on `main`, a push to the session's own branch. (PLT-3)
+- **R3** Answers the acts the process depends on, each with its measured pass count, the role that takes it, and the fields its result carries when it has run (what a record of the act may be written from, REC-5; an archive's four usage counts, a message's `delivered`, a pull request's number): `create_session` by a parent at depth 0 or 1, `send_message`, `get_session`, `list_events`, `send_later` to oneself, pull request creation, update, comment and merge by a printed call, `actions_run_trigger` of a workflow on `main`, a push to the session's own branch. (PLT-3; K12)
 - **R4** Refuses to list an act the auto-mode classifier decides case by case: `archive_session`, `update_trigger`, `delete_trigger`, `interrupt_session`, an edit of a settings file; its constraint row marks each as classifier-judged. (PLT-2)
 - **R5** No row names a hook as the thing that enforces anything. (PLT-4)
 
