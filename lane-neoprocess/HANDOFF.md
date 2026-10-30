@@ -22,7 +22,7 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 ## What remains, in order
 
 1. **Done 30 Oct**: issues 84 (`proc job takein`, JOB-LIFE §1a) and 86 (`proc merge` over BOB's records, `gateNeutral`, JOB-LIFE §6), each on `main` with its reply. A running product session keeps its old process clone: a fix reaches it only through a session started after.
-2. **Civicsmith**: BOB #338 (since 11:25Z) recorded both replies seen (§13 PROVEN live). PR 55 merged 12:18Z on a green gate (§14 PROVEN live); BOB #339 from 12:31Z has both fixes. Still to read: a job taking in its old branch (§15); a merge over BOB's records (§16).
+2. **Civicsmith**: BOB #338 (since 11:25Z) recorded both replies seen (§13 PROVEN live). PR 55 merged 12:18Z on a green gate (§14 PROVEN live); BOB #338 handed off at 12:31Z; #339, started after, clones both fixes. Still to read: a job taking in its old branch (§15); a merge over BOB's records (§16).
 3. **Issue 61 stays open** (DRYRUN §9): the evidence check is live; more wording no longer moves it (`judge3.sh`). Bob told 30 Oct.
 4. The dry-run repositories' move to `neobobkrause` (Bob's hand act, the page's step 8), then `repo-shims.yml` for each. **The release-signing decision** (the page's foot): his.
 
