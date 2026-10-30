@@ -99,7 +99,7 @@ proc-legacy (no job: retired by the jobs above)
 ## Completion round (PLN 7; opened by `proc round open` after layer 5)
 
 **platform**
-- N2-46 · platform R13 (K3): the R12 enumeration refuses a printed call whose constraint row is classifier-judged, once N2-27, N2-34 and N2-36 have merged; the job strikes R13's mark.
+- N2-46 · platform R13 (K3, K7): adds to platform's requirements `R13 · No module prints as owed an act R4 names: the R12 enumeration refuses a printed call whose constraint row is classifier-judged (PLT-2)`, with its test, once N2-27, N2-34 and N2-36 have merged (the coverage check counts a marked id as live once a module's job has started, so the id enters the file with its test, in this round).
 
 **record**
 - N2-47 · REC-7's fixture (K3): N2-8's halted-build fixture rebuilt from a frozen copy of Civicsmith's real state branch and handoff of 30 Oct, once a session on this account can read that repository (the record job built it from the measured description, its report of 30 Oct).

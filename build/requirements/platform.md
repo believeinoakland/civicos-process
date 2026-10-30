@@ -42,7 +42,6 @@ None.
 
 - **R11** The module holds no credential value and prints none; a credential is named, never shown. (PLT-10; PERMISSIONS §10.4)
 - **R12** Every platform behaviour another module relies on is a row of R1 or R3; a test enumerates the platform calls every module prints against the rows.
-- **R13** *(not yet met: N2)* No module prints as owed an act R4 names: the R12 enumeration refuses a printed call whose row is classifier-judged. Met once N2-27, N2-34 and N2-36 have merged, by platform's completion-round job (PLN 7); until then the enumeration lists such calls as inherited. (PLT-2)
 
 ### Satisfies
 
