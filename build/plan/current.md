@@ -32,7 +32,7 @@
 **architecture**
 - N2-10 · ARC-3: the words check refuses a literal user-facing sentence in a test and names the key; the coverage and fixtures checks unchanged. Test: a fixture test with a sentence fails, the same test by key passes.
 - N2-11 · ARC-5, GAT-7: `checks/run.mjs` writes one machine-readable result (module, file, line, check, finding) beside its text; `status` and the gate read it.
-- N2-12 · ARC-4: scoping to a module and the whole-product run are one function with a `--module` switch; the layer-close run is the whole-product run.
+- N2-12 · ARC-4: scoping to a module and the whole-product run are one function with a `--module` switch; the layer-close run is the whole-product run; the checks reach git only through record's `repo` (record R1; K4).
 - N2-45 · ARC-2 with REQ 8 (found at layer 1's start, K1): a module's `paths` or `tests` entry may name a file its live job has not yet written: the format check reports such an entry as pending while the module's job reads STARTING or WORKING on the state branch, and fails it only once the module's layer has closed; the ownership check is unchanged. Test: a map entry naming no file passes beside a live job line and fails without one.
 
 **requirements**
@@ -54,14 +54,14 @@
 - N2-22 · JOB-9, JOB-10: the Stop-hook rules become the record: `status` lists a job WORKING with nothing pushed for an hour; each job attempt's reading set and tokens are its own row.
 
 **gate**
-- N2-23 · GAT-1, GAT-2, GAT-6: `tools/gate.mjs` holds `runGate` for CI only: the module's own suite and the checks scoped to it; `usersOfChange` and every user-suite path removed; the workflow template `tools/gate.yml.tmpl` triggers on the module's paths and tests, the files the checks read for it and generated inputs, never on record paths.
+- N2-23 · GAT-1, GAT-2, GAT-6: `tools/gate.mjs` holds `runGate` for CI only: the module's own suite and the checks scoped to it; `usersOfChange` and every user-suite path removed; the workflow template `tools/gate.yml.tmpl` triggers on the module's paths and tests, the files the checks read for it and generated inputs, never on record paths, read from record's `paths()` and proven by a test (record R12; K4).
 - N2-24 · GAT-4: artifacts regenerated, verified only when changed against HEAD.
 - N2-25 · GAT-5: every lock installed where it sits; Node from the product's version file (as today, proven live).
 - N2-26 · GAT-8: the full regression as its own workflow, dispatched only by `tranche close` for a release or on Bob's word.
 
 **integration**
 - N2-27 · INT-2, INT-3, INT-6: `tools/integration.mjs` takes review decide/result, merge, `gateNeutral`, merged, job retire's record half, bob release; nothing in a merge or close calls `archive_session`; retirement is a record line and the usage read by SES-10's route or named unmeasured.
-- N2-28 · INT-4 and P11: `layer close` runs the layer's tests (from the manifest) over the merged layer and refuses to close on a red, naming the module and printing the CHANGE for its job.
+- N2-28 · INT-4 and P11: `layer close` runs the layer's tests (from the manifest) over the merged layer and refuses to close on a red, naming the module and printing the CHANGE for its job; it lists platform's stale constraint rows (`constraints({ olderThan })`, platform R2; K3).
 - N2-29 · INT-5: the completion round, tranche close, close pull request, release cut, deployment and walk kept as today, each with a fixture test, and the tranche report naming any stage that runs for the first time under a version.
 
 ## Layer 4 · the people
@@ -88,13 +88,21 @@
 **shims**
 - N2-41 · SHM-1: `tools/shims.mjs` takes `shims`, `settingsText` (permissions only; no hooks, no env), the CLAUDE.md template naming the pinned commit and the one clone command, the gate workflow from the gate module's template, the prune workflow; `init`, `initCheck`, `onboardStart`.
 - N2-42 · SHM-2: `repo shims` runnable from the product's own repository with its own secret (a second workflow template the product may hold), proven on the first other-owner product.
-- N2-43 · SHM-3, SHM-4, SHM-5: onboarding measures the product against §0's sizes and reports each dimension beyond the proven range; `tranche carry` removes stale tracking refs first; the product's setup script is named in its manifest and run by its sessions' first command, not a hook.
+- N2-43 · SHM-3, SHM-4, SHM-5: onboarding measures the product against §0's sizes and reports each dimension beyond the proven range; `tranche carry` removes stale tracking refs first; the product's setup script is named in its manifest and run by its sessions' first command, not a hook; onboarding records the product's route to the process (public read, a read grant, or carried reports) as the value platform's `processRoute` reads (platform R9; K3).
 - N2-44 · this repository's own shims: `gate.yml` for the process repository written by the module and merged, so the process is gated as a product from layer 5 on (ARC-1's import check then runs over `tools/`).
 
 proc-legacy (no job: retired by the jobs above)
 - At the layer's close `tools/proc.mjs` holds only `COMMANDS` and `args`, delegating to the modules; `tools/lib.mjs` and `tools/hooks.mjs` are deleted; the legacy row leaves `build/modules.json`.
 
 ---
+
+## Completion round (PLN 7; opened by `proc round open` after layer 5)
+
+**platform**
+- N2-46 · platform R13 (K3): the R12 enumeration refuses a printed call whose constraint row is classifier-judged, once N2-27, N2-34 and N2-36 have merged; the job strikes R13's mark.
+
+**record**
+- N2-47 · REC-7's fixture (K3): N2-8's halted-build fixture rebuilt from a frozen copy of Civicsmith's real state branch and handoff of 30 Oct, once a session on this account can read that repository (the record job built it from the measured description, its report of 30 Oct).
 
 ## Deferred, with the hard reason (PLN 2)
 - INT-5's stages proven live, and the certification mark: a real product's full tranche, deployment and walk (a measurement that cannot happen inside this tranche).
