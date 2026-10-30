@@ -953,12 +953,23 @@ const usesLines = (text) => {
 export function serviceBlocks(publicText) {
   const purpose = publicText.match(/^### Purpose\b[\s\S]*?(?=^### |(?![\s\S]))/m)?.[0] ?? '';
   const prov = publicText.split(/^### Provides\b/m)[1]?.split(/^### /m)[0] ?? '';
+  // issue 78 (BOB #337, Civicsmith): the last service took every line after it (jurisdictions' `combine`, 50,855 bytes, of
+  // which most were requirements added later about other services). A requirement belongs to the service above it while
+  // the numbers run on one by one from the header; after the first jump, only one that names the service is its.
   const blocks = [];
-  let cur = null;
+  let cur = null, last = null, keep = true, run = true;
   for (const line of prov.split('\n')) {
     const h = line.match(/^\*\*([A-Za-z_$][\w$]*)\s*\(/);
-    if (h) { cur = { names: [...line.matchAll(/(?:^\*\*|,\s*)([A-Za-z_$][\w$]*)\s*\(/g)].map((x) => x[1]), text: '' }; blocks.push(cur); }
-    if (cur) cur.text += `${line}\n`;
+    if (h) { cur = { names: [...line.matchAll(/(?:^\*\*|,\s*)([A-Za-z_$][\w$]*)\s*\(/g)].map((x) => x[1]), text: `${line}\n` }; blocks.push(cur); last = null; keep = true; run = true; continue; }
+    if (!cur) continue;
+    const r = line.match(/^\s*- \*\*R(\d+)\*\*/);
+    if (r) {
+      const n = Number(r[1]), names = cur.names.some((x) => new RegExp(`(^|[^\\w$])${x.replace(/\$/g, '\\$')}([^\\w$]|$)`).test(line));
+      run = run && (last === null || n === last + 1);   // the first unbroken run after the header; once broken, never again
+      keep = run || names;
+      last = n;
+    }
+    if (keep) cur.text += `${line}\n`;
   }
   return { purpose, blocks };
 }
@@ -981,6 +992,16 @@ export function readingSet(R, m) {
     const hit = blocks.filter((b) => b.names.some((n) => want.has(n)));
     bytes += Buffer.byteLength(purpose) + hit.reduce((n, b) => n + Buffer.byteLength(b.text), 0);
     files.push(hit.length ? `${f} (Public: Purpose; ${hit.flatMap((b) => b.names).join(', ')})` : `${f} (Public: Purpose; no service named in its Uses line: read a service whole when the job touches it)`);
+  }
+  // SESSIONS §6.3's third remedy (issue 78): a set still over its limit after trimming and splitting is read through a
+  // summary for that task only, `build/summaries/<T>/<module>.md`, written by helpers who read the sources in full, every
+  // statement citing its source; the sources stay binding and the job may read any cited section in full. Named for the
+  // tranche, so it is never reused; measured instead of the sources it stands for; a statement with no citation refused.
+  const T = R.read(PLAN)?.match(/^# Plan: .*?\b([A-Z]+\d+[a-z]?)\s*$/m)?.[1], sumf = T && `build/summaries/${T}/${m}.md`, sum = sumf ? R.read(sumf) : null;
+  if (bytes > MODULE_SET && sum !== null) {
+    const uncited = sum.split('\n').map((l, i) => [l, i + 1]).filter(([l]) => /^\s*[-*] /.test(l) && !/\bR\d+\b|§\s*\d/.test(l)).map(([, i]) => i);
+    const layerRow = files.find((f) => f.startsWith('build/layers.md'));
+    return { files: [`${sumf} (the task summary, SESSIONS §6.3: its sources stay binding; read any section it cites in full)`, ...(layerRow ? [layerRow] : [])], code: [...(x.paths || []), ...(x.tests || [])], bytes: Buffer.byteLength(sum) + (layerRow && layers ? Buffer.byteLength(layers.split('\n').filter((l) => /^\|/.test(l)).slice(0, 2).join('\n')) : 0), missing, summary: { file: sumf, sources: bytes, uncited } };
   }
   return { files, code: [...(x.paths || []), ...(x.tests || [])], bytes, missing };
 }
@@ -1025,7 +1046,8 @@ export function layerStart(o) {
   for (const m of mods) {
     const rs = readingSet(R, m.id);
     if (rs.missing.length) refuse(`${m.id}: its reading set lacks ${rs.missing.join(', ')}`);
-    if (rs.bytes > MODULE_SET) refuse(`${m.id}: its own set is ${rs.bytes} bytes, over ${MODULE_SET} (SESSIONS §6): BLOCKED: reading; prune it, or start the others with --modules`);
+    if (rs.summary?.uncited.length) refuse(`${m.id}: its task summary ${rs.summary.file} has statements citing no source (lines ${rs.summary.uncited.slice(0, 8).join(', ')}): every statement cites its source section (SESSIONS §6.3)`);
+    if (rs.bytes > MODULE_SET) refuse(`${m.id}: its own set is ${rs.bytes} bytes, over ${MODULE_SET} (SESSIONS §6): BLOCKED: reading; fix it in SESSIONS §6.3's order (trim; split; else a summary for this task, build/plan's tranche id: build/summaries/${T}/${m.id}.md, by helpers who read the sources in full, each statement citing its source), or start the others with --modules`);
     const cur = jobOf(R, m.id), entries = entriesOf(text, L, m.id);
     if (cur && cur.session && LIVE_JOB.test(cur.state) && !['MERGED'].includes(cur.state)) {
       const message = `CHANGE: entries added to your START (layer ${L}, P10):\n${entries}`;

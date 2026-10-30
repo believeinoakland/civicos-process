@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, cpSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, cpSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -513,6 +513,30 @@ test('a product role reports a process flaw on its state branch; the lane reads 
   assert.deepEqual(N.productReports(LR).reports.filter((x) => x.ref === 'tranche').map((x) => x.state).sort(), ['FILED', 'NEW']);
   // with no epoch, there is nowhere to put it: the session says it in plain words and Bob relays it
   assert.throws(() => N.issueFile({ ...o, title: 'x', file: rep }), /no epoch is open/);
+});
+
+// Issue 78 (BOB #337, Civicsmith, 30 Oct): the last service took every requirement after it; and a set over 40 KB after
+// trimming and splitting had no way to SESSIONS §6.3's third remedy, a summary for that task.
+test('a service is charged only its own requirements; a set over its limit is read through a cited task summary', () => {
+  const pub = '## Public\n\n### Purpose\n\nP.\n\n### Provides\n\n**first(a)**\n- **R1** one.\n- **R2** two.\n\n**last(b)**\n- **R3** three.\n- **R4** four.\n- **R9** (later) `last` also does this.\n- **R7** (later) about `first` only.\n- **R8** (later) about nothing named.\n- **R10** (later) `last` again.\n';
+  const { blocks } = N.serviceBlocks(pub);
+  assert.deepEqual(blocks.map((b) => [b.names, (b.text.match(/R\d+/g) || [])]), [[['first'], ['R1', 'R2']], [['last'], ['R3', 'R4', 'R9', 'R10']]]);
+  // the toy's alpha made too large to read whole; its task summary, named for the running tranche, read instead
+  const w = world(), dir = w.bob.dir, R = N.repo(dir), req = join(dir, 'build/requirements/alpha.md');
+  writeFileSync(req, `${readFileSync(req, 'utf8')}\n${'- a long private note, kept for the test.\n'.repeat(1200)}`);
+  const full = N.readingSet(R, 'alpha');
+  assert.ok(full.bytes > N.MODULE_SET); assert.equal(full.summary, undefined);
+  mkdirSync(join(dir, 'build/summaries/T1'), { recursive: true });
+  writeFileSync(join(dir, 'build/summaries/T1/alpha.md'), '# alpha for T1\n\n- `add` returns the sum (alpha R1).\n- `sum` adds left to right (alpha R3).\n');
+  const sm = N.readingSet(R, 'alpha');
+  assert.ok(sm.bytes < N.MODULE_SET); assert.deepEqual(sm.summary.uncited, []); assert.equal(sm.summary.sources, full.bytes);
+  assert.match(sm.files[0], /^build\/summaries\/T1\/alpha\.md \(the task summary, SESSIONS §6\.3: its sources stay binding/);
+  writeFileSync(join(dir, 'build/summaries/T1/alpha.md'), '# alpha for T1\n\n- `add` returns the sum (alpha R1).\n- a statement with no source.\n');
+  assert.deepEqual(N.readingSet(R, 'alpha').summary.uncited, [4]);
+  // a summary for another tranche is not this task's
+  rmSync(join(dir, 'build/summaries/T1'), { recursive: true }); mkdirSync(join(dir, 'build/summaries/T0'), { recursive: true });
+  writeFileSync(join(dir, 'build/summaries/T0/alpha.md'), '- old (alpha R1).\n');
+  assert.equal(N.readingSet(R, 'alpha').summary, undefined);
 });
 
 // Issue 61 (#14, 30 Oct): the fresh reader sees only the message, so a claim the session added passed it (#13's writer test:
