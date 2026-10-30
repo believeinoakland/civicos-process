@@ -18,7 +18,7 @@ import { resolve, sep } from 'node:path';
 import { stepsReason, lastAssistantText, plainReason, BOB_READS, evidenceReason, EVIDENCE_MODEL } from './lib.mjs';
 import { spawnSync } from 'node:child_process';   // P20: steps for Bob verified against their source (`proc steps`)
 
-const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__';
+const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__', PROCESS_TRIGGER_FILE = 'proc-process-trigger.json';
 // A push is `push` as git's subcommand, after git's own options (`-C <dir>`, `-c <k=v>`, `--flag`), never the word in a
 // commit message (`git commit -m "… push …"` was refused as a push to its words, #7, 29 Oct).
 const GIT_SUB = String.raw`\bgit(?:\s+-[Cc]\s+\S+|\s+--?[\w-]+(?:=\S+)?)*\s+`;
@@ -148,6 +148,10 @@ export function preReason(role, input, ctx) {
     if (role === 'process' && tool === `${REMOTE}create_trigger`) {   // issue 96: its successor at a depth that does not grow
       let want = null; try { want = processSession(R_of(ctx), ctx.branch); } catch { /* a probe needs none */ }
       return processTriggerReason(ti, want);
+    }
+    if (role === 'process' && tool === `${REMOTE}fire_trigger`) {   // the task just armed, fired at once rather than on the scheduler's lag
+      const a = record(ctx, PROCESS_TRIGGER_FILE);
+      return a && !a.fired && Date.now() - Date.parse(a.at) < 30 * 60e3 ? null : 'the neoProcess lane fires only the one-shot task it armed in the last 30 minutes, once (issue 96)';
     }   // the lane's own backstop (Bob, 30 Oct)
     // ROOT starts every BOB (rulebook SES 1, SESSIONS §3a): exactly the create_session `proc root bob` printed, once (issue 65)
     if (role === 'root' && tool === `${REMOTE}create_session`) {
@@ -345,6 +349,7 @@ function main() {
     if (role === 'root' && input.tool_name === `${REMOTE}create_session`) { try { const f = join(root, '.git', ROOT_BOB_FILE), w = JSON.parse(readFileSync(f, 'utf8')); writeFileSync(f, JSON.stringify({ ...w, passed: new Date().toISOString() })); } catch { /* none */ } }
     if (input.tool_name === 'Skill' && isReader(input.tool_input?.skill) && r.session) { try { writeFileSync(join(root, '.git', READER_FILE), JSON.stringify({ session: r.session, at: new Date().toISOString() })); } catch { /* not a git checkout */ } }
     if (input.tool_name === 'Agent' && input.tool_input?.run_in_background === true && r.session) { try { const run = runningWorkers(root, r.session) || []; writeFileSync(join(root, '.git', WORKERS_FILE), JSON.stringify({ session: r.session, at: new Date().toISOString(), running: [...run, { id: input.tool_use_id, type: 'subagent', description: input.tool_input.description }] })); } catch { /* not a git checkout */ } }
+    if (role === 'process' && [`${REMOTE}create_trigger`, `${REMOTE}fire_trigger`].includes(input.tool_name) && !why) { try { const f = join(root, '.git', PROCESS_TRIGGER_FILE); writeFileSync(f, JSON.stringify(input.tool_name.endsWith('create_trigger') ? { at: new Date().toISOString() } : { ...JSON.parse(readFileSync(f, 'utf8')), fired: new Date().toISOString() })); } catch { /* not a git checkout */ } }
     if (role === 'process' && input.tool_name === `${REMOTE}send_later`) { try { writeFileSync(join(root, '.git', BACKSTOP_FILE), JSON.stringify({ due: new Date(Date.now() + Number(input.tool_input?.delay_minutes) * 60e3).toISOString() })); } catch { /* not a git checkout */ } }
     if (ok) console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `PROCESS: ${ok}` } }));
     return;

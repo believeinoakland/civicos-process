@@ -514,16 +514,24 @@ export function processSession(R, branch) {
   return { n, title: `NEOPROCESS #${n}`, source_url: `https://github.com/${gh.owner}/${gh.repo}`, source_revision: branch, prompt };
 }
 // Issue 96 (Bob, 30 Oct): a successor the lane created with create_session was its child, one deeper per refresh, toward
-// the platform's lineage limit of 8. A one-shot scheduled task that starts a fresh session is the measured route instead
-// (DRYRUN §19). The hook passes, for the lane only: that task for its successor, as `proc process handoff` printed it, or a
-// probe of the route with the fixed prompt below; each fires within 30 minutes, once, into a new session, with no connector.
+// the platform's lineage limit of 8. Measured (#17, DRYRUN §19): a session a one-shot scheduled task starts has no lineage
+// (tagged routine-lineage-none, no parent), but no repository, no connector and the default model, so it cannot be the
+// successor. It is the successor's STARTER: its one act is the create_session below, so the successor is always one deep.
+// The hook passes, for the lane only, the scheduled task whose prompt is this starter text for its successor, or for a
+// probe child, or the bare probe; each one-shot, fresh, no connector, within 30 minutes; and one fire_trigger after it.
 export const PROCESS_PROBE = 'PROBE (neoProcess lane): this session exists only so the lane can read what a session started by a scheduled task holds. Take no act. Reply with the single word DONE and end.';
+export const PROCESS_MODEL = 'claude-opus-5-5';
+export const starterPrompt = (call) => `STARTER (neoProcess lane, issue 96): your one act is to call the tool create_session of the Claude Code Remote server once, with exactly these arguments, unchanged: ${JSON.stringify(call)}. Take no other act. Then reply with the new session's id and end.`;
+export const probeChild = (s) => ({ title: 'neoProcess lane probe child', source_url: s.source_url, source_revision: s.source_revision, model: PROCESS_MODEL, prompt: 'PROBE CHILD (neoProcess lane): this session exists only so the lane can read its depth and what it holds. Take no act. Reply with the single word DONE and end.' });
+export const successorCall = (s) => ({ title: s.title, source_url: s.source_url, source_revision: s.source_revision, model: PROCESS_MODEL, prompt: s.prompt });
 export function processTriggerReason(ti, want, now = Date.now()) {
   const at = Date.parse(ti.run_once_at || '');
   const once = ti.create_new_session_on_fire === true && !ti.persistent_session_id && !ti.cron_expression && at > now && at <= now + 30 * 60e3 && !(ti.connectors || []).length;
-  const probe = ti.prompt === PROCESS_PROBE && /^neoProcess lane probe/.test(String(ti.name || ''));
-  if (once && (probe || (want && ti.name === want.title && ti.prompt === want.prompt))) return null;
-  return `the neoProcess lane arms only the one-shot scheduled task that starts ${want?.title ?? 'its successor'} as \`proc process handoff\` printed it, unchanged (a fresh session within 30 minutes, no connector), or its probe (issue 96)`;
+  const ok = (ti.prompt === PROCESS_PROBE && /^neoProcess lane probe/.test(String(ti.name || '')))
+    || (want && ti.name === `${want.title} starter` && ti.prompt === starterPrompt(successorCall(want)))
+    || (want && /^neoProcess lane probe/.test(String(ti.name || '')) && ti.prompt === starterPrompt(probeChild(want)));
+  if (once && ok) return null;
+  return `the neoProcess lane arms only the one-shot scheduled task that starts ${want?.title ?? 'its successor'}'s starter as \`proc process handoff\` printed it, unchanged (a fresh session within 30 minutes, no connector), or its probe (issue 96)`;
 }
 // The START file for Bob, written at every handoff: used only when the chain is broken.
 export const processStartText = (s, repoName) => `# Starting neoProcess #${s.n} (written by \`proc process handoff\`, ${today()})\n\nThe lane starts its successor itself at its refresh: \`proc process handoff\` prints the create_session (title \`${s.title}\`, the branch, the prompt below), and the hook passes that call only. Bob starts it instead only when the chain is broken: the last session is at depth 8 (SESSIONS §2) or none is live. Then, once: a new Claude Code cloud session on \`${repoName}\` **only** (no second repository, PERMISSIONS §10.7), branch \`${s.source_revision}\`, mode Auto, the most capable model offered; the prompt below as its first message, unchanged.\n\n\`\`\`\n${s.prompt}\n\`\`\`\n`;
