@@ -4,7 +4,7 @@
 
 **Moved to Bob's second Claude account** (Bob, 30 Oct: *"the second account can be used for both civicsmith and neoprocess development"*). GitHub identity `civicsmith`, a collaborator (push, triage); every lane act passes (acts.md).
 
-**Standing** · Bob, 29 Oct: keep working until there is no way to; nothing stops for him; a detail is never his (DES 1); plain words; PERMISSIONS §6, §9 (no API key, ever), §10; the process names no product. Commit messages in plain words (the classifier reads them). The lane starts its successor by `proc process handoff`; Bob only when the chain breaks, from the START file.
+**Standing** · Bob, 29 Oct: keep working until there is no way to; nothing stops for him; a detail is never his (DES 1); plain words; PERMISSIONS §6, §9 (no API key), §10; the process names no product. Plain-words commit messages. The lane starts its successor by `proc process handoff`; Bob only when the chain breaks, from the START file.
 
 ## Read whole at start
 
