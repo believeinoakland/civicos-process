@@ -12,7 +12,7 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## Where it stands (30 Oct, 14:0xZ)
 
-- Certified: DRYRUN §6-25 (§15-25 NOT YET wholly on the product); suite 285. **Hooks come from `.claude/settings.json`** (issue 111): a woken session lost the skills' hooks; prove the fix at the next wake (a partial read refused), then close 111.
+- Certified: DRYRUN §6-26 (§15-26 NOT YET wholly on the product); suite 285. **Hooks come from `.claude/settings.json`** (issue 111): a woken session lost the skills' hooks; prove the fix at the next wake (a partial read refused), then close 111.
 - **Issues are the channel** (GOV 5): `proc process status` lists them; ack each NEW one, close it naming the fix on `main`; keep a backstop due.
 - **Attach no second repository** (PERMISSIONS §10.7). Shims are regenerated on the runner (`repo-shims.yml`), onto the product's `tranche` too.
 - **Scheduled tasks** (#17): never delete one whose run matters (deleting deletes the sessions it started); switch it off (`update_trigger enabled false`).

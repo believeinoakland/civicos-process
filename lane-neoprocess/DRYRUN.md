@@ -331,3 +331,13 @@ Issue 111 (the lane, at its first wake): every hook was registered by the two sk
 | the products' settings regenerated; their running sessions told | NOT YET | `repo-shims.yml` on civicsmith/civicsmith after this merge; BOB #341 told |
 
 The lane's own settings file had carried rules outside the standing list (`Edit`/`Write` on the two repositories, `rm .git/hooks/*`, old mail commands); the regeneration keeps only `permissions.json` and the hooks, as a product's does. A refused `Edit` is then the classifier's call, as for every product session.
+
+## 26. Certification of issue 113's fix (GOV 5; 30 Oct 2026, #18)
+
+Issue 113 (Civicsmith's BOB #341, on Bob's question why the money job still ran its users' suites): one added constant (`+export const NO_DATE_ASKED`) counted as a changed service, so the fourteen users whose Uses line names no money service all ran, and the gate outlived the platform's default half-hour background run. Now a service that is only added, an export name or a Provides block absent before, changes none (nobody uses it yet, P11); a dropped or redefined name (its old line gone) and a changed or dropped block change their users as before; an export line naming nothing, or a default export, still changes every user (issue 93's rule kept). The hook's refusal that sends `proc job complete` to the background now names the platform's longest run, two hours. How long the product's full gate takes stays the product's to measure. Checked against the principles: P11 (the tests of the users of the change, no more), P13, P16.
+
+| path | status | evidence |
+| --- | --- | --- |
+| an added name and a new block change no user; a redefined or dropped name, a dropped block, change theirs; a default export every one | PROVEN in fixture | `usersOfChange` on alpha, eleven steps |
+| the background refusal names two hours | PROVEN in fixture | the hook's message |
+| a product job with only added exports runs none of its unnamed users | NOT YET | Civicsmith's next such job (`usersOfChange` in its `job complete`) |
