@@ -12,7 +12,8 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## Where it stands (30 Oct, 16:1xZ)
 
-- Certified: DRYRUN §6-27 (§15-27 NOT YET wholly on the product); suite 285. Done today: issues 98, 102, 104, 107, 113 closed; 111 and 115 fixed, their live rows open (below).
+- Certified: DRYRUN §6-27 (§15-27 NOT YET wholly on the product); suite 285. Done today: issues 98, 102, 104, 107, 113, 115 closed; 111 fixed, its live row open (below).
+- **Bob asked (30 Oct, 16:3xZ)** why the process is so fragile, why the suite did not anticipate today's flaws, and what makes it ready for Civicsmith; #19 answered in its turn's last message with the counts (30 issues today, 26 closed; 42 rows proven in fixture, 28 live, 17 not yet) and asked him for the readiness bar (his policy); his answer, when it comes, is a ruling.
 - **Issues are the channel** (GOV 5): `proc process status` lists them; ack each NEW one, close it naming the fix on `main`; keep a backstop due.
 - **Hooks come from `.claude/settings.json`** (issue 111; `proc shims --product .` writes the lane's): a woken session had lost the skills' hooks. **Say before you send** (issue 102): write each turn's last message to a scratch file, `proc say --file <it>` until OK, send exactly that text.
 - **Attach no second repository** (PERMISSIONS §10.7). Shims are regenerated on the runner (`repo-shims.yml`), onto the product's `tranche` too (done 16:03Z with the hooks).
