@@ -12,6 +12,7 @@
 // `gh pr merge` and the merge tool are refused but for the call `proc merge` printed, so no push of BOB's can carry a job around the gate.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN } from './proc.mjs';
 import { resolve, sep } from 'node:path';
 import { stepsReason, lastAssistantText } from './lib.mjs';   // P20: steps for Bob verified against their source (`proc steps`)
@@ -280,7 +281,11 @@ export function askingBobReason(text) {
 function main() {
   const ev = process.argv[2];
   let input = {}; try { input = JSON.parse(readFileSync(0, 'utf8') || '{}'); } catch { /* empty */ }
-  const root = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
+  // The role is recorded in the checkout the session works in: its project directory, or, for the two roles that work in the
+  // process repository itself, that repository when the session started elsewhere (#13, 30 Oct: a lane session started
+  // with two repositories has /home/user as its project directory, and its hooks found no role and no tools; issue 63).
+  let root = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
+  if (!readRole(root) && ['process', 'onboard'].includes(readRole(PROCESS)?.role)) root = PROCESS;
   const r = readRole(root) || {}, role = r.role || null, ctx = { ...r, root };
   if (ev === 'pre') {
     let why = null; try { why = preReason(role, input, ctx); } catch (e) { why = `the check failed (${e.message}); fix the cause`; }
@@ -296,7 +301,9 @@ function main() {
     if (!why && (role === 'bob' || role === 'lane' || OUTSIDE.has(role))) { try { why = askingBobReason(lastAssistantText(input)); } catch { /* no text */ } }
     if (!why && role) { try { why = contextReason(role, contextUsed(input), ctx); } catch (e) { why = `the context check failed (${e.message}); fix the cause`; } }
     // The same refusal three times in a row lets the turn end, so a cause the session cannot clear never loops.
-    const f = join(root, '.git', 'proc-stop.json');
+    // Kept per session outside the checkout, so it counts where the session has no git directory too (#13's probe, 30 Oct:
+    // with no role and no checkout the write failed, the count never rose, and the platform's cap ended the turn at 9).
+    const f = join(tmpdir(), `proc-stop-${String(input.session_id || r.session || 'none').replace(/[^\w-]/g, '')}.json`);
     const last = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};
     const n = refusalCount(last, why);
     try { writeFileSync(f, JSON.stringify({ why, n })); } catch { /* not a git checkout */ }

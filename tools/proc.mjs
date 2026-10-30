@@ -483,7 +483,11 @@ export async function processStart(o) {
   }
   writeRole(R, { role: 'process', product: '.', session: o.session, name: 'NEOPROCESS', branch: o.branch });
   const h = R.read(`${PROCESS_LANE}/HANDOFF.md`), iss = await openIssues(o); keepIssues(R, iss);
-  return { role: 'process', branch: o.branch, issues: iss, text: `${h ?? `(${PROCESS_LANE}/HANDOFF.md not found)`}\n${issueLines(iss)}\n\nNext: put your session id (${o.session}) in the handoff's From line and push to ${o.branch}; read whole what its reading section names (P20); acknowledge each NEW issue (\`proc issue ack\`) and work the open issues with "What remains", Bob's first; arm the backstop \`proc process status\` prints.\n` };
+  // PERMISSIONS §10.7: the lane's session has this repository alone; else its project directory is elsewhere and the
+  // repository's settings (the standing list) are not loaded, though the hooks find the repository themselves (issue 63)
+  const pd = (o.env || process.env).CLAUDE_PROJECT_DIR, away = pd && resolve(pd) !== resolve(PROCESS);
+  const warn = away ? `\nWARNING: this session's project directory is ${pd}, not the process repository: the hooks still run, but the standing list in .claude/settings.json is not loaded, so the auto-mode classifier judges what it would allow (PERMISSIONS §10.7: the lane's session has this one repository). The successor is started on it alone.\n` : '';
+  return { role: 'process', branch: o.branch, issues: iss, away: !!away, text: `${h ?? `(${PROCESS_LANE}/HANDOFF.md not found)`}\n${issueLines(iss)}\n${warn}\nNext: put your session id (${o.session}) in the handoff's From line and push to ${o.branch}; read whole what its reading section names (P20); acknowledge each NEW issue (\`proc issue ack\`) and work the open issues with "What remains", Bob's first; arm the backstop \`proc process status\` prints.\n` };
 }
 // The neoProcess lane's successor (Bob, 29 Oct, to #8: the lane refreshes without him; P19). The lane has no parent
 // session in the process repository, so its predecessor starts it: `proc process handoff` prints this create_session
