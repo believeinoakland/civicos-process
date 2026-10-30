@@ -286,3 +286,15 @@ Issue 104 (Civicsmith's BOB #340): ROOT, woken only by a message, waited for a t
 | takeover prints the TOOK OVER message; BOB's turn cannot end until it is sent | PROVEN in fixture | `t2.tell`, `stopReason('bob')` before and after the record |
 | ROOT's archive refused while released but no takeover recorded; passed once both | PROVEN in fixture | `preReason('root', archive_session)` with the plan's Status set back and forth |
 | a live product handover (RELEASED, TOOK OVER, archived by ROOT) | NOT YET | Civicsmith's BOB #341 |
+
+## 23. Certification of issue 107's fix (GOV 5; 30 Oct 2026, #18)
+
+Issue 107 (the lane itself, at #18's start): the classifier refused #18's `archive_session` of #17 (`[External System Writes]`) after the PreToolUse hook had recorded the act as done, so the Stop hook held the lane to nothing and #17 sat idle, unarchived, its usage unread; ROOT's BOB start, the lane's armed task, its backstop and BOB's `TOOK OVER` were recorded the same way. Now every record of a remote act is written by the PostToolUse event (`hooks.mjs post`, registered by the skill), which runs only once the tool completed (a denial fires PreToolUse and PermissionDenied, never it: code.claude.com/docs/en/hooks, read 30 Oct); the pre event records only the fresh reader and a background worker. A refused archive has its own record: `proc process archived --refused "<the refusal's words>"` writes the predecessor's row to `lane-neoprocess/metrics.csv` with empty counts and `unmeasured: <the words>` and clears the owed act (the session left idle, GRANTS §1); `--usage '<what archive_session returned>'` writes the counts and is refused unless the post event recorded the archive. Checked against the principles: P20 (a record from the act that ran, never from the request), P14 (the counts empty, the row says why), P15 (one row, refused twice), GOV 9 (no second attempt at an act the classifier refused). Suite 284 green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| the pre event records nothing of a remote act; the post event records the archive, the tasks switched off, each BOB told, the backstop due; ROOT's start `passed` only by the post event | PROVEN in fixture | `preReason`/`postRecord` on the refresh file; `hooks.mjs pre` then `post` run as processes for ROOT's create_session |
+| the refused archive recorded once, its row unmeasured; a usage refused without the post record; the counts written with it | PROVEN in fixture | `processArchived` on a lane clone, the file read back from its branch |
+| #18's own refused archive recorded | PROVEN | `lane-neoprocess/metrics.csv` (d848faa): #17's row, `unmeasured: … [External System Writes]` |
+| the post event registered and run live | NOT YET | #18 after re-invoking the skill: a `list_triggers` call stamps `switchedOff` in `.git/proc-process-refresh.json` |
+| a successor's archive passed and its counts written | NOT YET | #19's start, if the classifier passes the archive |

@@ -6,6 +6,10 @@ hooks:
     - hooks:
         - type: command
           command: 'node "${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-.}/.claude/skills/neoprocess}/../../../tools/hooks.mjs" pre'
+  PostToolUse:
+    - hooks:
+        - type: command
+          command: 'node "${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-.}/.claude/skills/neoprocess}/../../../tools/hooks.mjs" post'
   Stop:
     - hooks:
         - type: command

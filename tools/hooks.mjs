@@ -5,7 +5,7 @@
 // always exits 0 and answers in JSON: a PreToolUse refusal as `permissionDecision: "deny"` (a pre-approved act of the
 // act table as `"allow"`, PERMISSIONS §8.6), a Stop refusal as
 // `decision: "block"`. What it refuses is what must never happen (code, P16); what a goal sends a session back for is text.
-//   node tools/hooks.mjs <pre|stop|evidence>
+//   node tools/hooks.mjs <pre|post|stop|evidence>
 // Pushes: a job pushes only `job/<m>`, a lane only `tranche`, BOB `tranche` (its prepared files, P18); nobody pushes
 // `main` or a `state/*` branch by hand (the tool writes the state branch by plumbing). JOB-LIFE §4's "any push to the
 // tranche branch" is read as: a job's work reaches `tranche` only through the queue; BOB's hand merge of a job branch,
@@ -280,13 +280,35 @@ export function laneStopReason(ctx, now = Date.now()) {
   if (unfiled.length) why.push(`product report(s) ${unfiled.join(', ')} not filed: \`proc issue --report <id>\`, the call it prints, then \`proc process status\``);
   const rf = record(ctx, REFRESH_FILE);   // Bob, 30 Oct: every refresh retires the predecessor and tells the products the new address
   if (rf && rf.session === ctx.session) {
-    if (!rf.archived) why.push(`the previous lane session ${rf.archive} is not archived: archive_session it, as \`proc process start\` printed`);
+    if (!rf.archived) why.push(`the previous lane session ${rf.archive} is not archived: archive_session it, then \`proc process archived --usage '<what it returned>'\`; if the archive was refused, \`proc process archived --refused "<the refusal's words>"\` (the session is left idle, its row unmeasured)`);
     if (!rf.switchedOff) why.push(`the previous lane session's backstop is not switched off: list_triggers, then update_trigger enabled false on each task whose persistent_session_id is ${rf.archive}, if any`);
     if ((rf.tell || []).length) why.push(`product BOB(s) ${rf.tell.join(', ')} not told the lane's new address: send_message each the line \`proc process start\` printed`);
   }
   const handed = record(ctx, 'proc-handoff.json')?.session === ctx.session && ctx.session;   // handed off: the backstop is the successor's
   if (!handed && !(back && Date.parse(back.due) > now)) why.push('no backstop is due: arm it with the send_later `proc process status` printed');
   return why.length ? why.join('; ') : null;
+}
+// An act's record is written when the act has run, never when it was asked (issue 107, 30 Oct: the classifier refused
+// neoProcess #18's archive of #17 after the pre hook had already recorded it archived). PostToolUse runs only after a tool
+// completed (a denial fires PreToolUse and PermissionDenied, never it: code.claude.com/docs/en/hooks, read 30 Oct), so
+// every record of a remote act lives here: ROOT's one BOB start made, the lane's task armed or fired, its backstop due,
+// the refresh's acts (the archive, the tasks switched off, each product's BOB told), BOB's takeover reported. A refused
+// archive has its own record, `proc process archived --refused`, since nothing here ever sees it.
+export function postRecord(role, input, ctx) {
+  const t = input.tool_name, ti = input.tool_input || {}, at = new Date().toISOString(), f = (name) => join(ctx.root, '.git', name);
+  const edit = (name, fn) => { let w; try { w = JSON.parse(readFileSync(f(name), 'utf8')); } catch { return null; } const n = fn(w); if (n) writeFileSync(f(name), JSON.stringify(n)); return n; };
+  if (role === 'root' && t === `${REMOTE}create_session`) return edit(ROOT_BOB_FILE, (w) => ({ ...w, passed: at }));
+  if (role === 'process' && t === `${REMOTE}create_trigger`) { writeFileSync(f(PROCESS_TRIGGER_FILE), JSON.stringify({ at })); return { at }; }
+  if (role === 'process' && t === `${REMOTE}fire_trigger`) return edit(PROCESS_TRIGGER_FILE, (w) => ({ ...w, fired: at }));
+  if (role === 'process' && t === `${REMOTE}send_later`) { const w = { due: new Date(Date.now() + Number(ti.delay_minutes) * 60e3).toISOString() }; writeFileSync(f(BACKSTOP_FILE), JSON.stringify(w)); return w; }
+  if (role === 'process') return edit(REFRESH_FILE, (w) => {
+    if (t === `${REMOTE}archive_session` && ti.session_id === w.archive) return { ...w, archiveDone: at };
+    if (t === `${REMOTE}list_triggers` || (t === `${REMOTE}update_trigger` && ti.enabled === false)) return { ...w, switchedOff: at };   // looked, and switched off what it found
+    if (t === `${REMOTE}send_message` && (w.tell || []).includes(ti.session_id)) return { ...w, tell: w.tell.filter((x) => x !== ti.session_id) };
+    return null;
+  });
+  if (role === 'bob' && t === `${REMOTE}send_message` && /^TOOK OVER BOB #\d+/.test(String(ti.message || ''))) return edit(TOOKOVER_FILE, (w) => ({ ...w, sent: at }));
+  return null;
 }
 // P13, rulebook SES 5: BOB past 40 % of its window, a job or a lane past half, ends a turn only with its refresh recorded
 // (BOB #2 of N1 ran to 67 % while BOB's own threshold was text: DRYRUN §4.17). The context is the last assistant turn's
@@ -355,20 +377,12 @@ function main() {
     let why = null; try { why = preReason(role, input, ctx); } catch (e) { why = `the check failed (${e.message}); fix the cause`; }
     if (why) { console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: `PROCESS: ${why}` } })); return; }
     let ok = null; try { ok = allowReason(role, input, ctx); } catch { /* falls through to the rules */ }
-    if (role === 'root' && input.tool_name === `${REMOTE}create_session`) { try { const f = join(root, '.git', ROOT_BOB_FILE), w = JSON.parse(readFileSync(f, 'utf8')); writeFileSync(f, JSON.stringify({ ...w, passed: new Date().toISOString() })); } catch { /* none */ } }
     if (input.tool_name === 'Skill' && isReader(input.tool_input?.skill) && r.session) { try { writeFileSync(join(root, '.git', READER_FILE), JSON.stringify({ session: r.session, at: new Date().toISOString() })); } catch { /* not a git checkout */ } }
     if (input.tool_name === 'Agent' && input.tool_input?.run_in_background === true && r.session) { try { const run = runningWorkers(root, r.session) || []; writeFileSync(join(root, '.git', WORKERS_FILE), JSON.stringify({ session: r.session, at: new Date().toISOString(), running: [...run, { id: input.tool_use_id, type: 'subagent', description: input.tool_input.description }] })); } catch { /* not a git checkout */ } }
-    if (role === 'process' && [`${REMOTE}create_trigger`, `${REMOTE}fire_trigger`].includes(input.tool_name) && !why) { try { const f = join(root, '.git', PROCESS_TRIGGER_FILE); writeFileSync(f, JSON.stringify(input.tool_name.endsWith('create_trigger') ? { at: new Date().toISOString() } : { ...JSON.parse(readFileSync(f, 'utf8')), fired: new Date().toISOString() })); } catch { /* not a git checkout */ } }
-    if (role === 'process' && !why) { try { const f = join(root, '.git', REFRESH_FILE), w = JSON.parse(readFileSync(f, 'utf8')), ti = input.tool_input || {};
-      if (input.tool_name === `${REMOTE}archive_session` && ti.session_id === w.archive) w.archived = new Date().toISOString();
-      if (input.tool_name === `${REMOTE}list_triggers` || (input.tool_name === `${REMOTE}update_trigger` && ti.enabled === false)) w.switchedOff = new Date().toISOString();   // looked, and switched off what it found
-      if (input.tool_name === `${REMOTE}send_message`) w.tell = (w.tell || []).filter((x) => x !== ti.session_id);
-      writeFileSync(f, JSON.stringify(w)); } catch { /* no refresh owed */ } }
-    if (role === 'bob' && input.tool_name === `${REMOTE}send_message` && /^TOOK OVER BOB #\d+/.test(String(input.tool_input?.message || ''))) { try { const f = join(root, '.git', TOOKOVER_FILE), w = JSON.parse(readFileSync(f, 'utf8')); writeFileSync(f, JSON.stringify({ ...w, sent: new Date().toISOString() })); } catch { /* none owed */ } }
-    if (role === 'process' && input.tool_name === `${REMOTE}send_later`) { try { writeFileSync(join(root, '.git', BACKSTOP_FILE), JSON.stringify({ due: new Date(Date.now() + Number(input.tool_input?.delay_minutes) * 60e3).toISOString() })); } catch { /* not a git checkout */ } }
     if (ok) console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `PROCESS: ${ok}` } }));
     return;
   }
+  if (ev === 'post') { try { postRecord(role, input, ctx); } catch { /* a record is never a refusal */ } return; }
   if (ev === 'evidence') {
     if (!BOB_READS.has(role) || readerReason(role, ctx)) return;   // the same messages the fresh reader judges
     let why = null; try { why = evidenceReason(input, runJudge); } catch { /* the check never blocks on its own failure */ }
