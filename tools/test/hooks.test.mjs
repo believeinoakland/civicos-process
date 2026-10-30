@@ -783,7 +783,7 @@ test('the evidence check: what the session was told, ran and saw, never its own 
   assert.equal(evidenceReason({ transcript_path: tp, last_assistant_message: '' }, () => { throw new Error('not run'); }), null);
   // registered beside the Stop hook in the process's skill and every product's shims; a job (Bob never reads it) is not judged
   const HOOKS = join(HERE, '..', 'hooks.mjs');
-  assert.deepEqual(JSON.parse(readFileSync(join(N.PROCESS, '.claude/settings.json'), 'utf8')).hooks.Stop[0].hooks[1], { type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/tools/hooks.mjs" evidence', timeout: 180 });   // issue 111: in the settings, loaded at every start and resume
+  assert.equal(JSON.parse(readFileSync(join(N.PROCESS, '.claude/settings.json'), 'utf8')).hooks, undefined);   // Bob, 30 Oct: the repository's settings wire no hook; the check below runs the code directly (PLT-4)
   const w = world();
   writeFileSync(join(w.bob.root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'job', product: 'toy', session: J1, module: 'alpha' }));
   assert.equal(execFileSync('node', [HOOKS, 'evidence'], { input: JSON.stringify({ transcript_path: tp, last_assistant_message: 'x' }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: w.bob.root, PATH: process.env.PATH } }), '');
