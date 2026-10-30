@@ -214,8 +214,9 @@ export function parsePlan(text) {
 export const fmtPlan = (p) => `# Plan (transient)\n\n**Status** · ${p.state} · ${p.bob.name} · ${p.bob.session}${p.stop ? ` · STOPPED ${p.stop.why} · ${p.stop.version}${Object.keys(p.stop.choices || {}).length ? ` · choices ${Object.entries(p.stop.choices).map(([m, c]) => `${m} ${c}`).join(', ')}` : ''}` : p.resumed ? ` · RESUMED ${p.resumed}` : ''}\n**Owed** · ${p.owed.join('; ') || 'none'}\n${Object.keys(p.layers || {}).length ? `**Layers** · ${Object.entries(p.layers).map(([l, s]) => `${l} ${s}`).join('; ')}\n` : ''}${(p.retiring || []).length ? `**Retiring** · ${p.retiring.map((r) => `${r.name} ${r.session} ${r.state}`).join('; ')}\n` : ''}`;
 export function planEdit(R, edit, message) {
   const p = parsePlan(stateRead(R, 'plan.md') || '');
-  if (!p.bob) refuse('the plan on the state branch has no Status line in BOB\'s form (`**Status** · <STATE> · BOB #<n> · <session>`): `proc takeover` writes it');
-  return stateWrite(R, { 'plan.md': fmtPlan(edit(p)) }, message);
+  const next = edit(p);
+  if (!next?.bob?.name || !next.bob.session || !next.state) refuse('the plan on the state branch has no Status line in BOB\'s form (`**Status** · <STATE> · BOB #<n> · <session>`): `proc takeover` writes it');
+  return stateWrite(R, { 'plan.md': fmtPlan(next) }, message);
 }
 // A stop: why, the process version it is recorded at, and each unmerged job's choice; at most one at a time.
 export function stop(R, why, choices = {}, version) {

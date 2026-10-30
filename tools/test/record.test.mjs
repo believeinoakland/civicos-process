@@ -426,3 +426,12 @@ test('R4, R3: epochOpen and epochClose make no remote change for a role that may
   assert.equal(epochOpen({ product: w.d }).epoch, 'E2', 'once current: the next label');
 });
 
+test('R8, R10: a plan whose Status line is not in BOB\'s form is refused, never a crash', () => {
+  const w = world(), R = repo(w.d);
+  stateWrite(R, { 'plan.md': '**Status** · OPEN\n**Owed** · archive X #1\n' }, 'malformed');
+  assert.throws(() => recordAct(R, 'archive X #1', { merged: true }, ['merged']), (e) => e instanceof Refused && /no Status line in BOB's form/.test(e.message));
+  assert.throws(() => planEdit(R, (p) => p, 'x'), Refused);
+  planEdit(R, (p) => ({ ...p, state: 'OPEN', bob: { name: 'BOB #3', session: BOB } }), 'takeover');   // the edit that writes BOB's line passes
+  assert.deepEqual(parsePlan(stateRead(R, 'plan.md')).bob, { name: 'BOB #3', session: BOB });
+});
+
