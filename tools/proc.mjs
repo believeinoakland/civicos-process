@@ -38,6 +38,7 @@
 //   reading --role <bob|job|lane|root|process|onboard>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
 //   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
 //   ruling --text "<the ruling>" --why "<why>" [--module <m>] [--files <p1,p2>]      steps --file <steps.md> --source <p1,p2> (tools/lib.mjs, P20)
+//   say --file <draft.md> [--no-judge]      (issue 102: a message for Bob judged before it is sent; the turn's end skips what passed)
 //   repo setup --repo <owner/name> [--private] [--dry-run]      (PERMISSIONS §9: the repository and its two rulesets; from a session it prints the workflow's dispatch)
 //   repo rename --repo <owner/old> --name <new>      (PERMISSIONS §9: a repository renamed on GitHub's runner; from a session it prints the dispatch)
 //   repo transfer --repo <owner/name> --to <new owner>      (PERMISSIONS §9: a repository moved to another account on GitHub's runner; the new owner accepts the email)
@@ -54,7 +55,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // The gate and the plan's entries come from tools/lib.mjs, moved there from the old tool at the commit point (P3).
-import { entriesOf, runTests, moduleChecks, withArtifacts, evidenceItems, history, modules, artifacts, allChecks, reds, EVIDENCE_FORMS, EVIDENCE_ITEM, stepsCmd } from './lib.mjs';
+import { entriesOf, runTests, moduleChecks, withArtifacts, evidenceItems, history, modules, artifacts, allChecks, reds, EVIDENCE_FORMS, EVIDENCE_ITEM, stepsCmd, stepsReason, plainReason, BOB_READS, SAID_FILE, saidKey, transcriptOf, freshReaderReason, evidenceReason } from './lib.mjs';
 
 export const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const TRANCHE = 'tranche';                 // fixed: a merge queue cannot target a wildcard (JOB-LIFE §1)
@@ -628,6 +629,30 @@ export function processArchived(o) {
   const commit = commitPush(R, me.branch, [LANE_METRICS], `lane neoProcess: ${rf.predecessor} ${o.refused != null ? 'left idle, unmeasured' : 'archived'}`);
   writeFileSync(join(R.root, '.git', REFRESH_FILE), JSON.stringify({ ...rf, archived: now(), ...(o.refused != null ? { unmeasured: String(o.refused).trim() } : {}) }));
   return { commit, archived: rf.archive, unmeasured: o.refused != null };
+}
+// Issue 102 (Bob, 30 Oct): a message for Bob is judged before it is sent. The same checks the Stop hook runs on the turn's
+// last message run here on a draft file: the reader on, the steps, plain words, a turn ending on Bob; then, only once those
+// pass, the two model runs (the fresh reader, the evidence judge against this session's transcript). The text that passed
+// is recorded by its hash, and the hooks skip a message they already judged, so a refused draft never reaches Bob and a
+// passing one is judged once. `--no-judge` skips the model runs (a fixture; the hooks then judge them at the turn's end).
+export async function say(o) {
+  const R = repo(o.product), me = readRole(R.root);
+  if (!me || !BOB_READS.has(me.role)) refuse('only a role whose last message Bob reads (BOB, ROOT, a lane, the neoProcess lane, onboarding) judges a draft for him');
+  const text = fileText(o.file, '--file'), H = await import('./hooks.mjs'), ctx = { ...me, root: R.root }, faults = [];
+  const add = (f) => { if (f) faults.push(f); };
+  add(H.readerReason(me.role, ctx));
+  try { add(stepsReason(text, join(R.root, me.product || '.'))); } catch (e) { add(`the steps check failed (${e.message})`); }
+  add(plainReason(text));
+  if (me.role !== 'root') add(H.askingBobReason(text));
+  let judged = false, transcript = null;
+  if (!faults.length && o.judge !== false && !o['no-judge']) {
+    judged = true; add(freshReaderReason(text, H.runJudge));
+    transcript = transcriptOf(R.root);
+    if (transcript) add(evidenceReason({ last_assistant_message: text, transcript_path: transcript }, H.runJudge));
+  }
+  const ok = faults.length === 0, key = saidKey(text);
+  writeFileSync(join(R.root, '.git', SAID_FILE), JSON.stringify({ session: me.session, key, ok, judged, at: now(), faults }));
+  return { ok, faults, judged, transcript: transcript ? 'read' : 'not found: the evidence judge runs at the turn\'s end', next: ok ? 'OK: end the turn with exactly this text, unchanged' : 'rewrite the draft and run `proc say --file` again; the turn\'s end refuses a message these checks refuse' };
 }
 // ---- ROOT (SESSIONS §3a; issue 65): its own start, and the one BOB start it makes ----
 // ROOT starts every BOB and nothing else. Its start records the role (the hooks refuse every act until one is recorded) and
@@ -2536,7 +2561,7 @@ export const COMMANDS = {
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived, 'bob release': bobRelease,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'tranche carry': trancheCarry, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
-  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'repo rename': repoRename, 'repo transfer': repoTransfer, 'repo shims': repoShims, 'root start': rootStart, 'root bob': rootBob, 'process start': processStart, 'process handoff': processHandoff, 'process status': processStatus, 'process archived': processArchived, issue: issueFile, 'issue ack': issueAck, 'issue close': issueClose, 'issue reply': issueReply, 'issue seen': issueSeen, 'grants check': grantsCheck, init, 'onboard start': onboardStart,
+  ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'repo rename': repoRename, 'repo transfer': repoTransfer, 'repo shims': repoShims, 'root start': rootStart, 'root bob': rootBob, 'process start': processStart, 'process handoff': processHandoff, 'process status': processStatus, 'process archived': processArchived, say, issue: issueFile, 'issue ack': issueAck, 'issue close': issueClose, 'issue reply': issueReply, 'issue seen': issueSeen, 'grants check': grantsCheck, init, 'onboard start': onboardStart,
 };
 async function main() {
   const o = args(process.argv.slice(2));

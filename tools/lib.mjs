@@ -5,7 +5,7 @@
 // (lane-neoprocess/COMMIT-POINT.md, step 1), each copied verbatim with the private helpers it needs and nothing else.
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, openSync, closeSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, openSync, closeSync, readdirSync, statSync } from 'node:fs';
 import { totalmem, availableParallelism } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -413,6 +413,29 @@ export function evidenceVerdict(out) {
   const m = String(r || '').match(/\{[\s\S]*\}/); if (!m) return null;
   let v; try { v = JSON.parse(m[0]); } catch { return null; }
   return v && v.ok === false && typeof v.reason === 'string' ? v.reason : null;
+}
+// Issue 102 (Bob, 30 Oct: he sees every refused draft): a message judged before it is sent. `proc say --file` runs the
+// turn-end checks on a draft and records the text it passed (its hash, by session); the Stop and evidence hooks then
+// skip what was already judged, so a draft that fails never becomes a message, and a passing one is judged once.
+export const SAID_FILE = 'proc-said.json';
+export const saidKey = (text) => createHash('sha256').update(String(text ?? '').replace(/\r\n/g, '\n').trim()).digest('hex');
+export function saidPassed(root, session, text) {
+  try { const w = JSON.parse(readFileSync(join(root, '.git', SAID_FILE), 'utf8')); return !!session && w.session === session && w.ok === true && w.key === saidKey(text); } catch { return false; }
+}
+export const SAY_HINT = '; judge the rewrite before you send it: write it to a file and run `proc say --file <that file>` until it answers OK, then end the turn with exactly that text (issue 102)';
+// The session's own transcript, where Claude Code keeps it: the newest transcript of the project directory's folder.
+export function transcriptOf(root, home = process.env.HOME) {
+  if (!home) return null;
+  const dir = join(home, '.claude', 'projects', resolve(root).replace(/[^A-Za-z0-9]/g, '-'));
+  let best = null; try { for (const f of readdirSync(dir)) { if (!f.endsWith('.jsonl')) continue; const m = statSync(join(dir, f)).mtimeMs; if (!best || m > best.m) best = { f: join(dir, f), m }; } } catch { return null; }
+  return best?.f ?? null;
+}
+// The fresh reader's prompt is the reader skill's (one source): read from its SKILL.md, the hook input filled in.
+export function freshReaderReason(text, run, skill = join(PROCESS, '.claude', 'skills', 'neoprocess-reader', 'SKILL.md')) {
+  let raw; try { raw = readFileSync(skill, 'utf8'); } catch { return null; }
+  const m = raw.match(/^\s*prompt: ("(?:[^"\\]|\\.)*")\s*$/m); if (!m) return null;
+  let prompt; try { prompt = JSON.parse(m[1]); } catch { return null; }
+  return evidenceVerdict(run(prompt.replace('$ARGUMENTS', JSON.stringify({ last_assistant_message: text }))));
 }
 export function evidenceReason(input, run) {
   const message = lastAssistantText(input);

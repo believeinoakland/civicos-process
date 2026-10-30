@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ROOT_BOB_FILE, repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, processTriggerReason, REFRESH_FILE, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN, WORKERS_FILE, TOOKOVER_FILE, runningWorkers } from './proc.mjs';
 import { resolve, sep } from 'node:path';
-import { stepsReason, lastAssistantText, plainReason, BOB_READS, evidenceReason, EVIDENCE_MODEL } from './lib.mjs';
+import { stepsReason, lastAssistantText, plainReason, BOB_READS, evidenceReason, EVIDENCE_MODEL, saidPassed, SAY_HINT } from './lib.mjs';
 import { spawnSync } from 'node:child_process';   // P20: steps for Bob verified against their source (`proc steps`)
 
 const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__', PROCESS_TRIGGER_FILE = 'proc-process-trigger.json';
@@ -412,6 +412,7 @@ function main() {
   }
   if (ev === 'evidence') {
     if (!BOB_READS.has(role) || readerReason(role, ctx)) return;   // the same messages the fresh reader judges
+    if (saidPassed(root, r.session, lastAssistantText(input))) return;   // issue 102: judged by `proc say` before it was sent
     let why = null; try { why = evidenceReason(input, runJudge); } catch { /* the check never blocks on its own failure */ }
     const f = join(tmpdir(), `proc-evidence-${String(input.session_id || r.session || 'none').replace(/[^\w-]/g, '')}.json`);
     const last = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};
@@ -424,11 +425,14 @@ function main() {
     // issue 90: the session's running background tasks, as Claude Code lists them to the Stop hook (measured #16, 30 Oct)
     if (Array.isArray(input.background_tasks) && r.session) { try { writeFileSync(join(root, '.git', WORKERS_FILE), JSON.stringify({ session: r.session, at: new Date().toISOString(), running: input.background_tasks.filter((t) => t.status === 'running').map(({ id, type, description }) => ({ id, type, description })) })); } catch { /* not a git checkout */ } }
     let why = null; try { why = stopReason(role, ctx); } catch (e) { why = `the stop check failed (${e.message}); fix the cause`; }
-    // Bob reads these roles' last message and only it (rulebook SES 9): the fresh reader on, steps verified, plain words
-    if (!why && BOB_READS.has(role)) why = readerReason(role, ctx);
-    if (!why && BOB_READS.has(role)) { try { why = stepsReason(lastAssistantText(input), join(root, r.product || '.')); } catch (e) { why = `the steps check failed (${e.message}); fix the cause`; } }
-    if (!why && BOB_READS.has(role)) { try { why = plainReason(lastAssistantText(input)); } catch (e) { why = `the plain-words check failed (${e.message}); fix the cause`; } }
-    if (!why && (role === 'bob' || role === 'lane' || OUTSIDE.has(role))) { try { why = askingBobReason(lastAssistantText(input)); } catch { /* no text */ } }
+    // Bob reads these roles' last message and only it (rulebook SES 9): the fresh reader on, steps verified, plain words;
+    // a message `proc say` passed was judged before it was sent, and is not judged again (issue 102)
+    const said = BOB_READS.has(role) && saidPassed(root, r.session, lastAssistantText(input)), before = why;
+    if (!why && BOB_READS.has(role) && !said) why = readerReason(role, ctx);
+    if (!why && BOB_READS.has(role) && !said) { try { why = stepsReason(lastAssistantText(input), join(root, r.product || '.')); } catch (e) { why = `the steps check failed (${e.message}); fix the cause`; } }
+    if (!why && BOB_READS.has(role) && !said) { try { why = plainReason(lastAssistantText(input)); } catch (e) { why = `the plain-words check failed (${e.message}); fix the cause`; } }
+    if (!why && !said && (role === 'bob' || role === 'lane' || OUTSIDE.has(role))) { try { why = askingBobReason(lastAssistantText(input)); } catch { /* no text */ } }
+    if (why && !before && BOB_READS.has(role)) why += SAY_HINT;
     if (!why && role) { try { why = contextReason(role, contextUsed(input), ctx); } catch (e) { why = `the context check failed (${e.message}); fix the cause`; } }
     // The same refusal three times in a row lets the turn end, so a cause the session cannot clear never loops.
     // Kept per session outside the checkout, so it counts where the session has no git directory too (#13's probe, 30 Oct:

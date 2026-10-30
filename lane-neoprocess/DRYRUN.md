@@ -262,7 +262,7 @@ Issue 98 (Civicsmith's BOB #339): jobs started at 13:17Z, after issue 92's fix w
 | the start line on a copy already there: brought to the tip | PROVEN in fixture | the line run by `sh` on a clone one commit behind: the new file present |
 | a start brings the copy to main, refuses one changed in place | PROVEN in fixture | `processBehind` null after a fix, the refusal's words; `jobStart` refused |
 | Civicsmith's shims carry the new start line | PROVEN | run 41066626794 (13:50Z, success); civicsmith/civicsmith `main`'s `.claude/settings.json` read back with the fast-forward line |
-| a product session started after a fix holds it | NOT YET | Civicsmith's next session's copy read (`git -C /home/user/neoprocess log -1`) |
+| a product session started after a fix holds it | PROVEN | Civicsmith's BOB #341 (started 14:48Z) printed `PROCESS OK` as its first act; REGISTERS #4 replied `PROCESS OK at 4d7757a` (read by #18 from BOB #341's transcript) |
 | a job opened after the shims run carries them | FAILED, then fixed | BOB #339: MONEY #3, created 13:51:25Z after run 41066626794, held 678ab08: a job's branch opens from `tranche`, whose settings still had the old line (read back: `tranche` old, `main` new). Now `repo shims` commits the same files on `tranche`'s tip too (`shimsTranche`, retried when the tip moves); fixture: one commit on the tip, then `already current` |
 | the shims reach Civicsmith's running tranche | PROVEN | run 41067860285 (13:59Z, success): `tranche` 4473097 (14:00:56Z), one commit on 9960343, its settings read back with the new line |
 
@@ -275,7 +275,7 @@ Issue 101 (Civicsmith; Bob: "start the jobs with an initial prompt that tell it 
 | the version line in the prompt; OK on a copy behind (brought there), STALE on a diverged one; the pre-role hook passes it | PROVEN in fixture | `versionLine`, `versionCheck` run by `sh` on the fixture clone |
 | a job archived unmerged started again; one merged (branch held or gone) refused | PROVEN in fixture | `jobRoute` on stats (REOPENED, STATS #2, the version line) and alpha |
 | the refresh's owed acts held by the Stop hook | PROVEN in fixture | `laneStopReason` with and without them |
-| Civicsmith's four jobs restarted on the commit named | NOT YET | BOB #340, after this merge |
+| Civicsmith's four jobs restarted on the commit named | PROVEN in part | REGISTERS #4 replied `PROCESS OK at 4d7757a`; money, events and people were asked at 14:34Z and had not replied by 14:48Z (BOB #341's start); not read since |
 
 ## 22. Certification of issue 104's fix (GOV 5; 30 Oct 2026, #17)
 
@@ -285,7 +285,7 @@ Issue 104 (Civicsmith's BOB #340): ROOT, woken only by a message, waited for a t
 | --- | --- | --- |
 | takeover prints the TOOK OVER message; BOB's turn cannot end until it is sent | PROVEN in fixture | `t2.tell`, `stopReason('bob')` before and after the record |
 | ROOT's archive refused while released but no takeover recorded; passed once both | PROVEN in fixture | `preReason('root', archive_session)` with the plan's Status set back and forth |
-| a live product handover (RELEASED, TOOK OVER, archived by ROOT) | NOT YET | Civicsmith's BOB #341 |
+| a live product handover (RELEASED, TOOK OVER, archived by ROOT) | PROVEN | Civicsmith, 14:48–14:50Z (#18 read BOB #341's transcript and the plan): `proc takeover` printed the TOOK OVER message; `RELEASED BOB #340` in BOB #341's record; the plan's Status BOB #341, its Retiring line `BOB #340 … released`; BOB #340 archived at 14:49:52Z (`get_session`) |
 
 ## 23. Certification of issue 107's fix (GOV 5; 30 Oct 2026, #18)
 
@@ -306,5 +306,14 @@ Issue 102 (Civicsmith's BOB #340; Bob: "you're report responses to my prompts mu
 | path | status | evidence |
 | --- | --- | --- |
 | the display check refuses the drafts the Stop hook refuses without a model, and nothing else: a batch of an interactive run, a role Bob does not read, a draft past the stop cap | PROVEN in fixture | `displayReason`; `hooks.mjs display` run as a process: the replacement printed, the passing draft untouched, the log's two rows |
-| this runtime fires the event, and in which shape | NOT YET | #18's log (`proc-display-<session>.json` in the system's temporary folder) after the skill is re-invoked on the merged fix |
+| this runtime fires the event, and in which shape | FAILED | #18, the skill re-invoked on the merged fix at 15:0xZ (the post event registered the same way had run at 14:51Z): the turn that ended 15:0xZ produced three messages (two refused by the Stop hook, one passed) and no display log exists at 15:36Z. A cloud session's runtime does not fire MessageDisplay, or not through a skill's hooks; the route is closed for this surface |
 | Bob's view shows the one line in place of a refused draft | NOT YET | Bob's eyes, at the next refused draft in a session on the merged fix; the lane cannot read a view |
+
+The route within reach once the display event failed (#18, 15:4xZ): the draft is judged before it is sent. `proc say --file <draft>` runs the Stop hook's checks on a file (the reader on, the steps, plain words, a turn ending on Bob; then, once those pass, the fresh reader's prompt read from the reader skill and the evidence judge against the session's own transcript, found where Claude Code keeps it) and records the text it passed by its hash; the Stop and evidence hooks skip a message they already judged, and a refusal of an unjudged message names the command. The reader skill tells every session Bob reads to say before it ends a turn. So a draft the checks refuse never becomes a message, and a passing one is judged once (no second model run). Checked against the principles: P17, SES 9 (Bob reads one message), P13 (one judge run per draft), P20 (the same checks, the same evidence).
+
+| path | status | evidence |
+| --- | --- | --- |
+| a refused draft is a file, not a message; the passed text lets the turn end; another text does not; a job cannot say | PROVEN in fixture | `say`, `saidPassed`, `hooks.mjs stop` run as a process |
+| the transcript found; the fresh reader's prompt from the skill, the verdict read | PROVEN in fixture | `transcriptOf`, `freshReaderReason` |
+| live: a bad draft refused without a model run; a good one judged by both models against this session's transcript | PROVEN | #18, 15:40Z: the first answered the plain-words fault at once; the second `ok`, `judged`, `transcript: read`, in 19 s |
+| live: the Stop hook lets the said text end the turn without judging it again | NOT YET | #18's next turn end, written with `proc say` |
