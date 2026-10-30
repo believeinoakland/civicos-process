@@ -328,7 +328,7 @@ Issue 111 (the lane, at its first wake): every hook was registered by the two sk
 | the process repository's own settings written from the standing list and the hooks | PROVEN | `proc shims --product .` at 16:0xZ (the classifier refused a compound command that also rewrote the allow list; the plain command passed); the file read back by the suite |
 | the hooks live again from the settings file, without a restart | PROVEN | #18, 16:0xZ: the partial read `sed -n 1,2p PROCESS-DESIGN.md` passed at 15:48Z (hooks gone) and was refused by the pre hook right after the settings were written |
 | the hooks live after a resume | NOT YET | #18's next wake (its backstop): the stop record written at the turn's end, a partial read refused |
-| the products' settings regenerated; their running sessions told | NOT YET | `repo-shims.yml` on civicsmith/civicsmith after this merge; BOB #341 told |
+| the products' settings regenerated; their running sessions told | PROVEN | `repo-shims.yml` dispatched 16:0xZ: civicsmith/civicsmith `main` 1fa6608 (its PR #62) and `tranche` 0455f6c (16:03:33Z) read back with the five hook events beside SessionStart; BOB #341 told at 16:0xZ (delivered), with the word for ROOT |
 
 The lane's own settings file had carried rules outside the standing list (`Edit`/`Write` on the two repositories, `rm .git/hooks/*`, old mail commands); the regeneration keeps only `permissions.json` and the hooks, as a product's does. A refused `Edit` is then the classifier's call, as for every product session.
 
