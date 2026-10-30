@@ -1,18 +1,244 @@
 {
-  "_comment": "neoProcess as a product under itself (REQUIREMENTS.md §1, accepted by Bob 30 Oct 2026). One total order, lower layers first; a module uses only earlier ones. tools/proc.mjs, tools/lib.mjs and tools/hooks.mjs are the legacy module, placed last (REQ 9): each job below extracts its module from it, and proc-legacy retires when only the command dispatcher remains.",
+  "_comment": "neoProcess as a product under itself (REQUIREMENTS.md \u00a71, accepted by Bob 30 Oct 2026). One total order, lower layers first; a module uses only earlier ones. tools/proc.mjs, tools/lib.mjs and tools/hooks.mjs are the legacy module, placed last (REQ 9): each job below extracts its module from it, and proc-legacy retires when only the command dispatcher remains.",
   "modules": [
-    { "id": "platform",     "layer": 1, "paths": ["tools/platform.mjs", "tools/acts.md", "tools/platform.md", ".github/workflows/repo-setup.yml", ".github/workflows/repo-rename.yml", ".github/workflows/repo-transfer.yml", ".github/workflows/repo-shims.yml"], "tests": ["tools/test/platform.test.mjs"], "uses": [], "from": ["proc-legacy"] },
-    { "id": "record",       "layer": 1, "paths": ["tools/record.mjs"], "tests": ["tools/test/record.test.mjs"], "uses": ["platform"], "from": ["proc-legacy"] },
-    { "id": "architecture", "layer": 2, "paths": ["checks/architecture.mjs", "checks/ownership.mjs", "checks/format.mjs", "checks/words.mjs", "checks/coverage.mjs", "checks/fixtures.mjs", "checks/channels.mjs", "checks/lib.mjs", "checks/run.mjs", "checks/README.md"], "tests": ["checks/test/checks.test.mjs", "checks/test/words.test.mjs", "checks/test/fixtures.test.mjs", "checks/test/channels.test.mjs", "checks/test/cert.test.mjs", "checks/test/model.test.mjs", "checks/test/running-cap.test.mjs", "checks/test/mail-open.test.mjs"], "uses": ["record"], "from": [] },
-    { "id": "requirements", "layer": 2, "paths": ["tools/requirements.mjs"], "tests": ["tools/test/requirements.test.mjs"], "uses": ["record", "architecture"], "from": ["proc-legacy"] },
-    { "id": "planning",     "layer": 3, "paths": ["tools/planning.mjs"], "tests": ["tools/test/planning.test.mjs"], "uses": ["record", "requirements"], "from": ["proc-legacy"] },
-    { "id": "jobs",         "layer": 3, "paths": ["tools/jobs.mjs"], "tests": ["tools/test/jobs.test.mjs"], "uses": ["platform", "record", "requirements", "planning"], "from": ["proc-legacy"] },
-    { "id": "gate",         "layer": 3, "paths": ["tools/gate.mjs", "tools/gate.yml.tmpl"], "tests": ["tools/test/gate.test.mjs"], "uses": ["platform", "record", "architecture"], "from": ["proc-legacy"] },
-    { "id": "integration",  "layer": 3, "paths": ["tools/integration.mjs"], "tests": ["tools/test/integration.test.mjs"], "uses": ["platform", "record", "planning", "jobs", "gate"], "from": ["proc-legacy"] },
-    { "id": "sessions",     "layer": 4, "paths": ["tools/sessions.mjs", "SESSIONS.md"], "tests": ["tools/test/sessions.test.mjs"], "uses": ["platform", "record", "requirements", "planning"], "from": ["proc-legacy"] },
-    { "id": "messages",     "layer": 4, "paths": ["tools/messages.mjs", "tools/mail.mjs", "PROTOCOL.md"], "tests": ["tools/test/messages.test.mjs", "tools/test/mail.test.mjs"], "uses": ["platform", "record", "sessions"], "from": ["proc-legacy"] },
-    { "id": "maintenance",  "layer": 5, "paths": ["tools/maintenance.mjs", "lane-neoprocess/"], "tests": ["tools/test/maintenance.test.mjs"], "uses": ["platform", "record", "sessions", "messages"], "from": ["proc-legacy"] },
-    { "id": "shims",        "layer": 5, "paths": ["tools/shims.mjs", "ONBOARDING.md", "PRODUCT-SUPPLIES.md"], "tests": ["tools/test/shims.test.mjs"], "uses": ["platform", "record", "architecture", "gate"], "from": ["proc-legacy"] },
-    { "id": "proc-legacy",  "layer": 5, "legacy": true, "paths": ["tools/proc.mjs", "tools/lib.mjs", "tools/hooks.mjs", "tools/memwatch.mjs"], "tests": ["tools/test/proc.test.mjs", "tools/test/lib.test.mjs", "tools/test/hooks.test.mjs", "tools/test/bob-writer.test.mjs"], "uses": ["platform", "record", "architecture", "requirements", "planning", "jobs", "gate", "integration", "sessions", "messages", "maintenance", "shims"] }
+    {
+      "id": "platform",
+      "layer": 1,
+      "paths": [
+        ".github/workflows/repo-rename.yml",
+        ".github/workflows/repo-setup.yml",
+        ".github/workflows/repo-shims.yml",
+        ".github/workflows/repo-transfer.yml",
+        "GRANTS.md",
+        "PERMISSIONS.md",
+        "SETUP-STEPS.md",
+        "permissions.json",
+        "tools/acts.md"
+      ],
+      "tests": [],
+      "uses": [],
+      "from": [
+        "proc-legacy"
+      ]
+    },
+    {
+      "id": "record",
+      "layer": 1,
+      "paths": [
+        "tools/mail.mjs"
+      ],
+      "tests": [
+        "checks/test/mail-open.test.mjs",
+        "checks/test/running-cap.test.mjs",
+        "tools/test/mail.test.mjs"
+      ],
+      "uses": [
+        "platform"
+      ],
+      "from": [
+        "proc-legacy"
+      ]
+    },
+    {
+      "id": "architecture",
+      "layer": 2,
+      "paths": [
+        "checks/",
+        "checks/channels.mjs"
+      ],
+      "tests": [
+        "checks/test/channels.test.mjs"
+      ],
+      "uses": [
+        "record"
+      ],
+      "from": []
+    },
+    {
+      "id": "requirements",
+      "layer": 2,
+      "paths": [],
+      "tests": [],
+      "uses": [
+        "record",
+        "architecture"
+      ],
+      "from": [
+        "proc-legacy"
+      ]
+    },
+    {
+      "id": "planning",
+      "layer": 3,
+      "paths": [],
+      "tests": [],
+      "uses": [
+        "record",
+        "requirements"
+      ],
+      "from": [
+        "proc-legacy"
+      ]
+    },
+    {
+      "id": "jobs",
+      "layer": 3,
+      "paths": [
+        "JOB-LIFE.md"
+      ],
+      "tests": [],
+      "uses": [
+        "platform",
+        "record",
+        "requirements",
+        "planning"
+      ],
+      "from": [
+        "proc-legacy"
+      ]
+    },
+    {
+      "id": "gate",
+      "layer": 3,
+      "paths": [],
+      "tests": [],
+      "uses": [
+        "platform",
+        "record",
+        "architecture"
+      ],
+      "from": [
+        "proc-legacy"
+      ]
+    },
+    {
+      "id": "integration",
+      "layer": 3,
+      "paths": [],
+      "tests": [],
+      "uses": [
+        "platform",
+        "record",
+        "planning",
+        "jobs",
+        "gate"
+      ],
+      "from": [
+        "proc-legacy"
+      ]
+    },
+    {
+      "id": "sessions",
+      "layer": 4,
+      "paths": [
+        "SESSIONS.md"
+      ],
+      "tests": [],
+      "uses": [
+        "platform",
+        "record",
+        "requirements",
+        "planning"
+      ],
+      "from": [
+        "proc-legacy"
+      ]
+    },
+    {
+      "id": "messages",
+      "layer": 4,
+      "paths": [
+        "DESIGN-STAGE.md",
+        "PROTOCOL.md"
+      ],
+      "tests": [],
+      "uses": [
+        "platform",
+        "record",
+        "sessions"
+      ],
+      "from": [
+        "proc-legacy"
+      ]
+    },
+    {
+      "id": "maintenance",
+      "layer": 5,
+      "paths": [
+        "CLAUDE.md",
+        "HISTORY.md",
+        "PROCESS-DESIGN.md",
+        "PROCESS-MECHANICS.md",
+        "README.md",
+        "REQUIREMENTS.md",
+        "lane-neoprocess/",
+        "rulebooks/"
+      ],
+      "tests": [],
+      "uses": [
+        "platform",
+        "record",
+        "sessions",
+        "messages"
+      ],
+      "from": [
+        "proc-legacy"
+      ]
+    },
+    {
+      "id": "shims",
+      "layer": 5,
+      "paths": [
+        "ONBOARDING.md",
+        "PRODUCT-SUPPLIES.md"
+      ],
+      "tests": [],
+      "uses": [
+        "platform",
+        "record",
+        "architecture",
+        "gate"
+      ],
+      "from": [
+        "proc-legacy"
+      ]
+    },
+    {
+      "id": "proc-legacy",
+      "layer": 5,
+      "legacy": true,
+      "paths": [
+        "tools/proc.mjs",
+        "tools/lib.mjs",
+        "tools/hooks.mjs",
+        "tools/memwatch.mjs"
+      ],
+      "tests": [
+        "tools/test/proc.test.mjs",
+        "tools/test/lib.test.mjs",
+        "tools/test/hooks.test.mjs",
+        "tools/test/bob-writer.test.mjs"
+      ],
+      "uses": [
+        "platform",
+        "record",
+        "architecture",
+        "requirements",
+        "planning",
+        "jobs",
+        "gate",
+        "integration",
+        "sessions",
+        "messages",
+        "maintenance",
+        "shims"
+      ]
+    }
+  ],
+  "not_product": [
+    "dryrun/",
+    "lane-process-redesign/",
+    "build/",
+    ".claude/"
   ]
 }
