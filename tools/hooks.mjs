@@ -12,7 +12,9 @@
 // `gh pr merge` and the merge tool are refused but for the call `proc merge` printed, so no push of BOB's can carry a job around the gate.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo } from './proc.mjs';
+import { tmpdir } from 'node:os';
+import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN } from './proc.mjs';
+import { resolve, sep } from 'node:path';
 import { stepsReason, lastAssistantText } from './lib.mjs';   // P20: steps for Bob verified against their source (`proc steps`)
 
 const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__';
@@ -60,6 +62,23 @@ function shimsPush(role, push, ctx) {
 const WHO = { job: 'a job', lane: 'a lane', bob: 'BOB', root: 'ROOT', process: 'the neoProcess lane', onboard: 'the onboarding session' };
 // The two roles outside a running product (no state branch, no BOB): the neoProcess lane and an onboarding session (ONBOARDING §1).
 const OUTSIDE = new Set(['process', 'onboard']);
+// The process checkout, wherever this hook runs from: a product session's edit there is refused (GOV 5).
+const insideProcess = (f) => { if (typeof f !== 'string' || !f) return false; const p = resolve(f), root = resolve(PROCESS); return p === root || p.startsWith(root + sep); };
+// A process issue (Bob, 30 Oct): filed by any role only as `proc issue` printed it, closed by the lane only as `proc issue
+// close` printed it, both on the process repository; an issue elsewhere is not the process's to judge (undefined).
+const record = (ctx, f) => { try { return JSON.parse(readFileSync(join(ctx.root, '.git', f), 'utf8')); } catch { return null; } };
+const same = (a, b) => JSON.stringify(Object.keys(a).sort().map((k) => [k, a[k]])) === JSON.stringify(Object.keys(b).sort().map((k) => [k, b[k]]));
+export function issueReason(role, ti, ctx, now = Date.now()) {
+  let own; try { own = processRepo(); } catch { return undefined; }
+  if (ti.owner !== own.owner || ti.repo !== own.repo) return undefined;
+  const r = record(ctx, ISSUE_FILE) || {};
+  if (ti.method === 'create') {
+    if (r.call && same(r.call, ti) && now - Date.parse(r.at) < ISSUE_FRESH_MIN * 60e3) return null;
+    return `a process issue is filed only as \`proc issue --title "<the flaw>" --file <report.md>\` printed it, unchanged, within ${ISSUE_FRESH_MIN} minutes`;
+  }
+  if (role === 'process' && r.close && same(r.close, ti) && now - Date.parse(r.closeAt) < ISSUE_FRESH_MIN * 60e3) return null;
+  return role === 'process' ? 'the lane closes a process issue only as `proc issue close` printed it, once its fix is on main' : `only the neoProcess lane changes a process issue; ${WHO[role] ?? role} files one (\`proc issue\`) or comments on it`;
+}
 const unpushedReason = (ctx, what) => { const u = unpushed(R_of(ctx)); return u.length ? `${what} only once your record and work are pushed (PROTOCOL §2, §7b): ${u.join('; ')}` : null; };
 
 // The reason a tool call is refused, or null. `ctx` is the role file's record plus `root`; `role` null until one is recorded.
@@ -90,6 +109,9 @@ export function preReason(role, input, ctx) {
     }
     return null;
   }
+  // GOV 5 (Bob, 30 Oct): a process flaw found in any project is filed as an issue and never fixed in place
+  if (role !== 'process' && ['Write', 'Edit', 'NotebookEdit'].includes(tool) && insideProcess(ti.file_path || ti.notebook_path)) return `the process is never changed in place by ${WHO[role] ?? role}: file the flaw as an issue on the process repository (\`proc issue --title "<the flaw>" --file <report.md>\`), and the neoProcess lane fixes it (GOV 5)`;
+  if (tool === `${GH}issue_write`) { const why = issueReason(role, ti, ctx); if (why !== undefined) return why; }
   if (tool === 'Agent' && ti.run_in_background !== true) return 'a worker is never waited on in the foreground (P13; rulebook SES 6): start it with run_in_background true and end your turn; its completion wakes you';
   if (tool === `${REMOTE}send_message`) {
     const u = unpushedReason(ctx, 'a message is sent'); if (u) return u;
@@ -107,6 +129,7 @@ export function preReason(role, input, ctx) {
       if (ti.title === want.title && ti.prompt === want.prompt && ti.source_revision === want.source_revision && ti.source_url === want.source_url) return null;
       return `the neoProcess lane starts only its successor ${want.title}, with the create_session \`proc process handoff\` printed, unchanged (rulebook SES 1)`;
     }
+    if (role === 'process' && tool === `${REMOTE}send_later`) return backstopReason(ti);   // the lane's own backstop (Bob, 30 Oct)
     if ([`${REMOTE}create_session`, `${REMOTE}create_trigger`, `${REMOTE}fire_trigger`, `${REMOTE}send_later`].includes(tool)) return `a ${role} starts no session and arms no timer (rulebook SES 1)`;
     // the neoProcess lane opens and merges its own pull request to the process repository's main (no BOB there); it never reviews one
     if (OUTSIDE.has(role) && [`${GH}merge_pull_request`, `${GH}create_pull_request`].includes(tool)) return null;   // an onboarding session: the one seed pull request
@@ -173,6 +196,8 @@ const ALLOW_PART = [
   /^(?:head|tail|grep|wc)(?:\s+[^\s]+)*$/,
 ];
 export function allowReason(role, input, ctx) {
+  if (role && input.tool_name === `${GH}issue_write` && issueReason(role, input.tool_input || {}, ctx) === null) return 'the call `proc issue` printed (Bob, 30 Oct: every project files process flaws as issues)';
+  if (role === 'process' && input.tool_name === `${REMOTE}send_later` && backstopReason(input.tool_input || {}) === null) return 'the neoProcess lane\'s backstop, as `proc process status` printed it';
   if (!role || input.tool_name !== 'Bash') return null;
   const c = String(input.tool_input?.command || '').replace(QUIET, '');
   if (/[`<>]|\$\(|\n|(?<!&)&(?!&)|--output\b/.test(c)) return null;
@@ -191,6 +216,7 @@ export function allowReason(role, input, ctx) {
 // The reason a turn may not end, or null: no role yet; a job's record WORKING; anything `proc status` gates for the role.
 export function stopReason(role, ctx) {
   if (!role) return 'run your start command first (`proc takeover`, `proc job start`, `proc lane start`, `proc process start` for the neoProcess lane, `proc onboard start` for an onboarding session): the role is recorded by it (SESSIONS §1a)';
+  if (role === 'process') return laneStopReason(ctx);
   if (OUTSIDE.has(role)) return null;   // the process repository has no state branch, so no gate of `proc status` to read
   const R = R_of(ctx), st = status({ product: R.dir });
   const why = [...st.gate];
@@ -198,6 +224,16 @@ export function stopReason(role, ctx) {
     const j = st.jobs.find((x) => x.module === ctx.module);
     if (j?.state === 'WORKING') why.push('your record reads WORKING: finish the step, or set the wait you end on (`proc job state --set "WAITING: …"`), or run `proc job complete` (JOB-LIFE §11)');
   }
+  return why.length ? why.join('; ') : null;
+}
+// The neoProcess lane's turn ends with its issues read and every one acknowledged, and its backstop due (Bob, 30 Oct). The
+// hook has no network: it reads what `proc process status` kept and what the pre hook recorded when it passed the backstop.
+export function laneStopReason(ctx, now = Date.now()) {
+  const why = [], iss = record(ctx, ISSUES_FILE), back = record(ctx, BACKSTOP_FILE);
+  if (!iss) why.push('the process issues are not read: run `proc process status`');
+  else if (!iss.ok) why.push(`the process issues could not be read (${iss.error}): run \`proc process status\` again`);
+  else { const nw = iss.issues.filter((i) => i.state !== 'ACKNOWLEDGED').map((i) => `#${i.number}`); if (nw.length) why.push(`issue(s) ${nw.join(', ')} not acknowledged: \`proc issue ack\`, the comment it prints, then \`proc process status\``); }
+  if (!(back && Date.parse(back.due) > now)) why.push('no backstop is due: arm it with the send_later `proc process status` printed');
   return why.length ? why.join('; ') : null;
 }
 // P13, rulebook SES 5: BOB past 40 % of its window, a job or a lane past half, ends a turn only with its refresh recorded
@@ -245,12 +281,17 @@ export function askingBobReason(text) {
 function main() {
   const ev = process.argv[2];
   let input = {}; try { input = JSON.parse(readFileSync(0, 'utf8') || '{}'); } catch { /* empty */ }
-  const root = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
+  // The role is recorded in the checkout the session works in: its project directory, or, for the two roles that work in the
+  // process repository itself, that repository when the session started elsewhere (#13, 30 Oct: a lane session started
+  // with two repositories has /home/user as its project directory, and its hooks found no role and no tools; issue 63).
+  let root = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
+  if (!readRole(root) && ['process', 'onboard'].includes(readRole(PROCESS)?.role)) root = PROCESS;
   const r = readRole(root) || {}, role = r.role || null, ctx = { ...r, root };
   if (ev === 'pre') {
     let why = null; try { why = preReason(role, input, ctx); } catch (e) { why = `the check failed (${e.message}); fix the cause`; }
     if (why) { console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: `PROCESS: ${why}` } })); return; }
     let ok = null; try { ok = allowReason(role, input, ctx); } catch { /* falls through to the rules */ }
+    if (role === 'process' && input.tool_name === `${REMOTE}send_later`) { try { writeFileSync(join(root, '.git', BACKSTOP_FILE), JSON.stringify({ due: new Date(Date.now() + Number(input.tool_input?.delay_minutes) * 60e3).toISOString() })); } catch { /* not a git checkout */ } }
     if (ok) console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `PROCESS: ${ok}` } }));
     return;
   }
@@ -260,7 +301,9 @@ function main() {
     if (!why && (role === 'bob' || role === 'lane' || OUTSIDE.has(role))) { try { why = askingBobReason(lastAssistantText(input)); } catch { /* no text */ } }
     if (!why && role) { try { why = contextReason(role, contextUsed(input), ctx); } catch (e) { why = `the context check failed (${e.message}); fix the cause`; } }
     // The same refusal three times in a row lets the turn end, so a cause the session cannot clear never loops.
-    const f = join(root, '.git', 'proc-stop.json');
+    // Kept per session outside the checkout, so it counts where the session has no git directory too (#13's probe, 30 Oct:
+    // with no role and no checkout the write failed, the count never rose, and the platform's cap ended the turn at 9).
+    const f = join(tmpdir(), `proc-stop-${String(input.session_id || r.session || 'none').replace(/[^\w-]/g, '')}.json`);
     const last = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};
     const n = refusalCount(last, why);
     try { writeFileSync(f, JSON.stringify({ why, n })); } catch { /* not a git checkout */ }

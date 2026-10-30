@@ -29,3 +29,5 @@
 | A register of Anthropic's terms, where the product uses the API | `build/terms/anthropic.md` | BOB with Bob | optional; the format check cites it (`checks/README.md`) |
 
 What a product never supplies: a principle, a process rulebook, a tool, a hook, a check, or a copy of any process text (`proc shims` writes the few files that must sit in the product repository, and a check fails when they drift).
+
+**A process flaw found in the product's work** (GOV 5; Bob, 30 Oct) is filed as an issue on the process repository, never fixed in place: `proc issue --title "<the flaw, in one line>" --file <report.md>` from any role prints the one `issue_write` call the hook passes (the standing list allows the tool); the report says what happened, the evidence, and what the session believes the cause is. The product's sessions act on GitHub as their own identity, which reads the process repository and files issues on it but never pushes to it. The work the flaw blocks waits by P3; the rest goes on. The lane acknowledges the issue, fixes it through certification, and closes it naming the commit; the product follows the fix at its next shims refresh.
