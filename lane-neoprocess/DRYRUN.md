@@ -189,7 +189,7 @@ BOB #337's second report: the gate installed dependencies only from a lock at th
 | path | status | evidence |
 | --- | --- | --- |
 | a lock at the root, one per member, one nested two deep, one inside `node_modules` | PROVEN in fixture | the gate's step lists the three in order, the `node_modules` one left out; no drift after |
-| Civicsmith's gate with its nine locks | NOT YET | shims on its `main` (PR 56) and its tranche (`54ded3e5`, 11:26Z, BOB #338); the next gate run on a pull request (its PR 55: its head and merge refs listed by git at 11:3xZ, its state and gate result unread, the API refusing a repository not attached; so read from its BOB's merge record) |
+| Civicsmith's gate with its nine locks | PROVEN live (#16) | its PR 55, updated twice onto the tranche holding the shims (`54ded3e5`), merged by `proc merge` at 12:18Z on a green gate for `c3a8415` (`proc merge` refuses any other conclusion), `e556e60`; its state branch `29d9b164`, `a24d3d7a` |
 
 ## 15. Certification of issue 84's fix (GOV 5; 30 Oct 2026, #16)
 
@@ -213,3 +213,5 @@ Civicsmith's BOB #338: a COMPLETE job's pull request went unmerged for hours, be
 | a ruling and another module's task summary moved: the green tip merged as it stands, the files named | PROVEN in fixture | `over` lists both; the merge printed, no update |
 | the module's own task summary moved: held | PROVEN in fixture | `held` names it |
 | a live product job merges over BOB's records | NOT YET | Civicsmith's next `proc merge` with its BOB preparing |
+| issue 88: `job complete` on a branch behind the tranche: held by another module's code (named), completed as it stands past a plan note | PROVEN in fixture | the refusal names `alpha/src/index.mjs (a module's code or tests)`; the job completed with the tranche not an ancestor |
+| a live product job completes over BOB's records | NOT YET | Civicsmith's next completion while its BOB prepares |

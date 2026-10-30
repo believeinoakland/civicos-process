@@ -12,7 +12,7 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## Where it stands (30 Oct; suite 281 green)
 
-- Certified: DRYRUN §6-16 (§14-16 NOT YET on the product).
+- Certified: DRYRUN §6-16 (§15-16 NOT YET on the product).
 - **Issues are the channel** (Bob, 30 Oct, "Go with A"; GOV 5): `proc process status` lists them; acknowledge each NEW one (`proc issue ack`), close it naming the fix on `main` (`proc issue close`); the lane's Stop hook refuses a turn's end with one unacknowledged or no backstop due (`send_later`, the message `proc process status` prints).
 - **Plain words** (issue 61): every turn's last message of BOB, ROOT, a lane, this lane and onboarding passes the plain-words check and the fresh reader (the skill `neoprocess-reader`, invoked after the start); a turn refused four times in a row ends.
 - **Test sessions**: headless `claude -p` in the scratchpad (acts.md; DRYRUN §8).
@@ -22,7 +22,7 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 ## What remains, in order
 
 1. **Done 30 Oct**: issues 84 (`proc job takein`, JOB-LIFE §1a) and 86 (`proc merge` over BOB's records, `gateNeutral`, JOB-LIFE §6), each on `main` with its reply. A running product session keeps its old process clone: a fix reaches it only through a session started after.
-2. **Civicsmith**: BOB #338 (since 11:25Z) recorded both replies seen (§13 PROVEN live). Still to read from its record: PR 55 gated with the nine locks, merged (§14); REGISTERS taking in its old branch (§15); a merge over BOB's records (§16).
+2. **Civicsmith**: BOB #338 (since 11:25Z) recorded both replies seen (§13 PROVEN live). PR 55 merged 12:18Z on a green gate (§14 PROVEN live); BOB #338 handed off at 12:31Z; #339, started after, clones both fixes. Still to read: a job taking in its old branch (§15); a merge over BOB's records (§16).
 3. **Issue 61 stays open** (DRYRUN §9): the evidence check is live; more wording no longer moves it (`judge3.sh`). Bob told 30 Oct.
 4. The dry-run repositories' move to `neobobkrause` (Bob's hand act, the page's step 8), then `repo-shims.yml` for each. **The release-signing decision** (the page's foot): his.
 
