@@ -181,3 +181,12 @@ The first product report filed by the new route (BOB #337's, read by `proc proce
 | BOB's status lists its own product's replies on `main` only | PROVEN in fixture | nothing before the merge; another product's reply not listed; the fetch held an hour by its stamp, then the reply listed with the command to read it |
 | `proc issue seen` records it once on the tranche | PROVEN in fixture | the line read back from `tranche`; the queue item gone; a second record refused; refused from the lane's role |
 | a live product BOB reads a reply | NOT YET | the first reply on `main` to a Civicsmith report (issue 78), read by its next BOB |
+
+## 14. Certification of issue 81's fix (GOV 5; 30 Oct 2026, #15)
+
+BOB #337's second report: the gate installed dependencies only from a lock at the product's root; Civicsmith locks each member apart (nine locks, none at the root), so every pull request's gate built without them and the artifacts' check failed (its run 41007558877). Now `proc shims` installs every lock the product holds (tracked or not ignored; never one inside `node_modules`), each in its own folder, in one step, the way the product's own regression workflow does. Checked against the principles: P1 and P12 (no job can merge while the gate cannot build), P11 (the gate runs the module's tests with what they load). Suite 280 green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| a lock at the root, one per member, one nested two deep, one inside `node_modules` | PROVEN in fixture | the gate's step lists the three in order, the `node_modules` one left out; no drift after |
+| Civicsmith's gate with its nine locks | NOT YET | its shims regenerated on the runner, then the next gate run on a pull request |

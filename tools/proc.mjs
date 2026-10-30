@@ -1565,9 +1565,14 @@ export function shims(o) {
   const sessionStart = { hooks: { SessionStart: [{ hooks: [{ type: 'command', command: fetchProcess }, ...(has('.claude/hooks/session-start.sh') ? [{ type: 'command', command: 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"' }] : [])] }] } };
   const nodeFile = ['.nvmrc', '.node-version'].find(has);
   const nodeStep = nodeFile ? `node-version-file: ${nodeFile}` : 'node-version: 22';
-  const npmStep = has('package-lock.json') ? `
-      - name: the product's locked dependencies, as its own CI installs them
-        run: npm ci` : '';
+  // issue 81 (BOB #337, Civicsmith): a product may lock each member's tree apart, with no lock at its root; every tracked
+  // lock is installed where it sits, so the gate builds and tests with what each member locks
+  const locks = (() => { try { return R.g(['ls-files', '--cached', '--others', '--exclude-standard', '--', ':(glob)**/package-lock.json']).split('\n').filter((f) => f && !/(^|\/)node_modules\//.test(f)).sort(); } catch { return []; } })();
+  const npmStep = locks.length ? `
+      - name: the product's locked dependencies, each where its lock sits
+        run: |
+          set -euo pipefail
+${locks.map((f) => `          (cd "${dirname(f)}" && npm ci --no-audit --no-fund --loglevel=error)`).join('\n')}` : '';
   const files = {
     // a turn refused four times in a row ends (measured 30 Oct: the platform's cap, set here, ends it after that many; its default is eight)
     '.claude/settings.json': `${JSON.stringify({ permissions: { allow: standing.allow, deny: standing.deny || [] }, env: { CLAUDE_CODE_STOP_HOOK_BLOCK_CAP: String(STOP_CAP) }, ...sessionStart }, null, 2)}\n`,

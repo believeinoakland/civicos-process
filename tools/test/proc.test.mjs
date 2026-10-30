@@ -570,12 +570,14 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   // issue 62: a product's own session setup is registered by the shims, and the gate takes the product's Node version and its lock
   mkdirSync(join(w.bob.root, '.claude/hooks'), { recursive: true }); writeFileSync(join(w.bob.root, '.claude/hooks/session-start.sh'), '#!/bin/bash\nnpm ci\n');
   writeFileSync(join(w.bob.root, '.nvmrc'), '26.10.0\n'); writeFileSync(join(w.bob.root, 'package-lock.json'), '{}\n');
+  // issue 81: a lock per member, none or one at the root: each installed where it sits (node_modules' own locks never)
+  for (const d of ['site', 'worker/inner', 'site/node_modules/dep']) { mkdirSync(join(w.bob.root, d), { recursive: true }); writeFileSync(join(w.bob.root, d, 'package-lock.json'), '{}\n'); }
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift.sort(), ['.claude/settings.json: differs', '.github/workflows/gate.yml: differs']);
   N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane' });
   assert.deepEqual(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).hooks, { SessionStart: [{ hooks: [CLONE, { type: 'command', command: 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"' }] }] });
-  assert.match(readFileSync(join(w.bob.root, '.github/workflows/gate.yml'), 'utf8'), /setup-node@v4\n        with:\n          node-version-file: \.nvmrc\n      - name: the product's locked dependencies, as its own CI installs them\n        run: npm ci\n      - name: the gate/);
+  assert.match(readFileSync(join(w.bob.root, '.github/workflows/gate.yml'), 'utf8'), /setup-node@v4\n        with:\n          node-version-file: \.nvmrc\n      - name: the product's locked dependencies, each where its lock sits\n        run: \|\n          set -euo pipefail\n          \(cd "\." && npm ci --no-audit --no-fund --loglevel=error\)\n          \(cd "site" && npm ci --no-audit --no-fund --loglevel=error\)\n          \(cd "worker\/inner" && npm ci --no-audit --no-fund --loglevel=error\)\n      - name: the gate/);
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift, []);
-  for (const f of ['.claude/hooks/session-start.sh', '.nvmrc', 'package-lock.json']) rmSync(join(w.bob.root, f), { recursive: true, force: true });
+  for (const f of ['.claude/hooks/session-start.sh', '.nvmrc', 'package-lock.json', 'site', 'worker']) rmSync(join(w.bob.root, f), { recursive: true, force: true });
   N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane' });
   writeFileSync(join(w.bob.root, 'CLAUDE.md'), `${claude}\nMy own rule.\n`);
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift, ['CLAUDE.md: differs']);
