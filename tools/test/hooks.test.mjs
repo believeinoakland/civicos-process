@@ -457,7 +457,11 @@ test('a running tranche is carried onto `tranche` before the first epoch: main m
   assert.throws(() => N.trancheCarry({ product: bdir, from: 'main', ...B8 }), /--from/);
   // the fixed branch cannot sit beside `tranche/*` (git: a ref is a file or a directory): the old tip is kept, the old name pruned
   // (a bare remote takes the delete; a session's proxy refuses it and the command prints the prune workflow's dispatch instead)
+  // issue 72: a local tracking name of an old branch the remote no longer has (a session's proxy refused the delete, so the
+  // prune workflow deleted it on the remote only) blocks `origin/tranche`; the carry drops it
+  g(broot, 'update-ref', 'refs/remotes/origin/tranche/T0', g(broot, 'rev-parse', 'origin/main'));
   const c = N.trancheCarry({ product: bdir, from: 'tranche/T9', ...B8 });
+  assert.equal(g(broot, 'rev-parse', '--abbrev-ref', 'tranche@{upstream}'), 'origin/tranche');
   assert.equal(c.phase, 'carried'); assert.deepEqual(c.kept, ['carried/T9']); assert.equal(c.from, 'carried/T9');
   assert.equal(N.readRole(broot).role, 'bob'); assert.equal(stopReason('bob', ctxOf(broot)), null);   // before the epoch: no queue to gate
   assert.deepEqual(c.conflicts, ['CLAUDE.md']); assert.equal(c.archived, 'build/plan/archive/T9-R1.md'); assert.equal(c.lastBob, 7);
