@@ -110,7 +110,8 @@ function current(R) {
 // ---- the state branch (R2; PROTOCOL §7d): an orphan, written by plumbing, one writer per file ----
 
 // A remote branch deleted by the route `platform` names (`limits().deleteRoute`, R3): where the platform says a direct
-// delete is refused (the agent proxy), the dispatch of its workflow is printed as the act owed; a direct delete is tried
+// delete is refused (the agent proxy), the dispatch of its workflow (today `actions_run_trigger` of `prune.yml` on `main`)
+// is printed as the act owed; a direct delete is tried
 // first only where the platform allows one, or where origin is not reached through the proxy at all (a local path, as a
 // fixture's bare origin is), and a refused one falls back to the same dispatch.
 export function pruneRef(R, ref, route = limits().deleteRoute) {
