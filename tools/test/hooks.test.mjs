@@ -233,7 +233,7 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   const here = { ...ctx, root: N.PROCESS }, want = N.processSession(N.repo(N.PROCESS), 'claude/lane-x');
   assert.match(want.title, /^NEOPROCESS #\d+$/); assert.equal(want.source_revision, 'claude/lane-x'); assert.match(want.source_url, /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/);
   assert.match(want.prompt, new RegExp(`^You are neoProcess #${want.n}, the successor of neoProcess #${want.n - 1} \\(session_[0-9A-Za-z]+\\) in the neoProcess lane of [\\w.-]+\\/[\\w.-]+, on branch claude\\/lane-x \\(push there only\\)\\. Invoke the skill neoprocess with the argument process`));
-  assert.match(want.prompt, /Your first acts: put your own session id in the handoff's From line and push; then item 1 of "What remains"\.$/);
+  assert.match(want.prompt, /Your first acts: put your own session id in the handoff's From line and push; run proc process start again and take the acts it lists as owed at this refresh .*; then item 1 of "What remains"\.$/);
   assert.equal(preReason('process', tool(`${REMOTE}create_session`, { title: want.title, prompt: want.prompt, source_url: want.source_url, source_revision: want.source_revision }), here), null);
   assert.match(preReason('process', tool(`${REMOTE}create_session`, { title: want.title, prompt: `${want.prompt} and hurry`, source_url: want.source_url, source_revision: want.source_revision }), here), /starts only its successor NEOPROCESS #\d+, with the create_session `proc process handoff` printed, unchanged/);
   assert.match(preReason('process', tool(`${REMOTE}create_session`, { title: 'X #1', prompt: want.prompt, source_url: want.source_url, source_revision: want.source_revision }), here), /starts only its successor/);
@@ -282,6 +282,12 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   // no product gate to read, but its issues read and acknowledged and its backstop due (Bob, 30 Oct); past 40 % of its window (issue 96)
   // the turn ends only with its handoff marked
   assert.match(stopReason('process', ctx), /process issues are not read.*no backstop is due/);
+  // Bob, 30 Oct: a refresh owes the predecessor's archive, its backstop off, and each product's BOB told the new address
+  const rdir = mkdtempSync(join(tmpdir(), 'refresh-')); mkdirSync(join(rdir, '.git')); const rctx = { ...ctx, root: rdir };
+  writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', tell: ['session_01BOB'] }));
+  assert.match(laneStopReason(rctx), /session_01OLD is not archived.*backstop is not switched off.*session_01BOB not told/);
+  writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', archived: 'x', switchedOff: 'x', tell: [] }));
+  assert.doesNotMatch(laneStopReason(rctx) || '', /not archived|switched off|not told/);
   assert.match(contextReason('process', 600_000, ctx, 1_000_000), /proc process handoff` and create your successor with the call it prints/);
   assert.match(contextReason('process', 410_000, ctx, 1_000_000), /past 40 %/);
   assert.equal(contextReason('process', 390_000, ctx, 1_000_000), null);
@@ -582,6 +588,16 @@ test('the lane replies to a product\'s report in the process repository; the pro
   f(pseed, 'NEW3.md', 'a third fix\n'); g(pseed, 'add', '.'); g(pseed, 'commit', '-q', '-m', 'fix 3'); g(pseed, 'push', '-q', 'origin', 'main');
   const line = `if [ -d "${pdir}/.git" ]; then { [ "$(git -C "${pdir}" rev-parse --abbrev-ref HEAD)" = main ] && [ -z "$(git -C "${pdir}" status --porcelain --untracked-files=no)" ] && git -C "${pdir}" fetch -q origin +refs/heads/main:refs/remotes/origin/main && git -C "${pdir}" merge -q --ff-only origin/main; } || echo "neoProcess: could not bring ${pdir} to the tip of main" >&2; else exit 9; fi`;
   execFileSync('sh', ['-c', line]); assert.ok(existsSync(join(pdir, 'NEW3.md')));
+  // issue 101: the parent's prompt names its process commit; the session's first command brings an old copy there and
+  // says OK, and says STALE for a copy it cannot bring (changed in place), whatever that copy's own code is
+  const head = g(pseed, 'rev-parse', 'HEAD'); g(pdir, 'reset', '-q', '--hard', 'HEAD~2');
+  assert.match(N.versionLine('BOB', pseed), new RegExp(`^\\nYour first act, before anything else: run \`git -C /home/user/neoprocess pull -q --ff-only origin main; git -C /home/user/neoprocess rev-list HEAD \\| grep -q \\^${head.slice(0, 12)} && echo PROCESS OK \\|\\| echo PROCESS STALE\`\\. If it prints anything but PROCESS OK.*send BOB one message beginning PROCESS STALE`));
+  assert.equal(execFileSync('sh', ['-c', N.versionCheck(head, pdir)], { encoding: 'utf8' }).trim(), 'PROCESS OK');
+  g(pdir, 'reset', '-q', '--hard', 'HEAD~1'); f(pdir, 'LOCAL.md', 'a commit of its own\n'); g(pdir, 'add', '.'); g(pdir, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'diverged');
+  assert.equal(execFileSync('sh', ['-c', `${N.versionCheck(head, pdir)} 2>/dev/null`], { encoding: 'utf8' }).trim(), 'PROCESS STALE');
+  g(pdir, 'reset', '-q', '--hard', 'origin/main');
+  // the pre-role hooks pass the command (a read and a fast-forward)
+  assert.equal(preReason(null, bash(N.versionCheck(head)), {}), null);
   assert.match(N.status(B).queue.find((q) => q.item.startsWith('READ')).detail, /issues\/80\): read it whole by `git -C .* show origin\/main:lane-neoprocess\/replies\/.*`, act on it, then `proc issue seen --report /);
   // BOB records it seen on the tranche, once; the next BOB does not see it again
   assert.throws(() => N.issueSeen({ product: lane.root, report: id, processDir: pdir }), /BOB records/);
