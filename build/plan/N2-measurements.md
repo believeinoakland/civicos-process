@@ -28,3 +28,5 @@ Taken by the architecture session from git, GitHub and the sessions' records; ne
 | pull requests | platform #127, record #128, drafts on `tranche`, opened 20:29Z | GitHub |
 | reading set per job at start | platform 3,961 bytes (2 files, 9 code paths); record 5,182 bytes (3 files, 4 code paths); limit 40,960 | `readingSet` |
 | sessions | PLATFORM #1 and RECORD #1 created 20:30Z on Opus; platform read WORKING and record STARTING at 20:31Z | `create_session`; `proc status` |
+| gate runs at the opening tips | one per pull request, both `success`: #127 at 20:29:49Z to 20:29:56Z, #128 at 20:29:57Z to 20:30:08Z; the two whole-product reds of the checks at the tranche tip (ownership of `gate.yml` and `prune.yml`; coverage of platform and record, no tests yet) did not fail them | GitHub check runs |
+| suite at the tranche tip with the plan edits | 285 tests, 285 pass | `node --test checks/test/*.test.mjs tools/test/*.test.mjs` |
