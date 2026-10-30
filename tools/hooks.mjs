@@ -256,6 +256,8 @@ export function laneStopReason(ctx, now = Date.now()) {
   if (!iss) why.push('the process issues are not read: run `proc process status`');
   else if (!iss.ok) why.push(`the process issues could not be read (${iss.error}): run \`proc process status\` again`);
   else { const nw = iss.issues.filter((i) => i.state !== 'ACKNOWLEDGED').map((i) => `#${i.number}`); if (nw.length) why.push(`issue(s) ${nw.join(', ')} not acknowledged: \`proc issue ack\`, the comment it prints, then \`proc process status\``); }
+  const unfiled = (iss?.reports || []).filter((x) => x.state === 'NEW').map((x) => x.id);   // issue 75: a product's report not yet filed
+  if (unfiled.length) why.push(`product report(s) ${unfiled.join(', ')} not filed: \`proc issue --report <id>\`, the call it prints, then \`proc process status\``);
   const handed = record(ctx, 'proc-handoff.json')?.session === ctx.session && ctx.session;   // handed off: the backstop is the successor's
   if (!handed && !(back && Date.parse(back.due) > now)) why.push('no backstop is due: arm it with the send_later `proc process status` printed');
   return why.length ? why.join('; ') : null;

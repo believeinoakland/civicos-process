@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, cpSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, cpSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -296,12 +296,15 @@ test('an onboarding session pushes only the project\'s onboard branch, opens and
 // open issues at its start and each backstop, acknowledges each, and closes it naming the fix's commit on main.
 test('process issues: filed by any role only as `proc issue` printed it; the lane reads, acknowledges and closes them; a product session never edits the process', async () => {
   const w = world(), own = N.processRepo(), root = w.bob.root;
-  writeFileSync(join(root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'bob', product: 'toy', session: B1, name: 'BOB #1' }));
-  const ctx = ctxOf(root), rep = f(w.base, 'report.md', 'The gate runs node 22; the product pins 26.\n');
+  // the two roles that work in the process repository file directly (an onboarding session has both repositories)
+  writeFileSync(join(root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'onboard', product: 'toy', session: B1, name: 'ONBOARD #1' }));
+  const rep = f(w.base, 'report.md', 'The gate runs node 22; the product pins 26.\n');
   // filing: the call printed, for the process repository only, the reporter named in the body
   const r = N.issueFile({ product: w.bob.dir, title: 'The gate ignores the product\'s node version', file: rep });
   assert.equal(r.tool, `${GH}issue_write`); assert.deepEqual([r.call.method, r.call.owner, r.call.repo], ['create', own.owner, own.repo]);
-  assert.match(r.call.body, /^The gate runs node 22; the product pins 26\.\n\n\*\*Filed by\*\* · BOB #1 \(bob, session_01B+\) on [\w.-]+\/[\w.-]+, by `proc issue`, \d{4}-\d\d-\d\d\./);
+  assert.match(r.call.body, /^The gate runs node 22; the product pins 26\.\n\n\*\*Filed by\*\* · ONBOARD #1 \(onboard, session_01B+\) on [\w.-]+\/[\w.-]+, by `proc issue`, \d{4}-\d\d-\d\d\./);
+  writeFileSync(join(root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'bob', product: 'toy', session: B1, name: 'BOB #1' }));
+  const ctx = ctxOf(root);
   assert.throws(() => N.issueFile({ product: w.bob.dir, file: rep }), /--title/);
   // the hook passes exactly that call, and pre-approves it; a changed title, another method or a stale record is refused
   assert.equal(issueReason('bob', r.call, ctx), null);
@@ -476,6 +479,40 @@ test('a running tranche is carried onto `tranche` before the first epoch: main m
   // then the first epoch opens on it, and a second carry is refused
   assert.match(N.epochOpen({ product: bdir }).epoch, /^E\d+$/);
   assert.throws(() => N.trancheCarry({ product: bdir, from: 'tranche/T9', ...B8 }), /is open: a tranche is carried only before the first epoch/);
+});
+
+// Issue 75 (BOB #336, Civicsmith, 30 Oct): a product session reaches only its product, so its report goes on the product's
+// state branch; the lane reads every product's reports by git, files each new one, and its turn ends only once all are filed.
+test('a product role reports a process flaw on its state branch; the lane reads it by git, files it once, and the epoch keeps it', () => {
+  const w = world(), o = { product: w.bob.dir };
+  N.epochOpen(o); N.takeover({ ...o, name: 'BOB #1', session: B1 });
+  const rep = f(w.base, 'flaw.md', 'The tool refuses every layer start.\n');
+  const r1 = N.issueFile({ ...o, title: 'Layer start refuses every module', file: rep }), r2 = N.issueFile({ ...o, title: 'A second flaw', file: rep });
+  assert.match(r1.reported, /:state\/E\d+:issues\/\d{4}-\d\d-\d\d-bob-1-1\.md$/); assert.match(r2.reported, /-bob-1-2\.md$/);
+  assert.match(N.stateRead(N.repo(w.bob.dir), r1.reported.split(':').pop()), /^# Layer start refuses every module\n\nThe tool refuses every layer start\.\n\n\*\*Filed by\*\* · BOB #1 \(bob, /);
+  // the lane: its own checkout, the product listed by its remote; both reports NEW
+  const lane = w.clone('lane'); g(lane.root, 'checkout', '-q', '-b', 'lanebranch');
+  writeFileSync(join(lane.root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'process', product: '.', session: 'session_01LANE', branch: 'lanebranch' }));
+  mkdirSync(join(lane.root, 'lane-neoprocess'), { recursive: true }); writeFileSync(join(lane.root, N.PRODUCTS_FILE), JSON.stringify([w.origin]));
+  const LR = N.repo(lane.root), seen = N.productReports(LR);
+  assert.deepEqual(seen.errors, []); assert.deepEqual(seen.reports.map((x) => [x.state, x.path.replace(/\d{4}-\d\d-\d\d-/, '')]), [['NEW', 'issues/bob-1-1.md'], ['NEW', 'issues/bob-1-2.md']]);
+  // filed from the report: its title and text, its id in the body, the call recorded for the hook; then FILED, never twice
+  const fi = N.issueFile({ product: lane.root, report: seen.reports[0].id });
+  assert.equal(fi.call.title, 'Layer start refuses every module'); assert.match(fi.call.body, /^The tool refuses every layer start\.[\s\S]*\*\*Report\*\* · .*bob-1-1\.md, on .*'s branch state\/E\d+, filed by the neoProcess lane/);
+  assert.equal(issueReason('process', fi.call, ctxOf(lane.root)), null);
+  assert.deepEqual(N.productReports(LR).reports.map((x) => x.state), ['FILED', 'NEW']);
+  assert.throws(() => N.issueFile({ product: lane.root, report: seen.reports[0].id }), /already filed/);
+  assert.throws(() => N.issueFile({ product: w.bob.dir, report: seen.reports[1].id }), /only the neoProcess lane/);
+  // the lane's turn ends only with every report filed (the Stop hook reads what `proc process status` kept)
+  writeFileSync(join(lane.root, '.git', N.ISSUES_FILE), JSON.stringify({ ok: true, issues: [], reports: N.productReports(LR).reports.map(({ text, ...x }) => x) }));
+  writeFileSync(join(lane.root, '.git', N.BACKSTOP_FILE), JSON.stringify({ due: '2099-01-01T00:00:00Z' }));
+  assert.match(laneStopReason(ctxOf(lane.root)), /product report\(s\) .*bob-1-2\.md not filed/);
+  // the epoch's close keeps its reports on the tranche, where the lane still reads them
+  const ec = N.epochClose(o);
+  assert.equal(ec.reports.length, 2); assert.ok(ec.reports.every((x) => /^build\/process-issues\/\d{4}-\d\d-\d\d-bob-1-\d\.md$/.test(x)));
+  assert.deepEqual(N.productReports(LR).reports.filter((x) => x.ref === 'tranche').map((x) => x.state).sort(), ['FILED', 'NEW']);
+  // with no epoch, there is nowhere to put it: the session says it in plain words and Bob relays it
+  assert.throws(() => N.issueFile({ ...o, title: 'x', file: rep }), /no epoch is open/);
 });
 
 // Issue 61 (#14, 30 Oct): the fresh reader sees only the message, so a claim the session added passed it (#13's writer test:

@@ -189,12 +189,14 @@ export function epochClose(o) {
   if (live.length) refuse(`sessions still live on the state branch: ${live.join(', ')} (archive them and record it first)`);
   const plan = parsePlan(stateRead(R, 'plan.md', e) || '');
   if (plan.owed.length) refuse(`acts still owed: ${plan.owed.join('; ')}`);
+  // the epoch's process reports outlive its state branch: kept under build/process-issues/ on the tranche (issue 75)
+  const reports = stateList(R, 'issues', e).map((p) => { const f = `build/process-issues/${p.slice('issues/'.length)}`; R.write(f, stateRead(R, p, e) || ''); return f; });
   const marked = stateWrite(R, { 'epoch.md': `${stateRead(R, 'epoch.md', e) || `# ${e}`}\nclosed ${now()}\n` }, `${e} closes`, e);
   const prune = pruneRef(R, stateBranch(e));
   const log = R.read('build/epochs.md') || '';
   // Mid-tranche (an account move, a stop) the closed line is written now; at a tranche's close it is already in the close PR.
   R.write('build/epochs.md', log.replace(new RegExp(`^- ${e} · opened (\\S+)$`, 'm'), `- ${e} · opened $1 · closed ${today()}`));
-  return { epoch: e, marked, prune, commit: commitPush(R, TRANCHE, ['build/epochs.md'], `epoch ${e} closes`) };
+  return { epoch: e, marked, prune, reports, commit: commitPush(R, TRANCHE, ['build/epochs.md', ...reports], `epoch ${e} closes`) };
 }
 
 // ---- the plan's transient lines ----
@@ -588,6 +590,34 @@ export async function openIssues(o = {}) {
   }
   return { ok: true, repo: `${owner}/${name}`, issues };
 }
+// The products under the process (the lane's own list; the process text names none) and the reports already filed.
+export const PRODUCTS_FILE = 'lane-neoprocess/products.json', FILED_FILE = 'lane-neoprocess/filed-reports.md';
+const filedIds = (R) => new Set([...(R.read(FILED_FILE) || '').matchAll(/^- (\S+) ·/gm)].map((x) => x[1]));
+// A product's reports, read by git over the proxy (a public repository needs no grant: #14, 30 Oct, `git ls-remote` and a
+// blobless fetch of civicsmith/civicsmith answered), into a cache under .git: every `issues/*.md` on its open state
+// branches and every `build/process-issues/*.md` on its tranche. A report's id is `<repo>:<file name>`.
+export function productReports(R, list = JSON.parse(R.read(PRODUCTS_FILE) || '[]')) {
+  const out = [], errors = [], filed = filedIds(R);
+  for (const p of list) {
+    const url = p.startsWith('/') ? p : `https://github.com/${p}`, cache = join(R.root, '.git', 'proc-products', p.replace(/[^\w.-]+/g, '-'));   // a local path in the tests
+    try {
+      if (!existsSync(cache)) execFileSync('git', ['init', '-q', '--bare', cache]);
+      const g = (a) => execFileSync('git', ['-C', cache, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 << 20 }).trim();
+      const heads = g(['ls-remote', '--heads', url]).split('\n').filter(Boolean).map((l) => l.split(/\s+/)[1]).filter((h) => /^refs\/heads\/(state\/[^/]+|tranche)$/.test(h));
+      for (const h of heads) {
+        const local = `refs/products/${h.slice('refs/heads/'.length)}`, want = h.endsWith('/tranche') ? /(^|\/)build\/process-issues\/[^/]+\.md$/ : /^issues\/[^/]+\.md$/;
+        g(['fetch', '-q', '--filter=blob:none', '--depth=1', url, `+${h}:${local}`]);
+        for (const f of g(['ls-tree', '-r', '--name-only', local]).split('\n').filter((x) => want.test(x))) {   // the product's build state may sit in a subdirectory
+          const id = `${p}:${f.split('/').pop()}`;
+          if (out.some((x) => x.id === id)) continue;
+          out.push({ id, repo: p, ref: h.slice('refs/heads/'.length), path: f, state: filed.has(id) ? 'FILED' : 'NEW', text: g(['show', `${local}:${f}`]) });
+        }
+      }
+    } catch (e) { errors.push(`${p}: ${String(e.stderr || e.message).trim().split('\n').pop()}`); }
+  }
+  return { reports: out, errors };
+}
+const reportLines = (r) => `Product reports (${r.reports.filter((x) => x.state === 'NEW').length} new):${r.reports.filter((x) => x.state === 'NEW').map((x) => `\n- NEW ${x.id} (${x.ref}): file it with \`proc issue --report ${x.id}\``).join('') || ' none new'}${r.errors.length ? `\nReports not read: ${r.errors.join('; ')}` : ''}`;
 const issueLines = (r) => (!r.ok ? `Issues: not read (${r.error}): read them with list_issues on ${r.repo} and run \`proc process status\` again` : `Open issues on ${r.repo} (${r.issues.length}):${r.issues.map((i) => `\n- #${i.number} ${i.state} · ${i.title} · by ${i.by}, ${i.opened}`).join('') || ' none'}`);
 const keepIssues = (R, r) => writeFileSync(join(R.root, '.git', ISSUES_FILE), JSON.stringify({ at: now(), ...r }));
 // The lane's queue: its open issues, what is unpushed, its backstop. A NEW issue is acknowledged before the turn ends.
@@ -596,20 +626,50 @@ export const BACKSTOP_MIN = [30, 240];
 export async function processStatus(o) {
   const R = repo(o.product), me = readRole(R.root);
   if (me?.role !== 'process') refuse('only the neoProcess lane, recorded by `proc process start`, reads its status this way');
-  const iss = await openIssues(o); keepIssues(R, iss);
+  const iss = await openIssues(o), rep = o.reports === false ? { reports: [], errors: [] } : productReports(R);
+  keepIssues(R, { ...iss, reports: rep.reports.map(({ text, ...x }) => x) });
   const live = iss.issues.length > 0, delay = live ? 60 : 180;
-  return { issues: iss, unpushed: unpushed(R), backstop: { tool: 'mcp__claude-code-remote__send_later', delay_minutes: delay, message: BACKSTOP_MESSAGE }, text: `${issueLines(iss)}\nUnpushed: ${unpushed(R).join('; ') || 'none'}\nBackstop: send_later, delay_minutes ${delay}, message "${BACKSTOP_MESSAGE}" (the hook passes exactly this message, ${BACKSTOP_MIN[0]} to ${BACKSTOP_MIN[1]} minutes)\nEach NEW issue: \`proc issue ack --number <n> --note "<what the lane will do>"\`; each fixed one: \`proc issue close --number <n> --commit <sha on main> --note "<what changed>"\`.\n` };
+  return { issues: iss, unpushed: unpushed(R), backstop: { tool: 'mcp__claude-code-remote__send_later', delay_minutes: delay, message: BACKSTOP_MESSAGE }, reports: rep, text: `${issueLines(iss)}\n${reportLines(rep)}\nUnpushed: ${unpushed(R).join('; ') || 'none'}\nBackstop: send_later, delay_minutes ${delay}, message "${BACKSTOP_MESSAGE}" (the hook passes exactly this message, ${BACKSTOP_MIN[0]} to ${BACKSTOP_MIN[1]} minutes)\nEach NEW issue: \`proc issue ack --number <n> --note "<what the lane will do>"\`; each fixed one: \`proc issue close --number <n> --commit <sha on main> --note "<what changed>"\`.\n` };
 }
 // Any role files a process issue (Bob, 30 Oct): the call is printed and recorded; the hook passes exactly that call, on the
 // process repository only. The body says who filed it from where, so the lane can answer in its terms.
 export function issueFile(o) {
+  if (o.report) return issueFromReport(o);
   if (typeof o.title !== 'string' || !o.title.trim()) refuse('--title "<the flaw, in one line>" --file <report.md>');
   const R = repo(o.product), report = fileText(o.file, '--file'), role = readRole(R.root), { owner, repo: name } = processRepo();
   let from = '?'; try { const g = ghRepo(R); from = `${g.owner}/${g.repo}`; } catch { /* no remote */ }
   const body = `${report}\n\n**Filed by** · ${role?.name ?? 'a session'} (${role?.role ?? 'no role recorded'}${role?.session ? `, ${role.session}` : ''}) on ${from}, by \`proc issue\`, ${today()}.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_`;
+  // issue 75 (BOB #336, Civicsmith, 30 Oct): a product session's GitHub scope is its product only, and a session is created
+  // with one repository, so a product role's report goes on the product's state branch (`issues/`), which every role there
+  // writes by the tool; the lane reads each product's reports by git and files them (`proc process status`, `proc issue
+  // --report`). The two roles that work in the process repository file directly.
+  if (role && !['process', 'onboard'].includes(role.role)) {
+    const e = epoch(R) ?? refuse('no epoch is open, so there is no state branch to hold the report: put the flaw in your turn\'s last message, in plain words, and Bob relays it to the neoProcess lane');
+    const slug = String(role.name || role.role).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const taken = new Set(stateList(R, 'issues', e)), k = (() => { let i = 1; while (taken.has(`issues/${today()}-${slug}-${i}.md`)) i++; return i; })();
+    const path = `issues/${today()}-${slug}-${k}.md`;
+    const commit = stateWrite(R, { [path]: `# ${o.title.trim()}\n\n${body}\n` }, `process report: ${o.title.trim().slice(0, 60)}`, e);
+    return { reported: `${from}:${stateBranch(e)}:${path}`, commit, next: 'nothing more: the neoProcess lane reads the product\'s reports by git at its next backstop and files each as an issue on the process repository; never fix the process in place (GOV 5)' };
+  }
   const call = { method: 'create', owner, repo: name, title: o.title.trim(), body };
   writeFileSync(join(R.root, '.git', ISSUE_FILE), JSON.stringify({ call, at: now() }));
   return { tool: 'mcp__github__issue_write', call, next: `make the call above unchanged within ${ISSUE_FRESH_MIN} minutes (the hook passes exactly it); the lane reads it at its next backstop. Never fix the process in place (GOV 5).` };
+}
+// The lane files a product's report (issue 75): its title and text as the product session wrote them, the report's id in
+// the body, the call recorded for the hook and the id recorded as filed, in the lane's own commit.
+function issueFromReport(o) {
+  const R = repo(o.product), me = readRole(R.root);
+  if (me?.role !== 'process') refuse('only the neoProcess lane files a product\'s report');
+  const r = productReports(R).reports.find((x) => x.id === o.report) ?? refuse(`no report ${o.report} on the products' branches (\`proc process status\` lists them)`);
+  if (r.state === 'FILED') refuse(`${r.id} is already filed (${FILED_FILE})`);
+  const title = r.text.match(/^# (.+)$/m)?.[1]?.trim() ?? refuse(`${r.id}: the report has no title line`);
+  const { owner, repo: name } = processRepo();
+  const body = `${r.text.replace(/^# .+\n+/, '').trim()}\n\n**Report** · ${r.id}, on ${r.repo}'s branch ${r.ref}, filed by the neoProcess lane ${today()}.`;
+  const call = { method: 'create', owner, repo: name, title, body };
+  writeFileSync(join(R.root, '.git', ISSUE_FILE), JSON.stringify({ call, at: now() }));
+  R.write(FILED_FILE, `${(R.read(FILED_FILE) || '# Product reports filed as process issues (issue 75)\n').trimEnd()}\n- ${r.id} · ${today()} · ${title.slice(0, 80)}\n`);
+  const commit = commitPush(R, me.branch, [FILED_FILE], `lane neoProcess: ${r.id} filed as a process issue`);
+  return { tool: 'mcp__github__issue_write', call, commit, next: `make the call above unchanged within ${ISSUE_FRESH_MIN} minutes (the hook passes exactly it), then acknowledge it as any issue` };
 }
 // The lane's acknowledgement and its close: the comment printed (the mark first), the close recorded for the hook.
 export function issueAck(o) {
