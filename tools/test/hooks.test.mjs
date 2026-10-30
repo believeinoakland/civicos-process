@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../proc.mjs';
-import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason, issueReason, laneStopReason, readerReason, READER_FILE } from '../hooks.mjs';
+import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason, issueReason, laneStopReason, readerReason, postRecord, READER_FILE } from '../hooks.mjs';
 import { plainFaults, plainReason, BOB_READS, turnEvidence, evidencePrompt, evidenceVerdict, evidenceReason } from '../lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
@@ -288,6 +288,17 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   assert.match(laneStopReason(rctx), /session_01OLD is not archived.*backstop is not switched off.*session_01BOB not told/);
   writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', archived: 'x', switchedOff: 'x', tell: [] }));
   assert.doesNotMatch(laneStopReason(rctx) || '', /not archived|switched off|not told/);
+  // issue 107: the acts are recorded by the post event, once they have run; the pre event records nothing (a refused call)
+  writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', tell: ['session_01BOB'] }));
+  preReason('process', tool(`${REMOTE}archive_session`, { session_id: 'session_01OLD' }), rctx);
+  assert.deepEqual(Object.keys(JSON.parse(readFileSync(join(rdir, '.git', N.REFRESH_FILE), 'utf8'))).sort(), ['archive', 'session', 'tell']);
+  assert.equal(postRecord('process', tool(`${REMOTE}archive_session`, { session_id: 'session_01OTHER' }), rctx), null);
+  assert.ok(postRecord('process', tool(`${REMOTE}archive_session`, { session_id: 'session_01OLD' }), rctx).archiveDone);
+  assert.ok(postRecord('process', tool(`${REMOTE}update_trigger`, { trigger_id: 't', enabled: false }), rctx).switchedOff);
+  assert.deepEqual(postRecord('process', tool(`${REMOTE}send_message`, { session_id: 'session_01BOB', message: 'x' }), rctx).tell, []);
+  assert.match(laneStopReason(rctx), /the previous lane session session_01OLD is not archived: archive_session it, then `proc process archived --usage/);   // archived is the command's record, not the hook's
+  assert.equal(postRecord('bob', tool(`${REMOTE}send_message`, { session_id: 'session_01BOB', message: 'x' }), rctx), null);
+  assert.ok(postRecord('process', tool(`${REMOTE}send_later`, { delay_minutes: 60, message: N.BACKSTOP_MESSAGE }), rctx).due);
   assert.match(contextReason('process', 600_000, ctx, 1_000_000), /proc process handoff` and create your successor with the call it prints/);
   assert.match(contextReason('process', 410_000, ctx, 1_000_000), /past 40 %/);
   assert.equal(contextReason('process', 390_000, ctx, 1_000_000), null);
@@ -538,6 +549,29 @@ test('a product role reports a process flaw on its state branch; the lane reads 
   assert.throws(() => N.issueFile({ ...o, title: 'x', file: rep }), /no epoch is open/);
 });
 
+// Issue 107 (30 Oct): the lane's predecessor archived, its usage row written by the successor (SES 10), or the refusal
+// in its place; a usage is never claimed for an archive the post event did not record.
+test('the lane records its predecessor archived with its usage, or refused and unmeasured, once', () => {
+  const w = world(), lane = w.clone('lane'); g(lane.root, 'checkout', '-q', '-b', 'lanebranch');
+  writeFileSync(join(lane.root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'process', product: '.', session: 'session_01LANE', branch: 'lanebranch' }));
+  const rf = join(lane.root, '.git', N.REFRESH_FILE), o = { product: lane.root };
+  assert.throws(() => N.processArchived({ ...o, usage: '{}' }), /no refresh is owed/);
+  writeFileSync(rf, JSON.stringify({ session: 'session_01LANE', archive: 'session_01OLD', predecessor: 'neoProcess #9', tell: [] }));
+  assert.throws(() => N.processArchived(o), /--usage|--refused/);
+  assert.throws(() => N.processArchived({ ...o, usage: '{}', refused: 'x' }), /--usage|--refused/);
+  assert.throws(() => N.processArchived({ ...o, refused: ' ' }), /the refusal's words/);
+  assert.throws(() => N.processArchived({ ...o, usage: '{"cache_read_tokens":5}' }), /not recorded as passed/);
+  assert.throws(() => N.processArchived({ product: w.bob.dir, refused: 'x' }), /only the neoProcess lane/);
+  const r = N.processArchived({ ...o, refused: 'Permission denied by the classifier [External System Writes]' });
+  assert.equal(r.unmeasured, true);
+  assert.match(g(lane.root, 'show', `origin/lanebranch:${N.LANE_METRICS}`), /^session,role,name,module,[^\n]*\nsession_01OLD,process,neoProcess #9,,,,,,,,,unmeasured: Permission denied by the classifier \[External System Writes\]$/);
+  assert.ok(JSON.parse(readFileSync(rf, 'utf8')).archived); assert.throws(() => N.processArchived({ ...o, refused: 'again' }), /already recorded/);
+  // the archive passed (the post event's record): the counts from what it returned
+  writeFileSync(rf, JSON.stringify({ session: 'session_01LANE', archive: 'session_01OLD2', predecessor: 'neoProcess #10', tell: [], archiveDone: 'x' }));
+  N.processArchived({ ...o, usage: '{"cache_read_tokens":5,"cache_write_tokens":4,"input_tokens":3,"output_tokens":2}' });
+  assert.match(g(lane.root, 'show', `origin/lanebranch:${N.LANE_METRICS}`), /\nsession_01OLD2,process,neoProcess #10,,5,4,3,2,,,,$/);
+});
+
 // DRYRUN §12 (30 Oct): an issue's comment is out of a product session's reach, so the lane's reply to a product's report is
 // written in the process repository, which the product holds read-only; BOB's status lists it until BOB records it seen.
 test('the lane replies to a product\'s report in the process repository; the product\'s BOB sees it in its status once', () => {
@@ -690,6 +724,8 @@ test('ROOT records its role before any epoch exists, and starts a BOB only with 
   assert.equal(preReason('root', tool(`${REMOTE}create_session`, b.create_session), ctx), null);
   const HOOKS = join(HERE, '..', 'hooks.mjs');
   execFileSync('node', [HOOKS, 'pre'], { input: JSON.stringify({ session_id: 'r', tool_name: `${REMOTE}create_session`, tool_input: b.create_session }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
+  assert.equal(preReason('root', tool(`${REMOTE}create_session`, b.create_session), ctx), null);   // issue 107: asked is not made; a refused call leaves the start owed
+  execFileSync('node', [HOOKS, 'post'], { input: JSON.stringify({ session_id: 'r', tool_name: `${REMOTE}create_session`, tool_input: b.create_session, tool_response: {} }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
   assert.match(preReason('root', tool(`${REMOTE}create_session`, b.create_session), ctx), /already started by this ROOT/);
   assert.equal(N.rootBob({ product: w.bob.dir, n: 335 }).already, true);
   // ROOT arms no timer and opens no pull request; it files a process issue as any role does
