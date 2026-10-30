@@ -1,5 +1,5 @@
 {
-  "_comment": "neoProcess as a product under itself (REQUIREMENTS.md \u00a71, accepted by Bob 30 Oct 2026). One total order, lower layers first; a module uses only earlier ones. tools/proc.mjs, tools/lib.mjs and tools/hooks.mjs are the legacy module, placed last (REQ 9): each job below extracts its module from it, and proc-legacy retires when only the command dispatcher remains.",
+  "_comment": "neoProcess as a product under itself (REQUIREMENTS.md \u00a71, accepted by Bob 30 Oct 2026). One total order, lower layers first; a module uses only earlier ones. tools/proc.mjs, tools/lib.mjs and tools/hooks.mjs are the legacy module, placed last (REQ 9): each job below extracts its module from it, and proc-legacy retires when only the command dispatcher remains. K1 (BOB #2, 30 Oct): a module's paths and tests name the files the plan gives it, added when its layer starts (the format check refuses a path that names no file, so a later layer's files enter the map at that layer's start); the legacy module's test files are in its paths too, so an extracting job may remove from them the tests that pin behaviour its entries remove, under the legacy rule (a net removal); the gate and prune workflows are shims' (N2-41, N2-44).",
   "modules": [
     {
       "id": "platform",
@@ -13,9 +13,13 @@
         "PERMISSIONS.md",
         "SETUP-STEPS.md",
         "permissions.json",
-        "tools/acts.md"
+        "tools/acts.md",
+        "tools/platform.mjs",
+        "tools/platform.md"
       ],
-      "tests": [],
+      "tests": [
+        "tools/test/platform.test.mjs"
+      ],
       "uses": [],
       "from": [
         "proc-legacy"
@@ -25,12 +29,14 @@
       "id": "record",
       "layer": 1,
       "paths": [
-        "tools/mail.mjs"
+        "tools/mail.mjs",
+        "tools/record.mjs"
       ],
       "tests": [
         "checks/test/mail-open.test.mjs",
         "checks/test/running-cap.test.mjs",
-        "tools/test/mail.test.mjs"
+        "tools/test/mail.test.mjs",
+        "tools/test/record.test.mjs"
       ],
       "uses": [
         "platform"
@@ -47,7 +53,11 @@
         "checks/channels.mjs"
       ],
       "tests": [
-        "checks/test/channels.test.mjs"
+        "checks/test/channels.test.mjs",
+        "checks/test/checks.test.mjs",
+        "checks/test/words.test.mjs",
+        "checks/test/model.test.mjs",
+        "checks/test/cert.test.mjs"
       ],
       "uses": [
         "record"
@@ -190,7 +200,9 @@
       "layer": 5,
       "paths": [
         "ONBOARDING.md",
-        "PRODUCT-SUPPLIES.md"
+        "PRODUCT-SUPPLIES.md",
+        ".github/workflows/gate.yml",
+        ".github/workflows/prune.yml"
       ],
       "tests": [],
       "uses": [
@@ -211,7 +223,11 @@
         "tools/proc.mjs",
         "tools/lib.mjs",
         "tools/hooks.mjs",
-        "tools/memwatch.mjs"
+        "tools/memwatch.mjs",
+        "tools/test/proc.test.mjs",
+        "tools/test/lib.test.mjs",
+        "tools/test/hooks.test.mjs",
+        "tools/test/bob-writer.test.mjs"
       ],
       "tests": [
         "tools/test/proc.test.mjs",

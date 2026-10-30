@@ -1,6 +1,6 @@
 # Plan: the process built under itself · N2
 
-**Status** · DRAFT for Bob, 30 Oct 2026, written from REQUIREMENTS.md (accepted) and from what remains (P19). Opens when Bob says so. One round, five layers, lowest first; all jobs of a layer start together unless the architecture session starts a subset first (PLN-8). Every job's first act is to read its module's requirements file whole (REQ-6); every job extracts its module from `proc-legacy` (`tools/proc.mjs`, `tools/lib.mjs`, `tools/hooks.mjs`), writes one test per requirement id it meets, and leaves proc-legacy delegating to it (REQ 9: the net change in the legacy files is a removal).
+**Status** · OPEN · opened 30 Oct 2026 on Bob's word; round R1, epoch E1; the process pinned at `a0f8c6f` (the `tranche` tip when layer 1's two jobs were started, 20:30Z; MNT-3). Written from REQUIREMENTS.md (accepted) and from what remains (P19). One round, five layers, lowest first; all jobs of a layer start together unless the architecture session starts a subset first (PLN-8). Every job's first act is to read its module's requirements file whole (REQ-6); every job extracts its module from `proc-legacy` (`tools/proc.mjs`, `tools/lib.mjs`, `tools/hooks.mjs`), writes one test per requirement id it meets, and leaves proc-legacy delegating to it (REQ 9: the net change in the legacy files is a removal).
 
 **The legacy census** (PLN 8). `proc-legacy`: 2,604 + 463 + 450 lines. Retired by the jobs below in this tranche, down to the command dispatcher (`COMMANDS`, `args`), which the last job (shims) leaves as the one entry point `tools/proc.mjs`. Hard reasons for anything left: none known.
 
@@ -33,6 +33,7 @@
 - N2-10 · ARC-3: the words check refuses a literal user-facing sentence in a test and names the key; the coverage and fixtures checks unchanged. Test: a fixture test with a sentence fails, the same test by key passes.
 - N2-11 · ARC-5, GAT-7: `checks/run.mjs` writes one machine-readable result (module, file, line, check, finding) beside its text; `status` and the gate read it.
 - N2-12 · ARC-4: scoping to a module and the whole-product run are one function with a `--module` switch; the layer-close run is the whole-product run.
+- N2-45 · ARC-2 with REQ 8 (found at layer 1's start, K1): a module's `paths` or `tests` entry may name a file its live job has not yet written: the format check reports such an entry as pending while the module's job reads STARTING or WORKING on the state branch, and fails it only once the module's layer has closed; the ownership check is unchanged. Test: a map entry naming no file passes beside a live job line and fails without one.
 
 **requirements**
 - N2-13 · REQ-1, REQ-4: parsing of requirement files, `serviceBlocks`, the mark strike move to `tools/requirements.mjs` with their tests.
