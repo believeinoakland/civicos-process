@@ -1,0 +1,3 @@
+(Test fixture: the words of the two screens, as a session read them on 30 Oct.)
+Cloudflare dashboard: My Profile > API Tokens. Each token row has a "..." menu with: Roll, Edit, Delete. Roll shows "Roll API Token" and a button "Roll". The new token is shown once with "Copy".
+claude.ai: Settings > Environments > civicsmith-dev > Secrets. Each secret has "Edit"; the dialog has a field "Value" and a button "Save".

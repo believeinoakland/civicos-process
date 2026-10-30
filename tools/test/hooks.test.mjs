@@ -9,7 +9,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../proc.mjs';
 import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason, issueReason, laneStopReason, readerReason, READER_FILE } from '../hooks.mjs';
-import { plainFaults, plainReason, BOB_READS } from '../lib.mjs';
+import { plainFaults, plainReason, BOB_READS, turnEvidence, evidencePrompt, evidenceVerdict, evidenceReason } from '../lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
 const B1 = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', J1 = 'session_01AAAAAAAAAAAAAAAAAAAAAAAA', L1 = 'session_01LLLLLLLLLLLLLLLLLLLLLLLL';
@@ -336,6 +336,8 @@ test('process issues: filed by any role only as `proc issue` printed it; the lan
   keep(N.ISSUES_FILE, { ...b, issues: b.issues.slice(0, 1) }); assert.match(laneStopReason(lctx), /^no backstop is due/);
   keep(N.BACKSTOP_FILE, { due: new Date(Date.now() + 60e3).toISOString() }); assert.equal(laneStopReason(lctx), null);
   keep(N.ISSUES_FILE, down); assert.match(laneStopReason(lctx), /could not be read \(GET .* answered 403\)/);
+  keep(N.ISSUES_FILE, { ok: true, issues: [] }); keep(N.BACKSTOP_FILE, { due: '2000-01-01T00:00:00Z' }); assert.match(laneStopReason(lctx), /no backstop/);
+  keep('proc-handoff.json', { session: L1 }); assert.equal(laneStopReason(lctx), null);   // handed off: the successor's backstop
   assert.match(N.backstopReason({ message: N.BACKSTOP_MESSAGE, delay_minutes: 600 }), /30 to 240/);
   assert.match(N.backstopReason({ message: 'later', delay_minutes: 60 }), /arms only its backstop/);
   assert.match(allowReason('process', tool(`${REMOTE}send_later`, { message: N.BACKSTOP_MESSAGE, delay_minutes: 60 }), lctx), /backstop/);
@@ -416,6 +418,39 @@ test('the fresh reader: on only for the roles Bob reads, recorded by the pre hoo
   const skill = readFileSync(join(N.PROCESS, '.claude/skills/neoprocess-reader/SKILL.md'), 'utf8');
   assert.match(skill, /^---\nname: neoprocess-reader\n[\s\S]*\n  Stop:\n    - hooks:\n        - type: prompt\n          model: claude-sonnet-5-5\n/);
   assert.match(skill, /\$ARGUMENTS/); assert.match(skill, /last_assistant_message/);
+});
+
+// Issue 61 (#14, 30 Oct): the fresh reader sees only the message, so a claim the session added passed it (#13's writer test:
+// 20 of 35 finals fully accurate). The evidence check gives a fresh model the message and what the session saw.
+test('the evidence check: what the session was told, ran and saw, never its own words; the model\'s verdict blocks', () => {
+  const rows = [
+    { type: 'user', message: { role: 'user', content: 'Run the suite.' } },
+    { type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'my own claim' }, { type: 'tool_use', id: 'a', name: 'Bash', input: {} }] } },
+    { type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'a', content: [{ type: 'text', text: 'pass 38, fail 2' }] }] } },
+    { type: 'user', message: { role: 'user', content: 'Stop hook feedback:\nrewrite it' } },
+    { type: 'user', isSidechain: true, message: { role: 'user', content: 'a worker\'s prompt' } },
+  ];
+  const ev = turnEvidence(rows);
+  assert.equal(ev, "[a message to the session]\nRun the suite.\n\n[the session ran Bash]\n{}\n\n[a tool's output]\npass 38, fail 2");
+  assert.match(turnEvidence(rows, 20), /^\[earlier evidence cut: older than this is unknown to the judge\]\n.{20}$/s);
+  const p = evidencePrompt('38 of 40 passed.', ev);
+  assert.match(p, /<<<EVIDENCE\n\[a message to the session\]\nRun the suite\.[\s\S]*<<<MESSAGE\n38 of 40 passed\.\nMESSAGE>>>/);
+  const out = (v) => JSON.stringify({ result: `Here: ${JSON.stringify(v)}` });
+  assert.equal(evidenceVerdict(out({ ok: true })), null);
+  assert.equal(evidenceVerdict(out({ ok: false, reason: 'Evidence check: "flaky" is not in what the session read' })), 'Evidence check: "flaky" is not in what the session read');
+  for (const bad of ['', 'not json', JSON.stringify({ result: 'no verdict' }), out({ ok: false })]) assert.equal(evidenceVerdict(bad), null);   // never blocks on its own failure
+  const d = mkdtempSync(join(tmpdir(), 'ev-')), tp = join(d, 't.jsonl');
+  writeFileSync(tp, rows.map((r) => JSON.stringify(r)).join('\n'));
+  let seen = null;
+  assert.equal(evidenceReason({ transcript_path: tp, last_assistant_message: 'The two failures are flaky.' }, (q) => { seen = q; return out({ ok: false, reason: 'unsupported: flaky' }); }), 'unsupported: flaky');
+  assert.match(seen, /pass 38, fail 2/); assert.doesNotMatch(seen, /my own claim|rewrite it|a worker's prompt/);
+  assert.equal(evidenceReason({ transcript_path: tp, last_assistant_message: '' }, () => { throw new Error('not run'); }), null);
+  // registered beside the Stop hook in the process's skill and every product's shims; a job (Bob never reads it) is not judged
+  const HOOKS = join(HERE, '..', 'hooks.mjs');
+  assert.match(readFileSync(join(N.PROCESS, '.claude/skills/neoprocess/SKILL.md'), 'utf8'), /- type: command\n          timeout: 180\n          command: '[^']*tools\/hooks\.mjs" evidence'/);
+  const w = world();
+  writeFileSync(join(w.bob.root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'job', product: 'toy', session: J1, module: 'alpha' }));
+  assert.equal(execFileSync('node', [HOOKS, 'evidence'], { input: JSON.stringify({ transcript_path: tp, last_assistant_message: 'x' }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: w.bob.root, PATH: process.env.PATH } }), '');
 });
 
 // Issue 65 (ROOT #11, Civicsmith's first ROOT, 30 Oct): ROOT had no start command, so the hooks refused every act it needs.

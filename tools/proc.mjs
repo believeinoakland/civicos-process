@@ -1419,6 +1419,9 @@ hooks:
     - hooks:
         - type: command
           command: '${hook('stop')}'
+        - type: command
+          timeout: 180
+          command: '${hook('evidence')}'
 ---
 !\`node "${proc}/tools/proc.mjs" reading --role "$ARGUMENTS" --product "${rel}" || echo "STOP: the process repository is not at ${proc}, or the role is not bob, job, lane or root; attach it, then invoke this skill again with your role."\`
 `,
