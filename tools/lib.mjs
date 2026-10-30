@@ -10,6 +10,7 @@ import { totalmem, availableParallelism } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { artifactRows } from '../checks/lib.mjs';
+const PROCESS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 class Refused extends Error {}
@@ -274,7 +275,11 @@ export function stepsCmd(o) {
     if (!hay.includes(decodeEntities(l.label))) missing.push(l);
   }
   if (missing.length) refuse(`${missing.length} label(s) in ${o.file} not found verbatim in ${sources.join(', ')}:\n${missing.map((l) => `  line ${l.line}: "${l.label}"`).join('\n')}\nwrite the step from the page's or screen's own words; a placeholder the steps define themselves is wrapped as <<label>>`);
-  const R = repo(o.product);
+  // the record is kept where the Stop hook reads it: the checkout the role is recorded in (#13's writer test, 30 Oct: run from
+  // a folder outside any checkout, the command died on git's error and the steps never reached Bob)
+  let R; try { R = repo(o.product || process.env.CLAUDE_PROJECT_DIR || '.'); } catch { R = null; }
+  if (!R) { try { const P = repo(PROCESS_ROOT); if (existsSync(join(P.root, '.git', 'proc-role.json'))) R = P; } catch { /* none */ } }
+  if (!R) refuse('--product <the checkout your role is recorded in>: this folder is not a git checkout, and none with a recorded role was found');
   writeFileSync(join(R.root, '.git', STEPS_OK), JSON.stringify({ sha256: stepsHash(text), sources, at: new Date().toISOString() }));
   return `${text.trimEnd()}\n\nverified: ${seen.size} labels in ${sources.join(', ')}`;
 }
@@ -343,7 +348,7 @@ export function plainFaults(message) {
   for (const m of plain.matchAll(/\b[A-Z]{1,3}\d{1,5}[a-z]?\b/g)) if (!PLAIN_EXEMPT.test(m[0]) && !new RegExp(String.raw`^(?:${RULEBOOK_IDS})\d{1,2}$`).test(m[0])) add('an entry or ruling id', m[0]);
   for (const m of plain.matchAll(/\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/g)) add('a commit hash', m[0]);
   for (const m of plain.matchAll(/(?:^|[\s("'])((?:\.{1,2}|~)?\/?(?:[\w.-]+\/)*[\w-][\w.-]*\.(?:md|mjs|cjs|js|ts|tsx|jsx|json|ya?ml|sh|html|csv|txt|py|toml|lock|env))(?=$|[\s)"',;:!?]|\.(?:\s|$))/gim)) add('a file name', m[1]);
-  for (const m of plain.matchAll(/(?:^|\s)((?:\.{1,2}|~)?\/?(?:build|tools|checks|rulebooks|dryrun|src|docs|\.claude|\.github|lane-[\w-]+)\/[\w./-]+)/g)) add('a file name', m[1]);
+  for (const m of plain.matchAll(/(?:^|\s)((?:\.{1,2}|~)?\/?(?:build|tools|checks|rulebooks|dryrun|src|docs|\.claude|\.github|lane-[\w-]+)\/[\w./-]*[\w/-])/g)) add('a file name', m[1]);
   const act = actIn(prose.replace(/`[^`\n]+`/g, ' '));
   if (act) add('an act asked of Bob in prose (it goes in numbered steps `proc steps` verified)', act[0].trim());
   const items = [...list].filter((l) => /^\d+[.)]\s/.test(l));
