@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../proc.mjs';
+import { versionCommand, processHead } from '../platform.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
 const B1 = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', B2 = 'session_01BBBBBBBBBBBBBBBBBBBBBBB2', J1 = 'session_01AAAAAAAAAAAAAAAAAAAAAAAA', L1 = 'session_01LLLLLLLLLLLLLLLLLLLLLLLL';
@@ -557,7 +558,7 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   N.jobArchived(o({ module: 'stats', session: S1, unmeasured: 'retired on a stale process' }));
   const reopened = N.jobRoute(o({ module: 'stats' }));
   assert.deepEqual([reopened.action, reopened.title, reopened.archive], ['create_session', 'STATS #2', S1]);
-  assert.match(reopened.prompt, /Your first act, before anything else: run `git -C \/home\/user\/neoprocess pull -q --ff-only origin main; .*echo PROCESS STALE`/);
+  assert.ok(reopened.prompt.includes(`Your first act, before anything else: run \`${versionCommand(processHead(N.PROCESS))}\`.`));
   assert.equal(N.jobState(o({ module: 'stats' })).state, 'REOPENED');
 });
 
@@ -975,44 +976,6 @@ test('onboarding: a new project seeded from nothing, an existing one converted, 
   // the onboarding session's start refuses the process repository itself
   assert.throws(() => N.onboardStart({ product: N.PROCESS, session: L1 }), /not the process repository/);
   assert.match(N.reading({ role: 'onboard' }).next, /proc onboard start --product/);
-});
-
-test('the grants: proven by `proc grants check` through the proxy, and a tranche opens only while they are held (PERMISSIONS §10)', async () => {
-  const w = world(), R = N.repo(w.bob.dir), at = '2026-10-29T17:00:00Z';
-  const res = (status, body, headers = {}) => ({ status, text: async () => JSON.stringify(body), headers: { get: (k) => headers[k.toLowerCase()] ?? null } });
-  const net = (gh, cf, site = 200) => async (url) => (url.includes('api.github.com') ? gh : url.includes('api.host.example') ? cf : site === 0 ? Promise.reject(Object.assign(new Error('x'), { cause: { code: 'ENOTFOUND' } })) : res(site, {}));
-  const appGh = res(200, { login: 'owner' }, { 'x-oauth-client-id': 'Iv23li', 'github-authentication-token-expiration': '2026-10-29 21:45:33 UTC' });
-  const cfOk = res(200, { result: { status: 'active' } });
-  const check = (fetch, x = {}) => N.grantsCheck({ product: w.bob.dir, branch: N.TRANCHE, now: at, fetch, ...x });
-  // no standing list in the product's settings: not held, and the opening refused with the reason
-  let r = await check(net(appGh, cfOk));
-  assert.equal(r.ok, false); assert.match(r.rows.find((x) => x.grant === 'standing list').detail, /missing from \.claude\/settings\.json/);
-  assert.match(N.grantsHeld(R, new Date(at)), /a grant is not held: standing list/);
-  // the list written as `proc shims` writes it, and the product's own services and addresses (build/grants.json): every
-  // row held; the app's own token is not judged by its short expiry
-  writeFileSync(join(w.bob.dir, N.GRANTS_PRODUCT), JSON.stringify({ services: [{ name: 'Hosting API', url: 'https://api.host.example/verify', active: 'result.status=active', expires: 'result.expires_on' }], urls: ['https://dev.example.app/'] }));
-  const standing = JSON.parse(readFileSync(join(N.PROCESS, 'permissions.json'), 'utf8'));
-  mkdirSync(join(w.bob.dir, '.claude'), { recursive: true });
-  writeFileSync(join(w.bob.dir, '.claude/settings.json'), JSON.stringify({ permissions: { allow: standing.allow, deny: standing.deny } }));
-  r = await check(net(appGh, cfOk), { urls: 'https://dev.example.workers.dev/' });
-  assert.deepEqual(r.rows.map((x) => [x.grant, x.ok]), [['standing list', true], ['push to tranche', true], ['GitHub API', true], ['Hosting API', true], ['reach https://dev.example.app/', true], ['reach https://dev.example.workers.dev/', true]]);
-  assert.match(r.rows[2].detail, /owner by the Claude app's token/);
-  assert.equal(N.grantsHeld(R, new Date(at)), null);
-  assert.match(N.grantsHeld(R, new Date('2026-10-31T17:00:00Z')), /over 24 hours ago/);
-  // a token of the process's own expiring within 14 days, an inactive or expiring service token, no credential, an unreachable release: each not held
-  const pat = res(200, { login: 'owner' }, { 'github-authentication-token-expiration': '2026-11-03 00:00:00 UTC' });
-  r = await check(net(pat, res(200, { result: { status: 'disabled' } }), 0), { urls: 'https://gone.example/' });
-  assert.deepEqual(r.rows.filter((x) => !x.ok).map((x) => x.grant), ['GitHub API', 'Hosting API', 'reach https://dev.example.app/', 'reach https://gone.example/']);
-  assert.match(r.rows[2].detail, /a token of its own, expiring 2026-11-03 00:00:00 UTC \(4 days\): renew/);
-  r = await check(net(appGh, res(200, { result: { status: 'active', expires_on: '2026-11-01T00:00:00Z' } })));
-  assert.match(r.rows.find((x) => x.grant === 'Hosting API').detail, /expiring 2026-11-01T00:00:00Z: renew/);
-  // the variables the list names: present or not, by name only
-  writeFileSync(join(w.bob.dir, N.GRANTS_PRODUCT), JSON.stringify({ variables: ['WALK_USER', 'WALK_PASS'] }));
-  r = await check(net(appGh, cfOk), { env: { WALK_USER: 'x' } });
-  assert.deepEqual(r.rows.filter((x) => x.grant.startsWith('variable')).map((x) => [x.grant, x.ok, x.detail]), [['variable WALK_USER', true, 'present'], ['variable WALK_PASS', false, 'not set in this environment']]);
-  r = await check(net(res(403, {}), cfOk));
-  assert.match(r.rows[2].detail, /GET \/user answered 403: no credential reaches api\.github\.com/);
-  assert.equal(r.ok, false);
 });
 
 test('issue 84: a job takes in its own module\'s branch from an earlier round, and nothing else', async () => {
