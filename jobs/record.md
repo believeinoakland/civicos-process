@@ -1,6 +1,6 @@
 # record (transient)
 
-**Status** · RECORD #1 · session_01RAN5en3egmfRkisLEb8DHU · WORKING · PR #128
+**Status** · RECORD #1 · session_01RAN5en3egmfRkisLEb8DHU · WAITING: QUESTION #3, R3's delete route needs platform merged with a structured route · PR #128
 **Runs** · 1
 **Owed** · none
 **Model** · opus
