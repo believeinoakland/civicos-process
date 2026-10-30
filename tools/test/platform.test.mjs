@@ -49,7 +49,7 @@ test('R2: constraints({ olderThan }) lists exactly the rows last confirmed befor
 
 test('R3: the acts the process depends on, each with its pass count and its role', () => {
   const names = P.acts().map((r) => P.callName(r.id));
-  for (const a of ['create_session', 'send_message', 'get_session', 'list_events', 'send_later', 'create_pull_request', 'update_pull_request', 'add_issue_comment', 'merge_pull_request', 'actions_run_trigger', 'git']) assert.ok(names.includes(a), a);
+  for (const a of ['create_session', 'send_message', 'get_session', 'list_events', 'send_later', 'create_pull_request', 'update_pull_request', 'add_issue_comment', 'merge_pull_request', 'actions_run_trigger', 'git push']) assert.ok(names.includes(a), a);
   assert.ok(P.acts().some((r) => r.id === 'git push(own branch)'));
   for (const r of P.acts()) { assert.ok(Number.isInteger(r.passes) && r.passes > 0, r.id); assert.ok(r.role, r.id); }
   assert.deepEqual(P.acts({ id: 'send_message' }).map((r) => r.id), ['send_message']);
@@ -244,26 +244,29 @@ test('R11: the module holds and prints no credential: every secret is named, nev
   assert.doesNotMatch(JSON.stringify(r) + readFileSync(join(w.dir, '.git', P.GRANTS_FILE), 'utf8'), /value-never-shown/);
 });
 
-// The platform's tool vocabulary: the session tools and the GitHub tools a session can call. A name of it anywhere in
-// another module's text (a printed call object, a call printed in prose, a name a check matches) must be a row (R12).
-const VOCABULARY = ['create_session', 'send_message', 'get_session', 'list_events', 'list_sessions', 'archive_session', 'unarchive_session', 'interrupt_session', 'send_later', 'create_trigger', 'update_trigger', 'delete_trigger', 'fire_trigger', 'list_triggers', 'subscribe_pr_activity', 'unsubscribe_pr_activity', 'add_repo', 'create_pull_request', 'update_pull_request', 'update_pull_request_branch', 'merge_pull_request', 'pull_request_read', 'pull_request_review_write', 'add_issue_comment', 'issue_write', 'issue_read', 'actions_run_trigger', 'actions_list', 'create_branch', 'push_files', 'create_or_update_file', 'delete_file', 'create_repository', 'set_session_tags', 'set_session_title', 'list_repos', 'list_environments', 'watch_url', 'get_event', 'get_job_logs', 'list_workflows'];
 // Until the completion round (N2-46): the classifier-judged calls another module still prints, inherited and named (R4).
 const INHERITED = ['archive_session', 'update_trigger', 'add_repo'];
-test('R4 R12: every platform call any module prints is a row of the constraints or the acts; one whose row is classifier-judged is only an inherited one', () => {
+test('R4 R12: every platform call any module prints, however printed, is a row of the constraints or the acts; one whose row is classifier-judged is only an inherited one', () => {
+  // the vocabulary is the platform's whole tool list, held as data: every GitHub and session tool, and the git and headless acts
+  const names = P.toolNames();
+  for (const n of ['list_issues', 'enable_pr_auto_merge', 'fork_repository', 'create_session', 'watch_url', 'git push', 'claude -p']) assert.ok(names.includes(n), n);
+  assert.equal(new Set(names).size, names.length);
   const files = [...['tools', 'checks'].flatMap((d) => readdirSync(join(ROOT, d)).filter((f) => f.endsWith('.mjs')).map((f) => join(ROOT, d, f)))].filter((f) => !f.endsWith('platform.mjs'));
-  const printed = new Set();
+  const seen = new Set();
   for (const f of files) {
     const src = readFileSync(f, 'utf8');
-    for (const m of src.matchAll(/tool: '(?:mcp__[a-z0-9-]+__)?([a-z_]+)'/g)) printed.add(m[1]);
-    for (const v of VOCABULARY) if (new RegExp(`(?<![\\w])${v}(?![\\w])`).test(src)) printed.add(v);
+    for (const c of P.callsIn(src)) seen.add(c);
+    assert.deepEqual(P.callProblems(src, INHERITED), [], f);
   }
-  for (const c of ['create_session', 'actions_run_trigger', 'create_trigger', 'fire_trigger', 'list_triggers', 'update_trigger']) assert.ok(printed.has(c), `${c} not seen: ${[...printed].join()}`);
-  for (const call of printed) {
-    assert.ok(VOCABULARY.includes(call), `${call}: printed, and not of the platform's vocabulary`);
-    const row = P.rowFor(call); assert.ok(row, `${call}: printed, and no row`);
-    if (row.classifier) assert.ok(INHERITED.includes(call), `${call}: printed, and decided by the classifier case by case (R4)`);
-  }
+  for (const c of ['create_session', 'actions_run_trigger', 'create_trigger', 'fire_trigger', 'list_triggers', 'update_trigger', 'list_issues', 'enable_pr_auto_merge', 'git push', 'claude -p']) assert.ok(seen.has(c), `${c} not seen: ${[...seen].join()}`);
   assert.ok(INHERITED.every((c) => P.rowFor(c)?.classifier), 'each inherited call is a classifier-judged row');
+  // a made-up call, a platform call with no row, and a classifier-judged call not inherited each fail, however printed
+  assert.deepEqual(P.callProblems("{ tool: 'mcp__github__made_up_tool', x: 1 }"), ['made_up_tool: printed as a call, and not a platform tool']);
+  assert.equal(P.rowFor('fork_repository'), null);
+  assert.deepEqual(P.callProblems('then fork it with fork_repository, by hand'), ['fork_repository: printed, and no row']);
+  assert.deepEqual(P.callProblems('`update_trigger enabled false`'), ['update_trigger: printed, and decided by the classifier case by case (R4)']);
+  assert.deepEqual(P.callProblems('`update_trigger enabled false`', ['update_trigger']), []);
+  assert.deepEqual(P.callProblems('send_message to BOB; git push to the own branch'), []);
   // and the dispatch this module prints is one
   assert.ok(P.rowFor(P.dispatch('shims', { repo: 'a/b' }).tool));
 });

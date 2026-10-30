@@ -50,6 +50,7 @@ export const CONSTRAINTS = [
   C('get_session context usage', 'A session\'s context share cannot be read from `get_session` while `external_metadata.context_usage.used_tokens` reads 0: it read `{ max_tokens: 1000000, used_tokens: 0 }` for a session 47 minutes and some 60 tool calls after its start.', '2026-10-30', 1, 'the architecture session\'s `get_session` of itself at 21:11:45Z, in its transcript (BOB, to PLATFORM #1)', 'the share is unknown until a reading is non-zero, and a session says so rather than estimating; a refresh printed on the share then never fires'),
   C('create_trigger(scheduled task)', 'A scheduled task may fire late, twice, or into a session that is gone: the lane predecessor\'s backstop fired at 16:39Z on 30 Oct into an archived session and failed.', '2026-10-30', 1, '`list_triggers`, 30 Oct (REQUIREMENTS PLT-7; PROTOCOL §6)', 'no step depends on a scheduled task: a wake it gives is a convenience, and the record is read at every wake (PLT-7)'),
   C('fire_trigger', 'Firing a stored task by `fire_trigger` has not been seen: the task it would fire (the lane successor, issue 96) did not yet exist on 30 Oct.', '2026-10-30', 0, 'lane-neoprocess/HANDOFF.md, item 3 (30 Oct, 16:1xZ)', 'the successor is started by `create_session` from a parent at depth 0 or 1 (PLT-6); no step depends on `fire_trigger`'),
+  C('enable_pr_auto_merge', 'Auto-merge of a pull request has never been taken: "Allow auto-merge" is off on the process\'s repositories and stays off.', '2026-10-30', 0, 'never seen; SETUP-STEPS (the repository as it exists); JOB-LIFE §12', 'every merge is the printed `merge_pull_request` of `proc merge`, on a green gate'),
   C('scheduled task into an archived session', 'A scheduled task fired into an archived session and failed.', '2026-10-30', 1, '`list_triggers`, 16:39Z (REQUIREMENTS PLT-7)', 'no step depends on a scheduled task (PLT-7)'),
   C('auto mode pauses', 'Auto mode pauses after 3 consecutive or 20 total blocks.', '2026-10-29', 1, 'Claude Code documentation, permission-modes, read 29 Oct (PERMISSIONS §8.4)', 'no act the classifier judges is on any step\'s route'),
 ];
@@ -75,8 +76,38 @@ export const ACTS = [
   A('git push(own branch)', 'every role, to its own branch only', 'the session\'s `git push` and `proc` commands', 149, '2026-10-30', '149 branches on neobobkrause/neoprocess\'s remote, each made by a push (`git ls-remote --heads`, PLATFORM #1, 30 Oct)'),
   A('git push(state branch)', 'every role', '`proc` by plumbing, never by hand', 1, '2026-10-30', 'N1 row X1; PLATFORM #1\'s state line (7cbc06c)'),
   A('list_triggers', 'the neoProcess lane, of its own account\'s tasks', 'by hand, read only', 2, '2026-10-30', '#18 at 14:51Z (the record stamped, DRYRUN §23); the 16:39Z firing read (REQUIREMENTS PLT-7)'),
+  A('list_issues', 'the neoProcess lane, of the process repository', '`proc process start` and `process status` read the issues by `GET /repos/<owner>/<repo>/issues` through the proxy; the GitHub tool by hand only when that read fails', 1, '2026-10-30', '#13: `GET /repos/neobobkrause/neoprocess/issues` 200 through the proxy, the two open issues listed (acts.md `list issues`)'),
+  A('claude -p(headless session)', 'the neoProcess lane (a headless test session); the evidence check', '`claude -p` in a clean environment, under the session\'s own subscription through the proxy (no key)', 49, '2026-10-30', '#13: one headless test session answered; #14: 48 headless writers, the check live in each (DRYRUN §9; acts.md)'),
   A('git fetch(process)', 'every role of a product', 'anonymous read of the public process repository; `proc status` hourly', 1, '2026-10-30', '#15 (acts.md); PLATFORM #1\'s pull at its start'),
 ];
+
+// R12: the platform's whole tool-name list, so a call name anywhere in another module's text is seen whether or not a
+// row exists: every GitHub tool (`mcp__github__<name>`) and session tool (`mcp__claude-code-remote__<name>`) a cloud
+// session is offered (its tool list, read by PLATFORM #1 on 30 Oct), and the git and headless-session acts.
+export const TOOLS = {
+  github: ['actions_get', 'actions_list', 'actions_run_trigger', 'add_comment_to_pending_review', 'add_issue_comment', 'add_reply_to_pull_request_comment', 'create_branch', 'create_or_update_file', 'create_pull_request', 'create_repository', 'delete_file', 'disable_pr_auto_merge', 'enable_pr_auto_merge', 'fork_repository', 'get_check_run', 'get_commit', 'get_file_contents', 'get_job_logs', 'get_label', 'get_latest_release', 'get_me', 'get_release_by_tag', 'get_tag', 'get_team_members', 'get_teams', 'issue_read', 'issue_write', 'list_branches', 'list_commits', 'list_issue_fields', 'list_issue_types', 'list_issues', 'list_pull_requests', 'list_releases', 'list_repository_collaborators', 'list_tags', 'merge_pull_request', 'pull_request_read', 'pull_request_review_write', 'push_files', 'request_copilot_review', 'resolve_review_thread', 'run_secret_scanning', 'search_code', 'search_commits', 'search_issues', 'search_pull_requests', 'search_repositories', 'search_users', 'sub_issue_write', 'unresolve_review_thread', 'update_issue_comment', 'update_pull_request', 'update_pull_request_branch'],
+  session: ['add_repo', 'archive_session', 'confirm_repository_trust', 'create_session', 'create_trigger', 'delete_trigger', 'fire_trigger', 'get_event', 'get_session', 'get_trigger', 'interrupt_session', 'list_computer_folders', 'list_environments', 'list_events', 'list_repos', 'list_sessions', 'list_triggers', 'read_documentation', 'register_repo_root', 'request_computer_folder', 'send_later', 'send_message', 'set_session_tags', 'set_session_title', 'subscribe_pr_activity', 'unarchive_session', 'unsubscribe_pr_activity', 'unwatch_url', 'update_trigger', 'watch_url'],
+  acts: ['git push', 'git fetch', 'claude -p'],
+};
+export const toolNames = () => [...TOOLS.github, ...TOOLS.session, ...TOOLS.acts];
+// Each platform call name `text` holds, however printed (a call object, prose, a name a check matches).
+export function callsIn(text) {
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+  return toolNames().filter((n) => new RegExp(`(?<![\\w-])${esc(n)}(?![\\w])`).test(text));
+}
+// R12, R4: what is wrong with the platform calls `text` prints: a call printed as `tool: '<name>'` that is no platform
+// tool, a platform call with no row, a classifier-judged call not named in `inherited` (the calls other modules still
+// print until their entries remove them). Empty when every call stands on a row. Called after the rows are defined.
+export function callProblems(text, inherited = []) {
+  const names = toolNames(), out = [];
+  for (const m of String(text).matchAll(/tool: '(?:mcp__[a-z0-9-]+__)?([a-z_]+)'/g)) if (!names.includes(m[1])) out.push(`${m[1]}: printed as a call, and not a platform tool`);
+  for (const c of callsIn(text)) {
+    const row = rowFor(c);
+    if (!row) out.push(`${c}: printed, and no row`);
+    else if (row.classifier && !inherited.includes(c)) out.push(`${c}: printed, and decided by the classifier case by case (R4)`);
+  }
+  return out;
+}
 
 const FIELDS_C = ['id', 'fact', 'date', 'count', 'evidence', 'workaround'];
 // R3 (K12; REC-5): the fields each act's result carries when it has run, what a record of the act may be written from:
@@ -101,6 +132,8 @@ const RESULTS = {
   'git push(state branch)': [{}, 'none: the exit status; `proc` prints the commit it wrote'],
   list_triggers: [{}, 'none read by a step (PLT-7)'],
   'git fetch(process)': [{}, 'none: the exit status'],
+  list_issues: [{ number: null, title: null }, 'each issue\'s number and title, which `proc process status` lists (#13)'],
+  'claude -p(headless session)': [{}, 'none but its printed answer: the exit status and the text it writes'],
 };
 for (const a of ACTS) [a.result, a.resultFrom] = RESULTS[a.id] ?? [undefined, undefined];
 const FIELDS_A = ['id', 'role', 'route', 'passes', 'date', 'evidence', 'result', 'resultFrom'];
@@ -133,7 +166,7 @@ export function acts({ id } = {}) {
 // Every id a refusal may name and be read as predicted (`proc refused --act`): an act, or a constraint row.
 export const knownIds = () => [...ACTS, ...CONSTRAINTS].map((r) => r.id);
 // R12: the platform's call names, the first word of each row's id; a printed call of another module is matched by these.
-export const callName = (id) => String(id).split(/[\s(]/)[0];
+export const callName = (id) => String(id).split('(')[0].trim();
 export const rowFor = (call) => [...ACTS, ...CONSTRAINTS].find((r) => callName(r.id) === call) ?? null;
 
 // ---- R10: the measured limits other modules design around, and the route a remote ref deletion takes (the proxy
