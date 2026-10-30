@@ -1,0 +1,26 @@
+name: prune
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "the branch to delete: a state/* branch, a job/* branch whose tip is on tranche, or an old tranche/* branch whose tip is on main or a carried/* branch"
+        required: true
+permissions:
+  contents: write
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: delete the branch (the sessions' git proxy refuses ref deletes; REP 2, REP 4)
+        run: |
+          r="${{ inputs.ref }}"
+          case "$r" in
+            state/*) ;;
+            job/*) git merge-base --is-ancestor "origin/$r" "origin/tranche" || { echo "$r is not merged into tranche"; exit 1; } ;;
+            tranche/*) git merge-base --is-ancestor "origin/$r" origin/main || [ -n "$(git branch -r --contains "origin/$r" --list 'origin/carried/*')" ] || { echo "$r is on neither main nor a carried/* branch"; exit 1; } ;;
+            *) echo "only state/*, merged job/* and kept tranche/* branches are pruned"; exit 1 ;;
+          esac
+          git push origin --delete "$r"
