@@ -1814,9 +1814,14 @@ export function moduleOfDiff(R, base) {
   const gen = artifacts(R).flatMap((a) => a.paths);
   const files = R.g(['diff', '--name-only', `${base}...HEAD`]).split('\n').filter(Boolean).map((f) => relative(R.rel('.'), f)).filter((f) => !gen.includes(f));
   const owner = (f) => modules(R).find((x) => [...(x.paths || []), ...(x.tests || [])].some((p) => f === p || f.startsWith(p.endsWith('/') ? p : `${p}/`)) || f === `build/requirements/${x.id}.md`)?.id;
-  const ids = [...new Set(files.map(owner).filter(Boolean))];
+  const touched = [...new Set(files.map(owner).filter(Boolean))];
   if (!files.length) return null;   // the job's opening commit: nothing to check yet
-  if (!ids.length) refuse(`no module's files changed since ${base.slice(0, 7)}: ${files.join(', ')}`);
+  if (!touched.length) refuse(`no module's files changed since ${base.slice(0, 7)}: ${files.join(', ')}`);
+  // K2 (BOB #2, 30 Oct; rulebook REQ 9): an extraction's diff also touches the legacy module(s) its module names in `from`
+  // (the moved code removed, its callers rewired); a touched module named in another touched module's `from` is that
+  // module's source, not a second module. Measured on N2 layer 1: both jobs' gates refused "platform, proc-legacy".
+  const all = modules(R), from = (id) => [].concat(all.find((x) => x.id === id)?.from || []);
+  const ids = touched.filter((id) => !touched.some((o) => o !== id && from(o).includes(id)));
   if (ids.length > 1) refuse(`the diff touches several modules: ${ids.join(', ')} (one job, one module; P8)`);
   return ids[0];
 }
