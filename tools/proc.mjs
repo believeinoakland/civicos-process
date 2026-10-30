@@ -56,6 +56,9 @@ import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // The gate and the plan's entries come from tools/lib.mjs, moved there from the old tool at the commit point (P3).
 import { entriesOf, runTests, moduleChecks, withArtifacts, evidenceItems, history, modules, artifacts, allChecks, reds, EVIDENCE_FORMS, EVIDENCE_ITEM, stepsCmd, stepsReason, plainReason, BOB_READS, SAID_FILE, saidKey, transcriptOf, freshReaderReason, evidenceReason } from './lib.mjs';
+// The platform module (layer 1): its refusal class, the version check, the runner workflows' dispatch, the grants.
+import { Refused, processHead, versionCommand, ownerSecret, dispatch, grantsCheck as checkGrants, grantsHeld, knownIds, isKnown, WORKFLOWS } from './platform.mjs';
+export { versionCommand as versionCheck, GRANTS_FILE, GRANTS_PRODUCT, GRANTS_FRESH_H, EXPIRY_WARN_D } from './platform.mjs';
 
 export const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const TRANCHE = 'tranche';                 // fixed: a merge queue cannot target a wildcard (JOB-LIFE §1)
@@ -67,7 +70,7 @@ const SESSION = /^session_[0-9A-Za-z]+$/;
 const NAME = /^[A-Z][A-Z0-9-]* #\d+$/;
 const now = () => new Date().toISOString();
 const today = () => now().slice(0, 10);
-export class Refused extends Error {}
+export { Refused, processHead, ownerSecret, grantsHeld };
 export const refuse = (msg) => { throw new Refused(msg); };
 
 // ---- git ----
@@ -437,15 +440,13 @@ const laneNext = (R, id) => Math.max(0, ...(R.read(`build/lanes/${id}/decisions.
 // Issue 101 (Bob, 30 Oct: "start the jobs with an initial prompt that tell it which neoprocess version it should be running.
 // If they're not running that version then it should tell you immediately and stop"): a session started on an old copy
 // of the process runs that copy's own checks, so no check inside the copy can catch it. The one thing from outside is the
-// prompt its parent writes: it names the parent's process commit, and the session's first act brings its copy there and
-// checks it, in one command the hooks of any copy pass before a role (a read and a fast-forward, no write they name); a
+// prompt its parent writes: it names the parent's process commit, and the session's first act checks its copy against it
+// as found, in one command the hooks of any copy pass before a role (reads only; tools/platform.mjs, R6); a
 // stale session can message only once a role is recorded, so it runs its start command, reports, and stops.
-export function processHead(dir = PROCESS) { try { return execFileSync('git', ['-C', dir, 'rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; } }
-export const versionCheck = (sha, d = '/home/user/neoprocess') => `git -C ${d} pull -q --ff-only origin main; git -C ${d} rev-list HEAD | grep -q ^${sha.slice(0, 12)} && echo PROCESS OK || echo PROCESS STALE`;   // no word the pre-role hooks of any copy refuse (merge, reset, …)
 export function versionLine(to, dir = PROCESS) {
   const sha = processHead(dir); if (!sha) return '';
   const d = '/home/user/neoprocess';
-  return `\nYour first act, before anything else: run \`${versionCheck(sha, d)}\`. If it prints anything but PROCESS OK, your copy of the process is not the one you were started for: run your start command as below only so the hooks let you message, then send ${to} one message beginning PROCESS STALE with the output of \`git -C ${d} log -1 --oneline\`, and stop: take no other act. If even that is refused, end your turn with that same line.`;
+  return `\nYour first act, before anything else: run \`${versionCommand(sha, d)}\`. If it prints anything but PROCESS OK, your copy of the process is not the one you were started for: run your start command as below only so the hooks let you message, then send ${to} one message beginning PROCESS STALE with the output of \`git -C ${d} log -1 --oneline\`, and stop: take no other act. If even that is refused, end your turn with that same line.`;
 }
 export function laneSession(R, id, k = null) {
   const l = lanes(R).find((x) => x.id === id && x.status === 'OPEN') ?? refuse(`no open lane ${id}`);
@@ -1034,9 +1035,7 @@ export function status(o) {
 }
 // ---- refusals (PERMISSIONS §2.5) and the act table (§2.1): a refused act is recorded, routed and counted, never worked around ----
 
-export const ACTS = join(PROCESS, 'tools', 'acts.md');
-// The act table's ids: the first cell of each row, `| <id> | …`.
-export function actIds() { return existsSync(ACTS) ? [...readFileSync(ACTS, 'utf8').matchAll(/^\| `([^`|]+)` \|/gm)].map((m) => m[1]) : []; }
+export const actIds = knownIds;
 const REFUSAL = /^\*\*Refused\*\* · (R[\w-]+) · (\S+) · (.+?) · (hook|classifier|scope|platform) · (predicted|unpredicted) · (OPEN|ROUTED)$/m;
 export function parseRefusal(text) {
   const m = (text || '').match(REFUSAL); if (!m) return null;
@@ -1053,7 +1052,7 @@ export function refused(o) {
   const by = o.by || readRole(R.root)?.name || refuse('--by "<ROLE #k>" (no role is recorded for this session)');
   const mine = refusalsOf(R).filter((r) => r.by === by);
   const id = `R-${by.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${mine.length + 1}`;
-  const r = { id, date: today(), by, kind: o.kind, predicted: actIds().includes(String(o.act)), status: 'OPEN', act: String(o.act).replace(/\n/g, ' '), reason: String(o.reason).replace(/\s*\n\s*/g, ' ').trim(), route: null };
+  const r = { id, date: today(), by, kind: o.kind, predicted: isKnown(o.act), status: 'OPEN', act: String(o.act).replace(/\n/g, ' '), reason: String(o.reason).replace(/\s*\n\s*/g, ' ').trim(), route: null };
   return { refusal: id, predicted: r.predicted, commit: stateWrite(R, { [`refusals/${id}.md`]: fmtRefusal(r) }, `${id}: ${o.kind} refused ${r.act.slice(0, 50)}`) };
 }
 // BOB routes it from the act table (to the party whose relation passes, to the tool's route, or to Bob) and counts it: one
@@ -2211,7 +2210,7 @@ export const RULESETS = [
   { name: 'tranche', target: 'branch', enforcement: 'active', conditions: { ref_name: { include: [`refs/heads/${TRANCHE}`], exclude: [] } }, rules: [{ type: 'deletion' }, { type: 'non_fast_forward' }] },
   { name: 'main', target: 'branch', enforcement: 'active', conditions: { ref_name: { include: ['refs/heads/main'], exclude: [] } }, rules: [{ type: 'deletion' }, { type: 'non_fast_forward' }, { type: 'pull_request', parameters: { required_approving_review_count: 0, dismiss_stale_reviews_on_push: false, require_code_owner_review: false, require_last_push_approval: false, required_review_thread_resolution: false } }] },
 ];
-export const REPO_SETUP_WORKFLOW = 'repo-setup.yml';
+export const REPO_SETUP_WORKFLOW = WORKFLOWS.setup;
 export async function repoSetup(o) {
   const m = String(o.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/); if (!m) refuse('--repo <owner/name> [--private] [--dry-run]');
   const [, owner, name] = m, api = 'https://api.github.com', f = o.fetch || globalThis.fetch;
@@ -2254,27 +2253,18 @@ export async function repoSetup(o) {
   if (!out.ok) {
     if (token) refuse(`with the process's token: ${out.refused.join('; ') || `rulesets not read back active: ${(out.rulesets || []).join(', ') || 'none'}`}`);
     let P = {}; try { P = ghRepo(repo(PROCESS)); } catch { /* no remote: the fields stay unnamed */ }
-    out.dispatch = { tool: 'actions_run_trigger', ...P, workflow_id: REPO_SETUP_WORKFLOW, ref: 'main', inputs: { repo: `${owner}/${name}`, private: String(!!o.private) } };
+    out.dispatch = dispatch('setup', { process: P, repo: `${owner}/${name}`, private: o.private });
     out.then = `a session cannot write this: the proxy binds the GitHub API to the session's repositories and refuses settings writes (measured 29 Oct #8). Dispatch the workflow above: it runs this command on GitHub's runner with the token of the repository's owner, the repository secret ${ownerSecret(owner, P.owner)} (Bob's one act for that owner, PERMISSIONS §9.9). Then attach ${owner}/${name} (add_repo) and run this command again to read the result back. Without the secret, Bob's hand steps (SETUP-STEPS): ${out.bob.join('; ')}.`;
   }
   return out;
 }
 
 
-// The secret a runner workflow uses for a repository (PERMISSIONS §9.9; Bob, 29 Oct: one secret per owner, so the process's
-// token and a product's never step on each other): the process repository's own owner keeps NEOPROCESS_GITHUB_TOKEN; any
-// other owner's is NEOPROCESS_GITHUB_TOKEN_<its login, upper case, hyphens as underscores>. The workflows' first step
-// computes the same name.
-export function ownerSecret(owner, processOwner) {
-  if (!/^[\w-]+$/.test(String(owner || ''))) refuse(`not an account login: ${owner}`);
-  return owner.toLowerCase() === String(processOwner || '').toLowerCase() ? 'NEOPROCESS_GITHUB_TOKEN' : `NEOPROCESS_GITHUB_TOKEN_${owner.toUpperCase().replace(/-/g, '_')}`;
-}
-
 // A repository renamed (Bob, 29 Oct: this repository becomes `neoprocess`): a settings write, which the proxy refuses from a
 // session (#5), so it runs on GitHub's runner by `repo-rename.yml` with the process's token (Administration: write), as
 // `repo setup` does. GitHub redirects the old name for git and the API, so clones and workflows naming it keep working;
 // the shims of every product name the process by its remote (`proc shims`), regenerated after a rename.
-export const REPO_RENAME_WORKFLOW = 'repo-rename.yml';
+export const REPO_RENAME_WORKFLOW = WORKFLOWS.rename;
 export async function repoRename(o) {
   const m = String(o.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/), to = String(o.name || '');
   if (!m || !/^[\w.-]+$/.test(to)) refuse('--repo <owner/old> --name <new>');
@@ -2303,7 +2293,7 @@ export async function repoRename(o) {
   else {
     if (token) refuse(`with the process's token: ${out.refused.join('; ') || `${owner}/${to} not read back`}`);
     let P = {}; try { P = ghRepo(repo(PROCESS)); } catch { /* no remote */ }
-    out.dispatch = { tool: 'actions_run_trigger', ...P, workflow_id: REPO_RENAME_WORKFLOW, ref: 'main', inputs: { repo: `${owner}/${old}`, name: to } };
+    out.dispatch = dispatch('rename', { process: P, repo: `${owner}/${old}`, name: to });
     out.then = `a session cannot write this: the proxy refuses settings writes (measured 29 Oct #5). Dispatch the workflow above: it runs this command on GitHub's runner with the process's token (PERMISSIONS §9). Then read it back with this command; set every clone's remote to the new name (git remote set-url origin), and regenerate each product's shims (proc shims), which name the process by its remote.`;
   }
   return out;
@@ -2317,7 +2307,7 @@ export async function repoRename(o) {
 // `repo rename` does; from a session the dispatch is printed. The proof of the move is the repository read back under
 // the new owner (this command again, once accepted); the secret moved with it is the old owner's token, replaced by one
 // the new owner issues (SETUP-STEPS; a token is issued per owner, PERMISSIONS §9).
-export const REPO_TRANSFER_WORKFLOW = 'repo-transfer.yml';
+export const REPO_TRANSFER_WORKFLOW = WORKFLOWS.transfer;
 export async function repoTransfer(o) {
   const m = String(o.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/), to = String(o.to || '');
   if (!m || !/^[\w-]+$/.test(to)) refuse('--repo <owner/name> --to <new owner>');
@@ -2347,7 +2337,7 @@ export async function repoTransfer(o) {
     out.ok = false;
     if (token) refuse(`with the process's token: ${out.refused.join('; ')}`);
     let P = {}; try { P = ghRepo(repo(PROCESS)); } catch { /* no remote */ }
-    out.dispatch = { tool: 'actions_run_trigger', ...P, workflow_id: REPO_TRANSFER_WORKFLOW, ref: 'main', inputs: { repo: `${owner}/${name}`, to } };
+    out.dispatch = dispatch('transfer', { process: P, repo: `${owner}/${name}`, to });
     out.then = `a session cannot write this: the proxy refuses settings writes (measured 29 Oct #5). Dispatch the workflow above: it runs this command on GitHub's runner with the process's token (PERMISSIONS §9); ${to} then accepts GitHub's email within a day. Once accepted: attach ${to}/${name} (add_repo), set every clone's remote (git remote set-url origin), regenerate each product's shims (proc shims), and ${to} issues the process's token anew and sets it as the moved repository's secret (SETUP-STEPS).`;
   }
   return out;
@@ -2360,7 +2350,7 @@ export async function repoTransfer(o) {
 // over the owner's repositories), where the product is checked out beside the process: `proc shims` written into it,
 // committed on its branch `shims`, pushed, the pull request to its `main` opened and merged by the API, the merge read
 // back. From a session the dispatch is printed. The branch `shims` is the one the lane's own hook rule names (shimsPush).
-export const REPO_SHIMS_WORKFLOW = 'repo-shims.yml', SHIMS_BRANCH = 'shims';
+export const REPO_SHIMS_WORKFLOW = WORKFLOWS.shims, SHIMS_BRANCH = 'shims';
 export async function repoShims(o) {
   const m = String(o.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/);
   if (!m) refuse('--repo <owner/name> [--checkout <the product\'s checkout, on the runner>] [--process <path>] [--ref <branch>]');
@@ -2376,7 +2366,7 @@ export async function repoShims(o) {
   const out = { repo: `${owner}/${name}`, token: token ? `the repository owner's (${(o.env || process.env).SECRET_NAME || 'NEOPROCESS_GITHUB_TOKEN'})` : 'the proxy\'s', steps: [], refused: [] };
   if (!token) {
     out.ok = false;
-    out.dispatch = { tool: 'actions_run_trigger', ...P, workflow_id: REPO_SHIMS_WORKFLOW, ref: 'main', inputs: { repo: `${owner}/${name}` } };
+    out.dispatch = dispatch('shims', { process: P, repo: `${owner}/${name}` });
     out.then = `a session regenerates no product's shims: a second repository costs it its standing list, and the classifier refused the attach (PERMISSIONS §10.7; #11, #12). Dispatch the workflow above: on GitHub's runner, with the process's token, it checks the product out, writes its shims (proc shims), pushes them to its branch ${SHIMS_BRANCH}, opens the pull request to its main and merges it; the run's log is the proof (its last lines name the merged pull request, or "already current").`;
     return out;
   }
@@ -2434,58 +2424,8 @@ function shimsTranche(R, procName, o, out) {
 // HTTPS_PROXY only when NODE_USE_ENV_PROXY is set at its start (measured #7, 29 Oct: without it `GET /user` answered 403
 // and a hosting provider's token check failed; with it 200 as the Claude app, and the check passed), so main() restarts a network
 // command with it set. No credential is named or read here: a hand command naming one is refused by the classifier.
-export const GRANTS_FILE = 'proc-grants.json', GRANTS_PRODUCT = 'build/grants.json', GRANTS_FRESH_H = 24, EXPIRY_WARN_D = 14;
 const NETWORK = new Set(['repo setup', 'repo rename', 'repo transfer', 'grants check', 'process start', 'process status', 'status']);
-export async function grantsCheck(o) {
-  const R = repo(o.product), f = o.fetch || globalThis.fetch, rows = [], now_ = o.now ? new Date(o.now) : new Date();
-  const row = (grant, ok, detail) => rows.push({ grant, ok, detail });
-  const get = async (url) => { try { const r = await f(url, { headers: { Accept: 'application/json' } }); let json = null; try { json = JSON.parse(await r.text()); } catch { /* not json */ } return { status: r.status, headers: r.headers, json }; } catch (e) { return { status: 0, error: e.cause?.code || e.message }; } };
-  // the standing list in the repository's settings (§2.4, §6): every allow and deny rule present
-  const standing = JSON.parse(readFileSync(join(PROCESS, 'permissions.json'), 'utf8'));
-  let s = null; try { s = JSON.parse(R.read('.claude/settings.json') || 'null'); } catch { /* unreadable */ }
-  const allow = new Set(s?.permissions?.allow || []), deny = new Set(s?.permissions?.deny || []);
-  const missing = [...standing.allow.filter((x) => !allow.has(x)), ...(standing.deny || []).filter((x) => !deny.has(x))];
-  row('standing list', !missing.length, missing.length ? `${missing.length} rule(s) of permissions.json missing from .claude/settings.json (${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ', …' : ''}): \`proc shims\` writes them` : 'every allow and deny rule of permissions.json present');
-  // the push to the role's own branch, dry (§2.6)
-  const own = o.branch || readRole(R.root)?.branch || TRANCHE;
-  const p = spawnSync('git', ['-C', R.root, 'push', '-q', '--dry-run', 'origin', `HEAD:refs/heads/${own}`], { encoding: 'utf8' });
-  row(`push to ${own}`, p.status === 0, p.status === 0 ? 'git push --dry-run passes' : (p.stderr || p.stdout || '').trim().split('\n').pop());
-  // GitHub through the proxy: the identity, and the token's kind and expiry (the app's token renews itself; a token of the process's does not)
-  const gh = await get('https://api.github.com/user');
-  if (gh.status !== 200) row('GitHub API', false, `GET /user answered ${gh.status || gh.error}: no credential reaches api.github.com`);
-  else {
-    const app = gh.headers.get('x-oauth-client-id'), exp = gh.headers.get('github-authentication-token-expiration');
-    const days = exp && !app ? (new Date(exp.replace(' UTC', 'Z').replace(' ', 'T')) - now_) / 864e5 : null;
-    row('GitHub API', days == null || days > EXPIRY_WARN_D, `${gh.json?.login} by ${app ? `the Claude app's token (client ${app})` : 'a token of its own'}${days == null ? '' : `, expiring ${exp} (${Math.floor(days)} days): renew before ${EXPIRY_WARN_D} days remain`}`);
-  }
-  // the product's own services and addresses (PRODUCT-SUPPLIES: `build/grants.json`; the process names none of them):
-  // each service answers through the proxy, active by the field it names, and not expiring within the warning; each
-  // address the exercise stage reaches (a development release) answers; `--urls` adds addresses for this run
-  let pg = {}; try { pg = JSON.parse(R.read(GRANTS_PRODUCT) || '{}'); } catch (e) { row(GRANTS_PRODUCT, false, `unreadable: ${e.message}`); }
-  const at = (obj, path) => String(path || '').split('.').filter(Boolean).reduce((v, k) => v?.[k], obj);
-  for (const sv of pg.services || []) {
-    const r = await get(sv.url), [k, want] = String(sv.active || '').split('='), got = k ? at(r.json, k) : undefined;
-    const exp = sv.expires ? at(r.json, sv.expires) : null, days = exp ? (new Date(exp) - now_) / 864e5 : null;
-    const ok = r.status === 200 && (!k || String(got) === want) && (days == null || days > EXPIRY_WARN_D);
-    row(sv.name, ok, r.status === 200 ? `${k ? `${k} ${got}` : 'answers'}${days == null ? '' : `, expiring ${exp}${days > EXPIRY_WARN_D ? '' : `: renew before ${EXPIRY_WARN_D} days remain`}`}` : `answered ${r.status || r.error}`);
-  }
-  // each variable the product's list names is present in the session's environment, judged by name only: no value is read or shown
-  const env = o.env || process.env;
-  for (const v of pg.variables || []) row(`variable ${v}`, Object.prototype.hasOwnProperty.call(env, v) && env[v] !== '', Object.prototype.hasOwnProperty.call(env, v) ? 'present' : 'not set in this environment');
-  for (const u of [...(pg.urls || []), ...String(o.urls || '').split(',').filter(Boolean)]) { const r = await get(u); row(`reach ${u}`, r.status > 0 && r.status < 500, r.status ? `answered ${r.status}` : r.error); }
-  const ok = rows.every((r) => r.ok);
-  writeFileSync(join(R.root, '.git', GRANTS_FILE), JSON.stringify({ at: now_.toISOString(), ok, rows }));
-  return { ok, rows };
-}
-// Why a tranche may not open, or null: the grants proven held by `proc grants check` in the last day (§10.3).
-export function grantsHeld(R, now_ = new Date()) {
-  const fl = join(R.root, '.git', GRANTS_FILE);
-  if (!existsSync(fl)) return 'the grants are not proven held: run `proc grants check` (PERMISSIONS §10.3)';
-  const g = JSON.parse(readFileSync(fl, 'utf8'));
-  if (!g.ok) return `a grant is not held: ${g.rows.filter((r) => !r.ok).map((r) => `${r.grant}: ${r.detail}`).join('; ')} (PERMISSIONS §10.3; GRANTS.md says who gives it)`;
-  if (now_ - new Date(g.at) > GRANTS_FRESH_H * 36e5) return `the grants were proven at ${g.at}, over ${GRANTS_FRESH_H} hours ago: run \`proc grants check\` again`;
-  return null;
-}
+export const grantsCheck = (o) => { const R = repo(o.product); return checkGrants({ ...o, root: R.root, dir: R.dir, branch: o.branch || readRole(R.root)?.branch || TRANCHE }); };
 
 // ---- onboarding (ONBOARDING.md): a project brought under the process, new or existing ----
 // Bob, 29 Oct: a capability that converts an existing project, or starts a new one as soon as its vision, audiences and

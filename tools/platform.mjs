@@ -1,0 +1,382 @@
+// platform (layer 1; build/requirements/platform.md, REQUIREMENTS.md §2): what the hosting platform (Claude Code cloud
+// sessions, GitHub through the agent proxy, GitHub's runner) does and refuses, measured and dated; the acts the process
+// depends on; the version check at a session's start; the runner workflows' dispatch; the grants check. Uses no module.
+// The tables are data here; `tools/platform.md` is their rendering (`render()`), checked equal by the module's test.
+// It holds no credential and prints none (R11): a credential is named, never read but by the runner's own step.
+import { execFileSync, spawnSync } from 'node:child_process';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+export const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// A refusal: exit 1, naming what is missing, nothing changed. Every module refuses with this one class.
+export class Refused extends Error {}
+const refuse = (msg) => { throw new Refused(msg); };
+
+// ---- R1, R2, R4, R5, R12: the constraints, each a measured fact with its last confirmed date, its count, its evidence
+// and the workaround the process uses. The act table `tools/acts.md` (retired) is folded in here: its refusals and limits
+// are rows; the acts that pass are `ACTS` below. Every id of the act table still names a row, exactly, by its call name or
+// by `ALIASES`, so a refusal recorded against it (`proc refused --act`, `isKnown`) still reads as predicted. `classifier: true` marks an act the auto-mode classifier
+// decides case by case: the process depends on none of them (PLT-2), so none is an act and none is printed as owed.
+const C = (id, fact, date, count, evidence, workaround, extra = {}) => ({ id, fact, date, count, evidence, workaround, ...extra });
+export const CONSTRAINTS = [
+  C('git push(delete state branch)', 'The agent proxy refuses every remote ref delete from a session (`unexpected disconnect`; the branch kept).', '2026-10-29', 3, 'the toy #5; BOB #1 R-BOB-1-2 (a job branch); the dry run N1, row X3 (acts.md)', 'the product\'s `prune.yml` deletes on the dispatch `proc merged` or `proc epoch close` prints (REP 4)'),
+  C('git push(delete job branch)', 'A merged job branch cannot be deleted from a session: the same proxy refusal of a ref delete.', '2026-10-29', 2, 'BOB #1 R-BOB-1-2; N1 row X1, refused at every `merged` (acts.md)', 'the printed `prune.yml` dispatch; a branch left behind is built over by the next opening commit'),
+  C('settings writes', 'The agent proxy refuses repository-settings writes (rulesets, rename, transfer): `403 Repository settings writes are not permitted through this proxy`.', '2026-10-29', 1, '#5 (PERMISSIONS §9)', 'the runner workflows (`dispatch`), with the owner\'s token as an Actions secret'),
+  C('POST /user/repos', 'The agent proxy binds every GitHub API call to the session\'s configured repositories: `POST /user/repos` 403, whatever token.', '2026-10-29', 1, '#8, inside `proc repo setup` (PERMISSIONS §9)', '`repo-setup.yml` on the runner'),
+  C('create_repository(GitHub MCP)', 'The Claude app cannot create a repository: the organization endpoint 404, the personal account GitHub\'s 403 `Resource not accessible by integration`.', '2026-10-29', 2, '#4, #8 (acts.md)', '`repo-setup.yml` on the runner'),
+  C('transfer(process token)', 'GitHub refuses a repository transfer to a fine-grained token: `403 Resource not accessible by personal access token`.', '2026-10-29', 1, 'run 40946437108 (#10)', 'the owner\'s hand act in GitHub\'s page (SETUP-STEPS, the move); `proc repo transfer` reads the result back'),
+  C('token per owner', 'A fine-grained token reaches only its owner\'s repositories: `Permission to … denied`.', '2026-10-29', 1, 'run 40958955811 (#12)', 'one secret per owner account, picked by the target\'s owner (`ownerSecret`; PERMISSIONS §9.9)'),
+  C('dispatch from a branch', 'GitHub dispatches only a workflow on the default branch: 404 while the file was on a branch alone.', '2026-10-29', 1, '#8 (404 from the lane\'s branch; 204 from `main` after PR #39)', 'every runner workflow is merged to `main` before its first dispatch; `dispatch` names `ref: main`'),
+  C('required check on tranche', 'A ruleset\'s required check refuses every direct push to the branch, its creation included: `Required status check "gate" is expected`.', '2026-10-29', 1, '#5 on the toy (SETUP-STEPS)', 'no required check and no pull-request rule on `tranche`'),
+  C('empty pull request', 'GitHub refuses a pull request with no commit between base and head.', '2026-10-29', 1, 'BOB #1 R-BOB-1-1 (JOB-LIFE §1)', 'each job branch opens one empty commit past the tranche tip'),
+  C('review of one\'s own pull request', 'GitHub refuses REQUEST_CHANGES and APPROVE on one\'s own pull request, and every session is the owner\'s one user.', '2026-10-29', 1, 'BOB #1 R-BOB-1-3', 'a COMMENT review carries the verdict; the approval `proc merge` reads is on the state branch'),
+  C('second repository', 'With a second repository attached, a session does not load the repository\'s `.claude/settings.json`, and the classifier judges every act alone.', '2026-10-29', 2, '#7 (the allow rule for `proc` not applied); #11 (PERMISSIONS §10.7)', 'one repository per session; the process is a read-only clone (PLT-8)'),
+  C('add_repo(a product, push access)', 'The classifier refused the attach of a product repository ("Access Added As A Means").', '2026-10-29', 2, '#11; #12, as the session\'s first attach', 'a product\'s shims are regenerated on the runner (`dispatch(\'shims\')`)', { classifier: true }),
+  C('same-named repositories', 'Two repositories of one name cannot share a session (`add_repo` of the new name refused in the session holding the old).', '2026-10-29', 1, '#10, after the move to `neobobkrause`', 'the successor session is started on the new name'),
+  C('moved API path', 'After a move, the old API path answers a 301 that the proxy refuses; git follows both names.', '2026-10-29', 1, '#10', 'every client sets its remote to the new name'),
+  C('archive_session(child)', '`archive_session` passes or fails for the same kind of session minutes apart ("Interfere With Workloads", "External System Writes").', '2026-10-30', 9, 'passed: #4 (own child), BOB #2 (STATS #1), #16 by #17, #18 and #17 by #19 at 16:4xZ; refused: #3, #4 (parent), #6, #18 at 14:35Z, #19 at 16:15Z (two), BOB #339 (issues 95, 107, 117; acts.md)', 'no step requires it: an idle session costs nothing (GRANTS §1); a retired session is recorded `--unmeasured` or `--refused`', { classifier: true, result: { cache_read_tokens: null, cache_write_tokens: null, input_tokens: null, output_tokens: null }, resultFrom: 'the usage a passed archive answers, which `proc job archived`, `lane archived`, `bob archived` and `process archived` read by these four names (tools/proc.mjs)' }),
+  C('update_trigger(predecessor backstop off)', '`update_trigger` passes or fails case by case.', '2026-10-30', 3, 'passed 14:35Z (#18); refused 16:15Z (#19) and 17:1xZ (REQUIREMENTS PLT-2)', 'no step requires it: a scheduled task is a convenience, the record is read at every wake (PLT-7)', { classifier: true }),
+  C('delete_trigger', 'Deleting a scheduled task deletes every session it started; whether the classifier passes it is undecided.', '2026-10-30', 1, 'the tool\'s own description, read 30 Oct; never taken', 'never taken', { classifier: true }),
+  C('interrupt_session', '`interrupt_session` refused ("Interfere With Workloads").', '2026-10-29', 1, '#6, 14:23Z (acts.md)', 'never taken', { classifier: true }),
+  C('write(.claude/settings.json)', 'An edit of a settings file by the session it governs is refused as Self-Modification; at a seeding it passed.', '2026-10-29', 2, 'refused #7; passed N1 row X4 (406851a)', '`proc shims` writes it at a seeding or on the runner; no step requires a session to edit its own', { classifier: true }),
+  C('git reset --hard', 'The classifier refused `git reset --hard` on a clean checkout while `git merge --ff-only` to the same result passed.', '2026-10-29', 1, '#4 (PERMISSIONS §1)', '`merge --ff-only` or `checkout -B`; never a destructive verb'),
+  C('credential in a hand command', 'A hand command naming a credential is refused as "Credential Materialization".', '2026-10-29', 1, '#7 (PERMISSIONS §10.4)', 'credentials are read only inside the tool\'s own commands on the runner, by name'),
+  C('GitHub API credential', 'A session\'s GitHub API credential is the Claude app\'s token, injected by the proxy; a token set on the environment never reaches the API.', '2026-10-30', 3, '#7, #8 (`GET /user` with the app\'s client id); #16 (`civicsmith`)', 'the process\'s own token acts only on the runner'),
+  C('Node fetch and the proxy', 'Node\'s fetch uses HTTPS_PROXY only when NODE_USE_ENV_PROXY is set at its start; without it `GET /user` answered 403.', '2026-10-29', 1, '#7', '`proc` restarts a network command with NODE_USE_ENV_PROXY=1'),
+  C('background limit', 'A command running in a session is killed at 30 minutes.', '2026-10-30', 1, 'a job\'s gate killed at 30 minutes in-session and repeated (issue 113)', 'no step runs longer in a session; anything that can is a CI workflow (PLT-5)'),
+  C('session depth', 'A session\'s lineage is limited to depth 8 (`get_session` lineage).', '2026-10-30', 2, 'the lane reached depth 4 by its fourth self-spawn (issue 96); PLATFORM #1 read `{"depth":1,"limit":8}`, 30 Oct', 'sessions are started only at depth 0 or 1, so depth never passes 2 (PLT-6)'),
+  C('hooks after a resume', 'A skill\'s registered hooks are gone after a session resumes; hooks did not run when the project directory was not the repository.', '2026-10-30', 2, 'issue 111 (#18, `worker_epoch` 2); issue 63', 'the process depends on none for correctness (PLT-4)'),
+  C('get_session context usage', 'A session\'s context share cannot be read from `get_session` while `external_metadata.context_usage.used_tokens` reads 0: it read `{ max_tokens: 1000000, used_tokens: 0 }` for a session 47 minutes and some 60 tool calls after its start.', '2026-10-30', 1, 'the architecture session\'s `get_session` of itself at 21:11:45Z, in its transcript (BOB, to PLATFORM #1)', 'the share is unknown until a reading is non-zero, and a session says so rather than estimating; a refresh printed on the share then never fires'),
+  C('create_trigger(scheduled task)', 'A scheduled task may fire late, twice, or into a session that is gone: the lane predecessor\'s backstop fired at 16:39Z on 30 Oct into an archived session and failed.', '2026-10-30', 1, '`list_triggers`, 30 Oct (REQUIREMENTS PLT-7; PROTOCOL §6)', 'no step depends on a scheduled task: a wake it gives is a convenience, and the record is read at every wake (PLT-7)'),
+  C('fire_trigger', 'Firing a stored task by `fire_trigger` has not been seen: the task it would fire (the lane successor, issue 96) did not yet exist on 30 Oct.', '2026-10-30', 0, 'lane-neoprocess/HANDOFF.md, item 3 (30 Oct, 16:1xZ)', 'the successor is started by `create_session` from a parent at depth 0 or 1 (PLT-6); no step depends on `fire_trigger`'),
+  C('enable_pr_auto_merge', 'Auto-merge of a pull request has never been taken: "Allow auto-merge" is off on the process\'s repositories and stays off.', '2026-10-30', 0, 'never seen; SETUP-STEPS (the repository as it exists); JOB-LIFE §12', 'every merge is the printed `merge_pull_request` of `proc merge`, on a green gate'),
+  C('scheduled task into an archived session', 'A scheduled task fired into an archived session and failed.', '2026-10-30', 1, '`list_triggers`, 16:39Z (REQUIREMENTS PLT-7)', 'no step depends on a scheduled task (PLT-7)'),
+  C('auto mode pauses', 'Auto mode pauses after 3 consecutive or 20 total blocks.', '2026-10-29', 1, 'Claude Code documentation, permission-modes, read 29 Oct (PERMISSIONS §8.4)', 'no act the classifier judges is on any step\'s route'),
+];
+
+// ---- R3: the acts the process depends on, each with its measured pass count and the role that takes it. `passes`
+// counts uses seen to pass, from the evidence named; PLT-3 asks for twenty, and a count below is shown as such. ----
+const A = (id, role, route, passes, date, evidence) => ({ id, role, route, passes, date, evidence });
+export const ACTS = [
+  A('create_session', 'a parent at depth 0 or 1: ROOT starts BOB, BOB starts jobs and lanes', 'the call `proc layer start`, `job route`, `lane open` or `root bob` printed, unchanged', 24, '2026-10-30', '16 job and 7 architecture sessions created on 30 Oct without a refusal (REQUIREMENTS PLT-3); PLATFORM #1 created by BOB at depth 1 (`get_session`)'),
+  A('send_message', 'a job or lane to BOB; BOB to a job, lane or ROOT', 'the address `proc addr --bob` prints, or the call `proc` printed, with the record pushed', 6, '2026-10-30', 'every send of 30 Oct answered `delivered`, not counted (REQUIREMENTS PLT-3); counted: PLATFORM #1\'s six sends to BOB, each `delivered`'),
+  A('get_session', 'every role, of itself or a session it started', 'by hand, read only', 1, '2026-10-30', 'PLATFORM #1, 30 Oct; read at every lane refresh (lane-neoprocess/HANDOFF.md), not counted'),
+  A('list_events', 'every role, of a session it started or itself', 'by hand, read only', 1, '2026-10-30', 'PLATFORM #1, of itself, 30 Oct'),
+  A('send_later(own backstop)', 'BOB and the neoProcess lane, to themselves', 'the call `proc process status` printed, or by hand to itself', 2, '2026-10-30', '#4, 29 Oct; the lane\'s backstop, 30 Oct #13 (acts.md)'),
+  A('create_pull_request', 'BOB (a job\'s draft), the lane', 'the call `proc layer start` or `job reopen` printed', 89, '2026-10-30', '89 pull requests merged on neobobkrause/neoprocess, read by PLATFORM #1 (GitHub search `is:merged`, 30 Oct)'),
+  A('update_pull_request', 'a job (ready), BOB', 'the call `proc job complete` or `proc merged` printed', 4, '2026-10-29', 'N1 row X1 (PRs #7, #8, #9, #11)'),
+  A('update_pull_request_branch', 'BOB', 'the call `proc merge` printed', 1, '2026-10-29', 'N1 row X1 (PR #7 b5a4d66 → 27005e7)'),
+  A('add_issue_comment', 'a job (its report), the lane (an issue\'s mark)', 'the call `proc job complete`, `proc issue ack` or `issue close` printed', 6, '2026-10-30', 'N1 row X1; issues 61, 62 (#13) and 84 (#16) acknowledged and closed (acts.md)'),
+  A('pull_request_review_write(COMMENT)', 'BOB', 'the call `proc review result` printed', 1, '2026-10-29', 'N1 (acts.md)'),
+  A('merge_pull_request', 'BOB (a job\'s PR, the close PR), the lane', 'the call `proc merge` printed, or the close once the plan reads CLOSING', 89, '2026-10-30', '89 pull requests merged on neobobkrause/neoprocess (as above); Civicsmith\'s 55, 57, 58, 59 by the printed calls (REQUIREMENTS PLT-3)'),
+  A('subscribe_pr_activity', 'BOB, of a job\'s PR', 'the call `proc layer start` printed', 1, '2026-10-29', 'N1 (JOB-LIFE §1)'),
+  A('issue_write', 'every role (a process issue), the lane (a close)', 'the call `proc issue` or `proc issue close` printed, unchanged', 4, '2026-10-30', 'issues 61, 62 (#13), 84 (#16) filed; 84 closed (acts.md)'),
+  A('actions_run_trigger', 'BOB, the lane', 'the dispatch `dispatch` (or `proc merged`, `epoch close`) printed, of a workflow on `main`', 44, '2026-10-30', '44 workflow_dispatch runs on neobobkrause/neoprocess, read by PLATFORM #1 (`list_workflow_runs`, 30 Oct), each one a dispatch accepted'),
+  A('git push(own branch)', 'every role, to its own branch only', 'the session\'s `git push` and `proc` commands', 149, '2026-10-30', '149 branches on neobobkrause/neoprocess\'s remote, each made by a push (`git ls-remote --heads`, PLATFORM #1, 30 Oct)'),
+  A('git push(state branch)', 'every role', '`proc` by plumbing, never by hand', 1, '2026-10-30', 'N1 row X1; PLATFORM #1\'s state line (7cbc06c)'),
+  A('list_triggers', 'the neoProcess lane, of its own account\'s tasks', 'by hand, read only', 2, '2026-10-30', '#18 at 14:51Z (the record stamped, DRYRUN §23); the 16:39Z firing read (REQUIREMENTS PLT-7)'),
+  A('list_issues', 'the neoProcess lane, of the process repository', '`proc process start` and `process status` read the issues by `GET /repos/<owner>/<repo>/issues` through the proxy; the GitHub tool by hand only when that read fails', 1, '2026-10-30', '#13: `GET /repos/neobobkrause/neoprocess/issues` 200 through the proxy, the two open issues listed (acts.md `list issues`)'),
+  A('claude -p(headless session)', 'the neoProcess lane (a headless test session); the evidence check', '`claude -p` in a clean environment, under the session\'s own subscription through the proxy (no key)', 49, '2026-10-30', '#13: one headless test session answered; #14: 48 headless writers, the check live in each (DRYRUN §9; acts.md)'),
+  A('git merge --ff-only', 'every role, of a stale local branch', 'the tool and the session (`merge --ff-only`, or `checkout -B`), never `reset --hard`', 1, '2026-10-29', '#4: passed where `git reset --hard` to the same result was refused (acts.md; PERMISSIONS §1)'),
+  A('Agent(background worker)', 'BOB, a lane', '`proc ask dispatch`, `review decide`: `run_in_background: true`', 1, '2026-10-29', '#2 (acts.md)'),
+  A('TaskStop(worker)', 'BOB, of its own worker', 'by hand, to re-dispatch from the brief', 1, '2026-10-29', 'N1 row P10: BOB #1 stopped A6\'s worker and re-dispatched it (acts.md)'),
+  A('create_repository(process token)', 'BOB, a lane', '`proc repo setup` on GitHub\'s runner by `repo-setup.yml` (`dispatch(\'setup\')`), the owner\'s token as an Actions secret', 1, '2026-10-29', 'run 40933605400 created `believeinoakland/neoprocess-x9` in 7 s (#9, X9 PROVEN; acts.md)'),
+  A('rulesets(process token)', 'BOB, a lane', 'as above; the read-back `GET /repos/…/rulesets` from a session on an attached repository is the proof', 2, '2026-10-29', 'run 40933605400 (#9, the toy x9); run 40971833961 (`civicsmith/civicsmith`, `NEOPROCESS_GITHUB_TOKEN_CIVICSMITH`), both rulesets read back active (acts.md)'),
+  A('rename(process token)', 'a lane', '`proc repo rename` on the runner by `repo-rename.yml` (`dispatch(\'rename\')`)', 3, '2026-10-30', 'run 40941547340 renamed `civicos-process` to `neoprocess` (#9); runs 40970557868 (#12) and 41049696637 (#16) read it already named (acts.md)'),
+  A('shims(process token)', 'a lane', '`proc repo shims` on the runner by `repo-shims.yml` (`dispatch(\'shims\')`), the product\'s owner\'s token', 2, '2026-10-30', 'run 40992502528 (civicsmith/civicsmith#51 merged) and run 41015721303 (#56 merged), both 30 Oct (acts.md)'),
+  A('secret per owner', 'a lane (the runner workflows\' first step)', 'each runner workflow picks the secret by the target\'s owner, as `ownerSecret` does', 2, '2026-10-29', 'run 40970557868 chose `NEOPROCESS_GITHUB_TOKEN` for `neobobkrause/neoprocess`; run 40970561578 chose `NEOPROCESS_GITHUB_TOKEN_CIVICSMITH` (#12; acts.md)'),
+  A('push_files', 'the neoProcess lane, to a product\'s branch `shims`', 'by hand, superseded by the runner (`shims(process token)`)', 1, '2026-10-29', '#11: believeinoakland/neoprocess-x9#3 merged (`fcdece5`) (acts.md)'),
+  A('a service\'s API(development changes)', 'BOB, a job of the product\'s deploy module', 'the product\'s own procedures, with the token the proxy injects for the service\'s host (its grant list)', 2, '2026-10-29', '#6: a service token active and seeing the development account; #8: it read its own scope through the proxy (X10 PROVEN; acts.md)'),
+  A('grants check(HTTP through the proxy)', 'every role', '`proc grants check`, restarted with NODE_USE_ENV_PROXY=1', 2, '2026-10-30', '#7: `GET /user` 200 as the Claude app and a service token active; #16: green as `civicsmith` (acts.md)'),
+  A('Skill(neoprocess)', 'every session, at its start', 'the start prompt\'s "Invoke the skill neoprocess with the argument <role>"', 1, '2026-10-30', 'PLATFORM #1, at its start (the reading printed whole); every session of this tranche is started by a prompt that invokes it, not counted'),
+  A('git fetch(process)', 'every role of a product', 'anonymous read of the public process repository; `proc status` hourly', 1, '2026-10-30', '#15 (acts.md); PLATFORM #1\'s pull at its start'),
+];
+
+// R12: the platform's whole tool-name list, so a call name anywhere in another module's text is seen whether or not a
+// row exists: every GitHub tool (`mcp__github__<name>`) and session tool (`mcp__claude-code-remote__<name>`) a cloud
+// session is offered (its tool list, read by PLATFORM #1 on 30 Oct), the session's own tools the process uses (a background
+// worker and its stop), and the git and headless-session acts.
+export const TOOLS = {
+  github: ['actions_get', 'actions_list', 'actions_run_trigger', 'add_comment_to_pending_review', 'add_issue_comment', 'add_reply_to_pull_request_comment', 'create_branch', 'create_or_update_file', 'create_pull_request', 'create_repository', 'delete_file', 'disable_pr_auto_merge', 'enable_pr_auto_merge', 'fork_repository', 'get_check_run', 'get_commit', 'get_file_contents', 'get_job_logs', 'get_label', 'get_latest_release', 'get_me', 'get_release_by_tag', 'get_tag', 'get_team_members', 'get_teams', 'issue_read', 'issue_write', 'list_branches', 'list_commits', 'list_issue_fields', 'list_issue_types', 'list_issues', 'list_pull_requests', 'list_releases', 'list_repository_collaborators', 'list_tags', 'merge_pull_request', 'pull_request_read', 'pull_request_review_write', 'push_files', 'request_copilot_review', 'resolve_review_thread', 'run_secret_scanning', 'search_code', 'search_commits', 'search_issues', 'search_pull_requests', 'search_repositories', 'search_users', 'sub_issue_write', 'unresolve_review_thread', 'update_issue_comment', 'update_pull_request', 'update_pull_request_branch'],
+  session: ['add_repo', 'archive_session', 'confirm_repository_trust', 'create_session', 'create_trigger', 'delete_trigger', 'fire_trigger', 'get_event', 'get_session', 'get_trigger', 'interrupt_session', 'list_computer_folders', 'list_environments', 'list_events', 'list_repos', 'list_sessions', 'list_triggers', 'read_documentation', 'register_repo_root', 'request_computer_folder', 'send_later', 'send_message', 'set_session_tags', 'set_session_title', 'subscribe_pr_activity', 'unarchive_session', 'unsubscribe_pr_activity', 'unwatch_url', 'update_trigger', 'watch_url'],
+  code: ['Agent', 'TaskStop', 'Skill'],
+  acts: ['git push', 'git fetch', 'git merge --ff-only', 'claude -p'],
+};
+export const toolNames = () => [...TOOLS.github, ...TOOLS.session, ...TOOLS.code, ...TOOLS.acts];
+// Each platform call name `text` holds, however printed (a call object, prose, a name a check matches).
+export function callsIn(text) {
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+  const plain = String(text).replace(/mcp__(?:github|claude-code-remote)__/g, ' ');   // a full tool name is its bare name
+  return toolNames().filter((n) => new RegExp(`(?<![\\w-])${esc(n)}(?![\\w])`).test(plain));
+}
+// R12, R4: what is wrong with the platform calls `text` prints: a call printed as `tool: '<name>'` that is no platform
+// tool, a platform call with no row, a classifier-judged call not named in `inherited` (the calls other modules still
+// print until their entries remove them). Empty when every call stands on a row. Called after the rows are defined.
+export function callProblems(text, inherited = []) {
+  const names = toolNames(), out = [];
+  for (const m of String(text).matchAll(/tool: '(?:mcp__[a-z0-9-]+__)?([a-z_]+)'/g)) if (!names.includes(m[1])) out.push(`${m[1]}: printed as a call, and not a platform tool`);
+  for (const c of callsIn(text)) {
+    const row = rowFor(c);
+    if (!row) out.push(`${c}: printed, and no row`);
+    else if (row.classifier && !inherited.includes(c)) out.push(`${c}: printed, and decided by the classifier case by case (R4)`);
+  }
+  return out;
+}
+
+const FIELDS_C = ['id', 'fact', 'date', 'count', 'evidence', 'workaround'];
+// R3 (K12; REC-5): the fields each act's result carries when it has run, what a record of the act may be written from:
+// a field's fixed value where the act always answers it, null where any value is the record's (an id, a number). An act
+// whose result no step reads carries none, and says so. `resultFrom` is where the fields were seen.
+const RESULTS = {
+  create_session: [{ id: null }, 'the new session\'s id, which `proc job started`, `lane` and `root bob` record; read back by `get_session` (PLATFORM #1\'s own, 30 Oct)'],
+  send_message: [{ status: 'delivered' }, 'each of PLATFORM #1\'s six sends on 30 Oct answered `{ status: delivered }`'],
+  get_session: [{ id: null, session_status: null, external_metadata: null }, 'PLATFORM #1\'s `get_session` of itself, 30 Oct'],
+  list_events: [{ first_id: null, last_id: null, has_more: null }, 'PLATFORM #1\'s `list_events` of itself, 30 Oct'],
+  'send_later(own backstop)': [{ trigger_id: null }, 'the tool\'s description: the returned trigger_id cancels it before it fires'],
+  create_pull_request: [{ number: null }, 'the pull request\'s number, which `proc job pr --number` records (JOB-LIFE §1)'],
+  update_pull_request: [{ id: null, url: null }, 'PLATFORM #1 marking PR #127 ready, twice, 30 Oct'],
+  update_pull_request_branch: [{}, 'none read: the gate\'s next check event carries the new head (JOB-LIFE §6)'],
+  add_issue_comment: [{ id: null, url: null }, 'PLATFORM #1\'s two reports on PR #127, 30 Oct; `proc job posted --comment <id>` records the id'],
+  'pull_request_review_write(COMMENT)': [{}, 'none read: the approval `proc merge` reads is the job\'s Review line on the state branch'],
+  merge_pull_request: [{ merged: true }, 'the merge answers `merged: true` with its sha, which `proc merged --sha` records (JOB-LIFE §6)'],
+  subscribe_pr_activity: [{}, 'none read: the subscription\'s events are what follow'],
+  issue_write: [{ number: null }, 'the issue\'s number, which `proc issue ack` and `issue close` take'],
+  actions_run_trigger: [{}, 'none: the dispatch answers 204, "Workflow run has been queued", with no run id (29 Oct #8); the run id is the `id` of `list_workflow_runs` (read by PLATFORM #1, 30 Oct)'],
+  'git push(own branch)': [{}, 'none: the exit status; the pushed commit is the session\'s own HEAD'],
+  'git push(state branch)': [{}, 'none: the exit status; `proc` prints the commit it wrote'],
+  list_triggers: [{}, 'none read by a step (PLT-7)'],
+  'git fetch(process)': [{}, 'none: the exit status'],
+  list_issues: [{ number: null, title: null }, 'each issue\'s number and title, which `proc process status` lists (#13)'],
+  'git merge --ff-only': [{}, 'none: the exit status'],
+  'Agent(background worker)': [{}, 'its result file and its `DONE` line, which `proc` records (SESSIONS §4)'],
+  'TaskStop(worker)': [{}, 'none read'],
+  'create_repository(process token)': [{}, 'none in a session: the run\'s log, and `proc repo setup` again reads the repository back'],
+  'rulesets(process token)': [{}, 'none in a session: `GET /repos/…/rulesets` reads each `name` and `enforcement` back'],
+  'rename(process token)': [{}, 'none in a session: `proc repo rename` again reads the repository back under its new name'],
+  'shims(process token)': [{}, 'none in a session: the run\'s log names the merged pull request, or "already current"'],
+  'secret per owner': [{}, 'none: the run\'s log names the secret it chose'],
+  push_files: [{}, 'none read: the pull request that follows carries the commit'],
+  'a service\'s API(development changes)': [{}, 'what the product\'s procedure reads, named in its grant list'],
+  'grants check(HTTP through the proxy)': [{}, 'the rows `grantsCheck` writes to `.git/proc-grants.json`'],
+  'Skill(neoprocess)': [{}, 'its instruction to run `proc reading --role <role>`, whose output the session reads whole'],
+  'claude -p(headless session)': [{}, 'none but its printed answer: the exit status and the text it writes'],
+};
+for (const a of ACTS) [a.result, a.resultFrom] = RESULTS[a.id] ?? [undefined, undefined];
+const FIELDS_A = ['id', 'role', 'route', 'passes', 'date', 'evidence', 'result', 'resultFrom'];
+// A row is well formed when each field is present, its date a day and its count a whole number (R2: no row without a date).
+export function rowProblems(row, fields = row.passes === undefined ? FIELDS_C : FIELDS_A) {
+  const p = fields.filter((f) => row[f] === undefined || row[f] === null || row[f] === '').map((f) => `${row.id ?? '?'}: no ${f}`);
+  if (row.date && (!/^\d{4}-\d{2}-\d{2}$/.test(row.date) || Number.isNaN(Date.parse(row.date)))) p.push(`${row.id}: date ${row.date} is not a day`);
+  for (const k of ['count', 'passes']) if (row[k] !== undefined && !(Number.isInteger(row[k]) && row[k] >= 0)) p.push(`${row.id}: ${k} ${row[k]} is not a count`);
+  if (row.result !== undefined && (typeof row.result !== 'object' || row.result === null || Array.isArray(row.result))) p.push(`${row.id}: result is not a set of fields`);
+  return p;
+}
+
+// R1, R2: the constraints; `olderThan` (a day) lists the rows not confirmed since, so a stale row is seen at each layer run.
+export function constraints({ olderThan } = {}) {
+  const rows = CONSTRAINTS.map((r) => ({ ...r }));
+  if (olderThan == null) return rows;
+  const t = Date.parse(olderThan); if (Number.isNaN(t)) refuse(`--older-than ${olderThan}: a day, YYYY-MM-DD`);
+  return rows.filter((r) => Date.parse(r.date) < t);
+}
+// R3, R4: the acts the process depends on; an act the classifier decides case by case is refused, never listed.
+export function acts({ id } = {}) {
+  if (id != null) {
+    const c = CONSTRAINTS.find((r) => r.classifier && (r.id === id || callName(r.id) === id));
+    if (c) refuse(`${id} is decided by the auto-mode classifier case by case (${c.evidence}): no step may depend on it (PLT-2); ${c.workaround}`);
+    const a = ACTS.find((r) => r.id === id) ?? refuse(`${id} is not an act the process depends on`);
+    return [{ ...a }];
+  }
+  return ACTS.map((r) => ({ ...r }));
+}
+// The retired act table's ids that name the tool's own commands, or an act by another name, each with the row it rests on.
+export const ALIASES = {
+  'git merge --ff-only / checkout -B': 'git merge --ff-only',
+  'rulesets(an owner\'s token)': 'rulesets(process token)',
+  'shims(an owner\'s token)': 'shims(process token)',
+  'list issues': 'list_issues',
+  'proc issue': 'git push(state branch)',
+  'tranche carry': 'git push(own branch)',
+  'proc issue reply': 'git push(own branch)',
+  'proc issue seen': 'git push(own branch)',
+  'proc job takein': 'git push(own branch)',
+  'proc bob release': 'send_message',
+};
+// Every id a refusal may name and be read as predicted (`proc refused --act`): an act, a constraint row, or an alias.
+export const knownIds = () => [...[...ACTS, ...CONSTRAINTS].map((r) => r.id), ...Object.keys(ALIASES)];
+// True when `id` names a row: exactly, by an alias, or by its call name (`create_session(job)` is `create_session`'s).
+export const isKnown = (id) => knownIds().includes(String(id)) || !!rowFor(callName(id));
+// R12: a row's call name is its id up to its parenthesis (`git push(own branch)` is `git push`); a printed call of another
+// module is matched to the first row of that name, acts before constraints.
+export const callName = (id) => String(id).split('(')[0].trim();
+export const rowFor = (call) => [...ACTS, ...CONSTRAINTS].find((r) => callName(r.id) === call) ?? null;
+
+// ---- R10: the measured limits other modules design around, and the route a remote ref deletion takes (the proxy
+// refuses it from a session; the prune workflow on the runner deletes it), as data ----
+export const limits = () => ({ backgroundMinutes: 30, depth: { limit: 8, allowed: 2 }, deleteRoute: { direct: 'refused', workflow: WORKFLOWS.prune, act: 'actions_run_trigger', ref: 'main' } });
+
+// ---- R6: the version check, once at a session's start against the pin (issue 101; MNT-3) ----
+export function processHead(dir = PROCESS) { try { return execFileSync('git', ['-C', dir, 'rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; } }
+// The answer in one line: OK when the pinned commit is in the checkout's history (the head, or behind it).
+export function versionCheck(pin, dir = PROCESS) {
+  if (!/^[0-9a-f]{7,40}$/.test(String(pin || ''))) refuse(`--pin <commit>: ${pin} is not a commit`);
+  const head = processHead(dir) ?? refuse(`${dir} is not a git checkout`);
+  const r = spawnSync('git', ['-C', dir, 'merge-base', '--is-ancestor', pin, 'HEAD'], { stdio: 'ignore' });
+  return r.status === 0 ? 'PROCESS OK' : `PROCESS STALE ${head.slice(0, 12)}`;
+}
+// The same check as the one command a new session's prompt carries, which the pre-role hooks of any copy pass (reads only,
+// no write they name): the checkout's head as found against the pin, in one line, the head named when it is stale.
+export const versionCommand = (sha, d = '/home/user/neoprocess') => `git -C ${d} rev-list HEAD | grep -q ^${sha.slice(0, 12)} && echo PROCESS OK || { printf 'PROCESS STALE '; git -C ${d} rev-parse HEAD | cut -c1-12; }`;
+
+// ---- R8, R9: the runner workflows' dispatch (PERMISSIONS §9) ----
+// The runner workflows: the four a session dispatches on the process repository (`dispatch`), and the prune workflow a
+// product's record dispatches on its own repository to delete a ref (`limits().deleteRoute`).
+export const WORKFLOWS = { setup: 'repo-setup.yml', rename: 'repo-rename.yml', transfer: 'repo-transfer.yml', shims: 'repo-shims.yml', prune: 'prune.yml' };
+const INPUTS = { setup: (a) => ({ private: String(!!a.private) }), rename: (a) => ({ name: a.name }), transfer: (a) => ({ to: a.to }), shims: () => ({}) };
+// The secret a runner workflow uses (PERMISSIONS §9.9; Bob, 29 Oct: one secret per owner): the process repository's own
+// owner keeps NEOPROCESS_GITHUB_TOKEN; any other owner's is NEOPROCESS_GITHUB_TOKEN_<its login, upper case, hyphens as
+// underscores>. The workflows' first step computes the same name.
+export function ownerSecret(owner, processOwner) {
+  if (!/^[\w-]+$/.test(String(owner || ''))) refuse(`not an account login: ${owner}`);
+  return owner.toLowerCase() === String(processOwner || '').toLowerCase() ? 'NEOPROCESS_GITHUB_TOKEN' : `NEOPROCESS_GITHUB_TOKEN_${owner.toUpperCase().replace(/-/g, '_')}`;
+}
+// The routes a product may have to the process (PLT-13, PLT-14): onboarding records one, this module reads it. None of
+// them writes the process repository.
+export const ROUTES = ['public', 'read grant', 'carried'];
+export function processRoute(value) { return ROUTES.includes(value) ? value : refuse(`a product's route to the process is one of ${ROUTES.join(', ')}, not ${value}`); }
+// The session's recorded role (`.git/proc-role.json` of the checkout at `root`, the git checkout holding the current
+// directory by default), or null when none is recorded or there is no checkout.
+export const ROLE_FILE = 'proc-role.json';
+// The process repository, `{ owner, repo }`: from the process clone's remote (any URL form ending in <owner>/<repo>), else
+// the repository the process lives in today.
+export const PROCESS_REPO = { owner: 'neobobkrause', repo: 'neoprocess' };
+export function processRepo(dir = PROCESS) {
+  try {
+    const url = execFileSync('git', ['-C', dir, 'remote', 'get-url', 'origin'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    const m = url.replace(/\.git$/, '').match(/([\w.-]+)\/([\w.-]+)$/);
+    if (m) return { owner: m[1], repo: m[2] };
+  } catch { /* no remote: the constant */ }
+  return { ...PROCESS_REPO };
+}
+export function recordedRole(root) {
+  let top = root;
+  if (!top) { try { top = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; } }
+  try { return JSON.parse(readFileSync(join(top, '.git', ROLE_FILE), 'utf8')); } catch { return null; }
+}
+// The `actions_run_trigger` call for a workflow of the process repository `process` ({ owner, repo }; `processRepo()` when the
+// caller names none), acting on the
+// repository `args.repo` with the secret of that repository's owner. A call whose target is the process repository itself
+// is refused to every role but the neoProcess lane (`process`): the role is `args.role`, else the one recorded in the
+// checkout at `args.root` (R9); with none recorded the call is refused too, since no product role may make it.
+export function dispatch(kind, args = {}) {
+  const wf = (INPUTS[kind] && WORKFLOWS[kind]) ?? refuse(`no runner workflow for ${kind}: one of ${Object.keys(INPUTS).join(', ')}`);
+  const m = String(args.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/) ?? refuse(`${kind}: --repo <owner/name>`);
+  const P = args.process?.owner ? args.process : processRepo();
+  if (`${P.owner}/${P.repo}`.toLowerCase() === m[0].toLowerCase()) {
+    const role = args.role ?? recordedRole(args.root)?.role ?? null;
+    if (role !== 'process') refuse(`${role ? `a ${role}` : 'a session with no recorded role'} never takes the process repository as a write target (PLT-13): only the neoProcess lane dispatches ${wf} on it`);
+  }
+  return { tool: 'actions_run_trigger', owner: P.owner, repo: P.repo, workflow_id: wf, ref: 'main', inputs: { repo: m[0], ...INPUTS[kind](args) }, secret: ownerSecret(m[1], P.owner) };
+}
+
+// ---- R7: the grants (PERMISSIONS §10; GRANTS.md), proven held before a tranche opens ----
+// The HTTP goes through the session's agent proxy, which injects each host's credential (`proc` restarts a network
+// command with NODE_USE_ENV_PROXY=1). No credential is named or read here.
+export const GRANTS_FILE = 'proc-grants.json', GRANTS_PRODUCT = 'build/grants.json', GRANTS_FRESH_H = 24, EXPIRY_WARN_D = 14;
+const readAt = (root, p) => { try { return readFileSync(join(root, p), 'utf8'); } catch { return null; } };
+// `o.root` the product's git checkout, `o.dir` its directory in it (the root by default); `o.branch` the role's own branch; `o.fetch`, `o.env`, `o.now` the fixture's.
+export async function grantsCheck(o) {
+  const root = o.root ?? refuse('grants check: the product\'s checkout'), branch = o.branch ?? refuse('grants check: the role\'s own branch');
+  const dir = o.dir ?? root, f = o.fetch || globalThis.fetch, rows = [], now_ = o.now ? new Date(o.now) : new Date();
+  const row = (grant, ok, detail) => rows.push({ grant, ok, detail });
+  const get = async (url) => { try { const r = await f(url, { headers: { Accept: 'application/json' } }); let json = null; try { json = JSON.parse(await r.text()); } catch { /* not json */ } return { status: r.status, headers: r.headers, json }; } catch (e) { return { status: 0, error: e.cause?.code || e.message }; } };
+  // the standing list in the repository's settings (PERMISSIONS §2.4, §6): every allow and deny rule present
+  const standing = JSON.parse(readFileSync(join(PROCESS, 'permissions.json'), 'utf8'));
+  let s = null; try { s = JSON.parse(readAt(dir, '.claude/settings.json') || 'null'); } catch { /* unreadable */ }
+  const allow = new Set(s?.permissions?.allow || []), deny = new Set(s?.permissions?.deny || []);
+  const missing = [...standing.allow.filter((x) => !allow.has(x)), ...(standing.deny || []).filter((x) => !deny.has(x))];
+  row('standing list', !missing.length, missing.length ? `${missing.length} rule(s) of permissions.json missing from .claude/settings.json (${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ', …' : ''}): \`proc shims\` writes them` : 'every allow and deny rule of permissions.json present');
+  // the push to the role's own branch, dry (PERMISSIONS §2.6)
+  const p = spawnSync('git', ['-C', root, 'push', '-q', '--dry-run', 'origin', `HEAD:refs/heads/${branch}`], { encoding: 'utf8' });
+  row(`push to ${branch}`, p.status === 0, p.status === 0 ? 'git push --dry-run passes' : (p.stderr || p.stdout || '').trim().split('\n').pop());
+  // the product's own list (PRODUCT-SUPPLIES: `build/grants.json`; the process names none of its services)
+  let pg = {}, bad = null; try { pg = JSON.parse(readAt(dir, GRANTS_PRODUCT) || '{}'); } catch (e) { bad = e.message; }
+  // GitHub through the proxy: the identity, which must be the expected one, and the token's kind and expiry (the app's
+  // token renews itself; a token of the process's does not). The expected identity is the one `build/grants.json` names
+  // (`identity`); only when it names none, the role record's; only when neither does, each "GitHub identity `<login>`" the product's manifest names.
+  const named = pg.identity || recordedRole(root)?.identity;
+  const expected = named ? [named] : [...(readAt(dir, 'build/manifest.md') || '').matchAll(/GitHub identity `([\w-]+)`/g)].map((x) => x[1]);
+  const gh = await get('https://api.github.com/user');
+  if (gh.status !== 200) row('GitHub API', false, `GET /user answered ${gh.status || gh.error}: no credential reaches api.github.com`);
+  else {
+    const app = gh.headers.get('x-oauth-client-id'), exp = gh.headers.get('github-authentication-token-expiration'), login = gh.json?.login;
+    const days = exp && !app ? (new Date(exp.replace(' UTC', 'Z').replace(' ', 'T')) - now_) / 864e5 : null;
+    const who = !expected.length ? `: no expected identity is named (\`identity\` in ${GRANTS_PRODUCT}, or "GitHub identity \`<login>\`" in build/manifest.md)`
+      : expected.some((x) => x.toLowerCase() === String(login).toLowerCase()) ? '' : `, not the expected ${expected.join(' or ')}`;
+    row('GitHub API', !who && (days == null || days > EXPIRY_WARN_D), `${login} by ${app ? `the Claude app's token (client ${app})` : 'a token of its own'}${who}${days == null ? '' : `, expiring ${exp} (${Math.floor(days)} days): renew before ${EXPIRY_WARN_D} days remain`}`);
+  }
+  // the product's own services, variables and addresses
+  if (bad) row(GRANTS_PRODUCT, false, `unreadable: ${bad}`);
+  const at = (obj, path) => String(path || '').split('.').filter(Boolean).reduce((v, k) => v?.[k], obj);
+  for (const sv of pg.services || []) {
+    const r = await get(sv.url), [k, want] = String(sv.active || '').split('='), got = k ? at(r.json, k) : undefined;
+    const exp = sv.expires ? at(r.json, sv.expires) : null, days = exp ? (new Date(exp) - now_) / 864e5 : null;
+    const ok = r.status === 200 && (!k || String(got) === want) && (days == null || days > EXPIRY_WARN_D);
+    row(sv.name, ok, r.status === 200 ? `${k ? `${k} ${got}` : 'answers'}${days == null ? '' : `, expiring ${exp}${days > EXPIRY_WARN_D ? '' : `: renew before ${EXPIRY_WARN_D} days remain`}`}` : `answered ${r.status || r.error}`);
+  }
+  // each variable judged by name only: no value is read or shown (R11)
+  const env = o.env || process.env;
+  for (const v of pg.variables || []) row(`variable ${v}`, Object.prototype.hasOwnProperty.call(env, v) && env[v] !== '', Object.prototype.hasOwnProperty.call(env, v) ? 'present' : 'not set in this environment');
+  for (const u of [...(pg.urls || []), ...String(o.urls || '').split(',').filter(Boolean)]) { const r = await get(u); row(`reach ${u}`, r.status > 0 && r.status < 500, r.status ? `answered ${r.status}` : r.error); }
+  const ok = rows.every((r) => r.ok);
+  writeFileSync(join(root, '.git', GRANTS_FILE), JSON.stringify({ at: now_.toISOString(), ok, rows }));
+  return { ok, rows };
+}
+// Why a tranche may not open, or null: the grants proven held in the last day (PERMISSIONS §10.3). `R` a checkout's root,
+// or a record with one.
+export function grantsHeld(R, now_ = new Date()) {
+  const fl = join(typeof R === 'string' ? R : R.root, '.git', GRANTS_FILE);
+  if (!existsSync(fl)) return 'the grants are not proven held: run `proc grants check` (PERMISSIONS §10.3)';
+  const g = JSON.parse(readFileSync(fl, 'utf8'));
+  if (!g.ok) return `a grant is not held: ${g.rows.filter((r) => !r.ok).map((r) => `${r.grant}: ${r.detail}`).join('; ')} (PERMISSIONS §10.3; GRANTS.md says who gives it)`;
+  if (now_ - new Date(g.at) > GRANTS_FRESH_H * 36e5) return `the grants were proven at ${g.at}, over ${GRANTS_FRESH_H} hours ago: run \`proc grants check\` again`;
+  return null;
+}
+
+// ---- the rendering, `tools/platform.md` ----
+const cell = (x) => String(x).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+const resultCell = (r) => `${Object.entries(r.result).map(([k, v]) => (v === null ? `\`${k}\`` : `\`${k}: ${v}\``)).join(', ') || 'none'} (${r.resultFrom})`;
+export function render() {
+  const L = limits();
+  return [
+    '# The platform: what it does and refuses (rendered from `tools/platform.mjs`; edit there)',
+    '',
+    `The hosting platform is Claude Code cloud sessions, GitHub through the agent proxy, and GitHub's runner. Each row is a measured fact with the day it was last confirmed, how often it was measured, its evidence and the workaround the process uses (PLT-1, PLT-12). A row not confirmed since a given day is listed by \`constraints({ olderThan })\`. This table replaces the act table \`tools/acts.md\`, which tried to predict the auto-mode classifier: an act it decides case by case is marked here and no step depends on it (PLT-2). Limits: a command in a session is killed at ${L.backgroundMinutes} minutes; session depth is limited to ${L.depth.limit}, and the process allows ${L.depth.allowed}; a remote ref deletion is ${L.deleteRoute.direct} from a session and taken by \`${L.deleteRoute.act}\` of \`${L.deleteRoute.workflow}\` on \`${L.deleteRoute.ref}\`.`,
+    '',
+    '## Constraints',
+    '',
+    '| id | fact | confirmed | count | evidence | workaround | classifier |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
+    ...CONSTRAINTS.map((r) => `| \`${cell(r.id)}\` | ${cell(r.fact)} | ${r.date} | ${r.count} | ${cell(r.evidence)} | ${cell(r.workaround)} | ${r.classifier ? 'case by case: never on a route' : ''} |`),
+    '',
+    '## Acts the process depends on',
+    '',
+    'PLT-3 asks for twenty passes; a row below twenty is counted from the evidence named and raised by each layer run.',
+    '',
+    '| id | role | route | passes | confirmed | evidence | result fields |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
+    ...ACTS.map((r) => `| \`${cell(r.id)}\` | ${cell(r.role)} | ${cell(r.route)} | ${r.passes}${r.passes < 20 ? ' (below 20)' : ''} | ${r.date} | ${cell(r.evidence)} | ${cell(resultCell(r))} |`),
+    '',
+  ].join('\n');
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const [cmd, arg] = process.argv.slice(2);
+  try {
+    if (cmd === 'render') writeFileSync(join(PROCESS, 'tools', 'platform.md'), render());
+    else if (cmd === 'version') console.log(versionCheck(arg));
+    else if (cmd === 'stale') console.log(JSON.stringify(constraints({ olderThan: arg }), null, 2));
+    else { console.error('usage: node tools/platform.mjs render | version <pin> | stale <YYYY-MM-DD>'); process.exitCode = 2; }
+  } catch (e) { if (e instanceof Refused) { console.error(`REFUSED: ${e.message}`); process.exitCode = 1; } else throw e; }
+}
