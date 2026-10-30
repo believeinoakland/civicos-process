@@ -1,6 +1,6 @@
 # The platform: what it does and refuses (rendered from `tools/platform.mjs`; edit there)
 
-The hosting platform is Claude Code cloud sessions, GitHub through the agent proxy, and GitHub's runner. Each row is a measured fact with the day it was last confirmed, how often it was measured, its evidence and the workaround the process uses (PLT-1, PLT-12). A row not confirmed since a given day is listed by `constraints({ olderThan })`. This table replaces the act table `tools/acts.md`, which tried to predict the auto-mode classifier: an act it decides case by case is marked here and no step depends on it (PLT-2). Limits: a command in a session is killed at 30 minutes; session depth is limited to 8, and the process allows 2.
+The hosting platform is Claude Code cloud sessions, GitHub through the agent proxy, and GitHub's runner. Each row is a measured fact with the day it was last confirmed, how often it was measured, its evidence and the workaround the process uses (PLT-1, PLT-12). A row not confirmed since a given day is listed by `constraints({ olderThan })`. This table replaces the act table `tools/acts.md`, which tried to predict the auto-mode classifier: an act it decides case by case is marked here and no step depends on it (PLT-2). Limits: a command in a session is killed at 30 minutes; session depth is limited to 8, and the process allows 2; a remote ref deletion is refused from a session and taken by `actions_run_trigger` of `prune.yml` on `main`.
 
 ## Constraints
 

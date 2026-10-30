@@ -107,8 +107,9 @@ export const knownIds = () => [...ACTS, ...CONSTRAINTS].map((r) => r.id);
 export const callName = (id) => String(id).split(/[\s(]/)[0];
 export const rowFor = (call) => [...ACTS, ...CONSTRAINTS].find((r) => callName(r.id) === call) ?? null;
 
-// ---- R10: the measured limits other modules design around ----
-export const limits = () => ({ backgroundMinutes: 30, depth: { limit: 8, allowed: 2 } });
+// ---- R10: the measured limits other modules design around, and the route a remote ref deletion takes (the proxy
+// refuses it from a session; the prune workflow on the runner deletes it), as data ----
+export const limits = () => ({ backgroundMinutes: 30, depth: { limit: 8, allowed: 2 }, deleteRoute: { direct: 'refused', workflow: WORKFLOWS.prune, act: 'actions_run_trigger', ref: 'main' } });
 
 // ---- R6: the version check, once at a session's start against the pin (issue 101; MNT-3) ----
 export function processHead(dir = PROCESS) { try { return execFileSync('git', ['-C', dir, 'rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; } }
@@ -124,7 +125,9 @@ export function versionCheck(pin, dir = PROCESS) {
 export const versionCommand = (sha, d = '/home/user/neoprocess') => `git -C ${d} rev-list HEAD | grep -q ^${sha.slice(0, 12)} && echo PROCESS OK || { printf 'PROCESS STALE '; git -C ${d} rev-parse HEAD | cut -c1-12; }`;
 
 // ---- R8, R9: the runner workflows' dispatch (PERMISSIONS §9) ----
-export const WORKFLOWS = { setup: 'repo-setup.yml', rename: 'repo-rename.yml', transfer: 'repo-transfer.yml', shims: 'repo-shims.yml' };
+// The runner workflows: the four a session dispatches on the process repository (`dispatch`), and the prune workflow a
+// product's record dispatches on its own repository to delete a ref (`limits().deleteRoute`).
+export const WORKFLOWS = { setup: 'repo-setup.yml', rename: 'repo-rename.yml', transfer: 'repo-transfer.yml', shims: 'repo-shims.yml', prune: 'prune.yml' };
 const INPUTS = { setup: (a) => ({ private: String(!!a.private) }), rename: (a) => ({ name: a.name }), transfer: (a) => ({ to: a.to }), shims: () => ({}) };
 // The secret a runner workflow uses (PERMISSIONS §9.9; Bob, 29 Oct: one secret per owner): the process repository's own
 // owner keeps NEOPROCESS_GITHUB_TOKEN; any other owner's is NEOPROCESS_GITHUB_TOKEN_<its login, upper case, hyphens as
@@ -150,7 +153,7 @@ export function recordedRole(root) {
 // is refused to every role but the neoProcess lane (`process`): the role is `args.role`, else the one recorded in the
 // checkout at `args.root` (R9); with none recorded the call is refused too, since no product role may make it.
 export function dispatch(kind, args = {}) {
-  const wf = WORKFLOWS[kind] ?? refuse(`no runner workflow for ${kind}: one of ${Object.keys(WORKFLOWS).join(', ')}`);
+  const wf = (INPUTS[kind] && WORKFLOWS[kind]) ?? refuse(`no runner workflow for ${kind}: one of ${Object.keys(INPUTS).join(', ')}`);
   const m = String(args.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/) ?? refuse(`${kind}: --repo <owner/name>`);
   const P = args.process || {};
   if (P.owner && `${P.owner}/${P.repo}`.toLowerCase() === m[0].toLowerCase()) {
@@ -231,7 +234,7 @@ export function render() {
   return [
     '# The platform: what it does and refuses (rendered from `tools/platform.mjs`; edit there)',
     '',
-    `The hosting platform is Claude Code cloud sessions, GitHub through the agent proxy, and GitHub's runner. Each row is a measured fact with the day it was last confirmed, how often it was measured, its evidence and the workaround the process uses (PLT-1, PLT-12). A row not confirmed since a given day is listed by \`constraints({ olderThan })\`. This table replaces the act table \`tools/acts.md\`, which tried to predict the auto-mode classifier: an act it decides case by case is marked here and no step depends on it (PLT-2). Limits: a command in a session is killed at ${L.backgroundMinutes} minutes; session depth is limited to ${L.depth.limit}, and the process allows ${L.depth.allowed}.`,
+    `The hosting platform is Claude Code cloud sessions, GitHub through the agent proxy, and GitHub's runner. Each row is a measured fact with the day it was last confirmed, how often it was measured, its evidence and the workaround the process uses (PLT-1, PLT-12). A row not confirmed since a given day is listed by \`constraints({ olderThan })\`. This table replaces the act table \`tools/acts.md\`, which tried to predict the auto-mode classifier: an act it decides case by case is marked here and no step depends on it (PLT-2). Limits: a command in a session is killed at ${L.backgroundMinutes} minutes; session depth is limited to ${L.depth.limit}, and the process allows ${L.depth.allowed}; a remote ref deletion is ${L.deleteRoute.direct} from a session and taken by \`${L.deleteRoute.act}\` of \`${L.deleteRoute.workflow}\` on \`${L.deleteRoute.ref}\`.`,
     '',
     '## Constraints',
     '',

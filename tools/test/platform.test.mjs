@@ -160,9 +160,10 @@ test('R8: dispatch prints the actions_run_trigger call for each runner workflow,
   assert.deepEqual(P.dispatch('transfer', { process: proc, repo: 'my-org/a', to: 'z' }), { tool: 'actions_run_trigger', owner: 'neobobkrause', repo: 'neoprocess', workflow_id: 'repo-transfer.yml', ref: 'main', inputs: { repo: 'my-org/a', to: 'z' }, secret: 'NEOPROCESS_GITHUB_TOKEN_MY_ORG' });
   assert.equal(P.dispatch('shims', { process: proc, repo: 'neobobkrause/p' }).secret, 'NEOPROCESS_GITHUB_TOKEN');
   assert.throws(() => P.dispatch('delete', { repo: 'a/b' }), /no runner workflow/);
+  assert.throws(() => P.dispatch('prune', { repo: 'a/b' }), /no runner workflow for prune: one of setup, rename, transfer, shims/);
   assert.throws(() => P.dispatch('setup', { repo: 'nope' }), /owner\/name/);
   // each workflow exists, is dispatchable, and picks the secret by the same rule
-  for (const [kind, wf] of Object.entries(P.WORKFLOWS)) {
+  for (const [kind, wf] of Object.entries(P.WORKFLOWS).filter(([k]) => k !== 'prune')) {
     const text = readFileSync(join(ROOT, '.github', 'workflows', wf), 'utf8');
     assert.match(text, /^on:\n {2}workflow_dispatch:/m, wf);
     const step = text.match(/run: \|\n((?: {10}.*\n)+)/)[1];
@@ -196,8 +197,13 @@ test('R9: a product role never takes the process repository as a write target, t
   assert.throws(() => P.processRoute('collaborator'), /one of public, read grant, carried/);
 });
 
-test('R10: the measured limits: 30 minutes in the background, depth 8 of which the process allows 2', () => {
-  assert.deepEqual(P.limits(), { backgroundMinutes: 30, depth: { limit: 8, allowed: 2 } });
+test('R10: the measured limits: 30 minutes in the background, depth 8 of which the process allows 2, and the delete route as data', () => {
+  assert.deepEqual(P.limits(), { backgroundMinutes: 30, depth: { limit: 8, allowed: 2 }, deleteRoute: { direct: 'refused', workflow: 'prune.yml', act: 'actions_run_trigger', ref: 'main' } });
+  assert.equal(P.limits().deleteRoute.workflow, P.WORKFLOWS.prune);
+  // the route is real: the workflow is dispatchable, its act a row the process depends on, and the refusal a constraint
+  assert.match(readFileSync(join(ROOT, '.github', 'workflows', P.WORKFLOWS.prune), 'utf8'), /^on:\n(?: .*\n)*? {2}workflow_dispatch:/m);
+  assert.ok(P.acts().some((r) => r.id === P.limits().deleteRoute.act));
+  assert.ok(P.constraints().some((r) => /ref delete/.test(r.fact) && /prune\.yml/.test(r.workaround)));
   for (const [id, n] of [['background limit', '30 minutes'], ['session depth', 'depth 8']]) assert.ok(P.constraints().find((r) => r.id === id).fact.includes(n), id);
 });
 
@@ -215,9 +221,9 @@ test('R11: the module holds and prints no credential: every secret is named, nev
 // The platform's tool vocabulary: the session tools and the GitHub tools a session can call. A name of it that another
 // module prints as a call (`tool: '<name>'`, or `<name>: {` as a call's key) must be a row (R12).
 const VOCABULARY = ['create_session', 'send_message', 'get_session', 'list_events', 'list_sessions', 'archive_session', 'unarchive_session', 'interrupt_session', 'send_later', 'create_trigger', 'update_trigger', 'delete_trigger', 'fire_trigger', 'list_triggers', 'subscribe_pr_activity', 'unsubscribe_pr_activity', 'add_repo', 'create_pull_request', 'update_pull_request', 'update_pull_request_branch', 'merge_pull_request', 'pull_request_read', 'pull_request_review_write', 'add_issue_comment', 'issue_write', 'issue_read', 'actions_run_trigger', 'actions_list', 'create_branch', 'push_files', 'create_or_update_file', 'delete_file', 'create_repository'];
-// R13, until N2-27, N2-34 and N2-36 merge: the classifier-judged calls another module still prints, inherited and named.
+// Until the completion round (N2-46): the classifier-judged calls another module still prints, inherited and named (R4).
 const INHERITED = ['archive_session'];
-test('R12 R13: every platform call any module prints is a row of the constraints or the acts; one whose row is classifier-judged is only an inherited one', () => {
+test('R4 R12: every platform call any module prints is a row of the constraints or the acts; one whose row is classifier-judged is only an inherited one', () => {
   const files = [...['tools', 'checks'].flatMap((d) => readdirSync(join(ROOT, d)).filter((f) => f.endsWith('.mjs')).map((f) => join(ROOT, d, f)))].filter((f) => !f.endsWith('platform.mjs'));
   const printed = new Set();
   for (const f of files) {
@@ -229,7 +235,7 @@ test('R12 R13: every platform call any module prints is a row of the constraints
   for (const call of printed) {
     assert.ok(VOCABULARY.includes(call), `${call}: printed, and not of the platform's vocabulary`);
     const row = P.rowFor(call); assert.ok(row, `${call}: printed, and no row`);
-    if (row.classifier) assert.ok(INHERITED.includes(call), `${call}: printed, and decided by the classifier case by case (R13)`);
+    if (row.classifier) assert.ok(INHERITED.includes(call), `${call}: printed, and decided by the classifier case by case (R4)`);
   }
   assert.ok(INHERITED.every((c) => P.rowFor(c)?.classifier), 'each inherited call is a classifier-judged row');
   // and the dispatch this module prints is one
