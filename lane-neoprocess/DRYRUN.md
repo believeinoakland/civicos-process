@@ -213,3 +213,5 @@ Civicsmith's BOB #338: a COMPLETE job's pull request went unmerged for hours, be
 | a ruling and another module's task summary moved: the green tip merged as it stands, the files named | PROVEN in fixture | `over` lists both; the merge printed, no update |
 | the module's own task summary moved: held | PROVEN in fixture | `held` names it |
 | a live product job merges over BOB's records | NOT YET | Civicsmith's next `proc merge` with its BOB preparing |
+| issue 88: `job complete` on a branch behind the tranche: held by another module's code (named), completed as it stands past a plan note | PROVEN in fixture | the refusal names `alpha/src/index.mjs (a module's code or tests)`; the job completed with the tranche not an ancestor |
+| a live product job completes over BOB's records | NOT YET | Civicsmith's next completion while its BOB prepares |

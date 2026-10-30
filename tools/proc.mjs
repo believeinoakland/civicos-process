@@ -1213,7 +1213,11 @@ export function jobComplete(o) {
   if (R.g(['status', '--porcelain', '--untracked-files=no'])) refuse('commit your module\'s changes first');
   R.fetch(TRANCHE);
   const base = history(R, `origin/${TRANCHE}`, 'HEAD') ?? refuse(`${jobBranch(m)} shares no history with ${TRANCHE}`);
-  try { R.g(['merge-base', '--is-ancestor', `origin/${TRANCHE}`, 'HEAD']); } catch { refuse(`merge ${TRANCHE} into your branch first: BOB has changed it`); }
+  // issue 88: a branch behind the tranche only by BOB's records the gate does not read for m completes as it stands (as `proc merge`, issue 86)
+  try { R.g(['merge-base', '--is-ancestor', `origin/${TRANCHE}`, 'HEAD']); } catch {
+    const { held } = gateNeutral(R, m, R.g(['rev-parse', 'HEAD']));
+    if (held.length) refuse(`merge ${TRANCHE} into your branch first: BOB has changed ${held.map((h) => `${h.file} (${h.why})`).join(', ')}`);
+  }
   const { id: T } = tranche(R);
   const ids = met === 'none' ? [] : met.split(', '), rq = `build/requirements/${m}.md`, rt = R.read(rq) ?? refuse(`${rq} missing`);
   let next = rt;
@@ -1355,7 +1359,7 @@ export function gateNeutral(R, m, head) {
   const read = new Set(['build/modules.json', 'build/layers.md', 'build/manifest.md', 'build/words.json', 'build/ops.json', 'build/requirements/README.md', ...near.map((k) => `build/requirements/${k}.md`)]);
   const code = mods.flatMap((y) => [...(y.paths || []), ...(y.tests || [])]), gen = artifacts(R).flatMap((a) => a.paths);
   const under = (f, p) => f === p || f.startsWith(p.endsWith('/') ? p : `${p}/`);
-  const why = (f) => (!f.startsWith('build/') ? 'outside build/' : read.has(f) ? `read by the gate for ${m}` : f.split('/')[1] === 'summaries' && f.endsWith(`/${m}.md`) ? `${m}'s task summary` : gen.includes(f) ? 'a generated artifact' : code.some((p) => under(f, p)) ? "a module's code or tests" : null);
+  const why = (f) => (code.some((p) => under(f, p)) ? "a module's code or tests" : gen.includes(f) ? 'a generated artifact' : read.has(f) ? `read by the gate for ${m}` : f.split('/')[1] === 'summaries' && f.endsWith(`/${m}.md`) ? `${m}'s task summary` : !f.startsWith('build/') ? 'outside build/' : null);
   const files = R.g(['diff', '--name-only', base, `origin/${TRANCHE}`]).split('\n').filter(Boolean).map((f) => relative(R.rel('.'), f));
   return { files, held: files.map((f) => ({ file: f, why: why(f) })).filter((h) => h.why) };
 }

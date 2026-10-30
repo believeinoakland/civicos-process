@@ -443,7 +443,7 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   writeFileSync(bsrc, readFileSync(bsrc, 'utf8').replace('(N2: built on alpha.sum)', '(R1: built on alpha.sum)'));
   g(beta.root, 'add', '-A'); g(beta.root, 'commit', '-q', '-m', 'beta: the gap');
   const rb2 = f(w.base, 'rb2.md', '**Met** · none\n**Evidence**\n- beta/src/index.mjs:1\n');
-  assert.throws(() => N.jobComplete(bo({ reportFile: rb2 })), /merge tranche into your branch first/);
+  assert.throws(() => N.jobComplete(bo({ reportFile: rb2 })), /merge tranche into your branch first: BOB has changed alpha\/src\/index\.mjs \(a module's code or tests\)/);   // alpha's merge: held (issue 88)
   g(beta.root, 'fetch', '-q', 'origin'); g(beta.root, 'merge', '-q', '--no-edit', 'origin/tranche');
   const bc2 = N.jobComplete(bo({ reportFile: rb2 }));
   assert.deepEqual(bc2.acts.map((x) => x.tool), ['add_issue_comment', 'update_pull_request']);   // alpha is merged: ready at once
@@ -479,7 +479,11 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   const tfile = join(alpha.dir, 'alpha/test/twice.test.mjs');
   writeFileSync(tfile, readFileSync(tfile, 'utf8').replace('assert.equal(twice(2), 4);', 'assert.equal(twice(2), 4); assert.ok(Object.is(twice(-0), -0));'));
   g(alpha.root, 'add', '-A'); g(alpha.root, 'commit', '-q', '-m', 'alpha: -0');
+  // issue 88: BOB recorded a plan note meanwhile, a record the gate does not read for alpha: the job completes without merging it
+  g2('fetch', '-q', 'origin'); g2('merge', '-q', '--ff-only', 'origin/tranche');
+  writeFileSync(join(w.bob.dir, 'build/plan/notes-T2.md'), '# T2, prepared ahead (P18)\n'); N.commitPush(R, N.TRANCHE, ['build/plan/notes-T2.md'], 'prepared ahead (P18): a note');
   const jc2 = N.jobComplete(jo({ reportFile: f(w.base, 'r2.md', '**Met** · none\n**Evidence**\n- alpha/test/twice.test.mjs:5\n') }));
+  assert.throws(() => g(alpha.root, 'merge-base', '--is-ancestor', 'origin/tranche', 'HEAD'));   // completed behind the tranche, by the note only
   assert.equal(jc2.acts[0].issue_number, 13);
   N.jobPosted(jo({ comment: 780, ready: true }));
   N.reviewDecide(o({ module: 'alpha', noReview: true, reason: 'a test line' }));
