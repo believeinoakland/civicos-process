@@ -515,6 +515,47 @@ test('a product role reports a process flaw on its state branch; the lane reads 
   assert.throws(() => N.issueFile({ ...o, title: 'x', file: rep }), /no epoch is open/);
 });
 
+// DRYRUN §12 (30 Oct): an issue's comment is out of a product session's reach, so the lane's reply to a product's report is
+// written in the process repository, which the product holds read-only; BOB's status lists it until BOB records it seen.
+test('the lane replies to a product\'s report in the process repository; the product\'s BOB sees it in its status once', () => {
+  const w = world(), o = { product: w.bob.dir };
+  N.epochOpen(o); N.takeover({ ...o, name: 'BOB #1', session: B1 });
+  const r1 = N.issueFile({ ...o, title: 'Layer start refuses every module', file: f(w.base, 'flaw.md', 'The tool refuses every layer start.\n') });
+  const lane = w.clone('lane'); g(lane.root, 'checkout', '-q', '-b', 'lanebranch');
+  writeFileSync(join(lane.root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'process', product: '.', session: 'session_01LANE', branch: 'lanebranch' }));
+  mkdirSync(join(lane.root, 'lane-neoprocess'), { recursive: true }); writeFileSync(join(lane.root, N.PRODUCTS_FILE), JSON.stringify([w.origin]));
+  const id = N.productReports(N.repo(lane.root)).reports[0].id, note = 'Layer start now reads the layer row; nothing to do but run it again.';
+  assert.throws(() => N.issueReply({ product: lane.root, report: id, number: 80, note }), /not filed yet/);
+  N.issueFile({ product: lane.root, report: id });
+  assert.throws(() => N.issueReply({ product: lane.root, report: id, number: 80, note: 'short' }), /--note/);
+  assert.throws(() => N.issueReply({ product: w.bob.dir, report: id, number: 80, note }), /only the neoProcess lane/);
+  const rp = N.issueReply({ product: lane.root, report: id, number: 80, note });
+  assert.match(rp.reply, /^lane-neoprocess\/replies\/[\w.-]+bob-1-1\.md$/);
+  const text = g(lane.root, 'show', `origin/lanebranch:${rp.reply}`);
+  assert.match(text, /^# Layer start refuses every module\n\n\*\*Report\*\* · \S+bob-1-1\.md\n\*\*Issue\*\* · https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/80\n\*\*Replied\*\* · \d{4}-\d\d-\d\d, by the neoProcess lane\n\nLayer start now reads/);
+  // the process repository's main, as a product session's read-only clone sees it: nothing until the reply is merged there
+  const pbare = join(w.base, 'process.git'), pseed = join(w.base, 'pseed'), pdir = join(w.base, 'proc');
+  execFileSync('git', ['init', '-q', '--bare', pbare]); execFileSync('git', ['clone', '-q', pbare, pseed], { stdio: 'ignore' }); ident(pseed, 'pseed');
+  f(pseed, 'README.md', 'the process\n'); g(pseed, 'add', '.'); g(pseed, 'commit', '-q', '-m', 'p'); g(pseed, 'branch', '-M', 'main'); g(pseed, 'push', '-q', 'origin', 'main');
+  execFileSync('git', ['clone', '-q', pbare, pdir], { stdio: 'ignore' });
+  const B = { ...o, processDir: pdir }, items = () => N.status(B).queue.filter((q) => q.item.startsWith('READ PROCESS REPLY')).map((q) => q.item);
+  assert.deepEqual(items(), []);
+  mkdirSync(join(pseed, 'lane-neoprocess', 'replies'), { recursive: true }); f(pseed, rp.reply, `${text}\n`);
+  f(pseed, 'lane-neoprocess/replies/other-product-1.md', text.replace(/\*\*Report\*\* · \S+/, '**Report** · someone/else:x.md'));
+  g(pseed, 'add', '.'); g(pseed, 'commit', '-q', '-m', 'reply'); g(pseed, 'push', '-q', 'origin', 'main');
+  assert.deepEqual(items(), []);   // fetched at most hourly: the stamp holds
+  rmSync(join(pdir, '.git', 'proc-replies-fetch.json'));
+  assert.deepEqual(items(), [`READ PROCESS REPLY ${id}`]);   // its own product's reply only
+  assert.match(N.status(B).queue.find((q) => q.item.startsWith('READ')).detail, /issues\/80\): read it whole by `git -C .* show origin\/main:lane-neoprocess\/replies\/.*`, act on it, then `proc issue seen --report /);
+  // BOB records it seen on the tranche, once; the next BOB does not see it again
+  assert.throws(() => N.issueSeen({ product: lane.root, report: id, processDir: pdir }), /BOB records/);
+  const s = N.issueSeen({ ...B, report: id });
+  assert.equal(s.seen, id); assert.match(g(w.bob.root, 'show', `origin/${N.TRANCHE}:toy/${N.SEEN_FILE}`), /^- \S+bob-1-1\.md · \d{4}-\d\d-\d\d · BOB #1 · Layer start refuses every module$/m);
+  assert.deepEqual(items(), []);
+  assert.throws(() => N.issueSeen({ ...B, report: id }), /no unseen reply/);
+  void r1;
+});
+
 // Issue 78 (BOB #337, Civicsmith, 30 Oct): the last service took every requirement after it; and a set over 40 KB after
 // trimming and splitting had no way to SESSIONS §6.3's third remedy, a summary for that task.
 test('a service is charged only its own requirements; a set over its limit is read through a cited task summary', () => {
