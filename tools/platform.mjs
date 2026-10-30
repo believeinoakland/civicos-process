@@ -48,6 +48,8 @@ export const CONSTRAINTS = [
   C('session depth', 'A session\'s lineage is limited to depth 8 (`get_session` lineage).', '2026-10-30', 2, 'the lane reached depth 4 by its fourth self-spawn (issue 96); PLATFORM #1 read `{"depth":1,"limit":8}`, 30 Oct', 'sessions are started only at depth 0 or 1, so depth never passes 2 (PLT-6)'),
   C('hooks after a resume', 'A skill\'s registered hooks are gone after a session resumes; hooks did not run when the project directory was not the repository.', '2026-10-30', 2, 'issue 111 (#18, `worker_epoch` 2); issue 63', 'the process depends on none for correctness (PLT-4)'),
   C('get_session context usage', 'A session\'s context share cannot be read from `get_session` while `external_metadata.context_usage.used_tokens` reads 0: it read `{ max_tokens: 1000000, used_tokens: 0 }` for a session 47 minutes and some 60 tool calls after its start.', '2026-10-30', 1, 'the architecture session\'s `get_session` of itself at 21:11:45Z, in its transcript (BOB, to PLATFORM #1)', 'the share is unknown until a reading is non-zero, and a session says so rather than estimating; a refresh printed on the share then never fires'),
+  C('create_trigger(scheduled task)', 'A scheduled task may fire late, twice, or into a session that is gone: the lane predecessor\'s backstop fired at 16:39Z on 30 Oct into an archived session and failed.', '2026-10-30', 1, '`list_triggers`, 30 Oct (REQUIREMENTS PLT-7; PROTOCOL §6)', 'no step depends on a scheduled task: a wake it gives is a convenience, and the record is read at every wake (PLT-7)'),
+  C('fire_trigger', 'Firing a stored task by `fire_trigger` has not been seen: the task it would fire (the lane successor, issue 96) did not yet exist on 30 Oct.', '2026-10-30', 0, 'lane-neoprocess/HANDOFF.md, item 3 (30 Oct, 16:1xZ)', 'the successor is started by `create_session` from a parent at depth 0 or 1 (PLT-6); no step depends on `fire_trigger`'),
   C('scheduled task into an archived session', 'A scheduled task fired into an archived session and failed.', '2026-10-30', 1, '`list_triggers`, 16:39Z (REQUIREMENTS PLT-7)', 'no step depends on a scheduled task (PLT-7)'),
   C('auto mode pauses', 'Auto mode pauses after 3 consecutive or 20 total blocks.', '2026-10-29', 1, 'Claude Code documentation, permission-modes, read 29 Oct (PERMISSIONS §8.4)', 'no act the classifier judges is on any step\'s route'),
 ];
@@ -72,6 +74,7 @@ export const ACTS = [
   A('actions_run_trigger', 'BOB, the lane', 'the dispatch `dispatch` (or `proc merged`, `epoch close`) printed, of a workflow on `main`', 44, '2026-10-30', '44 workflow_dispatch runs on neobobkrause/neoprocess, read by PLATFORM #1 (`list_workflow_runs`, 30 Oct), each one a dispatch accepted'),
   A('git push(own branch)', 'every role, to its own branch only', 'the session\'s `git push` and `proc` commands', 149, '2026-10-30', '149 branches on neobobkrause/neoprocess\'s remote, each made by a push (`git ls-remote --heads`, PLATFORM #1, 30 Oct)'),
   A('git push(state branch)', 'every role', '`proc` by plumbing, never by hand', 1, '2026-10-30', 'N1 row X1; PLATFORM #1\'s state line (7cbc06c)'),
+  A('list_triggers', 'the neoProcess lane, of its own account\'s tasks', 'by hand, read only', 2, '2026-10-30', '#18 at 14:51Z (the record stamped, DRYRUN §23); the 16:39Z firing read (REQUIREMENTS PLT-7)'),
   A('git fetch(process)', 'every role of a product', 'anonymous read of the public process repository; `proc status` hourly', 1, '2026-10-30', '#15 (acts.md); PLATFORM #1\'s pull at its start'),
 ];
 
@@ -188,9 +191,9 @@ export async function grantsCheck(o) {
   let pg = {}, bad = null; try { pg = JSON.parse(readAt(dir, GRANTS_PRODUCT) || '{}'); } catch (e) { bad = e.message; }
   // GitHub through the proxy: the identity, which must be the expected one, and the token's kind and expiry (the app's
   // token renews itself; a token of the process's does not). The expected identity is the one `build/grants.json` names
-  // (`identity`), else the role record's, else each "GitHub identity `<login>`" the product's manifest names.
-  const expected = [pg.identity, recordedRole(root)?.identity].filter(Boolean);
-  if (!expected.length) for (const x of (readAt(dir, 'build/manifest.md') || '').matchAll(/GitHub identity `([\w-]+)`/g)) expected.push(x[1]);
+  // (`identity`); only when it names none, the role record's; only when neither does, each "GitHub identity `<login>`" the product's manifest names.
+  const named = pg.identity || recordedRole(root)?.identity;
+  const expected = named ? [named] : [...(readAt(dir, 'build/manifest.md') || '').matchAll(/GitHub identity `([\w-]+)`/g)].map((x) => x[1]);
   const gh = await get('https://api.github.com/user');
   if (gh.status !== 200) row('GitHub API', false, `GET /user answered ${gh.status || gh.error}: no credential reaches api.github.com`);
   else {

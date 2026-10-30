@@ -142,6 +142,9 @@ test('R7: grantsCheck proves the standing list, the push, the GitHub identity an
   r = await check(); assert.deepEqual([r.rows[2].ok, r.rows[2].detail], [false, 'owner by the Claude app\'s token (client Iv1), not the expected third']);
   grants({ variables: ['PLATFORM_TEST_VAR'] });   // build/grants.json names it: owner
   r = await check(); assert.equal(r.rows[2].ok, true);
+  // a precedence, not a union: build/grants.json names owner, so the role record's third is not accepted
+  r = await check({ fetch: net(res(200, { login: 'third' }, { 'x-oauth-client-id': 'Iv1' })) });
+  assert.deepEqual([r.rows[2].ok, r.rows[2].detail], [false, 'third by the Claude app\'s token (client Iv1), not the expected owner']);
   // a token of its own expiring within 14 days, or no credential at all, is not held
   const pat = res(200, { login: 'owner' }, { 'github-authentication-token-expiration': '2026-11-02 00:00:00 UTC' });
   r = await check({ fetch: net(pat) });
@@ -218,20 +221,20 @@ test('R11: the module holds and prints no credential: every secret is named, nev
   assert.doesNotMatch(JSON.stringify(r) + readFileSync(join(w.dir, '.git', P.GRANTS_FILE), 'utf8'), /value-never-shown/);
 });
 
-// The platform's tool vocabulary: the session tools and the GitHub tools a session can call. A name of it that another
-// module prints as a call (`tool: '<name>'`, or `<name>: {` as a call's key) must be a row (R12).
-const VOCABULARY = ['create_session', 'send_message', 'get_session', 'list_events', 'list_sessions', 'archive_session', 'unarchive_session', 'interrupt_session', 'send_later', 'create_trigger', 'update_trigger', 'delete_trigger', 'fire_trigger', 'list_triggers', 'subscribe_pr_activity', 'unsubscribe_pr_activity', 'add_repo', 'create_pull_request', 'update_pull_request', 'update_pull_request_branch', 'merge_pull_request', 'pull_request_read', 'pull_request_review_write', 'add_issue_comment', 'issue_write', 'issue_read', 'actions_run_trigger', 'actions_list', 'create_branch', 'push_files', 'create_or_update_file', 'delete_file', 'create_repository'];
+// The platform's tool vocabulary: the session tools and the GitHub tools a session can call. A name of it anywhere in
+// another module's text (a printed call object, a call printed in prose, a name a check matches) must be a row (R12).
+const VOCABULARY = ['create_session', 'send_message', 'get_session', 'list_events', 'list_sessions', 'archive_session', 'unarchive_session', 'interrupt_session', 'send_later', 'create_trigger', 'update_trigger', 'delete_trigger', 'fire_trigger', 'list_triggers', 'subscribe_pr_activity', 'unsubscribe_pr_activity', 'add_repo', 'create_pull_request', 'update_pull_request', 'update_pull_request_branch', 'merge_pull_request', 'pull_request_read', 'pull_request_review_write', 'add_issue_comment', 'issue_write', 'issue_read', 'actions_run_trigger', 'actions_list', 'create_branch', 'push_files', 'create_or_update_file', 'delete_file', 'create_repository', 'set_session_tags', 'set_session_title', 'list_repos', 'list_environments', 'watch_url', 'get_event', 'get_job_logs', 'list_workflows'];
 // Until the completion round (N2-46): the classifier-judged calls another module still prints, inherited and named (R4).
-const INHERITED = ['archive_session'];
+const INHERITED = ['archive_session', 'update_trigger', 'add_repo'];
 test('R4 R12: every platform call any module prints is a row of the constraints or the acts; one whose row is classifier-judged is only an inherited one', () => {
   const files = [...['tools', 'checks'].flatMap((d) => readdirSync(join(ROOT, d)).filter((f) => f.endsWith('.mjs')).map((f) => join(ROOT, d, f)))].filter((f) => !f.endsWith('platform.mjs'));
   const printed = new Set();
   for (const f of files) {
     const src = readFileSync(f, 'utf8');
     for (const m of src.matchAll(/tool: '(?:mcp__[a-z0-9-]+__)?([a-z_]+)'/g)) printed.add(m[1]);
-    for (const m of src.matchAll(/\b([a-z]+(?:_[a-z]+)+): \{/g)) if (VOCABULARY.includes(m[1])) printed.add(m[1]);
+    for (const v of VOCABULARY) if (new RegExp(`(?<![\\w])${v}(?![\\w])`).test(src)) printed.add(v);
   }
-  assert.ok(printed.has('create_session') && printed.has('actions_run_trigger'), [...printed].join());
+  for (const c of ['create_session', 'actions_run_trigger', 'create_trigger', 'fire_trigger', 'list_triggers', 'update_trigger']) assert.ok(printed.has(c), `${c} not seen: ${[...printed].join()}`);
   for (const call of printed) {
     assert.ok(VOCABULARY.includes(call), `${call}: printed, and not of the platform's vocabulary`);
     const row = P.rowFor(call); assert.ok(row, `${call}: printed, and no row`);
