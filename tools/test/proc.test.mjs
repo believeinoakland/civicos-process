@@ -971,3 +971,45 @@ test('the grants: proven by `proc grants check` through the proxy, and a tranche
   assert.match(r.rows[2].detail, /GET \/user answered 403: no credential reaches api\.github\.com/);
   assert.equal(r.ok, false);
 });
+
+test('issue 84: a job takes in its own module\'s branch from an earlier round, and nothing else', async () => {
+  const w = world(), R = w.bob.root, src = 'toy/alpha/src/index.mjs';
+  // the earlier round's branches, as a process before the carry left them: alpha's (two commits) and beta's
+  g(R, 'checkout', '-q', '-b', 'old', `origin/${N.TRANCHE}`);
+  writeFileSync(join(R, src), `${readFileSync(join(R, src), 'utf8')}\n// from the earlier round\n`); g(R, 'commit', '-qam', 'alpha: earlier round');
+  writeFileSync(join(R, 'toy/alpha/NOTE.md'), 'earlier\n'); g(R, 'add', '.'); g(R, 'commit', '-qm', 'alpha: earlier round, 2');
+  g(R, 'push', '-q', 'origin', 'HEAD:refs/heads/job/T0/alpha');
+  const oldTip = g(R, 'rev-parse', 'HEAD');
+  g(R, 'checkout', '-q', '-b', 'oldb', `origin/${N.TRANCHE}`); writeFileSync(join(R, 'toy/beta/NOTE.md'), 'b\n'); g(R, 'add', '.'); g(R, 'commit', '-qm', 'beta'); g(R, 'push', '-q', 'origin', 'HEAD:refs/heads/job/T0/beta');
+  g(R, 'push', '-q', 'origin', `origin/${N.TRANCHE}:refs/heads/job/alpha`);
+  const a = w.clone('alpha'); g(a.root, 'checkout', '-q', '-b', 'job/alpha', '--track', 'origin/job/alpha');
+  const t = (x) => N.jobTakein({ product: a.dir, ...x });
+  assert.throws(() => t({ branch: 'job/T0/alpha' }), /after `proc job start`/);   // no role recorded
+  writeFileSync(join(a.root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'job', module: 'alpha', session: J1, name: 'ALPHA #1' }));
+  assert.throws(() => t({ branch: 'job/T0/beta' }), /only its own module's branch/);
+  assert.throws(() => t({ branch: 'job/alpha' }), /only its own module's branch/);
+  assert.throws(() => t({ branch: 'job/T9/alpha' }), /not on the product's remote/);
+  assert.throws(() => t({ branch: 'job/T0/alpha', sha: 'deadbeef' }), /not deadbeef: the plan's entry names another commit/);
+  writeFileSync(join(a.root, src), 'dirty\n');
+  assert.throws(() => t({ branch: 'job/T0/alpha' }), /commit your module's changes first/);
+  g(a.root, 'checkout', '-q', '--', src);
+  const r = t({ branch: 'job/T0/alpha', sha: oldTip.slice(0, 8) });
+  assert.deepEqual([r.merged, r.tip], [true, oldTip.slice(0, 8)]);
+  g(a.root, 'fetch', '-q', 'origin');
+  assert.equal(g(a.root, 'rev-parse', 'origin/job/alpha'), g(a.root, 'rev-parse', 'HEAD'));   // pushed
+  assert.equal(g(a.root, 'rev-list', '--parents', '-n1', 'HEAD').split(' ').length, 3);   // a merge, never a copy: the history keeps it
+  assert.match(g(a.root, 'log', '-1', '--format=%s'), /^alpha: job\/T0\/alpha \([0-9a-f]{8}\) taken in from an earlier round/);
+  assert.equal(t({ branch: 'job/T0/alpha' }).already, true);
+  // a conflict is left to the job: its line and the earlier round's differ
+  g(R, 'checkout', '-q', 'old'); writeFileSync(join(R, 'toy/alpha/NOTE.md'), 'theirs\n'); g(R, 'commit', '-qam', 'alpha: later'); g(R, 'push', '-q', 'origin', 'HEAD:refs/heads/job/T1/alpha');
+  writeFileSync(join(a.root, 'toy/alpha/NOTE.md'), 'ours\n'); g(a.root, 'commit', '-qam', 'alpha: ours');
+  const c = t({ branch: 'job/T1/alpha' });
+  assert.deepEqual([c.merged, c.conflicts], [false, ['toy/alpha/NOTE.md']]);
+  assert.match(c.next, /resolve each file[\s\S]*git push origin HEAD:job\/alpha/);
+  // the hook's refusal of a hand merge names the command to a job, and only to a job
+  const { preReason } = await import('../hooks.mjs');
+  const merge = { tool_name: 'Bash', tool_input: { command: 'git merge --no-ff origin/job/T53/money' } };
+  assert.match(preReason('job', merge, { module: 'money', root: a.root }), /merged only by the queue[\s\S]*proc job takein --branch job\/<tranche>\/<module>/);
+  assert.doesNotMatch(preReason('bob', merge, { root: R }), /takein/);
+  assert.equal(preReason('job', { tool_name: 'Bash', tool_input: { command: 'node /home/user/neoprocess/tools/proc.mjs job takein --branch job/T53/money --sha 996730f4' } }, { module: 'money', root: a.root }), null);
+});

@@ -180,7 +180,7 @@ The first product report filed by the new route (BOB #337's, read by `proc proce
 | the lane's reply: refused before the report is filed, with no note, from a product role; written and pushed | PROVEN in fixture | the file's title, report id, issue link and date lines read back from the lane's branch |
 | BOB's status lists its own product's replies on `main` only | PROVEN in fixture | nothing before the merge; another product's reply not listed; the fetch held an hour by its stamp, then the reply listed with the command to read it |
 | `proc issue seen` records it once on the tranche | PROVEN in fixture | the line read back from `tranche`; the queue item gone; a second record refused; refused from the lane's role |
-| a live product BOB reads a reply | PROVEN live (#16) | Civicsmith's BOB #338 recorded the reply to its gate report seen at 11:27Z (its tranche `5e37e4dd`, `build/process-replies.md`); the reply to its size report (issue 78) not yet recorded at 11:3xZ |
+| a live product BOB reads a reply | PROVEN live (#16) | Civicsmith's BOB #338 recorded the reply to its gate report seen at 11:27Z (its tranche `5e37e4dd`, `build/process-replies.md`); the reply to its size report (issue 78) at 11:39Z (`26281180`) |
 
 ## 14. Certification of issue 81's fix (GOV 5; 30 Oct 2026, #15)
 
@@ -190,3 +190,15 @@ BOB #337's second report: the gate installed dependencies only from a lock at th
 | --- | --- | --- |
 | a lock at the root, one per member, one nested two deep, one inside `node_modules` | PROVEN in fixture | the gate's step lists the three in order, the `node_modules` one left out; no drift after |
 | Civicsmith's gate with its nine locks | NOT YET | shims on its `main` (PR 56) and its tranche (`54ded3e5`, 11:26Z, BOB #338); the next gate run on a pull request (its PR 55: its head and merge refs listed by git at 11:3xZ, its state and gate result unread, the API refusing a repository not attached; so read from its BOB's merge record) |
+
+## 15. Certification of issue 84's fix (GOV 5; 30 Oct 2026, #16)
+
+Civicsmith's MONEY #1: its START (BOB's entry) said to take in its module's branch from the round before the carry by a merge; the hook refused the hand merge of a job branch, the classifier the merge of its commit, and no command did it, so the job copied the one missing commit's diff by hand and its history lost the merge. REGISTERS #1's START holds the same entry. Now `proc job takein --branch job/<tranche>/<module> [--sha <commit>]` (JOB-LIFE §1a) merges it on the job's own branch and pushes; the hook's refusal names it to a job; the carry's next step tells BOB to name it in the entry. Checked against the principles: P8 (the module's own job does its module's work), P12 (a merge, never a rebase or a copy, so history keeps it), P7 (the gate at `job complete` holds the merged files to the module and its tests). The standing list already allows `proc`. Suite green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| refused without a job's role, for another module's branch, the job's own `job/<m>`, a branch not on the remote, a tip other than `--sha`, a dirty checkout | PROVEN in fixture | each refusal's words |
+| merged with two parents and pushed; run again, nothing to take in | PROVEN in fixture | the job branch's remote tip equals the merge; `--parents` three ids |
+| a conflict left to the job with its files and the next steps | PROVEN in fixture | the conflicted file listed; the push named |
+| the hook: a hand merge refused with the command named to a job only; the command itself passes | PROVEN in fixture | `preReason` for job and BOB |
+| a live product job takes in its branch | NOT YET | Civicsmith's REGISTERS job (`job/T53/registers`), once its BOB names the command in the entry |
