@@ -10,3 +10,4 @@
 - civicsmith/civicsmith:2026-10-30-bob-340-4.md · 2026-10-30 · Bob sees every rejected draft: the turn-end checks run after the message is show
 - civicsmith/civicsmith:2026-10-30-bob-340-2.md · 2026-10-30 · An unmerged job whose session was archived as the current one cannot be restarte
 - civicsmith/civicsmith:2026-10-30-bob-340-3.md · 2026-10-30 · ROOT waits for a takeover confirmation no BOB sends, so the released BOB is neve
+- civicsmith/civicsmith:2026-10-30-bob-341-1.md · 2026-10-30 · An added export runs every unnamed user's suite; the local gate outlives the 30-
