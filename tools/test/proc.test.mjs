@@ -48,6 +48,9 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   // takeover: the Status line on the state branch, the role file, an empty queue
   const tk = N.takeover(o({ name: 'BOB #1', session: B1 }));
   assert.equal(N.readRole(w.bob.root).role, 'bob');
+  // issue 74: the takeover names the rest of BOB's set, each file with its size; what the product lacks is named absent
+  assert.deepEqual(tk.read.whole.map((x) => x.file), ['build/plan/current.md', 'build/manifest.md']); assert.ok(tk.read.whole.every((x) => x.bytes > 0));
+  assert.deepEqual(tk.read.absent, ['build/areas.md', 'build/lanes.md']);
   assert.deepEqual(tk.queue, []);
   assert.equal(N.addr(o({ bob: true })), B1);
   assert.equal(N.status(o()).bob.session, B1);
@@ -310,12 +313,12 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   assert.deepEqual(ls.jobs.map((j) => [j.module, j.action]), [['alpha', 'create'], ['beta', 'create']]);
   const a = ls.jobs[0];
   assert.match(a.pr.body, /^START ALPHA #1 · T1 · layer 1 · module alpha\nEntries:\n- N1/);
-  assert.match(a.pr.body, /Read whole, by path: build\/requirements\/alpha\.md; build\/layers\.md; alpha\/src\/; alpha\/test\/\./);
+  assert.match(a.pr.body, /Read whole, by path: build\/requirements\/alpha\.md; build\/layers\.md \(the head and layer 1's row\); alpha\/src\/; alpha\/test\/\./);   // issue 71: the layer's contract, not the whole file
   assert.match(a.pr.body, /Messages from BOB's address[\s\S]*Push before you send; nothing to any branch but job\/alpha/);
   assert.deepEqual([a.pr.draft, a.pr.base, a.pr.head, a.pr.title], [true, 'tranche', 'job/alpha', 'alpha T1 (ALPHA #1)']);
   assert.match(a.session.prompt, /^\/goal `proc job state --module alpha/);
   assert.deepEqual([a.session.model, a.session.effort, a.session.source_revision], ['claude-opus-5-5', 'high', 'job/alpha']);
-  assert.match(ls.jobs[1].pr.body, /build\/requirements\/alpha\.md \(Public\)/);   // beta uses alpha
+  assert.match(ls.jobs[1].pr.body, /build\/requirements\/alpha\.md \(Public: Purpose; add, sum\)/);   // beta uses alpha: the services its Uses names (issue 71)
   assert.deepEqual(R.heads('refs/heads/job/*').sort(), ['job/alpha', 'job/beta']);
   assert.equal(g2('rev-parse', 'origin/job/alpha~1'), g2('rev-parse', 'HEAD'));   // one opening commit past the tip: GitHub refuses an empty PR
   assert.equal(g2('log', '-1', '--format=%s', 'origin/job/alpha'), 'ALPHA #1 opens: T1 layer 1, module alpha');
@@ -627,16 +630,29 @@ test('a tranche opened from main, a round opened and closed, the tranche closed 
   writeFileSync(join(w.bob.dir, 'build/plan/next.md'), '# Plan: test T2\n\n**Status** · OPEN.\n\n## Layer 1\n\n**alpha**\n- N2 · Another line.\n');
   N.commitPush(R, N.TRANCHE, ['build/plan/next.md'], 'the next plan');
   const rc = N.roundClose(o());
-  assert.deepEqual([rc.round, rc.archived, rc.next], [1, 'build/plan/archive/T2-R1.md', true]);
+  assert.deepEqual([rc.round, rc.archived, rc.next], [1, 'build/plan/archive/T2-R1.md', 'build/plan/next.md']);   // next.md names this tranche
   assert.match(readFileSync(join(w.bob.dir, 'build/plan/current.md'), 'utf8'), /N2 · Another line/);
   assert.equal(existsSync(join(w.bob.dir, 'build/plan/next.md')), false);
   assert.deepEqual(N.status(o()).owed, []);
-  // the second round, closed with no next plan; then the tranche closes: main merged in, CLOSING, the PR printed and owed
+  // issue 73: the tranche's completion round wins over a next.md that is the next tranche's list, which stays where it is
+  writeFileSync(join(w.bob.dir, 'build/plan/next.md'), '# Plan: test T9\n\n## Layer 1\n\n**alpha**\n- N9 · next tranche\n');
+  writeFileSync(join(w.bob.dir, 'build/plan/T2-completion.md'), '# Plan: test T2\n\n## Layer 1\n\n**alpha**\n- N4 · the completion round\n');
+  N.commitPush(R, N.TRANCHE, ['build/plan/next.md', 'build/plan/T2-completion.md'], 'the completion round; the next tranche');
   N.stateWrite(R, { 'plan.md': `# Plan (transient)\n\n**Status** · OPEN · BOB #1 · ${B1}\n**Owed** · none\n**Layers** · 1 CLOSED\n` }, 'round 2 run');
-  assert.deepEqual([N.roundClose(o()).round, existsSync(join(w.bob.dir, 'build/plan/current.md'))], [2, false]);
+  assert.equal(N.roundClose(o()).next, 'build/plan/T2-completion.md');
+  assert.match(readFileSync(join(w.bob.dir, 'build/plan/current.md'), 'utf8'), /N4 · the completion round/);
+  assert.equal(existsSync(join(w.bob.dir, 'build/plan/T2-completion.md')), false);
+  // the last round, closed: the next tranche's list is not this tranche's, so no plan runs and next.md stays
+  N.stateWrite(R, { 'plan.md': `# Plan (transient)\n\n**Status** · OPEN · BOB #1 · ${B1}\n**Owed** · none\n**Layers** · 1 CLOSED\n` }, 'round 3 run');
+  const last = N.roundClose(o());
+  assert.deepEqual([last.round, last.next, existsSync(join(w.bob.dir, 'build/plan/current.md')), existsSync(join(w.bob.dir, 'build/plan/next.md'))], [3, null, false, true]);
+  rmSync(join(w.bob.dir, 'build/plan/next.md')); N.commitPush(R, N.TRANCHE, ['build/plan/next.md'], 'the next tranche list moved out for this test');
   assert.throws(() => N.roundOpen(o({ planFile: f(w.base, 'p3.md', '# Plan: test T3\n\n## Layer 1\n\n**alpha**\n- N3 · x\n') })), /opens with a new tranche/);
   // after the last round no plan runs: a refusal is still routed and counted under the tranche (DRYRUN §4.19)
   const rf = N.refused(o({ act: 'archive_session(child)', kind: 'classifier', reason: 'Interfere With Workloads', by: 'NEOPROCESS #6' }));
+  // issue 76: a report filed under the archive after the plans does not hide the last archived plan
+  writeFileSync(join(w.bob.dir, 'build/plan/archive/words-report.txt'), 'a report\n'); N.commitPush(R, N.TRANCHE, ['build/plan/archive/words-report.txt'], 'a report in the archive');
+  assert.equal(N.trancheId(R), 'T2'); assert.equal(N.trancheId(R, 'T7'), 'T7');
   assert.equal(N.refusedRouted(o({ id: rf.refusal, route: 'Bob archives it' })).refusal, 'R-NEOPROCESS-6-1');
   assert.match(readFileSync(join(w.bob.dir, 'build/metrics/T2.csv'), 'utf8'), /^,refusal,NEOPROCESS #6,neoprocess,.*archive_session\(child\) · predicted · Bob archives it$/m);
   const fp = N.footprint(o());

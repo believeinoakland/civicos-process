@@ -152,3 +152,17 @@ Checked against the principles: P1 (the first BOB can start), P12 (the running w
 | `2>&1` and `>/dev/null` are not writes before a role | PROVEN in fixture | both pass; `> out.txt` still refused |
 | the process cloned at a product session's start | PROVEN in fixture | the SessionStart command written by the shims; the clone itself: the product's next session |
 | a product session filing an issue | NOT YET | unmeasured: the first product filing (acts.md `issue_write(process issue)`) |
+
+## 11. Certification of the fixes for BOB #336's six reports (GOV 5; 30 Oct 2026, #14; issues 71-76)
+
+Checked against the principles: P6 and P20 (a job's set measured as BLD 1 names it, so what it reads is what is measured), P10 (the completion round opens), P1 (the carry finishes; a product's flaw reaches the lane), GOV 5 (the issue route works from every project). Suite 278 green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| a job's set: its layer's row; of each used module the services its own Uses section names | PROVEN in fixture; MEASURED on the product | the toy's beta reads alpha's `add` and `sum` only; Civicsmith's layers 5-11 on its `tranche`: largest set 4,889,242 bytes before, 337,254 after; 35 of 128 fit; of the 93 over, 63 are over on the module's own requirements (the product's to prune, REQ 8, as its BOB said), 30 by the services named (one service, `jurisdictions`' `combine`, is about 50 KB) |
+| the carry drops the old names' local tracking refs | PROVEN in fixture | a stale `origin/tranche/T0` present; the carry ends with `tranche` tracking `origin/tranche` |
+| round close: the completion round, then nothing; the next tranche's list stays | PROVEN in fixture | `T2-completion.md` opened as the next round; `next.md` titled T9 left in place |
+| takeover names the rest of BOB's set | PROVEN in fixture | the plan and the manifest with their sizes; areas and lanes named absent |
+| the last archived plan; `--tranche` read | PROVEN in fixture | a report filed after the plans in the archive; `trancheId` answers T2, and T7 when given |
+| a product role's report on its state branch; the lane reads it by git, files it once; the epoch keeps it | PROVEN in fixture; read live | two reports numbered per author; NEW, filed, FILED, refused twice; the lane's Stop hook refuses an unfiled one; epoch close copies them to `build/process-issues/`; live: `proc process status` fetched Civicsmith's `tranche` (18,939 files listed) and its state branch over git in about 3 s, no error |
+| a report from a live product session | NOT YET | the product's next session that finds a flaw |
