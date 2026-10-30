@@ -3,13 +3,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, cpSync, mkdirSync, rmSync, existsSync, unlinkSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, cpSync, mkdirSync, rmSync, existsSync, unlinkSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../proc.mjs';
 import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason, issueReason, laneStopReason, readerReason, postRecord, displayReason, READER_FILE } from '../hooks.mjs';
 import * as N_HOOKS from '../hooks.mjs';
+import * as N_LIB from '../lib.mjs';
 import { plainFaults, plainReason, BOB_READS, turnEvidence, evidencePrompt, evidenceVerdict, evidenceReason } from '../lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
@@ -589,6 +590,43 @@ test('the lane records its predecessor archived with its usage, or refused and u
   writeFileSync(rf, JSON.stringify({ session: 'session_01LANE', archive: 'session_01OLD2', predecessor: 'neoProcess #10', tell: [], archiveDone: 'x' }));
   N.processArchived({ ...o, usage: '{"cache_read_tokens":5,"cache_write_tokens":4,"input_tokens":3,"output_tokens":2}' });
   assert.match(g(lane.root, 'show', `origin/lanebranch:${N.LANE_METRICS}`), /\nsession_01OLD2,process,neoProcess #10,,5,4,3,2,,,,$/);
+});
+
+// Issue 102 (Bob, 30 Oct): a message for Bob is judged before it is sent; the turn's end skips what `proc say` passed
+test('a draft judged by proc say never reaches Bob when refused, and is not judged again when it passed', async () => {
+  const lane = mkdtempSync(join(tmpdir(), 'say-')); execFileSync('git', ['init', '-q', lane]);
+  writeFileSync(join(lane, '.git', N.ROLE_FILE), JSON.stringify({ role: 'process', product: '.', session: 'session_01SAY', branch: 'x' }));
+  writeFileSync(join(lane, '.git', READER_FILE), JSON.stringify({ session: 'session_01SAY' }));
+  writeFileSync(join(lane, '.git', N.ISSUES_FILE), JSON.stringify({ ok: true, issues: [] }));
+  writeFileSync(join(lane, '.git', N.BACKSTOP_FILE), JSON.stringify({ due: '2099-01-01T00:00:00Z' }));
+  const HOOKS = join(HERE, '..', 'hooks.mjs'), run = (ev, input) => execFileSync('node', [HOOKS, ev], { input: JSON.stringify({ session_id: 'session_01SAY', ...input }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: lane } });
+  const bad = 'Fixed in #64; see tools/proc.mjs.', good = 'The fix is on main. Nothing for Bob to do.';
+  await assert.rejects(N.say({ product: lane, file: join(lane, 'none.md') }), /--file/);
+  const r1 = await N.say({ product: lane, file: f(lane, 'd1.md', bad), judge: false });
+  assert.equal(r1.ok, false); assert.match(r1.faults[0], /a bare number/); assert.equal(r1.judged, false);
+  assert.equal(N_LIB.saidPassed(lane, 'session_01SAY', bad), false);
+  assert.match(JSON.parse(run('stop', { last_assistant_message: bad })).reason, /a bare number.*judge the rewrite before you send it: write it to a file and run `proc say --file/);   // sent unjudged: refused, with the way
+  const r2 = await N.say({ product: lane, file: f(lane, 'd2.md', good), judge: false });
+  assert.deepEqual([r2.ok, r2.faults, r2.judged], [true, [], false]);
+  assert.equal(N_LIB.saidPassed(lane, 'session_01SAY', good), true); assert.equal(N_LIB.saidPassed(lane, 'session_01SAY', `${good}\n`), true);   // the hook's text may end in a newline
+  assert.equal(N_LIB.saidPassed(lane, 'session_01OTHER', good), false); assert.equal(N_LIB.saidPassed(lane, 'session_01SAY', bad), false);
+  assert.equal(run('stop', { last_assistant_message: good }), '');
+  // the passed text, then another: only the last judged text is on record
+  const r3 = await N.say({ product: lane, file: f(lane, 'd3.md', bad), judge: false }); assert.equal(r3.ok, false);
+  assert.equal(N_LIB.saidPassed(lane, 'session_01SAY', good), false);
+  // a message a job would send is not judged this way; ROOT's ending on Bob is not an askingBob fault (ROOT has no queue)
+  writeFileSync(join(lane, '.git', N.ROLE_FILE), JSON.stringify({ role: 'job', module: 'alpha', product: '.', session: 'session_01SAY' }));
+  await assert.rejects(N.say({ product: lane, file: join(lane, 'd2.md') }), /only a role whose last message Bob reads/);
+  // the session's transcript, where Claude Code keeps it; the fresh reader's prompt from the reader skill, the verdict read
+  const home = mkdtempSync(join(tmpdir(), 'home-')), pdir = join(home, '.claude', 'projects', resolve(lane).replace(/[^A-Za-z0-9]/g, '-'));
+  assert.equal(N_LIB.transcriptOf(lane, home), null);
+  mkdirSync(pdir, { recursive: true }); writeFileSync(join(pdir, 'old.jsonl'), '{}\n'); const late = join(pdir, 'new.jsonl'); writeFileSync(late, '{}\n'); const t = new Date(Date.now() + 5000); utimesSync(late, t, t);
+  assert.equal(N_LIB.transcriptOf(lane, home), late);
+  let seen = null; const judge = (prompt) => { seen = prompt; return JSON.stringify({ result: '{"ok": false, "reason": "Fresh reader (Bob sees only this message): fault 1: \\"#64\\": name the thing."}' }); };
+  assert.match(N_LIB.freshReaderReason(bad, judge), /^Fresh reader \(Bob sees only this message\): fault 1/);
+  assert.match(seen, /You are a fresh reader standing in for Bob/); assert.ok(seen.includes(JSON.stringify({ last_assistant_message: bad }))); assert.ok(!seen.includes('$ARGUMENTS'));
+  assert.equal(N_LIB.freshReaderReason(bad, () => JSON.stringify({ result: '{"ok": true}' })), null);
+  assert.equal(N_LIB.freshReaderReason(bad, judge, join(lane, 'no-skill.md')), null);
 });
 
 // DRYRUN §12 (30 Oct): an issue's comment is out of a product session's reach, so the lane's reply to a product's report is
