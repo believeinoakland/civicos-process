@@ -416,7 +416,7 @@ export async function processStart(o) {
   const bobs = me ? productBobs(R) : [];
   const idle = me ? idleLaneSessions(R.read(LANE_METRICS)).filter((x) => x.session !== me[3] && x.session !== o.session) : [];   // issue 117
   const owed = me ? { session: o.session, archive: me[3], predecessor: `neoProcess #${me[2]}`, archives: [{ session: me[3], name: `neoProcess #${me[2]}` }, ...idle], tell: bobs.map((x) => x.session) } : null;
-  const refresh = owed ? `\nOwed at this refresh (Bob, 30 Oct): (1) archive_session each earlier lane session still idle: ${owed.archives.map((a) => `${a.session} (${a.name})`).join(', ')}; after each, \`proc process archived --session <id> --usage '<what it returned>'\`; if one is refused, \`proc process archived --session <id> --refused "<the refusal's words>"\` (it stays idle and is owed again at the next refresh; issue 117); (2) list_triggers, then switch off (update_trigger enabled false) every task whose persistent_session_id is ${owed.archive}; (3) send_message to each product's BOB: ${bobs.map((x) => `${x.product} ${x.name} ${x.session}`).join('; ') || 'none read'}, saying: "${laneMoved(o.session)}"\n` : '';
+  const refresh = owed ? `\nOwed at this refresh (Bob, 30 Oct; the Stop hook holds you to them): (1) archive_session each earlier lane session still idle: ${owed.archives.map((a) => `${a.session} (${a.name})`).join(', ')}; after each, \`proc process archived --session <id> --usage '<what it returned>'\`; if one is refused, \`proc process archived --session <id> --refused "<the refusal's words>"\` (it stays idle and is owed again at the next refresh; issue 117); (2) list_triggers, then switch off (update_trigger enabled false) every task whose persistent_session_id is ${owed.archive}; (3) send_message to each product's BOB: ${bobs.map((x) => `${x.product} ${x.name} ${x.session}`).join('; ') || 'none read'}, saying: "${laneMoved(o.session)}"\n` : '';
   return { role: 'process', branch: o.branch, issues: iss, away: !!away, owed, text: `${h ?? `(${PROCESS_LANE}/HANDOFF.md not found)`}\n${issueLines(iss)}\n${warn}${refresh}\nNext: put your session id (${o.session}) in the handoff's From line and push to ${o.branch}; read whole what its reading section names (P20); acknowledge each NEW issue (\`proc issue ack\`) and work the open issues with "What remains", Bob's first; arm the backstop \`proc process status\` prints.\n` };
 }
 // The neoProcess lane's successor (Bob, 29 Oct, to #8: the lane refreshes without him; P19). The lane has no parent
@@ -490,9 +490,9 @@ export function processArchived(o) {
   const u = o.refused != null ? {} : (() => { try { return typeof o.usage === 'string' ? JSON.parse(o.usage) : o.usage; } catch { return null; } })();
   if (o.usage != null && !actDone(u)) refuse(`what archive_session returned shows no archive of ${sid} (${String(o.usage).slice(0, 80)}): pass its result, or --refused "<the refusal's words>"`);
   const r = metricsRow(csv, o.refused != null ? unmeasuredRow(sid, 'process', owedOne.name, '', String(o.refused)) : [sid, 'process', owedOne.name, '', u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', '', '', '', '']);
+  const left = owedAll.map((a) => a.session).filter((x) => x !== sid && !r.split('\n').some((l) => l.startsWith(`${x},`) && !/,unmeasured/.test(l)));
   R.write(LANE_METRICS, r);
   const commit = commitPush(R, me.branch, [LANE_METRICS], `lane neoProcess: ${owedOne.name} ${o.refused != null ? 'left idle, unmeasured' : 'archived'}`);
-  const left = owedAll.map((a) => a.session).filter((x) => x !== sid && !r.split('\n').some((l) => l.startsWith(`${x},`) && !/,unmeasured/.test(l)));
   return { commit, archived: sid, unmeasured: o.refused != null, left };
 }
 // Issue 102 (Bob, 30 Oct): a message for Bob is judged before it is sent. The same checks the Stop hook runs on the turn's
