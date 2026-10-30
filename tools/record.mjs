@@ -273,12 +273,15 @@ export function addr(R, who, opts = {}) {
 
 export const METRICS_HEAD = 'session,role,name,module,cache-read,cache-write,input,output,test runs,module lines,reviewed,note\n';
 export const metricsFile = (T) => `build/metrics/${T}.csv`;
-// One row per session id: the text with that session's row replaced (a later measure over an unmeasured row), else the
-// row appended. A row with no counts reads as measured only if it says it is unmeasured, with the reason.
+// One row per session id: a session's row is replaced by a later one, except that an unmeasured row never overwrites a
+// measured one (the text is returned unchanged); else the row is appended. A row with no counts reads as measured only if
+// it says it is unmeasured, with the reason.
 export function metricsText(csv, row) {
   const counts = row.slice(4, 8), note = String(row[11] ?? '');
   if (counts.every((c) => c === '' || c === null || c === undefined) && !/^unmeasured: \S/.test(note)) refuse(`${row[0]}: a row without counts is named unmeasured, with the reason (unmeasuredRow)`);
   const lines = (csv || METRICS_HEAD).replace(/\n$/, '').split('\n'), i = row[0] ? lines.findIndex((l, k) => k > 0 && l.startsWith(`${row[0]},`)) : -1;
+  const unmeasured = (l) => /,unmeasured: /.test(l);
+  if (i > 0 && unmeasured(row.join(',')) && !unmeasured(lines[i])) return `${lines.join('\n')}\n`;   // a measure stands
   if (i > 0) lines[i] = row.join(','); else lines.push(row.join(','));
   return `${lines.join('\n')}\n`;
 }
@@ -367,7 +370,9 @@ export function status(o) {
     owed,
   };
   const own = ownBranch(role), ref = role?.role === 'job' && own ? (R.fetch(own), `origin/${own}`) : `origin/${TRANCHE}`;
-  const set = readingSetOf(R, role, e, o.set).map((p) => ({ path: p, bytes: sizeAt(R, ref, p) }));
+  // a path is measured from git here; an entry the caller gives already measured ({ path, bytes }: a role's process text,
+  // in the process repository) is kept as given
+  const set = readingSetOf(R, role, e, o.set).map((p) => (typeof p === 'object' ? { path: p.path, bytes: p.bytes ?? null } : { path: p, bytes: sizeAt(R, ref, p) }));
   const context = o.session !== undefined ? contextShare(o.session, role?.role) : null;
   const st = stopOf(plan);
   return { epoch: e, role: role?.role ?? null, plan: { state: plan.state, bob: plan.bob, layers: plan.layers, retiring: plan.retiring, status: durableStatus }, ...st, pin: pinOf(durableStatus, plan), jobs, lanes, asks, refusals, undelivered, ...halted, set, files, context };

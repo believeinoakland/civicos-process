@@ -843,4 +843,9 @@ test('proc status delegates to the record\'s status: the same lines, before any 
   assert.equal(after.epoch, 'E1', 'BOB\'s own queue beside it');
   assert.ok(after.record.some((l) => /^SIZE state\/E1:plan\.md /.test(l)));
   assert.ok(after.record.includes('context: 60 % of 1000 (threshold 40 %) REFRESH'));
+  // BOB's reading set, from SESSIONS §3 by `reading`, given to the record's status (R6, K12)
+  const set = N.reading({ role: 'bob' }).files;
+  assert.ok(set.length > 1);
+  for (const f of set) assert.ok(after.record.includes(`READ ${f.path.slice(N.PROCESS.length + 1)} ${f.bytes}`), f.path);
+  assert.deepEqual(recordStatus({ product: w.d, set: set.map((f) => ({ path: f.path.slice(N.PROCESS.length + 1), bytes: f.bytes })) }).set.map((x) => x.path), set.map((f) => f.path.slice(N.PROCESS.length + 1)));
 });

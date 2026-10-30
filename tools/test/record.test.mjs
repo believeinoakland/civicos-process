@@ -243,7 +243,9 @@ test('R6: a job\'s reading set is worked out from the record (its START\'s "Read
   put(w.d, 'src/a.mjs', 'x'.repeat(5000));   // the working tree is not what is measured
   const s = status({ product: w.d, role: { role: 'job', module: 'alpha', session: S('A') } });
   assert.deepEqual(s.set, [{ path: 'src/a.mjs', bytes: 20 }, { path: 'build/epochs.md', bytes: Buffer.byteLength(g(w.d, 'show', 'origin/job/alpha:build/epochs.md')) + 1 }, { path: 'absent.md', bytes: null }]);
-  assert.deepEqual(status({ product: w.d, role: 'bob' }).set, [], 'any other role: the set its caller names');
+  // any other role: the set its caller gives (SESSIONS §3, above this layer): a path measured here from git, an entry measured by the caller kept
+  assert.deepEqual(status({ product: w.d, role: 'bob', set: [{ path: 'PROCESS-DESIGN.md', bytes: 14203 }, 'src/a.mjs'] }).set, [{ path: 'PROCESS-DESIGN.md', bytes: 14203 }, { path: 'src/a.mjs', bytes: 20 }]);
+  assert.deepEqual(status({ product: w.d, role: 'bob' }).set, [], 'no set given: none invented');
 });
 test('R6: a job\'s owed acts are listed beside the plan\'s', () => {
   const w = world(), R = repo(w.d);
@@ -352,8 +354,11 @@ test('R11: metricsRow writes one row per session id to the tranche\'s metrics fi
   assert.deepEqual(u.slice(4, 11), ['', '', '', '', '', '', ''], 'no count is estimated');
   assert.equal(u[11], 'unmeasured: archive refused  by the classifier again');
   metricsRow(R, u, { tranche: 'N2' });
-  metricsRow(R, ['session_01B', 'job', 'B #1', 'b', 5, 6, 7, 8, '', '', '', ''], { tranche: 'N2' });   // measured later: replaces its row
+  metricsRow(R, ['session_01B', 'job', 'B #1', 'b', 5, 6, 7, 8, '', '', '', ''], { tranche: 'N2' });   // measured later: replaces its unmeasured row
   assert.deepEqual(readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(1), ['session_01A,job,A #1,a,1,2,3,4,,,,', 'session_01B,job,B #1,b,5,6,7,8,,,,']);
+  metricsRow(R, unmeasuredRow('session_01B', 'job', 'B #1', 'b', 'read again, refused'), { tranche: 'N2' });   // never the other way
+  metricsRow(R, unmeasuredRow('session_01A', 'job', 'A #1', 'a', 'refused'), { tranche: 'N2' });
+  assert.deepEqual(readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(1), ['session_01A,job,A #1,a,1,2,3,4,,,,', 'session_01B,job,B #1,b,5,6,7,8,,,,'], 'an unmeasured row never overwrites a measured one');
   assert.equal(metricsText(null, A), `${METRICS_HEAD}session_01A,job,A #1,a,1,2,3,4,,,,\n`);
   assert.equal(REC.metricsFile('N2'), 'build/metrics/N2.csv');
 });

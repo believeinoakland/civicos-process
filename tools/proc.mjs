@@ -2426,7 +2426,9 @@ export function args(argv) {
 // `proc status` runs the record's status for every role (R6): the whole record with sizes, the role's reading set, and the
 // context share from `--get-session '<what get_session returned>'`; beside it, the role's own queue where it has one.
 function statusCmd(o) {
-  const rec = recordStatus({ product: o.product, session: o.getSession, set: typeof o.set === 'string' ? o.set.split(',') : undefined }), lines = statusLines(rec);
+  // a role's reading set: a job's from its START (the record reads it); every other role's from SESSIONS §3, by `reading`
+  const me = readRole(repo(o.product).root), set = typeof o.set === 'string' ? o.set.split(',') : me?.role && me.role !== 'job' && me.role in ROLE_BOOKS ? reading({ role: me.role }).files.map((f) => ({ path: relative(PROCESS, f.path), bytes: f.bytes })) : undefined;
+  const rec = recordStatus({ product: o.product, session: o.getSession, set }), lines = statusLines(rec);
   if (readRole(repo(o.product).root)?.role === 'process') { const r = processStatus(o); return r instanceof Promise ? r.then((x) => ({ ...x, record: lines })) : { ...r, record: lines }; }
   return rec.epoch ? { ...status(o), record: lines } : { record: lines, state: rec };
 }
