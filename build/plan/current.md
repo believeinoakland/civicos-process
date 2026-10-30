@@ -60,7 +60,7 @@
 - N2-26 · GAT-8: the full regression as its own workflow, dispatched only by `tranche close` for a release or on Bob's word.
 
 **integration**
-- N2-27 · INT-2, INT-3, INT-6: `tools/integration.mjs` takes review decide/result, merge, `gateNeutral`, merged, job retire's record half, bob release; nothing in a merge or close calls `archive_session`; retirement is a record line and the usage read by SES-10's route or named unmeasured.
+- N2-27 · INT-2, INT-3, INT-6: `tools/integration.mjs` takes review decide/result, merge, `gateNeutral`, merged, job retire's record half, bob release; nothing in a merge or close calls `archive_session`; retirement is a record line and the usage read by SES-10's route or named unmeasured; a second review round (K9): `review decide` on a COMPLETE job whose last review read gaps opens the next round (reviews counted, the brief reused unless given) and `merge` reads the latest round.
 - N2-28 · INT-4 and P11: `layer close` runs the layer's tests (from the manifest) over the merged layer and refuses to close on a red, naming the module and printing the CHANGE for its job; it lists platform's stale constraint rows (`constraints({ olderThan })`, platform R2; K3).
 - N2-29 · INT-5: the completion round, tranche close, close pull request, release cut, deployment and walk kept as today, each with a fixture test, and the tranche report naming any stage that runs for the first time under a version.
 
