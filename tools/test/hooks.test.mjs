@@ -791,6 +791,9 @@ test('R8: the lane\'s predecessor is recorded archived only from what archive_se
   const o = { product: w.d }, shown = () => g(w.d, 'show', `origin/lanebranch:${N.LANE_METRICS}`), rows = () => shown().split('\n').slice(1);
   assert.equal(N.REFRESH_FILE, undefined, 'no refresh record'); assert.equal(N.keepRefresh, undefined);
   assert.throws(() => N.processArchived({ ...o, session: RS('Q'), refused: 'x' }), /is not owed/);
+  recordLocal(w.d, N.ROLE_FILE, { role: 'process', product: '.', session: RS('X'), branch: 'lanebranch' });   // a lane session the handoff does not name
+  assert.throws(() => N.processArchived({ ...o, refused: 'x' }), /does not name this session/);
+  recordLocal(w.d, N.ROLE_FILE, { role: 'process', product: '.', session: RS('N'), branch: 'lanebranch' });
   for (const bad of ['{"error":"Permission denied"}', '{}', 'not json', `{"session_id":"${RS('O')}"}`, '{"cache_read_tokens":5}']) assert.throws(() => N.processArchived({ ...o, usage: bad }), /shows no archive/, bad);
   assert.equal(existsSync(join(w.d, N.LANE_METRICS)), false, 'nothing written from a request or a failure');
   const r = N.processArchived({ ...o, refused: 'Permission denied by the classifier, [External System Writes]' });

@@ -483,6 +483,7 @@ export function processArchived(o) {
   if (o.refused != null && !String(o.refused).trim()) refuse('--refused "<why>": the refusal\'s words');
   // owed: the predecessor the handoff's From line names, and every earlier lane session left idle and unmeasured (issue 117)
   const b = (R.read(`${PROCESS_LANE}/HANDOFF.md`) || '').match(BEFORE), csv = R.read(LANE_METRICS);
+  if (!b || b[1] !== me.session) refuse(`the handoff's From line does not name this session (${me.session}): only the lane session the handoff names records its predecessors (REC-5)`);   // as processStart reads it
   const owedAll = [...(b ? [{ session: b[3], name: `neoProcess #${b[2]}` }] : []), ...idleLaneSessions(csv).filter((x) => !b || x.session !== b[3])];
   const sid = o.session ?? owedAll[0]?.session;
   if (!SESSION.test(sid || '')) refuse('--session <the archived session\'s id>');

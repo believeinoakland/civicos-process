@@ -12,7 +12,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node
 import { tmpdir } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 // The platform (layer 1, before this module): its refusal class, the delete route (`limits`), each act's result fields (`acts`).
-import { Refused, limits, acts } from './platform.mjs';
+import { Refused, limits, acts, rowFor } from './platform.mjs';
 
 export const TRANCHE = 'tranche';                 // fixed: a merge queue cannot target a wildcard (JOB-LIFE §1)
 export const jobBranch = (m) => `job/${m}`;
@@ -53,7 +53,8 @@ export function ghRepo(R) {
   const m = R.g(['remote', 'get-url', 'origin']).match(/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/);
   return { owner: m?.[1] ?? '?', repo: m?.[2] ?? '?' };
 }
-export function readRole(root) { const f = join(root, '.git', ROLE_FILE); return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null; }
+// An unreadable record (not JSON, not an object) names no known role: `{}`, refused wherever a role is needed (R4).
+export function readRole(root) { const f = join(root, '.git', ROLE_FILE); if (!existsSync(f)) return null; try { const r = JSON.parse(readFileSync(f, 'utf8')); return r && typeof r === 'object' && !Array.isArray(r) ? r : {}; } catch { return {}; } }
 // The branch a role pushes to, as its role record names it (R4): a job its module's branch, a role that records its own
 // branch (the neoProcess lane, onboarding) that branch, BOB, ROOT and a lane the tranche. Unknown: null, and a push refused.
 export const ROLES = ['bob', 'root', 'job', 'lane', 'process', 'onboard'];
@@ -273,11 +274,14 @@ export function actDone(result, fields) {
 // act's result, never by a pre event (N2-6); read back as null when absent or unreadable.
 export function recordLocal(root, name, value) { try { writeFileSync(join(root, '.git', name), JSON.stringify(value)); return value; } catch { return null; } }
 export function readLocal(root, name) { try { return JSON.parse(readFileSync(join(root, '.git', name), 'utf8')); } catch { return null; } }
-// `act` is the owed line; `id` the platform act it is (`create_session`, `merge_pull_request`, …), whose row in
-// `platform.acts()` names the fields its result carries. An act whose result carries none cannot be recorded from it.
-export function recordAct(R, act, result, id) {
-  if (!act || !id) refuse('recordAct: the owed act, its result, and the platform act it is');
-  const row = acts({ id })[0], fields = row.result ?? {};
+// `act` is the owed line, which names the platform act it is by its first word (`merge_pull_request PR #4`,
+// `create_session ALPHA #1`); that act's row in `platform.acts()`, and never the caller, names the fields its result
+// carries. An owed line that names no platform act, or an act whose result carries no fields, is never recorded from it.
+export function recordAct(R, act, result) {
+  if (!act) refuse('recordAct: the owed act and its result');
+  const call = String(act).trim().split(/\s+/)[0], known = rowFor(call);
+  if (!known) refuse(`${act}: the owed line names no platform act by its first word (${call}); it is cleared only by the command that reads its effect`);
+  const id = known.id, row = acts({ id })[0], fields = row.result ?? {};
   if (!Object.keys(fields).length) refuse(`${id}'s result carries no fields (${row.resultFrom ?? 'none named'}): it is recorded by the command that reads its effect, never from the call's answer`);
   if (!actDone(result, fields)) refuse(`${act} is not recorded as done: the call's result shows no ${Object.entries(fields).map(([k, v]) => (v === null ? k : `${k}: ${v}`)).join(', ')} (${JSON.stringify(result ?? null).slice(0, 100)}); it stays owed`);
   const p = parsePlan(stateRead(R, 'plan.md') || '');
@@ -315,6 +319,9 @@ export function metricsText(csv, row) {
   const none = counts.every((c) => c === '' || c === null || c === undefined), named = /^unmeasured: \S/.test(note);
   if (none && !named) refuse(`${row[0]}: a row without counts is named unmeasured, with the reason (unmeasuredRow)`);
   if (!none && named) refuse(`${row[0]}: an unmeasured row carries no counts: a count is measured or left empty, never estimated`);
+  const width = METRICS_HEAD.trim().split(',').length;
+  if (!/^session_[0-9A-Za-z]+$/.test(String(row[0] ?? ''))) refuse(`a metrics row is keyed by a session id, not ${JSON.stringify(row[0] ?? null)}`);
+  if (row.length !== width) refuse(`${row[0]}: a metrics row has ${width} fields, not ${row.length}`);
   const bad = row.findIndex((c) => /[,\n\r]/.test(String(c ?? '')));
   if (bad >= 0) refuse(`${row[0]}: field ${bad + 1} holds a comma or a line break (${JSON.stringify(String(row[bad]).slice(0, 40))}); the row would not read as ${METRICS_HEAD.split(',').length} fields`);
   const lines = (csv || METRICS_HEAD).replace(/\n$/, '').split('\n'), i = row[0] ? lines.findIndex((l, k) => k > 0 && l.startsWith(`${row[0]},`)) : -1;

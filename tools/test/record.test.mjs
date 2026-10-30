@@ -282,30 +282,32 @@ test('R7: REFRESH is decided on the exact share, not the rounded one', () => {
   assert.deepEqual([c.pct, c.refresh], [50, true], '50.04 % is past half, though it prints as 50');
   assert.equal(contextShare(gs(500000), 'job').refresh, false);
 });
-test('R8: a remote act is written as done only from the call\'s result, with the fields platform.acts() names for that act; a request, a refusal or no result leaves it owed', () => {
+test('R8: a remote act is written as done only from the call\'s result, with the fields platform.acts() names for the act its owed line names; a request, a refusal or no result leaves it owed', () => {
   const w = world(), R = repo(w.d);
-  planEdit(R, (p) => ({ ...p, owed: ['start ALPHA #1', 'merge PR #4', 'ring BOB'] }), 'owe');
-  // the fields come from the platform's row, never from the caller
+  planEdit(R, (p) => ({ ...p, owed: ['create_session ALPHA #1', 'merge_pull_request PR #4', 'actions_run_trigger prune.yml state/E1', 'start lane UX'] }), 'owe');
+  const owed = () => parsePlan(stateRead(R, 'plan.md')).owed;
+  // the fields come from the platform's row for the act the owed line names, never from the caller
   assert.deepEqual(PLATFORM.acts({ id: 'create_session' })[0].result, { id: null });
   assert.deepEqual(PLATFORM.acts({ id: 'merge_pull_request' })[0].result, { merged: true });
   for (const bad of [undefined, null, '', { error: 'Permission denied by the classifier' }, '{"isError":true}', 'not json', [], { title: 'ALPHA #1', prompt: 'x' }, { id: '' }]) {
-    assert.throws(() => recordAct(R, 'start ALPHA #1', bad, 'create_session'), /not recorded as done: the call's result shows no id/, JSON.stringify(bad));
+    assert.throws(() => recordAct(R, 'create_session ALPHA #1', bad), /not recorded as done: the call's result shows no id/, JSON.stringify(bad));
   }
-  assert.throws(() => recordAct(R, 'merge PR #4', { merged: false, sha: 'abc' }, 'merge_pull_request'), /shows no merged: true/, 'a fixed value must match');
-  assert.throws(() => recordAct(R, 'start ALPHA #1', { id: 'session_01X' }), /the platform act it is/, 'no act named: nothing recorded');
-  assert.throws(() => recordAct(R, 'ring BOB', { anything: 1 }, 'actions_run_trigger'), /carries no fields/, 'an act whose result carries none is never recorded from it');
-  assert.throws(() => recordAct(R, 'x', { id: 'y' }, 'archive_session'), /classifier/, 'an act the classifier decides is no act');
-  assert.deepEqual(parsePlan(stateRead(R, 'plan.md')).owed, ['start ALPHA #1', 'merge PR #4', 'ring BOB'], 'still owed');
-  assert.equal(recordAct(R, 'start ALPHA #1', JSON.stringify({ id: 'session_01ALPHA' }), 'create_session').recorded, true);
-  assert.equal(recordAct(R, 'merge PR #4', { merged: true, sha: 'abc' }, 'merge_pull_request').recorded, true);
-  assert.deepEqual(parsePlan(stateRead(R, 'plan.md')).owed, ['ring BOB']);
-  assert.equal(recordAct(R, 'nothing owed', { merged: true }, 'merge_pull_request').recorded, false);
+  assert.throws(() => recordAct(R, 'merge_pull_request PR #4', { merged: false, sha: 'abc' }), /shows no merged: true/, 'a fixed value must match');
+  assert.throws(() => recordAct(R, 'merge_pull_request PR #4', { id: 1 }, 'create_session'), /shows no merged: true/, 'a caller cannot pick another act\'s fields');
+  assert.throws(() => recordAct(R, 'start lane UX', { id: 'session_01X' }), /names no platform act by its first word/, 'an owed line naming no act is never recorded from a result');
+  assert.throws(() => recordAct(R, 'actions_run_trigger prune.yml state/E1', { anything: 1 }), /carries no fields/, 'an act whose result carries none is never recorded from it');
+  assert.throws(() => recordAct(R, 'archive_session OLD #1', { id: 'y' }), /classifier/, 'an act the classifier decides is no act');
+  assert.deepEqual(owed(), ['create_session ALPHA #1', 'merge_pull_request PR #4', 'actions_run_trigger prune.yml state/E1', 'start lane UX'], 'all still owed');
+  assert.equal(recordAct(R, 'create_session ALPHA #1', JSON.stringify({ id: 'session_01ALPHA' })).recorded, true);
+  assert.equal(recordAct(R, 'merge_pull_request PR #4', { merged: true, sha: 'abc' }).recorded, true);
+  assert.deepEqual(owed(), ['actions_run_trigger prune.yml state/E1', 'start lane UX']);
+  assert.equal(recordAct(R, 'merge_pull_request PR #9', { merged: true }).recorded, false, 'not owed: nothing written');
   // a measurement (a session's usage) names its own count fields
   assert.equal(actDone({ session_id: 'session_01OLD' }, USAGE_FIELDS), false, 'a request\'s own arguments are not its result');
   assert.equal(actDone({ cache_read_tokens: 5, cache_write_tokens: 4, input_tokens: 3, output_tokens: 'many' }, USAGE_FIELDS), false);
-  assert.deepEqual(Object.keys(REC).filter((k) => /request/i.test(k)), [], 'there is no function that records a request');
+  // behaviour, not names: every record function that takes a call's answer refuses a request's own arguments
+  for (const [f, call] of [['recordAct', () => recordAct(R, 'actions_run_trigger prune.yml state/E1', { workflow_id: 'prune.yml', ref: 'main' })], ['actDone', () => { if (actDone({ title: 'x', prompt: 'y' }, PLATFORM.acts({ id: 'create_session' })[0].result)) throw new Error('recorded'); throw new Refused('no'); }]]) assert.throws(call, Refused, f);
 });
-
 test('R3: the delete route is the platform\'s: through the proxy no direct delete is tried, and the printed dispatch is the platform\'s workflow, act and ref', () => {
   const w = world(), R = repo(w.d), route = PLATFORM.limits().deleteRoute;
   assert.deepEqual(route, { direct: 'refused', workflow: 'prune.yml', act: 'actions_run_trigger', ref: 'main' });
@@ -450,10 +452,24 @@ test('R4, R3: epochOpen and epochClose make no remote change for a role that may
 
 test('R8, R10: a plan whose Status line is not in BOB\'s form is refused, never a crash', () => {
   const w = world(), R = repo(w.d);
-  stateWrite(R, { 'plan.md': '**Status** · OPEN\n**Owed** · archive X #1\n' }, 'malformed');
-  assert.throws(() => recordAct(R, 'archive X #1', { merged: true }, 'merge_pull_request'), (e) => e instanceof Refused && /no Status line in BOB's form/.test(e.message));
+  stateWrite(R, { 'plan.md': '**Status** · OPEN\n**Owed** · merge_pull_request X #1\n' }, 'malformed');
+  assert.throws(() => recordAct(R, 'merge_pull_request X #1', { merged: true }), (e) => e instanceof Refused && /no Status line in BOB's form/.test(e.message));
   assert.throws(() => planEdit(R, (p) => p, 'x'), Refused);
   planEdit(R, (p) => ({ ...p, state: 'OPEN', bob: { name: 'BOB #3', session: BOB } }), 'takeover');   // the edit that writes BOB's line passes
   assert.deepEqual(parsePlan(stateRead(R, 'plan.md')).bob, { name: 'BOB #3', session: BOB });
+});
+
+test('R4: an unreadable role record names no known role: refused, never a crash; status still answers', () => {
+  const w = world(), R = repo(w.d);
+  writeFileSync(join(w.d, '.git', REC.ROLE_FILE), '{');
+  assert.throws(() => commitPush(R, TRANCHE, ['build/epochs.md'], 'x'), (e) => e instanceof Refused && /no role record names this session's own branch/.test(e.message));
+  writeFileSync(join(w.d, '.git', REC.ROLE_FILE), '[1]');
+  assert.throws(() => commitPush(R, TRANCHE, ['build/epochs.md'], 'x'), Refused);
+  assert.equal(status({ product: w.d }).epoch, 'E1');
+});
+
+test('R11: a metrics row is keyed by a session id and has the head\'s twelve fields', () => {
+  assert.throws(() => metricsText(null, ['', 'job', 'A #1', 'a', 1, 2, 3, 4, '', '', '', '']), /keyed by a session id/);
+  assert.throws(() => metricsText(null, ['session_01A', 'job', 'A #1', 'a', 1]), /has 12 fields, not 5/);
 });
 
