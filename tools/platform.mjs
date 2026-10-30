@@ -35,7 +35,7 @@ export const CONSTRAINTS = [
   C('add_repo(a product, push access)', 'The classifier refused the attach of a product repository ("Access Added As A Means").', '2026-10-29', 2, '#11; #12, as the session\'s first attach', 'a product\'s shims are regenerated on the runner (`dispatch(\'shims\')`)', { classifier: true }),
   C('same-named repositories', 'Two repositories of one name cannot share a session (`add_repo` of the new name refused in the session holding the old).', '2026-10-29', 1, '#10, after the move to `neobobkrause`', 'the successor session is started on the new name'),
   C('moved API path', 'After a move, the old API path answers a 301 that the proxy refuses; git follows both names.', '2026-10-29', 1, '#10', 'every client sets its remote to the new name'),
-  C('archive_session(child)', '`archive_session` passes or fails for the same kind of session minutes apart ("Interfere With Workloads", "External System Writes").', '2026-10-30', 9, 'passed: #4 (own child), BOB #2 (STATS #1), #16 by #17, #18 and #17 by #19 at 16:4xZ; refused: #3, #4 (parent), #6, #18 at 14:35Z, #19 at 16:15Z (two), BOB #339 (issues 95, 107, 117; acts.md)', 'no step requires it: an idle session costs nothing (GRANTS §1); a retired session is recorded `--unmeasured` or `--refused`', { classifier: true }),
+  C('archive_session(child)', '`archive_session` passes or fails for the same kind of session minutes apart ("Interfere With Workloads", "External System Writes").', '2026-10-30', 9, 'passed: #4 (own child), BOB #2 (STATS #1), #16 by #17, #18 and #17 by #19 at 16:4xZ; refused: #3, #4 (parent), #6, #18 at 14:35Z, #19 at 16:15Z (two), BOB #339 (issues 95, 107, 117; acts.md)', 'no step requires it: an idle session costs nothing (GRANTS §1); a retired session is recorded `--unmeasured` or `--refused`', { classifier: true, result: { cache_read_tokens: null, cache_write_tokens: null, input_tokens: null, output_tokens: null }, resultFrom: 'the usage a passed archive answers, which `proc job archived`, `lane archived`, `bob archived` and `process archived` read by these four names (tools/proc.mjs)' }),
   C('update_trigger(predecessor backstop off)', '`update_trigger` passes or fails case by case.', '2026-10-30', 3, 'passed 14:35Z (#18); refused 16:15Z (#19) and 17:1xZ (REQUIREMENTS PLT-2)', 'no step requires it: a scheduled task is a convenience, the record is read at every wake (PLT-7)', { classifier: true }),
   C('delete_trigger', 'Deleting a scheduled task deletes every session it started; whether the classifier passes it is undecided.', '2026-10-30', 1, 'the tool\'s own description, read 30 Oct; never taken', 'never taken', { classifier: true }),
   C('interrupt_session', '`interrupt_session` refused ("Interfere With Workloads").', '2026-10-29', 1, '#6, 14:23Z (acts.md)', 'never taken', { classifier: true }),
@@ -59,7 +59,7 @@ export const CONSTRAINTS = [
 const A = (id, role, route, passes, date, evidence) => ({ id, role, route, passes, date, evidence });
 export const ACTS = [
   A('create_session', 'a parent at depth 0 or 1: ROOT starts BOB, BOB starts jobs and lanes', 'the call `proc layer start`, `job route`, `lane open` or `root bob` printed, unchanged', 24, '2026-10-30', '16 job and 7 architecture sessions created on 30 Oct without a refusal (REQUIREMENTS PLT-3); PLATFORM #1 created by BOB at depth 1 (`get_session`)'),
-  A('send_message', 'a job or lane to BOB; BOB to a job, lane or ROOT', 'the address `proc addr --bob` prints, or the call `proc` printed, with the record pushed', 1, '2026-10-30', 'every send of 30 Oct answered `delivered`, not counted (REQUIREMENTS PLT-3); counted: PLATFORM #1\'s question to BOB, `delivered`'),
+  A('send_message', 'a job or lane to BOB; BOB to a job, lane or ROOT', 'the address `proc addr --bob` prints, or the call `proc` printed, with the record pushed', 6, '2026-10-30', 'every send of 30 Oct answered `delivered`, not counted (REQUIREMENTS PLT-3); counted: PLATFORM #1\'s six sends to BOB, each `delivered`'),
   A('get_session', 'every role, of itself or a session it started', 'by hand, read only', 1, '2026-10-30', 'PLATFORM #1, 30 Oct; read at every lane refresh (lane-neoprocess/HANDOFF.md), not counted'),
   A('list_events', 'every role, of a session it started or itself', 'by hand, read only', 1, '2026-10-30', 'PLATFORM #1, of itself, 30 Oct'),
   A('send_later(own backstop)', 'BOB and the neoProcess lane, to themselves', 'the call `proc process status` printed, or by hand to itself', 2, '2026-10-30', '#4, 29 Oct; the lane\'s backstop, 30 Oct #13 (acts.md)'),
@@ -79,12 +79,37 @@ export const ACTS = [
 ];
 
 const FIELDS_C = ['id', 'fact', 'date', 'count', 'evidence', 'workaround'];
-const FIELDS_A = ['id', 'role', 'route', 'passes', 'date', 'evidence'];
+// R3 (K12; REC-5): the fields each act's result carries when it has run, what a record of the act may be written from:
+// a field's fixed value where the act always answers it, null where any value is the record's (an id, a number). An act
+// whose result no step reads carries none, and says so. `resultFrom` is where the fields were seen.
+const RESULTS = {
+  create_session: [{ id: null }, 'the new session\'s id, which `proc job started`, `lane` and `root bob` record; read back by `get_session` (PLATFORM #1\'s own, 30 Oct)'],
+  send_message: [{ status: 'delivered' }, 'each of PLATFORM #1\'s six sends on 30 Oct answered `{ status: delivered }`'],
+  get_session: [{ id: null, session_status: null, external_metadata: null }, 'PLATFORM #1\'s `get_session` of itself, 30 Oct'],
+  list_events: [{ first_id: null, last_id: null, has_more: null }, 'PLATFORM #1\'s `list_events` of itself, 30 Oct'],
+  'send_later(own backstop)': [{ trigger_id: null }, 'the tool\'s description: the returned trigger_id cancels it before it fires'],
+  create_pull_request: [{ number: null }, 'the pull request\'s number, which `proc job pr --number` records (JOB-LIFE §1)'],
+  update_pull_request: [{ id: null, url: null }, 'PLATFORM #1 marking PR #127 ready, twice, 30 Oct'],
+  update_pull_request_branch: [{}, 'none read: the gate\'s next check event carries the new head (JOB-LIFE §6)'],
+  add_issue_comment: [{ id: null, url: null }, 'PLATFORM #1\'s two reports on PR #127, 30 Oct; `proc job posted --comment <id>` records the id'],
+  'pull_request_review_write(COMMENT)': [{}, 'none read: the approval `proc merge` reads is the job\'s Review line on the state branch'],
+  merge_pull_request: [{ merged: true }, 'the merge answers `merged: true` with its sha, which `proc merged --sha` records (JOB-LIFE §6)'],
+  subscribe_pr_activity: [{}, 'none read: the subscription\'s events are what follow'],
+  issue_write: [{ number: null }, 'the issue\'s number, which `proc issue ack` and `issue close` take'],
+  actions_run_trigger: [{}, 'none: the dispatch answers 204, "Workflow run has been queued", with no run id (29 Oct #8); the run id is the `id` of `list_workflow_runs` (read by PLATFORM #1, 30 Oct)'],
+  'git push(own branch)': [{}, 'none: the exit status; the pushed commit is the session\'s own HEAD'],
+  'git push(state branch)': [{}, 'none: the exit status; `proc` prints the commit it wrote'],
+  list_triggers: [{}, 'none read by a step (PLT-7)'],
+  'git fetch(process)': [{}, 'none: the exit status'],
+};
+for (const a of ACTS) [a.result, a.resultFrom] = RESULTS[a.id] ?? [undefined, undefined];
+const FIELDS_A = ['id', 'role', 'route', 'passes', 'date', 'evidence', 'result', 'resultFrom'];
 // A row is well formed when each field is present, its date a day and its count a whole number (R2: no row without a date).
 export function rowProblems(row, fields = row.passes === undefined ? FIELDS_C : FIELDS_A) {
   const p = fields.filter((f) => row[f] === undefined || row[f] === null || row[f] === '').map((f) => `${row.id ?? '?'}: no ${f}`);
   if (row.date && (!/^\d{4}-\d{2}-\d{2}$/.test(row.date) || Number.isNaN(Date.parse(row.date)))) p.push(`${row.id}: date ${row.date} is not a day`);
   for (const k of ['count', 'passes']) if (row[k] !== undefined && !(Number.isInteger(row[k]) && row[k] >= 0)) p.push(`${row.id}: ${k} ${row[k]} is not a count`);
+  if (row.result !== undefined && (typeof row.result !== 'object' || row.result === null || Array.isArray(row.result))) p.push(`${row.id}: result is not a set of fields`);
   return p;
 }
 
@@ -233,6 +258,7 @@ export function grantsHeld(R, now_ = new Date()) {
 
 // ---- the rendering, `tools/platform.md` ----
 const cell = (x) => String(x).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+const resultCell = (r) => `${Object.entries(r.result).map(([k, v]) => (v === null ? `\`${k}\`` : `\`${k}: ${v}\``)).join(', ') || 'none'} (${r.resultFrom})`;
 export function render() {
   const L = limits();
   return [
@@ -250,9 +276,9 @@ export function render() {
     '',
     'PLT-3 asks for twenty passes; a row below twenty is counted from the evidence named and raised by each layer run.',
     '',
-    '| id | role | route | passes | confirmed | evidence |',
-    '| --- | --- | --- | --- | --- | --- |',
-    ...ACTS.map((r) => `| \`${cell(r.id)}\` | ${cell(r.role)} | ${cell(r.route)} | ${r.passes}${r.passes < 20 ? ' (below 20)' : ''} | ${r.date} | ${cell(r.evidence)} |`),
+    '| id | role | route | passes | confirmed | evidence | result fields |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
+    ...ACTS.map((r) => `| \`${cell(r.id)}\` | ${cell(r.role)} | ${cell(r.route)} | ${r.passes}${r.passes < 20 ? ' (below 20)' : ''} | ${r.date} | ${cell(r.evidence)} | ${cell(resultCell(r))} |`),
     '',
   ].join('\n');
 }

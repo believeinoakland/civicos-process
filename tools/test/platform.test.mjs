@@ -56,6 +56,29 @@ test('R3: the acts the process depends on, each with its pass count and its role
   assert.throws(() => P.acts({ id: 'no_such_act' }), /not an act the process depends on/);
 });
 
+test('R3: each act carries the fields its result has when it has run, with where they were seen', () => {
+  const by = Object.fromEntries(P.acts().map((r) => [r.id, r]));
+  for (const r of P.acts()) {
+    assert.ok(r.result && typeof r.result === 'object' && !Array.isArray(r.result), `${r.id}: result`);
+    assert.ok(r.resultFrom, `${r.id}: resultFrom`);
+  }
+  assert.deepEqual(by.send_message.result, { status: 'delivered' });
+  assert.deepEqual(by.merge_pull_request.result, { merged: true });
+  assert.deepEqual(by.create_pull_request.result, { number: null });
+  assert.deepEqual(by.create_session.result, { id: null });
+  assert.deepEqual(by.add_issue_comment.result, { id: null, url: null });
+  assert.deepEqual(by.actions_run_trigger.result, {});
+  assert.match(by.actions_run_trigger.resultFrom, /no run id/);
+  // the archive is no act (R4), and its row carries the four usage counts the record is written from
+  const archive = P.constraints().find((r) => r.id === 'archive_session(child)');
+  assert.deepEqual(Object.keys(archive.result), ['cache_read_tokens', 'cache_write_tokens', 'input_tokens', 'output_tokens']);
+  // a row whose result is not a set of fields fails the format; the rendering shows each act's fields
+  assert.match(P.rowProblems({ ...by.send_message, result: ['status'] }).join(), /result is not a set of fields/);
+  assert.match(P.rowProblems({ ...by.send_message, result: undefined }).join(), /no result/);
+  assert.match(P.render(), /`status: delivered`/);
+  assert.match(P.render(), /`merged: true`/);
+});
+
 test('R4: an act the classifier decides case by case is refused, never listed as an act', () => {
   for (const id of ['archive_session', 'update_trigger', 'delete_trigger', 'interrupt_session']) {
     assert.ok(!P.acts().some((r) => P.callName(r.id) === id), id);
