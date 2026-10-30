@@ -5,7 +5,7 @@
 // always exits 0 and answers in JSON: a PreToolUse refusal as `permissionDecision: "deny"` (a pre-approved act of the
 // act table as `"allow"`, PERMISSIONS §8.6), a Stop refusal as
 // `decision: "block"`. What it refuses is what must never happen (code, P16); what a goal sends a session back for is text.
-//   node tools/hooks.mjs <pre|post|stop|evidence>
+//   node tools/hooks.mjs <pre|post|display|stop|evidence>
 // Pushes: a job pushes only `job/<m>`, a lane only `tranche`, BOB `tranche` (its prepared files, P18); nobody pushes
 // `main` or a `state/*` branch by hand (the tool writes the state branch by plumbing). JOB-LIFE §4's "any push to the
 // tranche branch" is read as: a job's work reaches `tranche` only through the queue; BOB's hand merge of a job branch,
@@ -310,6 +310,23 @@ export function postRecord(role, input, ctx) {
   if (role === 'bob' && t === `${REMOTE}send_message` && /^TOOK OVER BOB #\d+/.test(String(ti.message || ''))) return edit(TOOKOVER_FILE, (w) => ({ ...w, sent: at }));
   return null;
 }
+// Issue 102 (Bob, 30 Oct: "you're report responses to my prompts multiple times"): the Stop hook judges a turn's last
+// message after Claude Code has shown it, so Bob sees every refused draft and its rewrite. No hook runs before the text
+// exists; the one that touches what is shown is MessageDisplay, which may replace the text rendered (display only: it
+// cannot block, and the transcript keeps the draft; code.claude.com/docs/en/hooks, read 30 Oct). In a non-interactive
+// run it fires once per message with the whole text (`index` 0, `final` true), so the checks the Stop hook runs without
+// a model (the reader on, the steps, plain words) judge the draft here first, and a draft they refuse is shown as one
+// line. It holds back nothing the Stop hook would let through: only while the stop count says the next refusal still
+// blocks. Each call is logged, so whether this runtime fires it, and in which shape, is measured (DRYRUN §24).
+export const DISPLAY_FILE = (id) => join(tmpdir(), `proc-display-${String(id || 'none').replace(/[^\w-]/g, '')}.json`);
+export const WITHHELD = '(a draft the process refused; the message that passes follows)\n';
+export function displayReason(role, input, ctx, stopCount = 0) {
+  if (!BOB_READS.has(role) || input.index !== 0 || input.final !== true || typeof input.delta !== 'string' || stopCount >= 3) return null;
+  let why = readerReason(role, ctx);
+  if (!why) { try { why = stepsReason(input.delta, join(ctx.root, ctx.product || '.')); } catch { why = null; } }
+  if (!why) { try { why = plainReason(input.delta); } catch { why = null; } }
+  return why;
+}
 // P13, rulebook SES 5: BOB past 40 % of its window, a job or a lane past half, ends a turn only with its refresh recorded
 // (BOB #2 of N1 ran to 67 % while BOB's own threshold was text: DRYRUN §4.17). The context is the last assistant turn's
 // input (fresh, cache read and cache write) in the transcript; the window is the model's, 1,000,000 unless
@@ -383,6 +400,16 @@ function main() {
     return;
   }
   if (ev === 'post') { try { postRecord(role, input, ctx); } catch { /* a record is never a refusal */ } return; }
+  if (ev === 'display') {
+    const id = input.session_id || r.session, f = DISPLAY_FILE(id);
+    let log = []; try { log = JSON.parse(readFileSync(f, 'utf8')); } catch { /* first call */ }
+    log.push({ at: new Date().toISOString(), role, index: input.index, final: input.final, len: String(input.delta ?? '').length });
+    try { writeFileSync(f, JSON.stringify(log.slice(-40))); } catch { /* none */ }
+    let n = 0; try { n = JSON.parse(readFileSync(join(tmpdir(), `proc-stop-${String(id || 'none').replace(/[^\w-]/g, '')}.json`), 'utf8')).n || 0; } catch { /* no refusal yet */ }
+    let why = null; try { why = displayReason(role, input, ctx, n); } catch { /* shown as written */ }
+    if (why) console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'MessageDisplay', displayContent: WITHHELD } }));
+    return;
+  }
   if (ev === 'evidence') {
     if (!BOB_READS.has(role) || readerReason(role, ctx)) return;   // the same messages the fresh reader judges
     let why = null; try { why = evidenceReason(input, runJudge); } catch { /* the check never blocks on its own failure */ }

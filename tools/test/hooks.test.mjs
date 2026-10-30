@@ -3,12 +3,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, cpSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, cpSync, mkdirSync, rmSync, existsSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../proc.mjs';
-import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason, issueReason, laneStopReason, readerReason, postRecord, READER_FILE } from '../hooks.mjs';
+import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason, issueReason, laneStopReason, readerReason, postRecord, displayReason, READER_FILE } from '../hooks.mjs';
+import * as N_HOOKS from '../hooks.mjs';
 import { plainFaults, plainReason, BOB_READS, turnEvidence, evidencePrompt, evidenceVerdict, evidenceReason } from '../lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
@@ -288,6 +289,9 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   assert.match(laneStopReason(rctx), /session_01OLD is not archived.*backstop is not switched off.*session_01BOB not told/);
   writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', archived: 'x', switchedOff: 'x', tell: [] }));
   assert.doesNotMatch(laneStopReason(rctx) || '', /not archived|switched off|not told/);
+  // issue 107: a second start in the same session keeps the record; another session's is replaced
+  assert.equal(N.keepRefresh(rdir, { session: ctx.session, archive: 'session_01OLD', tell: ['session_01BOB'] }).archived, 'x');
+  assert.equal(N.keepRefresh(rdir, { session: 'session_01NEXT', archive: ctx.session, tell: [] }).archived, undefined);
   // issue 107: the acts are recorded by the post event, once they have run; the pre event records nothing (a refused call)
   writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', tell: ['session_01BOB'] }));
   preReason('process', tool(`${REMOTE}archive_session`, { session_id: 'session_01OLD' }), rctx);
@@ -451,6 +455,21 @@ test('the fresh reader: on only for the roles Bob reads, recorded by the pre hoo
   assert.equal(JSON.parse(readFileSync(join(lane, '.git', READER_FILE), 'utf8')).session, 'session_01HOOK');
   assert.equal(run('stop', { last_assistant_message: 'The fix is on main. Nothing for Bob to do.' }), '');
   assert.match(JSON.parse(run('stop', { last_assistant_message: 'Fixed in #64; see tools/proc.mjs.' })).reason, /a bare number \("#64"\); a file name \("tools\/proc\.mjs"\)/);
+  // issue 102: the display event judges a whole draft before it is shown (non-interactive shape: index 0, final), with the
+  // same checks minus the model, and withholds only what the Stop hook would still refuse
+  const dctx = { role: 'process', session: 'session_01HOOK', root: lane, product: '.' }, draft = (delta, x = {}) => ({ index: 0, final: true, delta, ...x });
+  assert.match(displayReason('process', draft('Fixed in #64; see tools/proc.mjs.'), dctx), /a bare number/);
+  assert.equal(displayReason('process', draft('The fix is on main. Nothing for Bob to do.'), dctx), null);
+  assert.equal(displayReason('process', draft('Fixed in #64.', { final: false }), dctx), null);   // a batch of an interactive run: not the whole draft
+  assert.equal(displayReason('process', draft('Fixed in #64.', { index: 2 }), dctx), null);
+  assert.equal(displayReason('process', draft('Fixed in #64.'), dctx, 3), null);   // the Stop hook lets the next one through: so does the display
+  assert.equal(displayReason('job', draft('Fixed in #64.'), { ...dctx, role: 'job' }), null);   // nothing Bob reads
+  try { unlinkSync(N_HOOKS.DISPLAY_FILE('session_01DISP')); } catch { /* first run */ }
+  const dout = run('display', { session_id: 'session_01DISP', turn_id: 't', message_id: 'm', ...draft('Fixed in #64; see tools/proc.mjs.') });
+  assert.deepEqual(JSON.parse(dout), { hookSpecificOutput: { hookEventName: 'MessageDisplay', displayContent: N_HOOKS.WITHHELD } });
+  assert.equal(run('display', { session_id: 'session_01DISP', turn_id: 't', message_id: 'm', ...draft('Nothing for Bob to do.') }), '');
+  const dlog = JSON.parse(readFileSync(N_HOOKS.DISPLAY_FILE('session_01DISP'), 'utf8'));
+  assert.equal(dlog.length, 2); assert.deepEqual(dlog.map((x) => [x.role, x.index, x.final, x.len]), [['process', 0, true, 33], ['process', 0, true, 22]]);
   // one text for every product: the shims copy the process's own reader skill verbatim; its hook is a prompt on Sonnet
   const skill = readFileSync(join(N.PROCESS, '.claude/skills/neoprocess-reader/SKILL.md'), 'utf8');
   assert.match(skill, /^---\nname: neoprocess-reader\n[\s\S]*\n  Stop:\n    - hooks:\n        - type: prompt\n          model: claude-sonnet-5-5\n/);
