@@ -264,3 +264,15 @@ Issue 98 (Civicsmith's BOB #339): jobs started at 13:17Z, after issue 92's fix w
 | Civicsmith's shims carry the new start line | PROVEN | run 41066626794 (13:50Z, success); civicsmith/civicsmith `main`'s `.claude/settings.json` read back with the fast-forward line |
 | a product session started after a fix holds it | NOT YET | Civicsmith's next session's copy read (`git -C /home/user/neoprocess log -1`) |
 | a job opened after the shims run carries them | FAILED, then fixed | BOB #339: MONEY #3, created 13:51:25Z after run 41066626794, held 678ab08: a job's branch opens from `tranche`, whose settings still had the old line (read back: `tranche` old, `main` new). Now `repo shims` commits the same files on `tranche`'s tip too (`shimsTranche`, retried when the tip moves); fixture: one commit on the tip, then `already current` |
+| the shims reach Civicsmith's running tranche | PROVEN | run 41067860285 (13:59Z, success): `tranche` 4473097 (14:00:56Z), one commit on 9960343, its settings read back with the new line |
+
+## 21. Certification of issues 101 and 103, and the lane's refresh acts (GOV 5; 30 Oct 2026, #17)
+
+Issue 101 (Civicsmith; Bob: "start the jobs with an initial prompt that tell it which neoprocess version it should be running. If they're not running that version then it should tell you immediately and stop"): a session on an old copy runs that copy's own checks, so nothing inside the copy catches it. Now the parent's prompt (a job's, a lane's, a BOB's) names the parent's process commit, and the session's first act is `versionCheck`: a fast-forward and an ancestry test by `rev-list | grep`, which the pre-role hook of every copy passes (its rule unchanged since 678ab08, compared); STALE: the start command, one message to the parent, stop. `job start` prints the commit it runs on. Issue 103: `job route` on an ARCHIVED job whose branch the tranche does not hold (and which still exists) marks it REOPENED and prints the next session, branch and PR kept. Refresh (Bob, 30 Oct: "All of these refresh related changes must happen whenever you refresh"): `process start` of a successor records three owed acts (the predecessor archived, its backstop off, each product's BOB told the new address, read from the products' state branches), and the lane's Stop hook refuses a turn's end until they are taken. Checked against P3, P13, P17, P20. Suite 283 green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| the version line in the prompt; OK on a copy behind (brought there), STALE on a diverged one; the pre-role hook passes it | PROVEN in fixture | `versionLine`, `versionCheck` run by `sh` on the fixture clone |
+| a job archived unmerged started again; one merged (branch held or gone) refused | PROVEN in fixture | `jobRoute` on stats (REOPENED, STATS #2, the version line) and alpha |
+| the refresh's owed acts held by the Stop hook | PROVEN in fixture | `laneStopReason` with and without them |
+| Civicsmith's four jobs restarted on the commit named | NOT YET | BOB #340, after this merge |

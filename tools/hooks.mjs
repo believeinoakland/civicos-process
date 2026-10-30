@@ -13,7 +13,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { ROOT_BOB_FILE, repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, processTriggerReason, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN, WORKERS_FILE, runningWorkers } from './proc.mjs';
+import { ROOT_BOB_FILE, repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, processTriggerReason, REFRESH_FILE, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN, WORKERS_FILE, runningWorkers } from './proc.mjs';
 import { resolve, sep } from 'node:path';
 import { stepsReason, lastAssistantText, plainReason, BOB_READS, evidenceReason, EVIDENCE_MODEL } from './lib.mjs';
 import { spawnSync } from 'node:child_process';   // P20: steps for Bob verified against their source (`proc steps`)
@@ -275,6 +275,12 @@ export function laneStopReason(ctx, now = Date.now()) {
   else { const nw = iss.issues.filter((i) => i.state !== 'ACKNOWLEDGED').map((i) => `#${i.number}`); if (nw.length) why.push(`issue(s) ${nw.join(', ')} not acknowledged: \`proc issue ack\`, the comment it prints, then \`proc process status\``); }
   const unfiled = (iss?.reports || []).filter((x) => x.state === 'NEW').map((x) => x.id);   // issue 75: a product's report not yet filed
   if (unfiled.length) why.push(`product report(s) ${unfiled.join(', ')} not filed: \`proc issue --report <id>\`, the call it prints, then \`proc process status\``);
+  const rf = record(ctx, REFRESH_FILE);   // Bob, 30 Oct: every refresh retires the predecessor and tells the products the new address
+  if (rf && rf.session === ctx.session) {
+    if (!rf.archived) why.push(`the previous lane session ${rf.archive} is not archived: archive_session it, as \`proc process start\` printed`);
+    if (!rf.switchedOff) why.push(`the previous lane session's backstop is not switched off: list_triggers, then update_trigger enabled false on each task whose persistent_session_id is ${rf.archive}, if any`);
+    if ((rf.tell || []).length) why.push(`product BOB(s) ${rf.tell.join(', ')} not told the lane's new address: send_message each the line \`proc process start\` printed`);
+  }
   const handed = record(ctx, 'proc-handoff.json')?.session === ctx.session && ctx.session;   // handed off: the backstop is the successor's
   if (!handed && !(back && Date.parse(back.due) > now)) why.push('no backstop is due: arm it with the send_later `proc process status` printed');
   return why.length ? why.join('; ') : null;
@@ -350,6 +356,11 @@ function main() {
     if (input.tool_name === 'Skill' && isReader(input.tool_input?.skill) && r.session) { try { writeFileSync(join(root, '.git', READER_FILE), JSON.stringify({ session: r.session, at: new Date().toISOString() })); } catch { /* not a git checkout */ } }
     if (input.tool_name === 'Agent' && input.tool_input?.run_in_background === true && r.session) { try { const run = runningWorkers(root, r.session) || []; writeFileSync(join(root, '.git', WORKERS_FILE), JSON.stringify({ session: r.session, at: new Date().toISOString(), running: [...run, { id: input.tool_use_id, type: 'subagent', description: input.tool_input.description }] })); } catch { /* not a git checkout */ } }
     if (role === 'process' && [`${REMOTE}create_trigger`, `${REMOTE}fire_trigger`].includes(input.tool_name) && !why) { try { const f = join(root, '.git', PROCESS_TRIGGER_FILE); writeFileSync(f, JSON.stringify(input.tool_name.endsWith('create_trigger') ? { at: new Date().toISOString() } : { ...JSON.parse(readFileSync(f, 'utf8')), fired: new Date().toISOString() })); } catch { /* not a git checkout */ } }
+    if (role === 'process' && !why) { try { const f = join(root, '.git', REFRESH_FILE), w = JSON.parse(readFileSync(f, 'utf8')), ti = input.tool_input || {};
+      if (input.tool_name === `${REMOTE}archive_session` && ti.session_id === w.archive) w.archived = new Date().toISOString();
+      if (input.tool_name === `${REMOTE}list_triggers` || (input.tool_name === `${REMOTE}update_trigger` && ti.enabled === false)) w.switchedOff = new Date().toISOString();   // looked, and switched off what it found
+      if (input.tool_name === `${REMOTE}send_message`) w.tell = (w.tell || []).filter((x) => x !== ti.session_id);
+      writeFileSync(f, JSON.stringify(w)); } catch { /* no refresh owed */ } }
     if (role === 'process' && input.tool_name === `${REMOTE}send_later`) { try { writeFileSync(join(root, '.git', BACKSTOP_FILE), JSON.stringify({ due: new Date(Date.now() + Number(input.tool_input?.delay_minutes) * 60e3).toISOString() })); } catch { /* not a git checkout */ } }
     if (ok) console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `PROCESS: ${ok}` } }));
     return;

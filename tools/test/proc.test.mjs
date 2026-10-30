@@ -551,6 +551,14 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   assert.match(csv, /^,defect,BETA #1,beta,,,,,,,1\/1,total\(\[\]\) documented wrong$/m);
   assert.match(csv, new RegExp(`^${B2},BOB-final,BOB #0,,1,1,1,1,,,,$`, 'm'));
   assert.throws(() => N.handoff(o()), /owed: open PR stats/);
+  // issue 101: a job archived before its merge is started again on its branch; one the tranche holds is done
+  assert.throws(() => N.jobRoute(o({ module: 'alpha' })), /alpha reads ARCHIVED and (tranche holds its branch|its branch job\/alpha is gone \(deleted once merged\)): it is done/);
+  const S1 = 'session_01STATS1aaaaaaaaaaaaaaaaa'; N.jobStarted(o({ module: 'stats', name: 'STATS #1', session: S1 }));
+  N.jobArchived(o({ module: 'stats', session: S1, unmeasured: 'retired on a stale process' }));
+  const reopened = N.jobRoute(o({ module: 'stats' }));
+  assert.deepEqual([reopened.action, reopened.title, reopened.archive], ['create_session', 'STATS #2', S1]);
+  assert.match(reopened.prompt, /Your first act, before anything else: run `git -C \/home\/user\/neoprocess pull -q --ff-only origin main; .*echo PROCESS STALE`/);
+  assert.equal(N.jobState(o({ module: 'stats' })).state, 'REOPENED');
 });
 
 test('the one skill\'s reading, the shims written and checked for drift, the gate as CI runs it (JOB-LIFE §4, SESSIONS §6, PRODUCT-SUPPLIES)', () => {
@@ -914,6 +922,7 @@ test('repo shims regenerates a product\'s shims on the runner with the process\'
   assert.match(r4.steps.at(-1), new RegExp(`^${N.TRANCHE}: \\.claude/settings\\.json.* at [0-9a-f]{7}$`));
   assert.equal(g(t.origin, 'rev-parse', `refs/heads/${N.TRANCHE}^`), before);   // one commit on the tip, nothing else moved
   assert.match(g(t.origin, 'show', `refs/heads/${N.TRANCHE}:CLAUDE.md`), /attached at `\/home\/user\/neoprocess` on its branch `main`/);
+  assert.match(g(t.origin, 'show', `refs/heads/${N.TRANCHE}:.claude/settings.json`), /merge -q --ff-only origin\/main/);   // issue 101 (a): the tranche carries the fast-forward line
   const r5 = await N.repoShims({ repo: 'bob/toy', checkout: tr.root, process: '/home/user/neoprocess', ref: 'main', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } });
   assert.equal(r5.steps.at(-1), `${N.TRANCHE} already current`);
   const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', N.REPO_SHIMS_WORKFLOW), 'utf8');
