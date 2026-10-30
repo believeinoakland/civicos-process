@@ -32,7 +32,7 @@
 **architecture**
 - N2-10 · ARC-3: the words check refuses a literal user-facing sentence in a test and names the key; the coverage and fixtures checks unchanged. Test: a fixture test with a sentence fails, the same test by key passes.
 - N2-11 · ARC-5, GAT-7: `checks/run.mjs` writes one machine-readable result (module, file, line, check, finding) beside its text; `status` and the gate read it.
-- N2-12 · ARC-4: scoping to a module and the whole-product run are one function with a `--module` switch; the layer-close run is the whole-product run.
+- N2-12 · ARC-4: scoping to a module and the whole-product run are one function with a `--module` switch; the layer-close run is the whole-product run; the checks reach git only through record's `repo` (record R1; K4).
 - N2-45 · ARC-2 with REQ 8 (found at layer 1's start, K1): a module's `paths` or `tests` entry may name a file its live job has not yet written: the format check reports such an entry as pending while the module's job reads STARTING or WORKING on the state branch, and fails it only once the module's layer has closed; the ownership check is unchanged. Test: a map entry naming no file passes beside a live job line and fails without one.
 
 **requirements**
@@ -54,7 +54,7 @@
 - N2-22 · JOB-9, JOB-10: the Stop-hook rules become the record: `status` lists a job WORKING with nothing pushed for an hour; each job attempt's reading set and tokens are its own row.
 
 **gate**
-- N2-23 · GAT-1, GAT-2, GAT-6: `tools/gate.mjs` holds `runGate` for CI only: the module's own suite and the checks scoped to it; `usersOfChange` and every user-suite path removed; the workflow template `tools/gate.yml.tmpl` triggers on the module's paths and tests, the files the checks read for it and generated inputs, never on record paths.
+- N2-23 · GAT-1, GAT-2, GAT-6: `tools/gate.mjs` holds `runGate` for CI only: the module's own suite and the checks scoped to it; `usersOfChange` and every user-suite path removed; the workflow template `tools/gate.yml.tmpl` triggers on the module's paths and tests, the files the checks read for it and generated inputs, never on record paths, read from record's `paths()` and proven by a test (record R12; K4).
 - N2-24 · GAT-4: artifacts regenerated, verified only when changed against HEAD.
 - N2-25 · GAT-5: every lock installed where it sits; Node from the product's version file (as today, proven live).
 - N2-26 · GAT-8: the full regression as its own workflow, dispatched only by `tranche close` for a release or on Bob's word.
