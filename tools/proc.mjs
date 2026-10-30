@@ -486,7 +486,7 @@ export function processArchived(o) {
   if (!SESSION.test(sid || '')) refuse('--session <the archived session\'s id>');
   const owedOne = owedAll.find((a) => a.session === sid) ?? refuse(`${sid} is not owed (owed: ${owedAll.map((a) => a.session).join(', ') || 'none'})`);
   const row = (csv || '').split('\n').find((l) => l.startsWith(`${sid},`));
-  if (row && (!/,unmeasured/.test(row) || o.refused != null)) refuse(`${sid} is already recorded: ${row}`);
+  if (row && !/,unmeasured: /.test(row)) refuse(`${sid} is already recorded: ${row}`);   // a later refusal replaces an unmeasured row
   const u = o.refused != null ? {} : (() => { try { return typeof o.usage === 'string' ? JSON.parse(o.usage) : o.usage; } catch { return null; } })();
   if (o.usage != null && !actDone(u, USAGE_FIELDS)) refuse(`what archive_session returned shows no archive of ${sid} (${String(o.usage).slice(0, 80)}): pass its result, or --refused "<the refusal's words>"`);
   const r = metricsRow(R, o.refused != null ? unmeasuredRow(sid, 'process', owedOne.name, '', String(o.refused)) : [sid, 'process', owedOne.name, '', u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', '', '', '', ''], { file: LANE_METRICS });

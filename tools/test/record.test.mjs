@@ -328,14 +328,13 @@ test('R10: a stop writes STOPPED <why> · <version> with each unmerged job\'s ch
   assert.throws(() => resume(R, 'abc1234'), /not stopped/);
   stop(R, 'flaw · in\nthe gate', { alpha: 'complete-allowed', beta: 'abandoned' }, 'abc1234');
   const text = stateRead(R, 'plan.md');
-  assert.match(text, new RegExp(`^\\*\\*Status\\*\\* · OPEN · BOB #1 · ${BOB} · STOPPED flaw in the gate · abc1234$`, 'm'));
-  assert.match(text, /^\*\*Choices\*\* · alpha complete-allowed; beta abandoned$/m);
+  assert.match(text, new RegExp(`^\\*\\*Status\\*\\* · OPEN · BOB #1 · ${BOB} · STOPPED flaw in the gate · abc1234 · choices alpha complete-allowed, beta abandoned$`, 'm'));
   assert.deepEqual(status({ product: w.d }).stop, { why: 'flaw in the gate', version: 'abc1234', choices: { alpha: 'complete-allowed', beta: 'abandoned' } });
   assert.throws(() => stop(R, 'again', { alpha: 'abandoned', beta: 'abandoned' }, 'abc1234'), /already stopped/);
   resume(R, 'def5678');
   const after = stateRead(R, 'plan.md');
   assert.match(after, new RegExp(`^\\*\\*Status\\*\\* · OPEN · BOB #1 · ${BOB} · RESUMED def5678$`, 'm'));
-  assert.ok(!/Choices/.test(after));
+  assert.ok(!/choices/.test(after), 'a resume clears the choices with the stop');
   const s = status({ product: w.d });
   assert.deepEqual([s.stop, s.resumed, s.pin], [null, 'def5678', 'def5678']);
   assert.match(statusLines(s).join('\n'), /^RESUMED def5678$/m);
@@ -382,3 +381,48 @@ test('R13: status prints the role\'s reading set with sizes, and every state fil
   assert.ok(lines.some((l) => /^SIZE state\/E1:plan\.md \d+$/.test(l)));
   assert.deepEqual(readingSizes(R, ['build/requirements/a.md'], `origin/${TRANCHE}`), [{ path: 'build/requirements/a.md', bytes: 321 }]);
 });
+
+test('R6: status prints the durable plan\'s Status line', () => {
+  const w = world();
+  put(w.d, 'build/plan/current.md', '# Plan: x · N9\n\n**Status** · OPEN · round 2 of 3; the process pinned at `a0f8c6f`.\n');
+  g(w.d, 'add', '.'); g(w.d, 'commit', '-q', '-m', 'plan'); g(w.d, 'push', '-q', 'origin', TRANCHE);
+  assert.ok(statusLines(status({ product: w.d })).includes('plan status: OPEN · round 2 of 3; the process pinned at `a0f8c6f`.'));
+});
+
+test('R2: a write that keeps losing its race is refused after a bounded number of tries, never forced', () => {
+  const w = world(), R = repo(w.d), e = epoch(R), before = g(w.origin, 'rev-parse', `state/${e}`);
+  const hook = join(w.d, '.git/hooks/pre-push');
+  writeFileSync(hook, '#!/bin/sh\nexit 1\n'); chmodSync(hook, 0o755);
+  assert.throws(() => stateWrite(R, { 'jobs/x.md': 'X\n' }, 'x'), (err) => err instanceof Refused && /could not be pushed after 4 tries/.test(err.message));
+  assert.equal(g(w.origin, 'rev-parse', `state/${e}`), before, 'the branch as it was');
+});
+
+test('R11: an unmeasured row carries no counts, and no field may break the row', () => {
+  assert.throws(() => metricsText(null, ['session_01A', 'job', 'A #1', 'a', 9, 9, 9, 9, '', '', '', 'unmeasured: guessed']), /an unmeasured row carries no counts/);
+  assert.throws(() => metricsText(null, ['session_01A', 'job', 'A, #1', 'a', 1, 2, 3, 4, '', '', '', '']), /field 3 holds a comma or a line break/);
+  assert.throws(() => metricsText(null, ['session_01A', 'job', 'A #1', 'a', 1, 2, 3, 4, '', '', '', 'two\nlines']), /field 12/);
+});
+
+test('R4, R3: epochOpen and epochClose make no remote change for a role that may not push the tranche, or from a checkout behind it', () => {
+  const w = world({ plan: false }), R = repo(w.d), role = join(w.d, '.git', REC.ROLE_FILE);
+  writeFileSync(role, JSON.stringify({ role: 'job', module: 'alpha', session: S('A') }));
+  assert.throws(() => epochOpen({ product: w.d }), /a push to tranche is refused: this session's role pushes to job\/alpha only/);
+  assert.equal(g(w.origin, 'branch', '--list', 'state/*'), '', 'no state branch pushed');
+  writeFileSync(role, JSON.stringify({ role: 'bob', session: BOB }));
+  epochOpen({ product: w.d });
+  writeFileSync(role, JSON.stringify({ role: 'job', module: 'alpha', session: S('A') }));
+  assert.throws(() => epochClose({ product: w.d }), /pushes to job\/alpha only/);
+  assert.match(g(w.origin, 'branch', '--list', 'state/E1'), /state\/E1/, 'not deleted');
+  assert.doesNotMatch(g(w.origin, 'show', 'state/E1:epoch.md'), /^closed /m, 'not marked closed');
+  // a checkout behind the tranche: refused before anything is pushed, never left mid-merge
+  writeFileSync(role, JSON.stringify({ role: 'bob', session: BOB }));
+  const other = clone(w.base, w.origin, 'other', TRANCHE);
+  writeFileSync(join(other, '.git', REC.ROLE_FILE), JSON.stringify({ role: 'bob', session: BOB }));
+  epochClose({ product: other });                     // E1 closed from the other clone
+  assert.throws(() => epochOpen({ product: w.d }), /is not tranche's remote tip/);
+  assert.equal(g(w.origin, 'branch', '--list', 'state/*'), '', 'no used label re-opened');
+  assert.equal(g(w.d, 'status', '--porcelain', '--untracked-files=no'), '', 'no merge left half-done');
+  g(w.d, 'pull', '-q', 'origin', TRANCHE);
+  assert.equal(epochOpen({ product: w.d }).epoch, 'E2', 'once current: the next label');
+});
+

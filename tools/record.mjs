@@ -35,9 +35,9 @@ export const paths = () => PATHS;
 export function repo(product) {
   const dir = resolve(product || '.');
   const root = execFileSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
-  const g = (args, env, input) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', ...(input === undefined ? { stdio: ['ignore', 'pipe', 'ignore'] } : { input, stdio: ['pipe', 'pipe', 'ignore'] }), maxBuffer: 64 << 20, env: env ? { ...process.env, ...env } : process.env }).trim();
+  const g = (args, env, input) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', ...(input === undefined ? { stdio: ['ignore', 'pipe', 'pipe'] } : { input, stdio: ['pipe', 'pipe', 'pipe'] }), maxBuffer: 64 << 20, env: env ? { ...process.env, ...env } : process.env }).trim();
   // the same, untrimmed: a file's text exactly as stored
-  const raw = (args, env, input) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', ...(input === undefined ? { stdio: ['ignore', 'pipe', 'ignore'] } : { input, stdio: ['pipe', 'pipe', 'ignore'] }), maxBuffer: 64 << 20, env: env ? { ...process.env, ...env } : process.env });
+  const raw = (args, env, input) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', ...(input === undefined ? { stdio: ['ignore', 'pipe', 'pipe'] } : { input, stdio: ['pipe', 'pipe', 'pipe'] }), maxBuffer: 64 << 20, env: env ? { ...process.env, ...env } : process.env });
   const rel = (p) => relative(root, join(dir, p)) || '.';
   const read = (p) => { const f = join(dir, p); return existsSync(f) ? readFileSync(f, 'utf8') : null; };
   const write = (p, text) => { const f = join(dir, p); mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, text); };
@@ -70,7 +70,9 @@ export function unpushed(R) {
 }
 // Commit the named files on the current branch and push; a lost race merges the remote once (never a rebase, never a
 // force). A push to a branch other than the role's own, as its role record names it, is refused before anything is written.
-export function commitPush(R, branch, paths, message) {
+// The role and checkout checks of a push (R4), run before anything is written, here and by every command that makes a
+// remote change before its tranche push (epochOpen, epochClose).
+export function pushCheck(R, branch) {
   // No role record yet is BOB's own bootstrap (`epoch open`, `tranche open`, before `takeover` can record it): the tranche
   // only. A record that names no known role, or a job without its module, is refused, as is any other branch.
   const role = readRole(R.root), own = role ? ownBranch(role) : TRANCHE;
@@ -78,16 +80,30 @@ export function commitPush(R, branch, paths, message) {
   if (branch !== own) refuse(`a push to ${branch} is refused: ${role ? 'this session\'s role pushes' : `no role is recorded yet (no .git/${ROLE_FILE}): a session pushes`} to ${own} only`);
   const at = R.branch();
   if (at !== branch) refuse(`a push to ${branch} is refused: the checkout is on ${at}; check out ${branch} first`);
+}
+export function commitPush(R, branch, paths, message) {
+  pushCheck(R, branch);
   const gone = (p) => !existsSync(join(R.root, R.rel(p)));
   const del = paths.filter(gone), keep = paths.filter((p) => !del.includes(p));
   if (del.length) R.g(['rm', '-q', '--cached', '--ignore-unmatch', '--', ...del.map(R.rel)]);
   if (keep.length) R.g(['add', '--', ...keep.map(R.rel)]);
   try { R.g(['diff', '--cached', '--quiet']); } catch { R.g(['commit', '-q', '-m', message]); }
   try { R.g(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`]); }
-  catch { R.g(['pull', '-q', '--no-rebase', '--no-edit', 'origin', branch]); R.g(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`]); }
+  catch {
+    // a lost race: the remote merged in once; a merge that conflicts is aborted, the checkout left as it was, and refused
+    try { R.g(['pull', '-q', '--no-rebase', '--no-edit', 'origin', branch]); }
+    catch (e) { try { R.g(['merge', '--abort']); } catch { /* no merge in progress */ } refuse(`the push to ${branch} lost a race and the remote does not merge in cleanly (${String(e.stderr || e.message).trim().split('\n').pop()}): the commit is kept locally; merge origin/${branch} by hand`); }
+    R.g(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`]);
+  }
   return R.g(['rev-parse', '--short', 'HEAD']);
 }
 function on(R, want) { const b = R.branch(); if (b !== want) refuse(`check out ${want} first (on ${b})`); }
+// The checkout is the tranche's remote tip, so an epoch is numbered and logged from the record as it stands.
+function current(R) {
+  R.fetch(TRANCHE);
+  const head = R.g(['rev-parse', 'HEAD']), tip = (() => { try { return R.g(['rev-parse', `origin/${TRANCHE}`]); } catch { return null; } })();
+  if (tip && head !== tip) refuse(`the checkout (${head.slice(0, 7)}) is not ${TRANCHE}'s remote tip (${tip.slice(0, 7)}): pull it first, so the epoch log is read as it stands`);
+}
 
 // ---- the state branch (R2; PROTOCOL §7d): an orphan, written by plumbing, one writer per file ----
 
@@ -145,7 +161,7 @@ export const jobFiles = (R, e) => stateList(R, 'jobs', e).filter((p) => /^jobs\/
 export function epochOpen(o) {
   const R = repo(o.product);
   if (epoch(R)) refuse(`epoch ${epoch(R)} is still open: close it first`);
-  on(R, TRANCHE);
+  on(R, TRANCHE); pushCheck(R, TRANCHE); current(R);
   const log = R.read('build/epochs.md') ?? '# Epochs (labels only: nothing here points into a state branch)\n';
   const n = Math.max(0, ...[...log.matchAll(/^- E(\d+) /gm)].map((x) => Number(x[1]))) + 1, e = `E${n}`;
   const blob = execFileSync('git', ['-C', R.root, 'hash-object', '-w', '--stdin'], { input: `# ${e}\n\nopened ${now()}\n`, encoding: 'utf8' }).trim();
@@ -162,7 +178,7 @@ export function epochOpen(o) {
 }
 export function epochClose(o) {
   const R = repo(o.product), e = needEpoch(R);
-  on(R, TRANCHE);
+  on(R, TRANCHE); pushCheck(R, TRANCHE); current(R);
   const open = stateList(R, 'asks', e).filter((p) => /^asks\/A\d+\.md$/.test(p)).map((p) => [p.slice(5, -3), statusOf(stateRead(R, p, e))]).filter(([, s]) => s !== 'CLOSED').map(([id, s]) => `${id} ${s}`);
   if (open.length) refuse(`asks still open: ${open.join(', ')}`);
   const unrouted = stateList(R, 'refusals', e).map((p) => (stateRead(R, p, e) || '').match(/^\*\*Refused\*\* · (R[\w-]+) · .* · OPEN$/m)?.[1]).filter(Boolean);
@@ -183,21 +199,22 @@ export function epochClose(o) {
 
 // ---- the plan's transient lines; a stop and a resume in its Status line (R10; PLN-5) ----
 
-const STATUS = /^\*\*Status\*\* · ([A-Z]+) · (BOB #\d+) · (session_[0-9A-Za-z]+)(?: · (STOPPED (.+?) · (\S+)|RESUMED (\S+)))?$/m;
+const STATUS = /^\*\*Status\*\* · ([A-Z]+) · (BOB #\d+) · (session_[0-9A-Za-z]+)(?: · (STOPPED (.+?) · ([0-9a-f]{7,40})(?: · choices (.+))?|RESUMED (\S+)))?$/m;
 export const CHOICES = ['complete-allowed', 'abandoned'];
 export function parsePlan(text) {
   const t = text || '', s = t.match(STATUS);
   const owed = (t.match(/^\*\*Owed\*\* · (.*)$/m)?.[1] ?? '').split('; ').map((x) => x.trim()).filter((x) => x && x !== 'none');
   const layers = Object.fromEntries([...(t.match(/^\*\*Layers\*\* · (.*)$/m)?.[1] ?? '').matchAll(/(\d+) (STARTED|CLOSED)/g)].map((x) => [Number(x[1]), x[2]]));
   const retiring = [...(t.match(/^\*\*Retiring\*\* · (.*)$/m)?.[1] ?? '').matchAll(/(BOB #\d+) (session_[0-9A-Za-z]+) (running|released)/g)].map((x) => ({ name: x[1], session: x[2], state: x[3] }));
-  const choices = Object.fromEntries([...(t.match(/^\*\*Choices\*\* · (.*)$/m)?.[1] ?? '').matchAll(/([a-z][a-z0-9-]*) (complete-allowed|abandoned)/g)].map((x) => [x[1], x[2]]));
+  const choices = Object.fromEntries([...(s?.[7] ?? '').matchAll(/([a-z][a-z0-9-]*) (complete-allowed|abandoned)/g)].map((x) => [x[1], x[2]]));
   const stop = s?.[4]?.startsWith('STOPPED') ? { why: s[5], version: s[6], choices } : null;
-  const resumed = s?.[7] ?? null;
+  const resumed = s?.[8] ?? null;
   return { state: s?.[1] ?? null, bob: s ? { name: s[2], session: s[3] } : null, owed, layers, retiring, stop, resumed, pin: stop?.version ?? resumed };
 }
-export const fmtPlan = (p) => `# Plan (transient)\n\n**Status** · ${p.state} · ${p.bob.name} · ${p.bob.session}${p.stop ? ` · STOPPED ${p.stop.why} · ${p.stop.version}` : p.resumed ? ` · RESUMED ${p.resumed}` : ''}\n**Owed** · ${p.owed.join('; ') || 'none'}\n${Object.keys(p.layers || {}).length ? `**Layers** · ${Object.entries(p.layers).map(([l, s]) => `${l} ${s}`).join('; ')}\n` : ''}${(p.retiring || []).length ? `**Retiring** · ${p.retiring.map((r) => `${r.name} ${r.session} ${r.state}`).join('; ')}\n` : ''}${p.stop && Object.keys(p.stop.choices || {}).length ? `**Choices** · ${Object.entries(p.stop.choices).map(([m, c]) => `${m} ${c}`).join('; ')}\n` : ''}`;
+export const fmtPlan = (p) => `# Plan (transient)\n\n**Status** · ${p.state} · ${p.bob.name} · ${p.bob.session}${p.stop ? ` · STOPPED ${p.stop.why} · ${p.stop.version}${Object.keys(p.stop.choices || {}).length ? ` · choices ${Object.entries(p.stop.choices).map(([m, c]) => `${m} ${c}`).join(', ')}` : ''}` : p.resumed ? ` · RESUMED ${p.resumed}` : ''}\n**Owed** · ${p.owed.join('; ') || 'none'}\n${Object.keys(p.layers || {}).length ? `**Layers** · ${Object.entries(p.layers).map(([l, s]) => `${l} ${s}`).join('; ')}\n` : ''}${(p.retiring || []).length ? `**Retiring** · ${p.retiring.map((r) => `${r.name} ${r.session} ${r.state}`).join('; ')}\n` : ''}`;
 export function planEdit(R, edit, message) {
   const p = parsePlan(stateRead(R, 'plan.md') || '');
+  if (!p.bob) refuse('the plan on the state branch has no Status line in BOB\'s form (`**Status** · <STATE> · BOB #<n> · <session>`): `proc takeover` writes it');
   return stateWrite(R, { 'plan.md': fmtPlan(edit(p)) }, message);
 }
 // A stop: why, the process version it is recorded at, and each unmerged job's choice; at most one at a time.
@@ -278,7 +295,11 @@ export const metricsFile = (T) => `build/metrics/${T}.csv`;
 // it says it is unmeasured, with the reason.
 export function metricsText(csv, row) {
   const counts = row.slice(4, 8), note = String(row[11] ?? '');
-  if (counts.every((c) => c === '' || c === null || c === undefined) && !/^unmeasured: \S/.test(note)) refuse(`${row[0]}: a row without counts is named unmeasured, with the reason (unmeasuredRow)`);
+  const none = counts.every((c) => c === '' || c === null || c === undefined), named = /^unmeasured: \S/.test(note);
+  if (none && !named) refuse(`${row[0]}: a row without counts is named unmeasured, with the reason (unmeasuredRow)`);
+  if (!none && named) refuse(`${row[0]}: an unmeasured row carries no counts: a count is measured or left empty, never estimated`);
+  const bad = row.findIndex((c) => /[,\n\r]/.test(String(c ?? '')));
+  if (bad >= 0) refuse(`${row[0]}: field ${bad + 1} holds a comma or a line break (${JSON.stringify(String(row[bad]).slice(0, 40))}); the row would not read as ${METRICS_HEAD.split(',').length} fields`);
   const lines = (csv || METRICS_HEAD).replace(/\n$/, '').split('\n'), i = row[0] ? lines.findIndex((l, k) => k > 0 && l.startsWith(`${row[0]},`)) : -1;
   const unmeasured = (l) => /,unmeasured: /.test(l);
   if (i > 0 && unmeasured(row.join(',')) && !unmeasured(lines[i])) return `${lines.join('\n')}\n`;   // a measure stands
@@ -382,6 +403,7 @@ export function statusLines(s) {
   const l = [`epoch ${s.epoch ?? 'none open'} · plan ${s.plan.state ?? '?'} · ${s.plan.bob ? `${s.plan.bob.name} ${s.plan.bob.session}` : 'no BOB'}`];
   if (s.stop) l.push(`STOPPED ${s.stop.why} · ${s.stop.version}${Object.keys(s.stop.choices).length ? ` · ${Object.entries(s.stop.choices).map(([m, c]) => `${m} ${c}`).join('; ')}` : ''}: take no new step`);
   if (s.resumed) l.push(`RESUMED ${s.resumed}`);
+  l.push(`plan status: ${s.plan.status ? s.plan.status.replace(/^\*\*Status\*\* · /, '') : 'none on the tranche'}`);
   l.push(`pin: ${s.pin ?? 'unknown'}`);
   for (const j of s.jobs) l.push(`job ${j.line.replace(/^\*\*Status\*\* · /, '')}`);
   for (const x of s.lanes) l.push(`lane ${x.id}: ${x.line.replace(/^\*\*Status\*\* · /, '')}`);

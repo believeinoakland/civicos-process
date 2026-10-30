@@ -804,7 +804,8 @@ test('R8: the lane\'s predecessor is recorded archived only from what archive_se
   assert.deepEqual([r.archived, r.unmeasured], [RS('O'), true]);
   assert.deepEqual(rows(), [`${RS('O')},process,neoProcess #9,,,,,,,,,unmeasured: Permission denied by the classifier  [External System Writes]`]);
   assert.ok(shown().startsWith(METRICS_HEAD.trim()), 'the record\'s metrics head');
-  assert.throws(() => N.processArchived({ ...o, refused: 'again' }), /already recorded/);
+  N.processArchived({ ...o, refused: 'refused again, at a later refresh' });   // a later refusal replaces the unmeasured row
+  assert.deepEqual(rows(), [`${RS('O')},process,neoProcess #9,,,,,,,,,unmeasured: refused again  at a later refresh`]);
   N.processArchived({ ...o, usage: '{"session_id":"x","cache_read_tokens":5,"cache_write_tokens":4,"input_tokens":3,"output_tokens":2}' });
   assert.deepEqual(rows(), [`${RS('O')},process,neoProcess #9,,5,4,3,2,,,,`], 'the measured row replaces the unmeasured one');
   assert.throws(() => N.processArchived({ ...o, usage: '{"cache_read_tokens":1}' }), /already recorded/);
