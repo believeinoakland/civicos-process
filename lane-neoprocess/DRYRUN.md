@@ -180,7 +180,7 @@ The first product report filed by the new route (BOB #337's, read by `proc proce
 | the lane's reply: refused before the report is filed, with no note, from a product role; written and pushed | PROVEN in fixture | the file's title, report id, issue link and date lines read back from the lane's branch |
 | BOB's status lists its own product's replies on `main` only | PROVEN in fixture | nothing before the merge; another product's reply not listed; the fetch held an hour by its stamp, then the reply listed with the command to read it |
 | `proc issue seen` records it once on the tranche | PROVEN in fixture | the line read back from `tranche`; the queue item gone; a second record refused; refused from the lane's role |
-| a live product BOB reads a reply | NOT YET | the first reply on `main` to a Civicsmith report (issue 78), read by its next BOB |
+| a live product BOB reads a reply | PROVEN live (#16) | Civicsmith's BOB #338 recorded the reply to its gate report seen at 11:27Z (its tranche `5e37e4dd`, `build/process-replies.md`); the reply to its size report (issue 78) not yet recorded at 11:3xZ |
 
 ## 14. Certification of issue 81's fix (GOV 5; 30 Oct 2026, #15)
 
@@ -189,4 +189,4 @@ BOB #337's second report: the gate installed dependencies only from a lock at th
 | path | status | evidence |
 | --- | --- | --- |
 | a lock at the root, one per member, one nested two deep, one inside `node_modules` | PROVEN in fixture | the gate's step lists the three in order, the `node_modules` one left out; no drift after |
-| Civicsmith's gate with its nine locks | NOT YET | its shims regenerated on the runner, then the next gate run on a pull request |
+| Civicsmith's gate with its nine locks | NOT YET | shims on its `main` (PR 56) and its tranche (`54ded3e5`, 11:26Z, BOB #338); the next gate run on a pull request (its PR 55 open at 11:3xZ; the run's result is out of the lane's reach by git, so read from its BOB's merge record) |
