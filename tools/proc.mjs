@@ -29,6 +29,7 @@
 //   layer start --layer <n> [--modules a,b] [--mechanical a,b]      layer close --layer <n>
 //   job pr --module <m> --number <n>      job started --module <m> --name "<M> #k" --session <id>      job route --module <m> [--session-status <s>] [--context-pct <n>]
 //   job start --module <m> --session <id>      job state --module <m> [--set <state>]      job complete --module <m> --report-file <f>
+//   job takein --branch job/<tranche>/<m> [--sha <commit>]      (issue 84: the job's own module's branch from an earlier round)
 //   job posted --module <m> [--comment <id>] [--ready]      review decide --module <m> (--review | --no-review) --reason "<…>"
 //   review result --module <m> --result-file <f>      merge --module <m> --head <sha> --gate <conclusion>      merged --module <m> --sha <commit>
 //   job reopen --module <m> --change-file <f>      job retire --module <m>      job archived --module <m> --session <id> --usage <json>
@@ -1170,6 +1171,32 @@ export function jobState(o) {
   if (!LIVE_JOB.test(j.state) || ['STARTING', 'REOPENED', 'MERGED'].includes(j.state)) refuse(`${m} reads ${j.state}: start it first`);
   return { commit: saveJob(R, m, { ...j, state: s }, `${m}: ${s.slice(0, 60)}`), state: s };
 }
+// Issue 84 (a product's job): a module's branch left unmerged by an earlier round (`job/<tranche>/<m>`, as the process
+// before a carry named them, JOB-LIFE §1a) is taken in by that module's own job, by this command: a hand merge of a job
+// branch is the hook's to refuse (JOB-LIFE §6), and a merge of its commit the classifier's. Only the job's own module, on
+// its own branch; a conflict is left for the job to resolve and commit (its judgment, P8); `job complete`'s gate then holds
+// the result to the module's files (ownership) and its tests, as for any change of the job's.
+export function jobTakein(o) {
+  const R = repo(o.product), me = readRole(R.root);
+  if (me?.role !== 'job' || !me.module) refuse('a job takes in a branch, after `proc job start` (JOB-LIFE §1a)');
+  const m = me.module, b = o.branch;
+  if (typeof b !== 'string' || b.split('/').length !== 3 || !b.startsWith('job/') || b.split('/')[2] !== m) refuse(`--branch job/<tranche>/${m}: a job takes in only its own module's branch from an earlier round (JOB-LIFE §1a)`);
+  on(R, jobBranch(m));
+  if (R.g(['status', '--porcelain', '--untracked-files=no'])) refuse('commit your module\'s changes first');
+  R.fetch(b);
+  let tip = null; try { tip = R.g(['rev-parse', `origin/${b}`]); } catch { refuse(`${b} is not on the product's remote`); }
+  if (o.sha !== undefined && !(String(o.sha).length >= 7 && tip.startsWith(String(o.sha)))) refuse(`${b} is at ${tip.slice(0, 8)}, not ${o.sha}: the plan's entry names another commit; ask BOB which (WAITING)`);
+  const short = tip.slice(0, 8);
+  try { R.g(['merge-base', '--is-ancestor', tip, 'HEAD']); return { branch: b, tip: short, merged: false, already: true, next: `${b} is already in ${jobBranch(m)}: nothing to take in` }; } catch { /* not yet in */ }
+  const r = spawnSync('git', ['-C', R.root, 'merge', '--no-ff', '--no-edit', '-m', `${m}: ${b} (${short}) taken in from an earlier round (proc job takein; JOB-LIFE §1a)`, tip], { encoding: 'utf8' });
+  if (r.status !== 0) {
+    const conflicts = R.g(['diff', '--name-only', '--diff-filter=U']).split('\n').filter(Boolean);
+    if (!conflicts.length) { spawnSync('git', ['-C', R.root, 'merge', '--abort']); refuse(`${b} could not be merged: ${(r.stderr || r.stdout || '').trim().split('\n').pop()}`); }
+    return { branch: b, tip: short, merged: false, conflicts, next: `the merge of ${b} stopped on ${conflicts.length} conflict(s): resolve each file, \`git add\` it, \`git commit --no-edit\`, then \`git push origin HEAD:${jobBranch(m)}\` (or \`git merge --abort\` and ask BOB, WAITING)` };
+  }
+  R.g(['push', '-q', 'origin', `HEAD:refs/heads/${jobBranch(m)}`]);
+  return { branch: b, tip: short, merged: true, commit: R.g(['rev-parse', '--short', 'HEAD']), next: 'confirm every entry against the requirements as they stand; the gate at `job complete` checks the merged files are your module\'s' };
+}
 // JOB-LIFE §3: the marks struck in the job's own commit; the gate locally (tests, checks, artifacts, ownership against
 // the merge base); the branch pushed; COMPLETE with the report comment and "ready for review" owed (printed as the calls).
 export function jobComplete(o) {
@@ -1803,7 +1830,7 @@ export function trancheCarry(o) {
   for (const ref of R.g(['for-each-ref', '--format=%(refname)', `refs/remotes/origin/${TRANCHE}/`]).split('\n').filter(Boolean)) R.g(['update-ref', '-d', ref]);
   R.fetch(TRANCHE); R.g(['branch', '-q', '--set-upstream-to', `origin/${TRANCHE}`]);
   return { phase: 'carried', tranche: TRANCHE, from: src, kept, tip: tip.slice(0, 7), commit, mainChanged: mainChanged.length, conflicts, archived, lastBob: lastBob || null, oldSessions,
-    next: `run \`proc epoch open\`, then \`proc takeover\`; then write the work that remains of ${archived ?? 'the carried tranche'} as the next round's plan, from what remains (P19), and open it with \`proc round open\`. The old process's sessions listed are not this process's: send them nothing; they are Bob's to archive if he wants (GOV 9)` };
+    next: `run \`proc epoch open\`, then \`proc takeover\`; then write the work that remains of ${archived ?? 'the carried tranche'} as the next round's plan, from what remains (P19), and open it with \`proc round open\` (a module's branch the old process left unmerged, \`job/<tranche>/<module>\`, is taken in by that module's job: its entry names \`proc job takein --branch <it> --sha <its tip>\`, JOB-LIFE §1a). The old process's sessions listed are not this process's: send them nothing; they are Bob's to archive if he wants (GOV 9)` };
 }
 // JOB-LIFE §1, §10; P12: every round closed, no ask open, nothing owed, every session archived; main merged in (never a
 // rebase); the checks and the artifacts once more; the plan CLOSING; the close PR printed and owed.
@@ -2261,7 +2288,7 @@ export const COMMANDS = {
   'ask open': askOpen, 'ask route': askRoute, 'ask dispatch': askDispatch, 'ask ask': askAsk, 'ask decided': askDecided, 'ask close': askClose,
   'lane open': laneOpen, 'lane started': laneStarted, 'lane start': laneStart, 'lane state': laneState, 'lane charter': laneCharter, 'lane route': laneRoute, 'lane archived': laneArchived, 'lane close': laneClose,
   'layer start': layerStart, 'layer close': layerClose, 'job pr': jobPr, 'job started': jobStarted, 'job route': jobRoute, 'job start': jobStart, 'job state': jobState,
-  'job complete': jobComplete, 'job posted': jobPosted, 'review decide': reviewDecide, 'review result': reviewResult, merge, merged,
+  'job complete': jobComplete, 'job takein': jobTakein, 'job posted': jobPosted, 'review decide': reviewDecide, 'review result': reviewResult, merge, merged,
   'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'tranche carry': trancheCarry, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,

@@ -111,7 +111,7 @@ export function preReason(role, input, ctx) {
     const lp = c.match(LONG);
     if (lp && ti.run_in_background !== true) return `\`proc ${lp[1].replace(/\s+/g, ' ')}\` runs for minutes and a message reaches you only between tool calls (P13; rulebook SES 6): run it with run_in_background true, then end your turn or do other work until its completion notice arrives`;
     if (GH_CLI.test(c)) return 'a pull request is opened, marked ready, reviewed and merged only as `proc` prints the call (JOB-LIFE §11); the queue merges';
-    if (/\bgit\b[^|;&]*\bmerge\b[^|;&]*\bjob\//.test(c)) return 'a job branch is merged only by the queue, after `proc merge` (JOB-LIFE §6)';
+    if (/\bgit\b[^|;&]*\bmerge\b[^|;&]*\bjob\//.test(c)) return `a job branch is merged only by the queue, after \`proc merge\` (JOB-LIFE §6)${role === 'job' ? '; your own module\'s branch from an earlier round is taken in by `proc job takein --branch job/<tranche>/<module>` (JOB-LIFE §1a)' : ''}`;
     const push = c.match(PUSH);
     if (push) {
       const to = refs(push);
