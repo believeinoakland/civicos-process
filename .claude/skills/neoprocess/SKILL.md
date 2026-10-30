@@ -10,6 +10,10 @@ hooks:
     - hooks:
         - type: command
           command: 'node "${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-.}/.claude/skills/neoprocess}/../../../tools/hooks.mjs" post'
+  MessageDisplay:
+    - hooks:
+        - type: command
+          command: 'node "${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-.}/.claude/skills/neoprocess}/../../../tools/hooks.mjs" display'
   Stop:
     - hooks:
         - type: command

@@ -525,6 +525,13 @@ export function productBobs(R, list = JSON.parse(R.read(PRODUCTS_FILE) || '[]'))
   }
   return out;
 }
+// The owed acts are recorded once per session: a second `proc process start` in the same session (the skill re-invoked,
+// the start run again) keeps the record and what the post event and `proc process archived` wrote into it (issue 107).
+export function keepRefresh(root, owed) {
+  const f = join(root, '.git', REFRESH_FILE); let prev = null; try { prev = JSON.parse(readFileSync(f, 'utf8')); } catch { /* none */ }
+  if (prev?.session === owed.session) return prev;
+  writeFileSync(f, JSON.stringify(owed)); return owed;
+}
 export const laneMoved = (id) => `The neoProcess lane's address is now ${id}; the previous lane session is archived. Send the lane everything there from now on.`;
 export async function processStart(o) {
   if (!SESSION.test(o.session || '') || !o.branch) refuse('--branch <the lane\'s branch> --session <id>');
@@ -547,7 +554,7 @@ export async function processStart(o) {
   if (me && o.reports !== false) productReports(R);   // fetches each product's state branches into the cache productBobs reads
   const bobs = me ? productBobs(R) : [];
   const owed = me ? { session: o.session, archive: me[3], predecessor: `neoProcess #${me[2]}`, tell: bobs.map((x) => x.session) } : null;
-  if (owed) writeFileSync(join(R.root, '.git', REFRESH_FILE), JSON.stringify(owed));
+  if (owed) keepRefresh(R.root, owed);
   const refresh = owed ? `\nOwed at this refresh (Bob, 30 Oct; the Stop hook holds you to them): (1) archive_session ${owed.archive} (${owed.predecessor}), then \`proc process archived --usage '<what it returned>'\`; if the archive is refused, \`proc process archived --refused "<the refusal's words>"\` (the session is left idle, its row unmeasured); (2) list_triggers, then switch off (update_trigger enabled false) every task whose persistent_session_id is ${owed.archive}; (3) send_message to each product's BOB: ${bobs.map((x) => `${x.product} ${x.name} ${x.session}`).join('; ') || 'none read'}, saying: "${laneMoved(o.session)}"\n` : '';
   return { role: 'process', branch: o.branch, issues: iss, away: !!away, owed, text: `${h ?? `(${PROCESS_LANE}/HANDOFF.md not found)`}\n${issueLines(iss)}\n${warn}${refresh}\nNext: put your session id (${o.session}) in the handoff's From line and push to ${o.branch}; read whole what its reading section names (P20); acknowledge each NEW issue (\`proc issue ack\`) and work the open issues with "What remains", Bob's first; arm the backstop \`proc process status\` prints.\n` };
 }
