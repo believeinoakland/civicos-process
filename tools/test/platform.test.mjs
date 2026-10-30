@@ -10,15 +10,15 @@ import * as P from '../platform.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const git = (dir, ...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-// A repository with a bare remote and two commits; `first` is the older.
-function world() {
+// A repository with a bare remote and two commits; `first` is the older. `label` makes its history its own.
+function world(label = '') {
   const d = mkdtempSync(join(tmpdir(), 'platform-')), remote = join(d, 'remote.git'), dir = join(d, 'work');
   execFileSync('git', ['init', '-q', '--bare', remote]);
   execFileSync('git', ['init', '-q', '-b', 'main', dir]);
   for (const [k, v] of [['user.name', 't'], ['user.email', 't@t']]) git(dir, 'config', k, v);
   git(dir, 'remote', 'add', 'origin', remote);
-  git(dir, 'commit', '-q', '--allow-empty', '-m', 'one'); const first = git(dir, 'rev-parse', 'HEAD');
-  git(dir, 'commit', '-q', '--allow-empty', '-m', 'two');
+  git(dir, 'commit', '-q', '--allow-empty', '-m', `one ${label}`); const first = git(dir, 'rev-parse', 'HEAD');
+  git(dir, 'commit', '-q', '--allow-empty', '-m', `two ${label}`);
   git(dir, 'push', '-q', 'origin', 'HEAD:main');
   return { d, dir, first, head: git(dir, 'rev-parse', 'HEAD') };
 }
@@ -79,7 +79,7 @@ test('R6: versionCheck answers PROCESS OK when the pin is in the checkout, PROCE
   assert.equal(P.processHead(w.dir), w.head);
   assert.equal(P.versionCheck(w.head, w.dir), 'PROCESS OK');
   assert.equal(P.versionCheck(w.first, w.dir), 'PROCESS OK');
-  const other = world();
+  const other = world('other');   // its own history: two worlds made in one second would share commits
   assert.equal(P.versionCheck(other.head, w.dir), `PROCESS STALE ${w.head.slice(0, 12)}`);
   assert.throws(() => P.versionCheck('main', w.dir), /not a commit/);
   // the prompt's form: one shell line, run once at the start, the same answer
