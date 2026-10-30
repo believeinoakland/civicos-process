@@ -615,7 +615,7 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   assert.equal(g(w.bob.root, 'status', '--porcelain'), '');   // the bundles (which read alpha's source) were regenerated for the run and put back
   assert.deepEqual([g1.ok, g1.module, g1.fails, g1.checks], [true, 'alpha', [], ['format', 'architecture', 'coverage', 'fixtures']]);
   assert.ok(g1.tests.pass > 0 && g1.tests.pass === g1.tests.tests);
-  assert.match(g1.users.beta, /^\d+\/\d+$/);   // beta uses alpha: its tests ran too
+  assert.deepEqual(g1.users, {});   // issue 93: a comment changes nothing alpha provides, so beta's and stats' tests are not run (P11)
   writeFileSync(join(w.bob.dir, 'beta/src/index.mjs'), `${readFileSync(join(w.bob.dir, 'beta/src/index.mjs'), 'utf8')}// not alpha's\n`);
   g(w.bob.root, 'add', '-A'); g(w.bob.root, 'commit', '-q', '-m', 'alpha: touches beta');
   assert.throws(() => N.gateCmd({ product: w.bob.dir, base }), /several modules: alpha, beta/);
@@ -1071,4 +1071,18 @@ test('issue 90: a retiring BOB keeps its session until its workers have finished
   assert.deepEqual(plan().retiring.map((x) => [x.name, x.state]), [['BOB #2', 'running']]);   // a released one is dropped at the next handoff
   assert.throws(() => N.bobRelease({ product: r.dir, session: B2 }), /--failed/);
   assert.equal(N.bobRelease({ product: r.dir, session: B2, failed: 'SESSION_STATUS_FAILED' }).released, 'BOB #2');
+});
+
+test('issue 93: the gate runs a user\'s tests only when the job changes what its module provides, and only the users of the change (P11)', () => {
+  const w = world(), R = N.repo(w.bob.dir), d = w.bob.dir, base = g(w.bob.root, 'rev-parse', 'HEAD');
+  const req = join(d, 'build/requirements/alpha.md'), src = join(d, 'alpha/src/index.mjs'), r0 = readFileSync(req, 'utf8'), s0 = readFileSync(src, 'utf8');
+  const step = (fn) => { writeFileSync(req, r0); writeFileSync(src, s0); fn(); g(w.bob.root, 'commit', '-qam', 'step', '--allow-empty'); return N.usersOfChange(R, 'alpha', base); };
+  assert.deepEqual(step(() => writeFileSync(src, s0.replace('return finite(a, \'add\') + finite(b, \'add\');', 'const x = finite(a, \'add\');\n  return x + finite(b, \'add\');'))), { all: false, changed: [], users: [] });   // the body only
+  assert.deepEqual(step(() => writeFileSync(req, r0.replace('**R1** Returns', '**R1** *(not yet met: T1)* Returns'))), { all: false, changed: [], users: [] });   // a mark only
+  assert.deepEqual(step(() => writeFileSync(req, `${r0}\n- **R9** Private, not provided.\n`)), { all: false, changed: [], users: [] });   // the Private part
+  assert.deepEqual(step(() => writeFileSync(src, `${s0}\nexport function twice(a) { return add(a, a); }\n`)), { all: false, changed: ['twice'], users: [] });   // beta names add and sum, not twice
+  assert.deepEqual(step(() => writeFileSync(req, r0.replace('and `0` for an empty list', 'and `0` for an empty array'))), { all: false, changed: ['sum'], users: ['beta', 'stats'] });
+  assert.deepEqual(step(() => writeFileSync(req, r0.replace('Returns `a + b` for two finite numbers.', 'Returns `a + b` for two finite numbers, as a number.'))), { all: false, changed: ['add'], users: ['beta'] });   // stats names sum only
+  assert.deepEqual(step(() => writeFileSync(req, r0.replace('Arithmetic on numbers.', 'Arithmetic on finite numbers.'))).users, ['beta', 'stats']);   // the Purpose: every user
+  assert.equal(step(() => writeFileSync(src, `${s0}\nexport default add;\n`)).all, true);
 });

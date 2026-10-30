@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, cpSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, cpSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -537,7 +537,7 @@ test('the lane replies to a product\'s report in the process repository; the pro
   const pbare = join(w.base, 'process.git'), pseed = join(w.base, 'pseed'), pdir = join(w.base, 'proc');
   execFileSync('git', ['init', '-q', '--bare', pbare]); execFileSync('git', ['clone', '-q', pbare, pseed], { stdio: 'ignore' }); ident(pseed, 'pseed');
   f(pseed, 'README.md', 'the process\n'); g(pseed, 'add', '.'); g(pseed, 'commit', '-q', '-m', 'p'); g(pseed, 'branch', '-M', 'main'); g(pseed, 'push', '-q', 'origin', 'main');
-  execFileSync('git', ['clone', '-q', pbare, pdir], { stdio: 'ignore' });
+  execFileSync('git', ['clone', '-q', '--branch', 'main', pbare, pdir], { stdio: 'ignore' });   // as the shims' SessionStart hook clones it
   const B = { ...o, processDir: pdir }, items = () => N.status(B).queue.filter((q) => q.item.startsWith('READ PROCESS REPLY')).map((q) => q.item);
   assert.deepEqual(items(), []);
   mkdirSync(join(pseed, 'lane-neoprocess', 'replies'), { recursive: true }); f(pseed, rp.reply, `${text}\n`);
@@ -546,6 +546,14 @@ test('the lane replies to a product\'s report in the process repository; the pro
   assert.deepEqual(items(), []);   // fetched at most hourly: the stamp holds
   rmSync(join(pdir, '.git', 'proc-replies-fetch.json'));
   assert.deepEqual(items(), [`READ PROCESS REPLY ${id}`]);   // its own product's reply only
+  assert.ok(existsSync(join(pdir, rp.reply)));   // issue 92: the clone itself brought to the process's main, so a fix reaches a running session
+  f(pdir, 'README.md', 'changed in place\n');
+  assert.deepEqual(N.processRefresh(pdir), { refreshed: false, why: 'changed in place' });
+  g(pdir, 'checkout', '-q', '--', 'README.md'); g(pdir, 'checkout', '-q', '-b', 'other');
+  assert.deepEqual(N.processRefresh(pdir), { refreshed: false, why: 'not on main' });
+  g(pdir, 'checkout', '-q', 'main');
+  f(pseed, 'NEW.md', 'a fix\n'); g(pseed, 'add', '.'); g(pseed, 'commit', '-q', '-m', 'fix'); g(pseed, 'push', '-q', 'origin', 'main');
+  assert.equal(N.processRefresh(pdir).refreshed, true); assert.ok(existsSync(join(pdir, 'NEW.md')));
   assert.match(N.status(B).queue.find((q) => q.item.startsWith('READ')).detail, /issues\/80\): read it whole by `git -C .* show origin\/main:lane-neoprocess\/replies\/.*`, act on it, then `proc issue seen --report /);
   // BOB records it seen on the tranche, once; the next BOB does not see it again
   assert.throws(() => N.issueSeen({ product: lane.root, report: id, processDir: pdir }), /BOB records/);
