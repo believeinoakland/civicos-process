@@ -189,4 +189,4 @@ BOB #337's second report: the gate installed dependencies only from a lock at th
 | path | status | evidence |
 | --- | --- | --- |
 | a lock at the root, one per member, one nested two deep, one inside `node_modules` | PROVEN in fixture | the gate's step lists the three in order, the `node_modules` one left out; no drift after |
-| Civicsmith's gate with its nine locks | NOT YET | shims on its `main` (PR 56) and its tranche (`54ded3e5`, 11:26Z, BOB #338); the next gate run on a pull request (its PR 55 open at 11:3xZ; the run's result is out of the lane's reach by git, so read from its BOB's merge record) |
+| Civicsmith's gate with its nine locks | NOT YET | shims on its `main` (PR 56) and its tranche (`54ded3e5`, 11:26Z, BOB #338); the next gate run on a pull request (its PR 55: its head and merge refs listed by git at 11:3xZ, its state and gate result unread, the API refusing a repository not attached; so read from its BOB's merge record) |
