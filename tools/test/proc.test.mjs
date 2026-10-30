@@ -543,6 +543,7 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   // shims: the three files written from here; a hand edit is drift; CLAUDE.md under thirty lines
   const sh = N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane' });
   assert.deepEqual(sh.written.sort(), ['.claude/settings.json', '.claude/skills/neoprocess-reader/SKILL.md', '.claude/skills/neoprocess/SKILL.md', '.github/workflows/gate.yml', '.github/workflows/prune.yml', 'CLAUDE.md']);
+  assert.match(readFileSync(join(w.bob.root, '.claude/skills/neoprocess/SKILL.md'), 'utf8'), /command: 'node "\/p\/neoProcess\/tools\/hooks\.mjs" stop'\n        - type: command\n          timeout: 180\n          command: 'node "\/p\/neoProcess\/tools\/hooks\.mjs" evidence'/);   // the evidence check (issue 61)
   assert.match(readFileSync(join(w.bob.root, '.github/workflows/prune.yml'), 'utf8'), /workflow_dispatch:[\s\S]*git push origin --delete "\$r"/);
   const standing = JSON.parse(readFileSync(join(HERE, '..', '..', 'permissions.json'), 'utf8')), written = JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).permissions;
   assert.deepEqual([written.allow, written.deny], [standing.allow, standing.deny]);

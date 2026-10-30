@@ -5,7 +5,7 @@
 // always exits 0 and answers in JSON: a PreToolUse refusal as `permissionDecision: "deny"` (a pre-approved act of the
 // act table as `"allow"`, PERMISSIONS §8.6), a Stop refusal as
 // `decision: "block"`. What it refuses is what must never happen (code, P16); what a goal sends a session back for is text.
-//   node tools/hooks.mjs <pre|stop>
+//   node tools/hooks.mjs <pre|stop|evidence>
 // Pushes: a job pushes only `job/<m>`, a lane only `tranche`, BOB `tranche` (its prepared files, P18); nobody pushes
 // `main` or a `state/*` branch by hand (the tool writes the state branch by plumbing). JOB-LIFE §4's "any push to the
 // tranche branch" is read as: a job's work reaches `tranche` only through the queue; BOB's hand merge of a job branch,
@@ -15,7 +15,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ROOT_BOB_FILE, repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN } from './proc.mjs';
 import { resolve, sep } from 'node:path';
-import { stepsReason, lastAssistantText, plainReason, BOB_READS } from './lib.mjs';   // P20: steps for Bob verified against their source (`proc steps`)
+import { stepsReason, lastAssistantText, plainReason, BOB_READS, evidenceReason, EVIDENCE_MODEL } from './lib.mjs';
+import { spawnSync } from 'node:child_process';   // P20: steps for Bob verified against their source (`proc steps`)
 
 const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__';
 // A push is `push` as git's subcommand, after git's own options (`-C <dir>`, `-c <k=v>`, `--flag`), never the word in a
@@ -298,6 +299,17 @@ export function askingBobReason(text) {
   return m ? `this turn ends waiting on Bob ("${m[0]}"): decide it and report it done (DES 1, GOV 2), or route it with \`proc ask route --bob --users --canon-silent\` and go on with the queue; a session never ends a turn waiting on Bob (Bob, 29 Oct; P17, P19)` : null;
 }
 
+// The evidence check's model run (issue 61): a fresh `claude -p` with no tools, in a clean environment that keeps only the
+// path, the home, the proxy and its certificates (acts.md `claude -p`), so it shares nothing with the session it judges.
+const KEEP_ENV = ['PATH', 'HOME', 'HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY', 'ANTHROPIC_BASE_URL', 'NODE_EXTRA_CA_CERTS', 'SSL_CERT_FILE'];
+export function runJudge(prompt) {
+  const env = Object.fromEntries(KEEP_ENV.filter((k) => process.env[k]).map((k) => [k, process.env[k]]));
+  const r = spawnSync('claude', ['-p', '--model', EVIDENCE_MODEL, '--tools', '', '--output-format', 'json'], { input: prompt, env, cwd: tmpdir(), encoding: 'utf8', timeout: 170e3, maxBuffer: 16 << 20 });
+  return r.stdout || '';
+}
+// It refuses at most twice in a row, so a claim the session cannot source never loops.
+export const EVIDENCE_TRIES = 2;
+
 function main() {
   const ev = process.argv[2];
   let input = {}; try { input = JSON.parse(readFileSync(0, 'utf8') || '{}'); } catch { /* empty */ }
@@ -315,6 +327,16 @@ function main() {
     if (input.tool_name === 'Skill' && isReader(input.tool_input?.skill) && r.session) { try { writeFileSync(join(root, '.git', READER_FILE), JSON.stringify({ session: r.session, at: new Date().toISOString() })); } catch { /* not a git checkout */ } }
     if (role === 'process' && input.tool_name === `${REMOTE}send_later`) { try { writeFileSync(join(root, '.git', BACKSTOP_FILE), JSON.stringify({ due: new Date(Date.now() + Number(input.tool_input?.delay_minutes) * 60e3).toISOString() })); } catch { /* not a git checkout */ } }
     if (ok) console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `PROCESS: ${ok}` } }));
+    return;
+  }
+  if (ev === 'evidence') {
+    if (!BOB_READS.has(role) || readerReason(role, ctx)) return;   // the same messages the fresh reader judges
+    let why = null; try { why = evidenceReason(input, runJudge); } catch { /* the check never blocks on its own failure */ }
+    const f = join(tmpdir(), `proc-evidence-${String(input.session_id || r.session || 'none').replace(/[^\w-]/g, '')}.json`);
+    const last = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};
+    const n = refusalCount(last, why);
+    try { writeFileSync(f, JSON.stringify({ why, n })); } catch { /* none */ }
+    if (why && n <= EVIDENCE_TRIES) console.log(JSON.stringify({ decision: 'block', reason: why }));
     return;
   }
   if (ev === 'stop') {
