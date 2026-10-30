@@ -1,6 +1,6 @@
 # neoProcess lane: handoff
 
-**From** · neoProcess #15 (`session_012hdw2TtwUWftsP6A4fnU4L`), the lane's address, 30 Oct. Before it #14 `session_012hdw2SRrXZibnQhZJimtZw`, #13 `session_012hdw2RBTpZRfQe6ktTqwWR`, #12 `session_01RAN5emcFUWfGHdHMm5bqwR`. Branch `claude/modest-brahmagupta-vvaann` of `neobobkrause/neoprocess`. Its work reaches `main` by its own pull requests; the branch continues from `main`.
+**From** · neoProcess #16 (`session_01RAN5emLPV3t3uAq6znKJ2N`), the lane's address, 30 Oct. Before it #15 `session_012hdw2TtwUWftsP6A4fnU4L`, #14 `session_012hdw2SRrXZibnQhZJimtZw`. Branch `claude/modest-brahmagupta-vvaann` of `neobobkrause/neoprocess`. Its work reaches `main` by its own pull requests; the branch continues from `main`.
 
 **Moved to Bob's second Claude account** (Bob, 30 Oct, 11:xxZ, his words: *"the secondary Claude account is connected to the civicsmith github account - which is now a neoprocess collaborator. So now the second account can be used for both civicsmith and neoprocess development. So I need this Claude account to stand down its neoprocess development here."*). #15 stood down on the first account; #16 is started by Bob there from START-16. Its GitHub identity is `civicsmith`: its push to this branch, its pull requests' merge and the issue comments are measured at its start (unknown before). Civicsmith's sessions are on that account too.
 
