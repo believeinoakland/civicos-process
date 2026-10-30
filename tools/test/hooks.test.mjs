@@ -240,6 +240,14 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   assert.match(preReason('process', tool(`${REMOTE}create_session`, { title: want.title, prompt: want.prompt, source_url: want.source_url, source_revision: 'main' }), here), /starts only its successor/);
   assert.match(pre(tool(`${REMOTE}create_session`, { title: 'X #1' })), /could not be derived/);   // no repository at the fixture's root
   assert.throws(() => N.processSession(N.repo(N.PROCESS), undefined), /no branch recorded/);
+  // issue 96: the one-shot scheduled task for the successor, as printed, or the probe; fresh, within 30 minutes, no connector
+  const soon = new Date(Date.now() + 3 * 60e3).toISOString(), trig = (x) => preReason('process', tool(`${REMOTE}create_trigger`, { name: want.title, prompt: want.prompt, run_once_at: soon, create_new_session_on_fire: true, ...x }), here);
+  assert.equal(trig({}), null);
+  assert.equal(trig({ name: 'neoProcess lane probe (issue 96)', prompt: N.PROCESS_PROBE }), null);
+  assert.equal(preReason('process', tool(`${REMOTE}create_trigger`, { name: 'neoProcess lane probe', prompt: N.PROCESS_PROBE, run_once_at: soon, create_new_session_on_fire: true }), ctx), null);   // a probe needs no handoff
+  for (const bad of [{ prompt: `${want.prompt} and hurry` }, { name: 'X #1' }, { create_new_session_on_fire: false }, { persistent_session_id: L1 }, { cron_expression: '0 * * * *' }, { run_once_at: new Date(Date.now() - 60e3).toISOString() }, { run_once_at: new Date(Date.now() + 31 * 60e3).toISOString() }, { connectors: ['Gmail'] }, { name: 'neoProcess lane probe', prompt: 'anything' }])
+    assert.match(trig(bad), /arms only the one-shot scheduled task that starts NEOPROCESS #\d+ as `proc process handoff` printed it/);
+  assert.match(preReason('job', tool(`${REMOTE}create_trigger`, { prompt: N.PROCESS_PROBE }), ctx), /starts no session and arms no timer/);
   assert.match(N.processStartText(want, 'o/r'), /^# Starting neoProcess #\d+ \(written by `proc process handoff`/);
   // after a rename or move of the process repository it pushes a product's regenerated shims: the product's URL named, the branch
   // `shims` only, never the process repository itself (PERMISSIONS §9.5, §9.6; #11, 29 Oct)
@@ -263,11 +271,12 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   // the act table's pre-approval reads its branch
   assert.match(allowReason('process', bash('git push -u origin claude/lane-x'), ctx), /neoProcess lane/);
   assert.equal(allowReason('process', bash('git push origin tranche'), ctx), null);
-  // no product gate to read, but its issues read and acknowledged and its backstop due (Bob, 30 Oct); past half its window
+  // no product gate to read, but its issues read and acknowledged and its backstop due (Bob, 30 Oct); past 40 % of its window (issue 96)
   // the turn ends only with its handoff marked
   assert.match(stopReason('process', ctx), /process issues are not read.*no backstop is due/);
   assert.match(contextReason('process', 600_000, ctx, 1_000_000), /proc process handoff` and create your successor with the call it prints/);
-  assert.equal(contextReason('process', 400_000, ctx, 1_000_000), null);
+  assert.match(contextReason('process', 410_000, ctx, 1_000_000), /past 40 %/);
+  assert.equal(contextReason('process', 390_000, ctx, 1_000_000), null);
   // the start refuses outside the process repository and on main; its reading set is the lane's
   const w = world();
   await assert.rejects(N.processStart({ product: w.bob.dir, branch: 'claude/lane-x', session: L1 }), /works in the process repository/);

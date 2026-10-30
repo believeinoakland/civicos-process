@@ -530,7 +530,11 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   assert.deepEqual(lc.archive.map((x) => [x.module, x.session]), [['beta', J3]]);
   assert.throws(() => N.layerClose(o({ layer: 1 })), /is CLOSED/);
   assert.deepEqual(N.status(o()).owed, ['archive beta']);
-  N.jobArchived(o({ module: 'beta', session: J3, usage: JSON.stringify({ cache_read_tokens: 50, cache_write_tokens: 5, input_tokens: 1, output_tokens: 2 }) }));
+  // issue 95: the archive refused (a session no live BOB created), so the job ends on the record unmeasured, its session left idle
+  assert.throws(() => N.jobArchived(o({ module: 'beta', session: J3 })), /either --usage <json> or --unmeasured/);
+  assert.throws(() => N.jobArchived(o({ module: 'beta', session: J3, usage: '{}', unmeasured: 'x' })), /either --usage <json> or --unmeasured/);
+  assert.throws(() => N.jobArchived(o({ module: 'beta', session: J3, unmeasured: ' ' })), /name the refusal/);
+  N.jobArchived(o({ module: 'beta', session: J3, unmeasured: 'archive_session refused, Interfere With Workloads' }));
   N.jobArchived(o({ module: 'beta', session: J2, name: 'BETA #1', usage: JSON.stringify({ cache_read_tokens: 40, cache_write_tokens: 4, input_tokens: 1, output_tokens: 1 }) }));   // the replaced session's row
   assert.deepEqual(N.status(o()).owed, []);
 
@@ -542,7 +546,7 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   const csv = readFileSync(join(w.bob.dir, 'build/metrics/T1.csv'), 'utf8');
   assert.match(csv, /^session,role,name,module,cache-read,cache-write,input,output,test runs,module lines,reviewed,note\n/);
   assert.match(csv, new RegExp(`^${J1},job,ALPHA #1,alpha,100,20,3,9,2,\\d+,0/2,$`, 'm'));   // two merges (one re-open), neither reviewed
-  assert.match(csv, new RegExp(`^${J3},job,BETA #2,beta,50,5,1,2,2,\\d+,1/1,$`, 'm'));
+  assert.match(csv, new RegExp(`^${J3},job,BETA #2,beta,,,,,2,\\d+,1/1,unmeasured: archive_session refused  Interfere With Workloads$`, 'm'));
   assert.match(csv, new RegExp(`^${J2},job,BETA #1,beta,40,4,1,1,2,\\d+,1/1,replaced$`, 'm'));
   assert.match(csv, /^,defect,BETA #1,beta,,,,,,,1\/1,total\(\[\]\) documented wrong$/m);
   assert.match(csv, new RegExp(`^${B2},BOB-final,BOB #0,,1,1,1,1,,,,$`, 'm'));
