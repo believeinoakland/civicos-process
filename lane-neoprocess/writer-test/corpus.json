@@ -1,0 +1,150 @@
+[
+ [
+  "bad",
+  "Your one step: start #13 on that account and paste in the block from your page."
+ ],
+ [
+  "bad",
+  "BOB #335 (session_01RAN5ejjuYNZmiep8zGD5YK) runs on another account."
+ ],
+ [
+  "bad",
+  "Done: K2055 folded into GOV 1; the seed PR is merged and ONB-1 stays in next.md."
+ ],
+ [
+  "bad",
+  "The second one is fixed now, same as before. Nothing for Bob to do."
+ ],
+ [
+  "bad",
+  "X9 is PROVEN and the toy's shims wait for the move; step 8 is next on the page."
+ ],
+ [
+  "bad",
+  "I need you to set the secret on the organization's repo, then I can run it again."
+ ],
+ [
+  "bad",
+  "It failed again with the 403, so the other session will retry once the token is there."
+ ],
+ [
+  "bad",
+  "Sent A4 to the UX lane per DES 2; waiting on its DECISION. Nothing for Bob to do."
+ ],
+ [
+  "bad",
+  "Merged as 82cc2f0. The hook path fix (63) is closed and 61 is next."
+ ],
+ [
+  "bad",
+  "Please approve it on your phone when the prompt shows up."
+ ],
+ [
+  "bad",
+  "Your helper session relayed it, so the block is set; the run read it back green."
+ ],
+ [
+  "bad",
+  "Rehearsal R2 passed on the throwaway account except W3, which the walker skipped."
+ ],
+ [
+  "bad",
+  "The fix is merged into the process. Civicsmith's next session will pick it up. Nothing for Bob to do."
+ ],
+ [
+  "good",
+  "I filed the flaw as a GitHub issue on the process repository ([see it here](https://github.com/neobobkrause/neoprocess/issues/63)) and fixed it the same hour: the process's own safety checks were silently switched off in sessions started with two repositories. They now run in every session. Nothing for Bob to do."
+ ],
+ [
+  "good",
+  "Civicsmith's change to the new process is ready as a pull request, and it waits only for the current tranche to close. Nothing for Bob to do."
+ ],
+ [
+  "good",
+  "The process now has one channel for problems found while building a product: a GitHub issue on the process repository. Product sessions file them; only the process's own lane fixes them and closes the issue with the fix. Two issues are open, both mine to fix today. Nothing for Bob to do."
+ ],
+ [
+  "good",
+  "I tested the new message checker on 24 sample messages: it refused all 12 written with jargon and passed all 12 plain ones. Next I run it on fresh sessions writing real reports. Nothing for Bob to do."
+ ],
+ [
+  "good",
+  "Your weekly meter matters here: each of these test runs is small, about a tenth of one percent of the weekly limit, so the full test costs about two percent. Nothing for Bob to do."
+ ],
+ [
+  "bad",
+  "One thing only you can do, on your Civicsmith Claude account: start a new session there and paste the text in the box below as its first message.\n\n```\nYou are a Civicsmith session. File the test issue as the process says.\n```"
+ ],
+ [
+  "good",
+  "The BOB session for Civicsmith ran out of room in its memory and handed over to a fresh one, which picked up where it left off. Nothing for Bob to do."
+ ],
+ [
+  "good",
+  "The dry run on the test product passed: a full small tranche went from plan to merged on main with every check green, so the new rules are certified. Nothing for Bob to do."
+ ],
+ [
+  "good",
+  "GitHub refused the move of the repository to a token, so moving it is a step only you can take in GitHub's settings. I wrote the steps from GitHub's own page; they are on the page linked here: [the steps](https://claude.ai/artifact/abc). Nothing else waits on it."
+ ],
+ [
+  "good",
+  "Two workers checked the requirements of the payments module against the design and found them consistent; the module's job starts in the next tranche. Nothing for Bob to do."
+ ],
+ [
+  "good",
+  "The Cloudflare token works and sees the development account, so development deployments need nothing more from you. Nothing for Bob to do."
+ ],
+ [
+  "good",
+  "Civicsmith's onboarding pull request is still waiting for the current tranche to close. Once it closes, BOB merges it into main and the product runs under the new process. Nothing for Bob to do."
+ ],
+ [
+  "good",
+  "I fixed the problem where the process could not register Civicsmith's own setup for its sessions (it needs a newer Node version than the container has). The fix is on main. Nothing for Bob to do."
+ ],
+ [
+  "bad",
+  "Fixed it: shims now carry the SessionStart hook from build/session-start.json and the gate reads .nvmrc."
+ ],
+ [
+  "bad",
+  "ROOT should start BOB #4 from the START file once the tranche closes."
+ ],
+ [
+  "good",
+  "The tranche closed: 14 modules changed, 3,200 lines of the old code removed, every test green. The next tranche starts now. Nothing for Bob to do."
+ ],
+ [
+  "bad",
+  "Waiting on the lane's answer to the question about the walk; it's routed per the usual path."
+ ],
+ [
+  "good",
+  "Waiting on the UX design lane's answer about how the installer should show a failed payment. Nothing for Bob to do."
+ ],
+ [
+  "bad",
+  "The classifier refused the attach again (\"Access Added As A Means\"), so I'll route it through the runner instead."
+ ],
+ [
+  "good",
+  "Claude's safety filter refused to let this session add a second repository, so the change goes through GitHub's own automation instead, which needs nothing from you. Nothing for Bob to do."
+ ],
+ [
+  "bad",
+  "Both are done and the third is next, unless you'd rather do the other order."
+ ],
+ [
+  "good",
+  "A decision for you, with my recommendation: should test sessions be allowed to spend up to 5% of the weekly limit per tranche (recommended: yes, it is what the last three tranches used), or should I hold them to 2%? The work goes on at 5% until you say otherwise."
+ ],
+ [
+  "bad",
+  "Done. See the handoff for the rest."
+ ],
+ [
+  "good",
+  "The problem you raised about how sessions talk to you is fixed in large part, and measured.\n\nEvery message that ends a session's turn is now checked twice before you see it. A fixed rule refuses codes, numbers, file names and requests that aren't written as steps. A separate model then reads the message as you would, seeing only that message, and refuses anything you couldn't follow. I tested this with 91 fresh sessions writing reports from realistic, jargon-heavy situations. Codes and labels no longer get through. In the final round, an independent reviewer judged 32 of 35 messages fully understandable on their own, and 20 of 35 free of any small claim the session hadn't actually checked. So it's much better, but not yet every time. I'm working on the rest now.\n\nThree other fixes are in:\n- Problems found while building a product now reach the process as GitHub issues. I read them, fix them and close each one with the fix.\n- ROOT, the session that starts each new BOB, had no way to start at all. It does now.\n- Civicsmith's own session setup is now carried into its settings, and its build check can use its own Node version.\n\nCivicsmith's work stays paused, as you asked. Nothing for Bob to do.\n"
+ ]
+]
