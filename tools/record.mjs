@@ -224,6 +224,10 @@ export function actDone(result) {
   if (r.error || r.isError || /^(refused|denied|failed|error)/i.test(String(r.status || ''))) return false;
   return Object.keys(r).length > 0;
 }
+// A session's local records (`.git/<name>`, never committed): written by the command or the post event that took the
+// act's result, never by a pre event (N2-6); read back as null when absent or unreadable.
+export function recordLocal(root, name, value) { try { writeFileSync(join(root, '.git', name), JSON.stringify(value)); return value; } catch { return null; } }
+export function readLocal(root, name) { try { return JSON.parse(readFileSync(join(root, '.git', name), 'utf8')); } catch { return null; } }
 export function recordAct(R, act, result) {
   if (!act) refuse('recordAct: the act');
   if (!actDone(result)) refuse(`${act} is not recorded as done: the call's result shows no success (${JSON.stringify(result ?? null).slice(0, 100)}); it stays owed`);

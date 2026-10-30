@@ -55,7 +55,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // The record (git, the state branch, the plan's lines, epochs, metrics rows) comes from tools/record.mjs (N2-5).
-import { TRANCHE, jobBranch, stateBranch, ROLE_FILE, Refused, refuse, repo, ghRepo, readRole, unpushed, commitPush, pruneRef, epoch, needEpoch, stateRead, stateList, stateWrite, epochOpen, epochClose, parsePlan, planEdit as recordPlanEdit, metricsRow, METRICS_HEAD, jobFiles, addr as recordAddr, stopOf } from './record.mjs';
+import { TRANCHE, jobBranch, stateBranch, ROLE_FILE, Refused, refuse, repo, ghRepo, readRole, unpushed, commitPush, pruneRef, epoch, needEpoch, stateRead, stateList, stateWrite, epochOpen, epochClose, parsePlan, planEdit as recordPlanEdit, metricsRow, unmeasuredRow, actDone, METRICS_HEAD, jobFiles, addr as recordAddr, stopOf } from './record.mjs';
 export { TRANCHE, jobBranch, stateBranch, ROLE_FILE, Refused, refuse, repo, ghRepo, readRole, unpushed, commitPush, pruneRef, epoch, stateRead, stateList, stateWrite, epochOpen, epochClose, parsePlan, metricsRow, jobFiles } from './record.mjs';
 // The gate and the plan's entries come from tools/lib.mjs, moved there from the old tool at the commit point (P3).
 import { entriesOf, runTests, moduleChecks, withArtifacts, evidenceItems, history, modules, artifacts, allChecks, reds, EVIDENCE_FORMS, EVIDENCE_ITEM, stepsCmd, stepsReason, plainReason, BOB_READS, SAID_FILE, saidKey, transcriptOf, freshReaderReason, evidenceReason } from './lib.mjs';
@@ -370,9 +370,8 @@ export function laneStart(o) {
 export const PROCESS_LANE = 'lane-neoprocess';
 // Bob, 30 Oct (#17): "the old neoprocess session was never retired, and civicsmith BOB is still talking to the old
 // neoprocess session instead of you. All of these refresh related changes must happen whenever you refresh." So a
-// successor's start owes three acts, recorded in .git for the lane's Stop hook: the predecessor archived (its usage then
-// read from what the archive returns), its backstop switched off, and each product's BOB told the lane's new address.
-export const REFRESH_FILE = 'proc-process-refresh.json';
+// successor's start prints three acts owed: the predecessor archived (its usage then read from what the archive returns),
+// its backstop switched off, and each product's BOB told the lane's new address.
 const BEFORE = /^\*\*From\*\* · neoProcess #\d+ \(`(session_[0-9A-Za-z]+)`\)[^\n]*?Before it #(\d+) `(session_[0-9A-Za-z]+)`/m;
 export function productBobs(R, list = JSON.parse(R.read(PRODUCTS_FILE) || '[]')) {
   const out = [];
@@ -387,13 +386,6 @@ export function productBobs(R, list = JSON.parse(R.read(PRODUCTS_FILE) || '[]'))
     } catch { /* not read: named by the caller as unknown */ }
   }
   return out;
-}
-// The owed acts are recorded once per session: a second `proc process start` in the same session (the skill re-invoked,
-// the start run again) keeps the record and what the post event and `proc process archived` wrote into it (issue 107).
-export function keepRefresh(root, owed) {
-  const f = join(root, '.git', REFRESH_FILE); let prev = null; try { prev = JSON.parse(readFileSync(f, 'utf8')); } catch { /* none */ }
-  if (prev?.session === owed.session) return prev;
-  writeFileSync(f, JSON.stringify(owed)); return owed;
 }
 // Issue 117 (Bob, 30 Oct: "The neoprocess's own process should include a refreshing task that properly archives earlier
 // sessions."): every lane session left idle at an earlier refusal (its metrics row `unmeasured`) is owed again at each
@@ -424,8 +416,7 @@ export async function processStart(o) {
   const bobs = me ? productBobs(R) : [];
   const idle = me ? idleLaneSessions(R.read(LANE_METRICS)).filter((x) => x.session !== me[3] && x.session !== o.session) : [];   // issue 117
   const owed = me ? { session: o.session, archive: me[3], predecessor: `neoProcess #${me[2]}`, archives: [{ session: me[3], name: `neoProcess #${me[2]}` }, ...idle], tell: bobs.map((x) => x.session) } : null;
-  if (owed) keepRefresh(R.root, owed);
-  const refresh = owed ? `\nOwed at this refresh (Bob, 30 Oct; the Stop hook holds you to them): (1) archive_session each earlier lane session still idle: ${owed.archives.map((a) => `${a.session} (${a.name})`).join(', ')}; after each, \`proc process archived --session <id> --usage '<what it returned>'\`; if one is refused, \`proc process archived --session <id> --refused "<the refusal's words>"\` (it stays idle and is owed again at the next refresh; issue 117); (2) list_triggers, then switch off (update_trigger enabled false) every task whose persistent_session_id is ${owed.archive}; (3) send_message to each product's BOB: ${bobs.map((x) => `${x.product} ${x.name} ${x.session}`).join('; ') || 'none read'}, saying: "${laneMoved(o.session)}"\n` : '';
+  const refresh = owed ? `\nOwed at this refresh (Bob, 30 Oct): (1) archive_session each earlier lane session still idle: ${owed.archives.map((a) => `${a.session} (${a.name})`).join(', ')}; after each, \`proc process archived --session <id> --usage '<what it returned>'\`; if one is refused, \`proc process archived --session <id> --refused "<the refusal's words>"\` (it stays idle and is owed again at the next refresh; issue 117); (2) list_triggers, then switch off (update_trigger enabled false) every task whose persistent_session_id is ${owed.archive}; (3) send_message to each product's BOB: ${bobs.map((x) => `${x.product} ${x.name} ${x.session}`).join('; ') || 'none read'}, saying: "${laneMoved(o.session)}"\n` : '';
   return { role: 'process', branch: o.branch, issues: iss, away: !!away, owed, text: `${h ?? `(${PROCESS_LANE}/HANDOFF.md not found)`}\n${issueLines(iss)}\n${warn}${refresh}\nNext: put your session id (${o.session}) in the handoff's From line and push to ${o.branch}; read whole what its reading section names (P20); acknowledge each NEW issue (\`proc issue ack\`) and work the open issues with "What remains", Bob's first; arm the backstop \`proc process status\` prints.\n` };
 }
 // The neoProcess lane's successor (Bob, 29 Oct, to #8: the lane refreshes without him; P19). The lane has no parent
@@ -480,30 +471,28 @@ export function processHandoff(o) {
   return { handoff: `${PROCESS_LANE}/HANDOFF.md`, start: file, commit, create_session: { title: s.title, source_url: s.source_url, source_revision: s.source_revision, prompt: s.prompt }, next: o.prepare ? 'nothing yet: the call above is for the refresh; at the refresh run `proc process handoff` again' : `create the session with the call above, unchanged (the hook passes that call only), then take no further act; ${s.title} puts its id in the handoff's From line. If the call is refused (this session at depth 8), Bob starts it from ${file}.` };
 }
 // The predecessor's usage row (SES 10: a session's usage is written by the session that retires it), in the lane's own
-// metrics file, or the refusal in its place (issue 107; GRANTS §1: an idle session costs nothing). `--usage` needs the
-// archive recorded as passed by the PostToolUse hook, so no usage is claimed for an archive that did not happen.
+// metrics file, or the refusal in its place (issue 107; GRANTS §1: an idle session costs nothing). `--usage` is what the
+// archive call returned, and the row is written from it alone (REC-5), so no usage is claimed for an archive that did not happen.
 export const LANE_METRICS = `${PROCESS_LANE}/metrics.csv`;
 export function processArchived(o) {
   const R = repo(o.product), me = readRole(R.root);
   if (me?.role !== 'process') refuse('only the neoProcess lane records its predecessor archived');
   if ((o.usage == null) === (o.refused == null)) refuse('--usage \'<what archive_session returned>\' or --refused "<the refusal\'s words>"');
   if (o.refused != null && !String(o.refused).trim()) refuse('--refused "<why>": the refusal\'s words');
-  let rf = null; try { rf = JSON.parse(readFileSync(join(R.root, '.git', REFRESH_FILE), 'utf8')); } catch { /* none */ }
-  if (!rf || rf.session !== me.session) refuse('no refresh is owed by this session (`proc process start` records one for a successor)');
-  const sid = o.session ?? rf.archive;   // issue 117: any earlier lane session the refresh owes, the predecessor by default
-  if (!SESSION.test(sid)) refuse('--session <the archived session\'s id>');
-  const owedOne = (rf.archives || [{ session: rf.archive, name: rf.predecessor }]).find((a) => a.session === sid) ?? refuse(`${sid} is not owed by this refresh (owed: ${(rf.archives || [{ session: rf.archive }]).map((a) => a.session).join(', ')})`);
-  const rec = rf.recorded || {};
-  if (rec[sid] || (sid === rf.archive && rf.archived)) refuse(`${sid} is already recorded (${rec[sid]?.at ?? rf.archived})`);
-  const done = (rf.done || {})[sid] || (sid === rf.archive && rf.archiveDone);
-  if (o.usage != null && !done) refuse(`the archive of ${sid} is not recorded as passed: archive_session it first (the hook records it once it has run); if it was refused, --refused "<the refusal's words>"`);
-  const u = o.refused != null ? {} : typeof o.usage === 'string' ? JSON.parse(o.usage) : o.usage;
-  const note = o.refused != null ? `unmeasured: ${String(o.refused).replace(/[,\n]/g, ' ').trim()}` : '';
-  R.write(LANE_METRICS, metricsRow(R.read(LANE_METRICS), [sid, 'process', owedOne.name, '', u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', '', '', '', note]));
+  // owed: the predecessor the handoff's From line names, and every earlier lane session left idle and unmeasured (issue 117)
+  const b = (R.read(`${PROCESS_LANE}/HANDOFF.md`) || '').match(BEFORE), csv = R.read(LANE_METRICS);
+  const owedAll = [...(b ? [{ session: b[3], name: `neoProcess #${b[2]}` }] : []), ...idleLaneSessions(csv).filter((x) => !b || x.session !== b[3])];
+  const sid = o.session ?? owedAll[0]?.session;
+  if (!SESSION.test(sid || '')) refuse('--session <the archived session\'s id>');
+  const owedOne = owedAll.find((a) => a.session === sid) ?? refuse(`${sid} is not owed (owed: ${owedAll.map((a) => a.session).join(', ') || 'none'})`);
+  const row = (csv || '').split('\n').find((l) => l.startsWith(`${sid},`));
+  if (row && (!/,unmeasured/.test(row) || o.refused != null)) refuse(`${sid} is already recorded: ${row}`);
+  const u = o.refused != null ? {} : (() => { try { return typeof o.usage === 'string' ? JSON.parse(o.usage) : o.usage; } catch { return null; } })();
+  if (o.usage != null && !actDone(u)) refuse(`what archive_session returned shows no archive of ${sid} (${String(o.usage).slice(0, 80)}): pass its result, or --refused "<the refusal's words>"`);
+  const r = metricsRow(csv, o.refused != null ? unmeasuredRow(sid, 'process', owedOne.name, '', String(o.refused)) : [sid, 'process', owedOne.name, '', u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', '', '', '', '']);
+  R.write(LANE_METRICS, r);
   const commit = commitPush(R, me.branch, [LANE_METRICS], `lane neoProcess: ${owedOne.name} ${o.refused != null ? 'left idle, unmeasured' : 'archived'}`);
-  const at = now(), next = { ...rf, recorded: { ...rec, [sid]: { at, ...(o.refused != null ? { unmeasured: String(o.refused).trim() } : {}) } }, ...(sid === rf.archive ? { archived: at, ...(o.refused != null ? { unmeasured: String(o.refused).trim() } : {}) } : {}) };
-  writeFileSync(join(R.root, '.git', REFRESH_FILE), JSON.stringify(next));
-  const left = (rf.archives || []).map((a) => a.session).filter((x) => !next.recorded[x] && !(x === rf.archive && next.archived));
+  const left = owedAll.map((a) => a.session).filter((x) => x !== sid && !r.split('\n').some((l) => l.startsWith(`${x},`) && !/,unmeasured/.test(l)));
   return { commit, archived: sid, unmeasured: o.refused != null, left };
 }
 // Issue 102 (Bob, 30 Oct): a message for Bob is judged before it is sent. The same checks the Stop hook runs on the turn's

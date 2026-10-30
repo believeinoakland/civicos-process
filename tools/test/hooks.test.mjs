@@ -9,6 +9,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../proc.mjs';
 import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason, issueReason, laneStopReason, readerReason, postRecord, displayReason, READER_FILE } from '../hooks.mjs';
+import { readLocal } from '../record.mjs';
 import * as N_HOOKS from '../hooks.mjs';
 import * as N_LIB from '../lib.mjs';
 import { plainFaults, plainReason, BOB_READS, turnEvidence, evidencePrompt, evidenceVerdict, evidenceReason } from '../lib.mjs';
@@ -284,32 +285,10 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   // no product gate to read, but its issues read and acknowledged and its backstop due (Bob, 30 Oct); past 40 % of its window (issue 96)
   // the turn ends only with its handoff marked
   assert.match(stopReason('process', ctx), /process issues are not read.*no backstop is due/);
-  // Bob, 30 Oct: a refresh owes the predecessor's archive, its backstop off, and each product's BOB told the new address
   const rdir = mkdtempSync(join(tmpdir(), 'refresh-')); mkdirSync(join(rdir, '.git')); const rctx = { ...ctx, root: rdir };
-  writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', tell: ['session_01BOB'] }));
-  assert.match(laneStopReason(rctx), /session_01OLD is not archived.*backstop is not switched off.*session_01BOB not told/);
-  writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', archived: 'x', switchedOff: 'x', tell: [] }));
-  assert.doesNotMatch(laneStopReason(rctx) || '', /not archived|switched off|not told/);
-  // issue 107: a second start in the same session keeps the record; another session's is replaced
-  assert.equal(N.keepRefresh(rdir, { session: ctx.session, archive: 'session_01OLD', tell: ['session_01BOB'] }).archived, 'x');
-  assert.equal(N.keepRefresh(rdir, { session: 'session_01NEXT', archive: ctx.session, tell: [] }).archived, undefined);
-  // issue 107: the acts are recorded by the post event, once they have run; the pre event records nothing (a refused call)
-  writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', tell: ['session_01BOB'] }));
-  preReason('process', tool(`${REMOTE}archive_session`, { session_id: 'session_01OLD' }), rctx);
-  assert.deepEqual(Object.keys(JSON.parse(readFileSync(join(rdir, '.git', N.REFRESH_FILE), 'utf8'))).sort(), ['archive', 'session', 'tell']);
   assert.equal(postRecord('process', tool(`${REMOTE}archive_session`, { session_id: 'session_01OTHER' }), rctx), null);
-  assert.ok(postRecord('process', tool(`${REMOTE}archive_session`, { session_id: 'session_01OLD' }), rctx).archiveDone);
-  assert.ok(postRecord('process', tool(`${REMOTE}update_trigger`, { trigger_id: 't', enabled: false }), rctx).switchedOff);
-  assert.deepEqual(postRecord('process', tool(`${REMOTE}send_message`, { session_id: 'session_01BOB', message: 'x' }), rctx).tell, []);
-  assert.match(laneStopReason(rctx), /the previous lane session session_01OLD is not archived: archive_session it, then `proc process archived --session session_01OLD --usage/);   // archived is the command's record, not the hook's
   assert.equal(postRecord('bob', tool(`${REMOTE}send_message`, { session_id: 'session_01BOB', message: 'x' }), rctx), null);
   assert.ok(postRecord('process', tool(`${REMOTE}send_later`, { delay_minutes: 60, message: N.BACKSTOP_MESSAGE }), rctx).due);
-  // issue 117 (Bob, 30 Oct): every earlier lane session still idle is owed, the predecessor first; each recorded on its own
-  writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', archives: [{ session: 'session_01OLD', name: 'neoProcess #8' }, { session: 'session_01OLDER', name: 'neoProcess #7' }], tell: [] }));
-  assert.match(laneStopReason(rctx), /previous lane session session_01OLD is not archived.*--session session_01OLD.*earlier lane session session_01OLDER is not archived.*--session session_01OLDER/s);
-  assert.ok(postRecord('process', tool(`${REMOTE}archive_session`, { session_id: 'session_01OLDER' }), rctx).done.session_01OLDER);
-  writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', archives: [{ session: 'session_01OLD' }, { session: 'session_01OLDER' }], archived: 'x', recorded: { session_01OLDER: { at: 'x', unmeasured: 'refused' } }, switchedOff: 'x', tell: [] }));
-  assert.doesNotMatch(laneStopReason(rctx) || '', /not archived/);
   const csv = 'session,role,name,module,cache-read,cache-write,input,output,test runs,module lines,reviewed,note\nsession_01A,process,neoProcess #7,,,,,,,,,unmeasured: refused\nsession_01B,process,neoProcess #8,,1,2,3,4,,,,\nsession_01C,job,x,,,,,,,,,unmeasured: refused\n';
   assert.deepEqual(N.idleLaneSessions(csv), [{ session: 'session_01A', name: 'neoProcess #7' }]);
   assert.match(N.metricsRow(csv, ['session_01A', 'process', 'neoProcess #7', '', 9, 9, 9, 9, '', '', '', '']), /\nsession_01A,process,neoProcess #7,,9,9,9,9,,,,\nsession_01B/);
@@ -455,15 +434,15 @@ test('the fresh reader: on only for the roles Bob reads, recorded by the pre hoo
   assert.equal(readerReason('process', ctx), null);
   assert.match(preReason('job', tool('Skill', { skill: 'neoprocess-reader' }), { role: 'job', module: 'alpha', root: lane }), /judges only what Bob reads/);
   assert.equal(preReason('process', tool('Skill', { skill: 'neoprocess-reader' }), ctx), null);
-  // the hook itself records it (the pre event) and the Stop event then lets a plain message end, and refuses a label
+  // the hook itself records it (the post event) and the Stop event then lets a plain message end, and refuses a label
   const HOOKS = join(HERE, '..', 'hooks.mjs');
   writeFileSync(join(lane, '.git', N.ROLE_FILE), JSON.stringify({ role: 'process', product: '.', session: 'session_01HOOK', branch: 'x' }));
   writeFileSync(join(lane, '.git', N.ISSUES_FILE), JSON.stringify({ ok: true, issues: [] }));
   writeFileSync(join(lane, '.git', N.BACKSTOP_FILE), JSON.stringify({ due: '2099-01-01T00:00:00Z' }));
   const run = (ev, input) => execFileSync('node', [HOOKS, ev], { input: JSON.stringify({ session_id: `t-${ev}-${Math.random()}`, ...input }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: lane } });
   assert.match(run('stop', { last_assistant_message: 'Nothing for Bob to do.' }), /fresh reader is not on/);
-  run('pre', { tool_name: 'Skill', tool_input: { skill: 'neoprocess-reader' } });
-  assert.equal(JSON.parse(readFileSync(join(lane, '.git', READER_FILE), 'utf8')).session, 'session_01HOOK');
+  run('post', { tool_name: 'Skill', tool_input: { skill: 'neoprocess-reader' } });   // recorded once the call has run (N2-6)
+  assert.equal(readLocal(lane, READER_FILE).session, 'session_01HOOK');
   assert.equal(run('stop', { last_assistant_message: 'The fix is on main. Nothing for Bob to do.' }), '');
   assert.match(JSON.parse(run('stop', { last_assistant_message: 'Fixed in #64; see tools/proc.mjs.' })).reason, /a bare number \("#64"\); a file name \("tools\/proc\.mjs"\)/);
   // issue 102: the display event judges a whole draft before it is shown (non-interactive shape: index 0, final), with the
@@ -578,29 +557,6 @@ test('a product role reports a process flaw on its state branch; the lane reads 
   assert.deepEqual(N.productReports(LR).reports.filter((x) => x.ref === 'tranche').map((x) => x.state).sort(), ['FILED', 'NEW']);
   // with no epoch, there is nowhere to put it: the session says it in plain words and Bob relays it
   assert.throws(() => N.issueFile({ ...o, title: 'x', file: rep }), /no epoch is open/);
-});
-
-// Issue 107 (30 Oct): the lane's predecessor archived, its usage row written by the successor (SES 10), or the refusal
-// in its place; a usage is never claimed for an archive the post event did not record.
-test('the lane records its predecessor archived with its usage, or refused and unmeasured, once', () => {
-  const w = world(), lane = w.clone('lane'); g(lane.root, 'checkout', '-q', '-b', 'lanebranch');
-  writeFileSync(join(lane.root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'process', product: '.', session: 'session_01LANE', branch: 'lanebranch' }));
-  const rf = join(lane.root, '.git', N.REFRESH_FILE), o = { product: lane.root };
-  assert.throws(() => N.processArchived({ ...o, usage: '{}' }), /no refresh is owed/);
-  writeFileSync(rf, JSON.stringify({ session: 'session_01LANE', archive: 'session_01OLD', predecessor: 'neoProcess #9', tell: [] }));
-  assert.throws(() => N.processArchived(o), /--usage|--refused/);
-  assert.throws(() => N.processArchived({ ...o, usage: '{}', refused: 'x' }), /--usage|--refused/);
-  assert.throws(() => N.processArchived({ ...o, refused: ' ' }), /the refusal's words/);
-  assert.throws(() => N.processArchived({ ...o, usage: '{"cache_read_tokens":5}' }), /not recorded as passed/);
-  assert.throws(() => N.processArchived({ product: w.bob.dir, refused: 'x' }), /only the neoProcess lane/);
-  const r = N.processArchived({ ...o, refused: 'Permission denied by the classifier [External System Writes]' });
-  assert.equal(r.unmeasured, true);
-  assert.match(g(lane.root, 'show', `origin/lanebranch:${N.LANE_METRICS}`), /^session,role,name,module,[^\n]*\nsession_01OLD,process,neoProcess #9,,,,,,,,,unmeasured: Permission denied by the classifier \[External System Writes\]$/);
-  assert.ok(JSON.parse(readFileSync(rf, 'utf8')).archived); assert.throws(() => N.processArchived({ ...o, refused: 'again' }), /already recorded/);
-  // the archive passed (the post event's record): the counts from what it returned
-  writeFileSync(rf, JSON.stringify({ session: 'session_01LANE', archive: 'session_01OLD2', predecessor: 'neoProcess #10', tell: [], archiveDone: 'x' }));
-  N.processArchived({ ...o, usage: '{"cache_read_tokens":5,"cache_write_tokens":4,"input_tokens":3,"output_tokens":2}' });
-  assert.match(g(lane.root, 'show', `origin/lanebranch:${N.LANE_METRICS}`), /\nsession_01OLD2,process,neoProcess #10,,5,4,3,2,,,,$/);
 });
 
 // Issue 102 (Bob, 30 Oct): a message for Bob is judged before it is sent; the turn's end skips what `proc say` passed
