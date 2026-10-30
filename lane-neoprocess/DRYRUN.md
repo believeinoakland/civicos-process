@@ -124,3 +124,16 @@ Checked against the principles: the checks serve P17 (Bob gets an explanation he
 | the message adds nothing unmeasured | NOT YET | final round: 20 of 35 judged fully accurate; the rest add a small claim the turn did not check ("ready to go in", "the problem you raised", a time estimate); the reader cannot see it (it sees only the message); the writers' text says translate, never add; issue 61 stays open for it |
 | ROOT's start and its BOB start (issue 65) | PROVEN up to the call | fixture test; a headless ROOT on a copy of the test product recorded its role with no epoch and printed the first BOB's call; the call itself: provable only in a product run (the product's next ROOT) |
 | a product's session setup and Node version (issue 62) | PROVEN in fixture; provable only in a product run | fixture test (the hook registered, `node-version-file`, `npm ci`, no drift); Civicsmith's next shims refresh and its first gate after `.nvmrc` |
+
+## 9. The evidence check (GOV 5; 30 Oct 2026, #14; issue 61 stays open)
+
+Checked against the principles: it serves P20 (a message says only what was read or measured) and SES 9, whose words are unchanged; only what enforces it grew. The harness of §8 (`writer-test/`), its scripts' paths repaired; each round: the 12 situations, each written by a fresh Opus and a fresh Sonnet writer with all checks live (24 finals). The judge of §8 sees only the situation, while a writer also reads the process text and its own instructions, so it counted sourced claims as added (it faulted "I did not run the start command", which the writer was told); `judge3.sh` judges each final against what its writer saw, as the check reads it. Suite 276 green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| the check runs in a live session, refuses an added claim, passes a sourced one | PROVEN | a headless probe: an agent-type hook reading the whole transcript misjudged turns already rewritten, so the evidence is extracted by code and judged by `claude -p`; fixture: a cause the tool output did not give refused, the same message without it passed (about 3 s each); in both rounds it fired live (18 and 19 refusals) |
+| no refusal loop | PROVEN | 48 writers, none past four redrafts; every final passed the plain-words check |
+| round 1 → fixes | DONE | it refused "I tried to open that file" (its calls were not evidence) and "say A or B" (how Bob answers, which the reader requires): its calls now count, and how Bob answers is never a fault |
+| Bob understands the message | 47 of 48 | judged against what the writer saw: round 1 23 of 24, round 2 24 of 24 |
+| the message adds nothing unmeasured | NOT YET: 19 of 24 | round 2 (both fixes): 19 of 24 (round 1: 17 of 24; §8's final round, judged on the situation only: 20 of 35; round 2 judged that way: 16 of 24); the misses are small inferences the check passed ("the first step", "two more", "a copy of the product", "the token has no expiry" from `expires: null`) |
+| clear whether Bob acts | 23 of 24 | round 2; the miss: a decision for Bob that does not say how he answers, which the fresh reader let through |
