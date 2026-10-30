@@ -29,8 +29,8 @@ What the hosting platform (Claude Code cloud sessions, GitHub through the agent 
 - **R8** Prints the `actions_run_trigger` call for the runner workflows that take what a session cannot (repository setup, rename, transfer, a product's shims), each with the secret named by the owner of the target repository; the dispatch is a call the hook-free session makes by hand. (PLT-9)
 - **R9** No function here, and none it serves, takes the process repository as a write target for a product role, the role read from the record when the caller names none; a product's route to the process (public read, a read grant, or reports carried by its owner) is a value this module reads (`processRoute`) and onboarding (`shims`, N2-43) records. (PLT-13, PLT-14)
 
-**limits() → { backgroundMinutes, depth }**
-- **R10** Answers the platform's measured limits other modules design around: the in-session background limit (30 minutes) and the session depth limit (8) with the depth the process allows (2). (PLT-5, PLT-6)
+**limits() → { backgroundMinutes, depth, deleteRoute }**
+- **R10** Answers the platform's measured limits other modules design around: the in-session background limit (30 minutes), the session depth limit (8) with the depth the process allows (2), and the route a remote ref deletion takes as data, never as prose: `deleteRoute = { direct: 'refused', workflow: WORKFLOWS.prune, act: 'actions_run_trigger', ref: 'main' }`, with `WORKFLOWS.prune` naming the prune workflow (K6; record R3 reads it). (PLT-5, PLT-6, PLT-9)
 
 ## Private
 
