@@ -9,7 +9,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../proc.mjs';
 import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason, issueReason, laneStopReason, readerReason, postRecord, displayReason, READER_FILE } from '../hooks.mjs';
-import { readLocal } from '../record.mjs';
+import { readLocal, recordLocal, METRICS_HEAD } from '../record.mjs';
 import * as N_HOOKS from '../hooks.mjs';
 import * as N_LIB from '../lib.mjs';
 import { plainFaults, plainReason, BOB_READS, turnEvidence, evidencePrompt, evidenceVerdict, evidenceReason } from '../lib.mjs';
@@ -778,4 +778,52 @@ test('ROOT records its role before any epoch exists, and starts a BOB only with 
   assert.match(preReason('root', tool(`${REMOTE}send_later`, {}), ctx), /arms no timer/);
   assert.match(preReason('root', tool(`${GH}create_pull_request`, {}), ctx), /never opens, reviews or merges/);
   assert.equal(N.reading({ role: 'root' }).next, 'proc root start --session <your session id>');
+});
+
+// A product for the two N2-6 tests below: a bare origin and one clone on the tranche (record's fixture).
+const RB = 'session_01RBRBRBRBRBRBRBRBRBRBRBRB', RS = (c) => `session_01${c.repeat(24)}`;
+function recWorld() {
+  const base = mkdtempSync(join(tmpdir(), 'rec-hooks-')), origin = join(base, 'origin.git'), d = join(base, 'p');
+  execFileSync('git', ['init', '-q', '--bare', origin]); execFileSync('git', ['clone', '-q', origin, d], { stdio: 'ignore' }); ident(d, 'p');
+  writeFileSync(join(d, 'seed.md'), 'seed\n'); g(d, 'add', '.'); g(d, 'commit', '-q', '-m', 'seed'); g(d, 'branch', '-M', N.TRANCHE); g(d, 'push', '-q', 'origin', N.TRANCHE);
+  return { base, origin, d };
+}
+// N2-6 (REC-5): the refresh record and the pre event's writes are gone; an archive is recorded from what the call returned.
+test('R8: the lane\'s predecessor is recorded archived only from what archive_session returned, or unmeasured with the refusal', () => {
+  const w = recWorld();
+  g(w.d, 'checkout', '-q', '-b', 'lanebranch');
+  mkdirSync(join(w.d, 'lane-neoprocess'), { recursive: true }); writeFileSync(join(w.d, 'lane-neoprocess/HANDOFF.md'), `# H\n\n**From** · neoProcess #10 (\`${RS('N')}\`), the lane's address. Before it #9 \`${RS('O')}\`, #8 \`${RS('P')}\`.\n`);
+  g(w.d, 'add', '.'); g(w.d, 'commit', '-q', '-m', 'h'); g(w.d, 'push', '-q', 'origin', 'lanebranch');
+  writeFileSync(join(w.d, '.git', N.ROLE_FILE), JSON.stringify({ role: 'process', product: '.', session: RS('N'), branch: 'lanebranch' }));
+  const o = { product: w.d }, shown = () => g(w.d, 'show', `origin/lanebranch:${N.LANE_METRICS}`), rows = () => shown().split('\n').slice(1);
+  assert.equal(N.REFRESH_FILE, undefined, 'no refresh record'); assert.equal(N.keepRefresh, undefined);
+  assert.throws(() => N.processArchived({ ...o, session: RS('Q'), refused: 'x' }), /is not owed/);
+  for (const bad of ['{"error":"Permission denied"}', '{}', 'not json']) assert.throws(() => N.processArchived({ ...o, usage: bad }), /shows no archive/, bad);
+  assert.equal(existsSync(join(w.d, N.LANE_METRICS)), false, 'nothing written from a request or a failure');
+  const r = N.processArchived({ ...o, refused: 'Permission denied by the classifier, [External System Writes]' });
+  assert.deepEqual([r.archived, r.unmeasured], [RS('O'), true]);
+  assert.deepEqual(rows(), [`${RS('O')},process,neoProcess #9,,,,,,,,,unmeasured: Permission denied by the classifier  [External System Writes]`]);
+  assert.ok(shown().startsWith(METRICS_HEAD.trim()), 'the record\'s metrics head');
+  assert.throws(() => N.processArchived({ ...o, refused: 'again' }), /already recorded/);
+  N.processArchived({ ...o, usage: '{"session_id":"x","cache_read_tokens":5,"cache_write_tokens":4,"input_tokens":3,"output_tokens":2}' });
+  assert.deepEqual(rows(), [`${RS('O')},process,neoProcess #9,,5,4,3,2,,,,`], 'the measured row replaces the unmeasured one');
+  assert.throws(() => N.processArchived({ ...o, usage: '{"cache_read_tokens":1}' }), /already recorded/);
+});
+
+test('R8: the hooks\' pre event writes no record; the post event records the fresh reader and a background worker once the call has run', () => {
+  const w = recWorld(), ctx = { role: 'bob', session: RB, root: w.d };
+  writeFileSync(join(w.d, '.git', N.ROLE_FILE), JSON.stringify({ role: 'bob', session: RB, product: '.' }));
+  const HOOKS = join(HERE, '..', 'hooks.mjs');
+  const run = (ev, input) => execFileSync('node', [HOOKS, ev], { input: JSON.stringify({ session_id: RB, ...input }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: w.d } });
+  run('pre', { tool_name: 'Skill', tool_input: { skill: 'neoprocess-reader' } });
+  run('pre', { tool_name: 'Agent', tool_input: { description: 'w1', prompt: 'x', run_in_background: true }, tool_use_id: 't1' });
+  assert.equal(readLocal(w.d, N_HOOKS.READER_FILE), null, 'the pre event records nothing');
+  assert.equal(readLocal(w.d, N.WORKERS_FILE), null);
+  N_HOOKS.postRecord('bob', { tool_name: 'Skill', tool_input: { skill: 'neoprocess-reader' } }, ctx);
+  assert.equal(readLocal(w.d, N_HOOKS.READER_FILE).session, RB);
+  N_HOOKS.postRecord('bob', { tool_name: 'Agent', tool_input: { description: 'w1', run_in_background: true }, tool_use_id: 't1' }, ctx);
+  N_HOOKS.postRecord('bob', { tool_name: 'Agent', tool_input: { description: 'w2', run_in_background: true }, tool_use_id: 't2' }, ctx);
+  assert.deepEqual(N.runningWorkers(w.d, RB).map((x) => x.description), ['w1', 'w2']);
+  assert.equal(N_HOOKS.postRecord('bob', { tool_name: 'Agent', tool_input: { description: 'fg' } }, ctx), null, 'a foreground worker is not a background one');
+  assert.equal(recordLocal(join(w.base, 'nowhere'), 'x.json', {}), null, 'no checkout: nothing recorded, nothing thrown');
 });
