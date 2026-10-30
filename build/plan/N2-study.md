@@ -34,6 +34,9 @@ The message check took more of the architecture session's time than any other ki
 
 Each job's turns, time by kind of work, files read and how often, time per review round, restarts: `study-platform`, `study-record`.
 
+- **record** (helper `study-record`, done 22:1xZ; whole result `build/plan/N2-study-record.md`): of 89 minutes, 44 % idle between turns (30 minutes of it waiting on a message from BOB, the longest 9.5, 8.2 and 5.2 minutes), 56 % inside 13 turns; of the turns' tool time, 78 % ran the test suite (11 full-suite runs of about 92 to 130 seconds, plus 3 inside `job complete`), 2 % read files; 58 % of turn time was the model writing with no tool running. A CHANGE sent while a turn ran waited 380 seconds to be read. No restart visible in the events read.
+- **platform**: pending.
+
 ## 3. Causes, fixes, confirmation
 
 Written once §2 is in, from the evidence of §1 and §2 only.
