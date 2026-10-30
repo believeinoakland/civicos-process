@@ -336,6 +336,8 @@ test('process issues: filed by any role only as `proc issue` printed it; the lan
   keep(N.ISSUES_FILE, { ...b, issues: b.issues.slice(0, 1) }); assert.match(laneStopReason(lctx), /^no backstop is due/);
   keep(N.BACKSTOP_FILE, { due: new Date(Date.now() + 60e3).toISOString() }); assert.equal(laneStopReason(lctx), null);
   keep(N.ISSUES_FILE, down); assert.match(laneStopReason(lctx), /could not be read \(GET .* answered 403\)/);
+  keep(N.ISSUES_FILE, { ok: true, issues: [] }); keep(N.BACKSTOP_FILE, { due: '2000-01-01T00:00:00Z' }); assert.match(laneStopReason(lctx), /no backstop/);
+  keep('proc-handoff.json', { session: L1 }); assert.equal(laneStopReason(lctx), null);   // handed off: the successor's backstop
   assert.match(N.backstopReason({ message: N.BACKSTOP_MESSAGE, delay_minutes: 600 }), /30 to 240/);
   assert.match(N.backstopReason({ message: 'later', delay_minutes: 60 }), /arms only its backstop/);
   assert.match(allowReason('process', tool(`${REMOTE}send_later`, { message: N.BACKSTOP_MESSAGE, delay_minutes: 60 }), lctx), /backstop/);
