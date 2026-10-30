@@ -488,12 +488,27 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   N.commitPush(R, N.TRANCHE, ['build/layers.md'], 'prepared ahead (P18)');   // the tranche moved: alpha's tip is behind it
   const up = N.merge(o({ module: 'alpha', head: g(alpha.root, 'rev-parse', 'HEAD'), gate: 'success' }));
   assert.deepEqual([up.update.tool, up.update.pullNumber, up.merge], ['update_pull_request_branch', 13, undefined]);
+  assert.deepEqual(up.held, [{ file: 'build/layers.md', why: 'read by the gate for alpha' }]);   // issue 86: a file the gate reads, so the gate runs again
   assert.match(N.jobState(o({ module: 'alpha' })).merge, /^updating /);
   assert.deepEqual(N.status(o()).owed, []);
   g(alpha.root, 'fetch', '-q', 'origin'); g(alpha.root, 'merge', '-q', '--no-edit', 'origin/tranche'); g(alpha.root, 'push', '-q', 'origin', 'HEAD:job/alpha');   // GitHub's update of the branch
   assert.throws(() => N.merge(o({ module: 'alpha', head: 'deadbeef', gate: 'success' })), /older commit/);
+  // issue 86: while that gate ran, BOB recorded a ruling and a summary for another module's task: records the gate does not
+  // read for alpha, so the green tip merges without another update; a change to alpha's own summary would not
+  g2('fetch', '-q', 'origin'); g2('merge', '-q', '--ff-only', 'origin/tranche');
+  mkdirSync(join(w.bob.dir, 'build/summaries/T1'), { recursive: true });
+  writeFileSync(join(w.bob.dir, 'build/summaries/T1/beta.md'), '# beta\n- R1 · totals (build/requirements/beta.md R1)\n');
+  writeFileSync(join(w.bob.dir, 'build/rulings.md'), '- K1 · 2026-10-30 · beta · a ruling · P15\n');
+  N.commitPush(R, N.TRANCHE, ['build/summaries/T1/beta.md', 'build/rulings.md'], 'prepared ahead (P18): a summary');
+  assert.deepEqual(N.gateNeutral(N.repo(w.bob.dir), 'alpha', g(alpha.root, 'rev-parse', 'HEAD')).held, []);
+  writeFileSync(join(w.bob.dir, 'build/summaries/T1/alpha.md'), '# alpha\n');
+  g2('add', '-A'); g2('commit', '-qm', 'not pushed: alpha\'s own summary');
+  g2('update-ref', 'refs/remotes/origin/tranche', 'HEAD');   // as the tranche would read with it pushed
+  assert.deepEqual(N.gateNeutral(N.repo(w.bob.dir), 'alpha', g(alpha.root, 'rev-parse', 'HEAD')).held, [{ file: 'build/summaries/T1/alpha.md', why: "alpha's task summary" }]);
+  g2('reset', '-q', '--hard', 'HEAD~1'); g2('fetch', '-q', 'origin');
   const mg2 = N.merge(o({ module: 'alpha', head: g(alpha.root, 'rev-parse', 'HEAD'), gate: 'success' }));
   assert.equal(mg2.merge.pullNumber, 13);
+  assert.deepEqual(mg2.over.sort(), ['build/rulings.md', 'build/summaries/T1/beta.md']);
   g2('fetch', '-q', 'origin'); g2('merge', '-q', '--no-ff', '-m', 'alpha T1 (#13)', 'origin/job/alpha'); g2('push', '-q', 'origin', 'HEAD:tranche');
   N.merged(o({ module: 'alpha', sha: g2('rev-parse', 'HEAD') }));
 

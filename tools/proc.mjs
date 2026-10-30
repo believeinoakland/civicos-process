@@ -1332,13 +1332,32 @@ export function merge(o) {
   if (!head.startsWith(String(o.head))) refuse(`${jobBranch(m)} is at ${head.slice(0, 7)}, not ${String(o.head).slice(0, 7)}: that result is for an older commit; wait for the run on the tip`);
   if (o.gate !== 'success') refuse(`the gate concluded "${o.gate}" on ${head.slice(0, 7)}: nothing merges red; send the job a CHANGE naming the failing check (JOB-LIFE §6)`);
   let behind = false; try { R.g(['merge-base', '--is-ancestor', `origin/${TRANCHE}`, head]); } catch { behind = true; }
-  if (behind) {
+  const passed = behind ? gateNeutral(R, m, head) : null;   // issue 86: the tranche moved only by record files the gate does not read for m
+  if (behind && passed.held.length) {
     const commit = saveJob(R, m, { ...j, merge: `updating ${now()}` }, `${m}: behind ${TRANCHE}, branch updated`);
-    return { commit, update: { tool: 'update_pull_request_branch', ...ghRepo(R), pullNumber: j.pr }, then: `the gate runs on the updated tip; on its success event, proc merge --module ${m} again with the new head` };
+    return { commit, update: { tool: 'update_pull_request_branch', ...ghRepo(R), pullNumber: j.pr }, held: passed.held, then: `the gate runs on the updated tip; on its success event, proc merge --module ${m} again with the new head` };
   }
-  const commit = saveJob(R, m, { ...j, merge: `merging ${head.slice(0, 7)} ${now()}` }, `${m}: merging ${head.slice(0, 7)}`);
+  const commit = saveJob(R, m, { ...j, merge: `merging ${head.slice(0, 7)} ${now()}` }, `${m}: merging ${head.slice(0, 7)}${behind ? `, over ${passed.files.length} record file(s) on ${TRANCHE} (JOB-LIFE §6)` : ''}`);
   planEdit(R, (p) => owe(p, [`merge ${m}`]), `owed: merge ${m}`);
-  return { commit, merge: { tool: 'merge_pull_request', ...ghRepo(R), pullNumber: j.pr, merge_method: 'merge' }, then: `proc merged --module ${m} --sha <merge commit> (on the pull_request.closed event)` };
+  return { commit, merge: { tool: 'merge_pull_request', ...ghRepo(R), pullNumber: j.pr, merge_method: 'merge' }, ...(behind ? { over: passed.files } : {}), then: `proc merged --module ${m} --sha <merge commit> (on the pull_request.closed event)` };
+}
+// Issue 86 (Civicsmith's BOB #338): BOB prepares later stages on the tranche while a layer runs (P18, P19), so a green tip
+// is behind the tranche again by the time its 13-minute gate ends, and an update for every one of BOB's commits keeps a
+// COMPLETE job from merging. A green result still holds for the merged result when every file the tranche changed since
+// the tip's base is a record of BOB's that the gate does not read for this module: under `build/`, and not the module
+// map, the layers, the manifest (artifacts, commands), the words tables, the requirements of the module, of a module it
+// uses or of one that uses it, its task summary, a generated artifact, or any module's code or tests. The gate compares
+// every check with the base, so a finding of BOB's own is inherited either way; the rest of the gate reads none of these.
+// `held` names each file that does need the gate again, with why; the layer's close runs every check over the whole product.
+export function gateNeutral(R, m, head) {
+  const x = mod(R, m), mods = modules(R), base = R.g(['merge-base', head, `origin/${TRANCHE}`]);
+  const near = [m, ...(x.uses || []).filter((u) => !u.startsWith('*')), ...mods.filter((y) => (y.uses || []).includes(m)).map((y) => y.id)];
+  const read = new Set(['build/modules.json', 'build/layers.md', 'build/manifest.md', 'build/words.json', 'build/ops.json', 'build/requirements/README.md', ...near.map((k) => `build/requirements/${k}.md`)]);
+  const code = mods.flatMap((y) => [...(y.paths || []), ...(y.tests || [])]), gen = artifacts(R).flatMap((a) => a.paths);
+  const under = (f, p) => f === p || f.startsWith(p.endsWith('/') ? p : `${p}/`);
+  const why = (f) => (!f.startsWith('build/') ? 'outside build/' : read.has(f) ? `read by the gate for ${m}` : f.split('/')[1] === 'summaries' && f.endsWith(`/${m}.md`) ? `${m}'s task summary` : gen.includes(f) ? 'a generated artifact' : code.some((p) => under(f, p)) ? "a module's code or tests" : null);
+  const files = R.g(['diff', '--name-only', base, `origin/${TRANCHE}`]).split('\n').filter(Boolean).map((f) => relative(R.rel('.'), f));
+  return { files, held: files.map((f) => ({ file: f, why: why(f) })).filter((h) => h.why) };
 }
 // The merge recorded from its event: the commit is on the tranche and holds the job's tip; MERGED; the branch deleted
 // (JOB-LIFE §1); the job told; the PRs waiting on this module marked ready.
