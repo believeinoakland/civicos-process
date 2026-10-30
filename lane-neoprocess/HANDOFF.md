@@ -19,10 +19,10 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## What remains, in order
 
-1. **Done 30 Oct**: Civicsmith's shims regenerated on the runner (run 40992502528; its PR 51 merged, `70a44ca7`): the reader skill, the cap, its session setup registered. Owed by its BOB: `.nvmrc` holding 26.10.0 (issue 62).
+1. **Done 30 Oct**: Civicsmith's shims regenerated on the runner with the evidence check (run 40996431086; its PR 52 merged, `6c0d9bf9`). Owed by its BOB: `.nvmrc` holding 26.10.0 (issue 62).
 2. **The first product filing** measures whether a product session's own GitHub identity may open an issue here (acts.md `issue_write(process issue)`) (if refused, the grant is Bob's, walked through).
 3. **ROOT's first BOB start** (issue 65): the product's next ROOT runs `proc root start`, then `proc root bob --n 335 --branch <the branch the build continues on>` (its resume plan names it); the call it prints certifies it.
-4. **Issue 61 stays open** (DRYRUN §9, #14): the evidence check is live; round 2: 24/24 understandable, 19/24 accurate, 23/24 act clear (`judge3.sh`). Next: the small inferences it passes; report to Bob.
+4. **Issue 61 stays open** (DRYRUN §9, #14): the evidence check is live; rounds 2 and 3: about 24/24 understandable, 20/24 accurate, 23/24 act clear (`judge3.sh`); more wording no longer moves it. Bob told 30 Oct.
 5. The dry-run repositories' move to `neobobkrause` (Bob's hand act, the page's step 8), then `repo-shims.yml` for each. **The release-signing decision** (the page's foot): his.
 
 ## Acts only Bob can take
