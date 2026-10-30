@@ -82,17 +82,24 @@ test('R6: versionCheck answers PROCESS OK when the pin is in the checkout, PROCE
   const other = world('other');   // its own history: two worlds made in one second would share commits
   assert.equal(P.versionCheck(other.head, w.dir), `PROCESS STALE ${w.head.slice(0, 12)}`);
   assert.throws(() => P.versionCheck('main', w.dir), /not a commit/);
-  // the prompt's form: one shell line, run once at the start, the same answer
-  const d = join(w.d, 'clone'); execFileSync('git', ['clone', '-q', join(w.d, 'remote.git'), d]);
-  assert.equal(execFileSync('sh', ['-c', P.versionCommand(w.head, d)], { encoding: 'utf8' }).trim(), 'PROCESS OK');
-  assert.equal(execFileSync('sh', ['-c', `${P.versionCommand(other.head, d)} 2>/dev/null`], { encoding: 'utf8' }).trim(), 'PROCESS STALE');
+  // the prompt's form: one shell line, the same answer, the checkout's head compared as found and never moved
+  const d = join(w.d, 'clone'); execFileSync('git', ['clone', '-q', '-b', 'main', join(w.d, 'remote.git'), d]);
+  const sh = (sha) => execFileSync('sh', ['-c', P.versionCommand(sha, d)], { encoding: 'utf8' }).trim();
+  assert.equal(sh(w.head), 'PROCESS OK');
+  assert.equal(sh(other.head), `PROCESS STALE ${w.head.slice(0, 12)}`);
+  git(d, 'checkout', '-q', '--detach', w.first);   // a copy behind the pin: stale, and left where it was
+  assert.equal(sh(w.head), `PROCESS STALE ${w.first.slice(0, 12)}`);
+  assert.equal(git(d, 'rev-parse', 'HEAD'), w.first);
+  assert.equal(P.versionCheck(w.head, d), `PROCESS STALE ${w.first.slice(0, 12)}`);
 });
 
 test('R7: grantsCheck proves the standing list, the push, the GitHub identity and the product\'s services, variables and addresses, and records the result with its time', async () => {
   const w = world(), at = '2026-10-30T12:00:00Z';
   const res = (status, body, headers = {}) => ({ status, text: async () => JSON.stringify(body), headers: { get: (k) => headers[k.toLowerCase()] ?? null } });
-  const net = (gh) => async (url) => (url.includes('api.github.com') ? gh : url.includes('svc.example') ? res(200, { r: { s: 'active' } }) : res(503, {}));
+  const net = (gh, svc = res(200, { r: { s: 'active' } })) => async (url) => (url.includes('api.github.com') ? gh : url.includes('svc.example') ? svc : url.includes('gone.example') ? Promise.reject(Object.assign(new Error('x'), { cause: { code: 'ENOTFOUND' } })) : res(503, {}));
   const app = res(200, { login: 'owner' }, { 'x-oauth-client-id': 'Iv1' });
+  const grants = (x) => writeFileSync(join(w.dir, 'build/grants.json'), JSON.stringify({ identity: 'owner', ...x }));
+  const check = (x = {}) => P.grantsCheck({ root: w.dir, branch: 'main', fetch: net(app), now: at, env: { PLATFORM_TEST_VAR: 'x' }, ...x });
   let r = await P.grantsCheck({ root: w.dir, branch: 'main', fetch: net(app), now: at });
   assert.equal(r.ok, false);
   assert.match(r.rows[0].detail, /missing from \.claude\/settings\.json/);
@@ -100,25 +107,49 @@ test('R7: grantsCheck proves the standing list, the push, the GitHub identity an
   const standing = JSON.parse(readFileSync(join(ROOT, 'permissions.json'), 'utf8'));
   mkdirSync(join(w.dir, '.claude')); mkdirSync(join(w.dir, 'build'));
   writeFileSync(join(w.dir, '.claude/settings.json'), JSON.stringify({ permissions: standing }));
-  writeFileSync(join(w.dir, 'build/grants.json'), JSON.stringify({ services: [{ name: 'Svc', url: 'https://svc.example/v', active: 'r.s=active' }], variables: ['PLATFORM_TEST_VAR'], urls: ['https://down.example/'] }));
-  r = await P.grantsCheck({ root: w.dir, branch: 'main', fetch: net(app), now: at, env: { PLATFORM_TEST_VAR: 'x' } });
-  assert.deepEqual(r.rows.map((x) => [x.grant, x.ok]), [['standing list', true], ['push to main', true], ['GitHub API', true], ['Svc', true], ['variable PLATFORM_TEST_VAR', true], ['reach https://down.example/', false]]);
+  grants({ services: [{ name: 'Svc', url: 'https://svc.example/v', active: 'r.s=active', expires: 'r.e' }], variables: ['PLATFORM_TEST_VAR'], urls: ['https://down.example/'] });
+  r = await check({ urls: 'https://gone.example/' });
+  assert.deepEqual(r.rows.map((x) => [x.grant, x.ok]), [['standing list', true], ['push to main', true], ['GitHub API', true], ['Svc', true], ['variable PLATFORM_TEST_VAR', true], ['reach https://down.example/', false], ['reach https://gone.example/', false]]);
+  assert.match(r.rows[2].detail, /^owner by the Claude app's token/);
+  assert.equal(r.rows[6].detail, 'ENOTFOUND');
   const kept = JSON.parse(readFileSync(join(w.dir, '.git', P.GRANTS_FILE), 'utf8'));
   assert.equal(kept.at, new Date(at).toISOString());
   assert.match(P.grantsHeld({ root: w.dir }, new Date(at)), /reach https:\/\/down\.example\/: answered 503/);
-  writeFileSync(join(w.dir, 'build/grants.json'), JSON.stringify({ variables: ['PLATFORM_TEST_VAR'] }));
-  r = await P.grantsCheck({ root: w.dir, branch: 'main', fetch: net(app), now: at, env: {} });
+  // a service inactive, or expiring within 14 days, is not held
+  r = await check({ fetch: net(app, res(200, { r: { s: 'disabled' } })) });
+  assert.deepEqual([r.rows[3].ok, r.rows[3].detail], [false, 'r.s disabled']);
+  r = await check({ fetch: net(app, res(200, { r: { s: 'active', e: '2026-11-01T00:00:00Z' } })) });
+  assert.match(r.rows[3].detail, /expiring 2026-11-01T00:00:00Z: renew/); assert.equal(r.rows[3].ok, false);
+  // variables by name only
+  grants({ variables: ['PLATFORM_TEST_VAR'] });
+  r = await check({ env: {} });
   assert.deepEqual(r.rows.map((x) => x.ok), [true, true, true, false]);
-  r = await P.grantsCheck({ root: w.dir, branch: 'main', fetch: net(app), now: at, env: { PLATFORM_TEST_VAR: 'x' } });
+  assert.equal(r.rows[3].detail, 'not set in this environment');
+  r = await check();
   assert.equal(r.ok, true);
   assert.equal(P.grantsHeld(w.dir, new Date(at)), null);
   assert.match(P.grantsHeld(w.dir, new Date('2026-11-01T12:00:00Z')), /over 24 hours ago/);   // older than a day: refused
+  // the identity: another login fails the row; none named fails it, saying what it saw and where to name it; the role
+  // record, else the manifest, names it when build/grants.json does not
+  r = await check({ fetch: net(res(200, { login: 'someone' }, { 'x-oauth-client-id': 'Iv1' })) });
+  assert.deepEqual([r.rows[2].ok, r.rows[2].detail], [false, 'someone by the Claude app\'s token (client Iv1), not the expected owner']);
+  writeFileSync(join(w.dir, 'build/grants.json'), JSON.stringify({ variables: ['PLATFORM_TEST_VAR'] }));
+  r = await check();
+  assert.equal(r.rows[2].ok, false); assert.match(r.rows[2].detail, /^owner by .*: no expected identity is named \(`identity` in build\/grants\.json, or "GitHub identity `<login>`" in build\/manifest\.md\)$/);
+  writeFileSync(join(w.dir, 'build/manifest.md'), '| accounts | the second account (GitHub identity `Owner`), then (GitHub identity `other`) |\n');
+  r = await check(); assert.equal(r.rows[2].ok, true);
+  writeFileSync(join(w.dir, '.git', P.ROLE_FILE), JSON.stringify({ role: 'bob', identity: 'third' }));
+  r = await check(); assert.deepEqual([r.rows[2].ok, r.rows[2].detail], [false, 'owner by the Claude app\'s token (client Iv1), not the expected third']);
+  grants({ variables: ['PLATFORM_TEST_VAR'] });   // build/grants.json names it: owner
+  r = await check(); assert.equal(r.rows[2].ok, true);
   // a token of its own expiring within 14 days, or no credential at all, is not held
   const pat = res(200, { login: 'owner' }, { 'github-authentication-token-expiration': '2026-11-02 00:00:00 UTC' });
-  r = await P.grantsCheck({ root: w.dir, branch: 'main', fetch: net(pat), now: at, env: { PLATFORM_TEST_VAR: 'x' } });
-  assert.match(r.rows[2].detail, /renew before 14 days remain/); assert.equal(r.rows[2].ok, false);
-  r = await P.grantsCheck({ root: w.dir, branch: 'main', fetch: net(res(401, {})), now: at, env: { PLATFORM_TEST_VAR: 'x' } });
-  assert.match(r.rows[2].detail, /no credential reaches/);
+  r = await check({ fetch: net(pat) });
+  assert.match(r.rows[2].detail, /^owner by a token of its own, expiring 2026-11-02 00:00:00 UTC \(2 days\): renew before 14 days remain/); assert.equal(r.rows[2].ok, false);
+  r = await check({ fetch: net(res(403, {})) });
+  assert.match(r.rows[2].detail, /GET \/user answered 403: no credential reaches api\.github\.com/); assert.equal(r.ok, false);
+  writeFileSync(join(w.dir, 'build/grants.json'), '{ not json');
+  r = await check(); assert.match(r.rows.find((x) => x.grant === 'build/grants.json').detail, /^unreadable/);
   assert.match(P.grantsHeld(join(w.d, 'none')), /not proven held/);   // no record: not held
 });
 
@@ -142,11 +173,24 @@ test('R8: dispatch prints the actions_run_trigger call for each runner workflow,
   }
 });
 
-test('R9: a product role never takes the process repository as a write target; the route to the process is a recorded value', () => {
+test('R9: a product role never takes the process repository as a write target, the role read from the record when the caller names none; the route to the process is a recorded value', () => {
   const proc = { owner: 'neobobkrause', repo: 'neoprocess' };
   for (const role of ['job', 'bob', 'lane', 'root', 'onboard']) assert.throws(() => P.dispatch('rename', { process: proc, repo: 'NeoBobKrause/neoprocess', name: 'x', role }), /never takes the process repository as a write target/, role);
   assert.equal(P.dispatch('rename', { process: proc, repo: 'neobobkrause/neoprocess', name: 'x', role: 'process' }).inputs.repo, 'neobobkrause/neoprocess');
   assert.equal(P.dispatch('setup', { process: proc, repo: 'civicsmith/civicsmith', role: 'bob' }).inputs.repo, 'civicsmith/civicsmith');
+  // no role named: the checkout's record decides; with no record the call is refused
+  const w = world();
+  assert.equal(P.recordedRole(w.dir), null);
+  assert.throws(() => P.dispatch('shims', { process: proc, repo: 'neobobkrause/neoprocess', root: w.dir }), /a session with no recorded role never takes/);
+  writeFileSync(join(w.dir, '.git', P.ROLE_FILE), JSON.stringify({ role: 'job', module: 'alpha' }));
+  assert.deepEqual(P.recordedRole(w.dir), { role: 'job', module: 'alpha' });
+  assert.throws(() => P.dispatch('rename', { process: proc, repo: 'neobobkrause/neoprocess', name: 'x', root: w.dir }), /a job never takes the process repository/);
+  assert.equal(P.dispatch('setup', { process: proc, repo: 'civicsmith/x', root: w.dir }).inputs.repo, 'civicsmith/x');
+  writeFileSync(join(w.dir, '.git', P.ROLE_FILE), JSON.stringify({ role: 'process' }));
+  assert.equal(P.dispatch('rename', { process: proc, repo: 'neobobkrause/neoprocess', name: 'x', root: w.dir }).inputs.name, 'x');
+  // the default checkout is the one holding the current directory
+  const here = process.cwd(); process.chdir(w.dir);
+  try { assert.equal(P.dispatch('rename', { process: proc, repo: 'neobobkrause/neoprocess', name: 'x' }).inputs.name, 'x'); } finally { process.chdir(here); }
   for (const v of P.ROUTES) assert.equal(P.processRoute(v), v);
   assert.deepEqual(P.ROUTES, ['public', 'read grant', 'carried']);
   assert.throws(() => P.processRoute('collaborator'), /one of public, read grant, carried/);

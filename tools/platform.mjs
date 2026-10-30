@@ -119,9 +119,9 @@ export function versionCheck(pin, dir = PROCESS) {
   const r = spawnSync('git', ['-C', dir, 'merge-base', '--is-ancestor', pin, 'HEAD'], { stdio: 'ignore' });
   return r.status === 0 ? 'PROCESS OK' : `PROCESS STALE ${head.slice(0, 12)}`;
 }
-// The same check as the one command a new session's prompt carries, which the pre-role hooks of any copy pass (a read and a
-// fast-forward, no write they name): it brings the copy to `main` first, then answers.
-export const versionCommand = (sha, d = '/home/user/neoprocess') => `git -C ${d} pull -q --ff-only origin main; git -C ${d} rev-list HEAD | grep -q ^${sha.slice(0, 12)} && echo PROCESS OK || echo PROCESS STALE`;
+// The same check as the one command a new session's prompt carries, which the pre-role hooks of any copy pass (reads only,
+// no write they name): the checkout's head as found against the pin, in one line, the head named when it is stale.
+export const versionCommand = (sha, d = '/home/user/neoprocess') => `git -C ${d} rev-list HEAD | grep -q ^${sha.slice(0, 12)} && echo PROCESS OK || { printf 'PROCESS STALE '; git -C ${d} rev-parse HEAD | cut -c1-12; }`;
 
 // ---- R8, R9: the runner workflows' dispatch (PERMISSIONS §9) ----
 export const WORKFLOWS = { setup: 'repo-setup.yml', rename: 'repo-rename.yml', transfer: 'repo-transfer.yml', shims: 'repo-shims.yml' };
@@ -137,14 +137,26 @@ export function ownerSecret(owner, processOwner) {
 // them writes the process repository.
 export const ROUTES = ['public', 'read grant', 'carried'];
 export function processRoute(value) { return ROUTES.includes(value) ? value : refuse(`a product's route to the process is one of ${ROUTES.join(', ')}, not ${value}`); }
+// The session's recorded role (`.git/proc-role.json` of the checkout at `root`, the git checkout holding the current
+// directory by default), or null when none is recorded or there is no checkout.
+export const ROLE_FILE = 'proc-role.json';
+export function recordedRole(root) {
+  let top = root;
+  if (!top) { try { top = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; } }
+  try { return JSON.parse(readFileSync(join(top, '.git', ROLE_FILE), 'utf8')); } catch { return null; }
+}
 // The `actions_run_trigger` call for a workflow of the process repository `process` ({ owner, repo }), acting on the
-// repository `args.repo` with the secret of that repository's owner. A product role (any but the neoProcess lane, `process`)
-// is refused a call whose target is the process repository itself (R9).
+// repository `args.repo` with the secret of that repository's owner. A call whose target is the process repository itself
+// is refused to every role but the neoProcess lane (`process`): the role is `args.role`, else the one recorded in the
+// checkout at `args.root` (R9); with none recorded the call is refused too, since no product role may make it.
 export function dispatch(kind, args = {}) {
   const wf = WORKFLOWS[kind] ?? refuse(`no runner workflow for ${kind}: one of ${Object.keys(WORKFLOWS).join(', ')}`);
   const m = String(args.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/) ?? refuse(`${kind}: --repo <owner/name>`);
   const P = args.process || {};
-  if (args.role && args.role !== 'process' && P.owner && `${P.owner}/${P.repo}`.toLowerCase() === m[0].toLowerCase()) refuse(`a ${args.role} never takes the process repository as a write target (PLT-13): only the neoProcess lane dispatches ${wf} on it`);
+  if (P.owner && `${P.owner}/${P.repo}`.toLowerCase() === m[0].toLowerCase()) {
+    const role = args.role ?? recordedRole(args.root)?.role ?? null;
+    if (role !== 'process') refuse(`${role ? `a ${role}` : 'a session with no recorded role'} never takes the process repository as a write target (PLT-13): only the neoProcess lane dispatches ${wf} on it`);
+  }
   return { tool: 'actions_run_trigger', ...(P.owner ? { owner: P.owner, repo: P.repo } : {}), workflow_id: wf, ref: 'main', inputs: { repo: m[0], ...INPUTS[kind](args) }, secret: ownerSecret(m[1], P.owner) };
 }
 
@@ -168,16 +180,24 @@ export async function grantsCheck(o) {
   // the push to the role's own branch, dry (PERMISSIONS §2.6)
   const p = spawnSync('git', ['-C', root, 'push', '-q', '--dry-run', 'origin', `HEAD:refs/heads/${branch}`], { encoding: 'utf8' });
   row(`push to ${branch}`, p.status === 0, p.status === 0 ? 'git push --dry-run passes' : (p.stderr || p.stdout || '').trim().split('\n').pop());
-  // GitHub through the proxy: the identity, and the token's kind and expiry (the app's token renews itself; a token of the process's does not)
+  // the product's own list (PRODUCT-SUPPLIES: `build/grants.json`; the process names none of its services)
+  let pg = {}, bad = null; try { pg = JSON.parse(readAt(dir, GRANTS_PRODUCT) || '{}'); } catch (e) { bad = e.message; }
+  // GitHub through the proxy: the identity, which must be the expected one, and the token's kind and expiry (the app's
+  // token renews itself; a token of the process's does not). The expected identity is the one `build/grants.json` names
+  // (`identity`), else the role record's, else each "GitHub identity `<login>`" the product's manifest names.
+  const expected = [pg.identity, recordedRole(root)?.identity].filter(Boolean);
+  if (!expected.length) for (const x of (readAt(dir, 'build/manifest.md') || '').matchAll(/GitHub identity `([\w-]+)`/g)) expected.push(x[1]);
   const gh = await get('https://api.github.com/user');
   if (gh.status !== 200) row('GitHub API', false, `GET /user answered ${gh.status || gh.error}: no credential reaches api.github.com`);
   else {
-    const app = gh.headers.get('x-oauth-client-id'), exp = gh.headers.get('github-authentication-token-expiration');
+    const app = gh.headers.get('x-oauth-client-id'), exp = gh.headers.get('github-authentication-token-expiration'), login = gh.json?.login;
     const days = exp && !app ? (new Date(exp.replace(' UTC', 'Z').replace(' ', 'T')) - now_) / 864e5 : null;
-    row('GitHub API', days == null || days > EXPIRY_WARN_D, `${gh.json?.login} by ${app ? `the Claude app's token (client ${app})` : 'a token of its own'}${days == null ? '' : `, expiring ${exp} (${Math.floor(days)} days): renew before ${EXPIRY_WARN_D} days remain`}`);
+    const who = !expected.length ? `: no expected identity is named (\`identity\` in ${GRANTS_PRODUCT}, or "GitHub identity \`<login>\`" in build/manifest.md)`
+      : expected.some((x) => x.toLowerCase() === String(login).toLowerCase()) ? '' : `, not the expected ${expected.join(' or ')}`;
+    row('GitHub API', !who && (days == null || days > EXPIRY_WARN_D), `${login} by ${app ? `the Claude app's token (client ${app})` : 'a token of its own'}${who}${days == null ? '' : `, expiring ${exp} (${Math.floor(days)} days): renew before ${EXPIRY_WARN_D} days remain`}`);
   }
-  // the product's own services, variables and addresses (PRODUCT-SUPPLIES: `build/grants.json`; the process names none)
-  let pg = {}; try { pg = JSON.parse(readAt(dir, GRANTS_PRODUCT) || '{}'); } catch (e) { row(GRANTS_PRODUCT, false, `unreadable: ${e.message}`); }
+  // the product's own services, variables and addresses
+  if (bad) row(GRANTS_PRODUCT, false, `unreadable: ${bad}`);
   const at = (obj, path) => String(path || '').split('.').filter(Boolean).reduce((v, k) => v?.[k], obj);
   for (const sv of pg.services || []) {
     const r = await get(sv.url), [k, want] = String(sv.active || '').split('='), got = k ? at(r.json, k) : undefined;
