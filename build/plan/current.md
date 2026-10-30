@@ -50,7 +50,7 @@
 **jobs**
 - N2-19 · JOB-1 to JOB-3, JOB-6 to JOB-8: `tools/jobs.mjs` takes layer start, job pr/started/route/start/state/complete/takein/posted/reopen/retire/archived, defect; the START generator names only tool commands (a test enumerates its acts against `COMMANDS`).
 - N2-20 · JOB-4: `job route` replaces a dead session with a brief from the branch and pull request, not a re-read of the module; no function archives or replaces a live job for a version; the abandon and complete-allowed choices are read from the plan's stop record.
-- N2-21 · JOB-5: `job complete` runs locally only ownership, format and the module's own suite when it is under a minute (measured by the previous run's record), pushes, posts, marks ready, sets COMPLETE; the in-session gate is removed.
+- N2-21 · JOB-5: `job complete` runs locally only ownership, format and the module's own suite when it is under a minute (measured by the previous run's record), pushes, posts, marks ready, sets COMPLETE; the in-session gate is removed; before it, the job reviews its own whole change against every requirement of its module with the reviewer's own brief (`review decide`'s text, read by `job complete`) and fixes every gap it finds, so a review round finds what the job could not and a job is rerun once per review, never once per gap (Bob, 30 Oct; K14).
 - N2-22 · JOB-9, JOB-10: the Stop-hook rules become the record: `status` lists a job WORKING with nothing pushed for an hour; each job attempt's reading set and tokens are its own row.
 
 **gate**
@@ -88,7 +88,7 @@
 **shims**
 - N2-41 · SHM-1: `tools/shims.mjs` takes `shims`, `settingsText` (permissions only; no hooks, no env), the CLAUDE.md template naming the pinned commit and the one clone command, the gate workflow from the gate module's template, the prune workflow; `init`, `initCheck`, `onboardStart`.
 - N2-42 · SHM-2: `repo shims` runnable from the product's own repository with its own secret (a second workflow template the product may hold), proven on the first other-owner product.
-- N2-43 · SHM-3, SHM-4, SHM-5: onboarding measures the product against §0's sizes and reports each dimension beyond the proven range; `tranche carry` removes stale tracking refs first; the product's setup script is named in its manifest and run by its sessions' first command, not a hook; onboarding records the product's route to the process (public read, a read grant, or carried reports) as the value platform's `processRoute` reads (platform R9; K3).
+- N2-43 · SHM-3, SHM-4, SHM-5: onboarding measures the product against §0's sizes and reports each dimension beyond the proven range; `tranche carry` removes stale tracking refs first; the product's setup script is named in its manifest and run by its sessions' first command, not a hook; onboarding records the product's route to the process (public read, a read grant, or carried reports) as the value platform's `processRoute` reads (platform R9; K3); the steps `repo setup` and `repo transfer` print for a new or moved product name a session created on that repository (`create_session` with its URL, PLT-3), never `add_repo`, which the classifier decides case by case (PLT-2; platform's report A6; K13).
 - N2-44 · this repository's own shims: `gate.yml` for the process repository written by the module and merged, so the process is gated as a product from layer 5 on (ARC-1's import check then runs over `tools/`).
 
 proc-legacy (no job: retired by the jobs above)
