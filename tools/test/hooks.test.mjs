@@ -420,6 +420,60 @@ test('the fresh reader: on only for the roles Bob reads, recorded by the pre hoo
   assert.match(skill, /\$ARGUMENTS/); assert.match(skill, /last_assistant_message/);
 });
 
+// Issue 69 (BOB #335, Civicsmith's first BOB, 30 Oct): the product had no `tranche`; its paused tranche ran on another branch
+// under the old process, so the first epoch could not open, and the old record's BOB numbers were given again.
+test('a running tranche is carried onto `tranche` before the first epoch: main merged in and winning, the old plan archived, the old record named', () => {
+  const base = mkdtempSync(join(tmpdir(), 'carry-')), origin = join(base, 'origin.git');
+  execFileSync('git', ['init', '-q', '--bare', origin]);
+  const seed = join(base, 'seed'); execFileSync('git', ['clone', '-q', origin, seed], { stdio: 'ignore' }); ident(seed, 'seed');
+  cpSync(TOY, join(seed, 'toy'), { recursive: true }); f(seed, 'CLAUDE.md', 'old process\n');
+  g(seed, 'add', '.'); g(seed, 'commit', '-q', '-m', 'before'); g(seed, 'branch', '-M', 'main'); g(seed, 'push', '-q', 'origin', 'main');
+  g(seed, 'checkout', '-q', '-b', 'tranche/T9');
+  f(seed, 'CLAUDE.md', 'old process, changed by the running tranche\n'); f(seed, 'work.txt', 'the running tranche\'s work\n');
+  writeFileSync(join(seed, 'toy/build/plan/current.md'), '**Round** · R1 · layer 1 CLOSED · layer 2 OPEN\n# Plan T9 · the old build\n**Status** · OPEN · BOB #7 · session_01SEVENSEVENSEVENSEVEN77\n**Jobs** · money: MONEY #1 session_01MONEYMONEYMONEYMONEY11\n');
+  writeFileSync(join(seed, 'toy/build/handoff.md'), '# Handoff\nBOB #6 to BOB #7; LANE-X #4 session_01LANEXLANEXLANEXLANEX44 stays live.\n');
+  g(seed, 'add', '.'); g(seed, 'commit', '-q', '-m', 'the running tranche'); g(seed, 'push', '-q', 'origin', 'tranche/T9');
+  g(seed, 'checkout', '-q', 'main'); f(seed, 'CLAUDE.md', 'Built by neoProcess\n'); f(seed, 'seeded.txt', 'the seed\n');
+  g(seed, 'add', '.'); g(seed, 'commit', '-q', '-m', 'the seed'); g(seed, 'push', '-q', 'origin', 'main');
+  const root = join(base, 'bob'); execFileSync('git', ['clone', '-q', '-b', 'main', origin, root], { stdio: 'ignore' }); ident(root, 'bob');
+  const dir = join(root, 'toy'), R0 = 'session_01RRRRRRRRRRRRRRRRRRRRRRRR';
+  // ROOT: the old record's numbers are not given again; the BOB starts on main (which holds the shims) and carries first
+  N.rootStart({ product: dir, session: R0, name: 'ROOT #12' });
+  assert.throws(() => N.rootBob({ product: dir, n: 7, branch: 'tranche/T9' }), /BOB #7 is named in tranche\/T9's old record: the new BOB is #8 or later/);
+  const b = N.rootBob({ product: dir, n: 8, branch: 'tranche/T9' });
+  assert.equal(b.create_session.source_revision, 'main');
+  assert.match(b.create_session.prompt, /names BOB #7 last: that record is data.*run `proc tranche carry --from tranche\/T9 --name "BOB #8" --session <your session id>` \(make any dispatch it prints and run it again until it reports carried\), then `proc epoch open`; then `proc takeover --name "BOB #8"/);
+  assert.match(b.create_session.prompt, /or you cannot start and your last message tells Bob why and what would let you;/);
+  // BOB's own checkout, started on main
+  const broot = join(base, 'bob2'); execFileSync('git', ['clone', '-q', '-b', 'main', origin, broot], { stdio: 'ignore' }); ident(broot, 'bob2');
+  const bdir = join(broot, 'toy');
+  // before the carry: no `tranche`, so the epoch cannot open; the carry's command passes the hook with no role, `2>&1` too
+  assert.throws(() => N.epochOpen({ product: bdir }), /check out tranche first/);
+  assert.equal(preReason(null, bash('node /x/tools/proc.mjs tranche carry --from tranche/T9 --product toy 2>&1 | tail -5'), {}), null);
+  assert.equal(preReason(null, bash('node /x/tools/proc.mjs status --product . 2>/dev/null'), {}), null);
+  assert.match(preReason(null, bash('node /x/tools/proc.mjs status > out.txt'), {}), /no role is recorded/);
+  const B8 = { name: 'BOB #8', session: 'session_01BOBEIGHTBOBEIGHTBOBEIGH' };
+  assert.throws(() => N.trancheCarry({ product: bdir, from: 'tranche/T9' }), /--name "BOB #<n>"/);
+  assert.throws(() => N.trancheCarry({ product: bdir, from: 'main', ...B8 }), /--from/);
+  // the fixed branch cannot sit beside `tranche/*` (git: a ref is a file or a directory): the old tip is kept, the old name pruned
+  // (a bare remote takes the delete; a session's proxy refuses it and the command prints the prune workflow's dispatch instead)
+  const c = N.trancheCarry({ product: bdir, from: 'tranche/T9', ...B8 });
+  assert.equal(c.phase, 'carried'); assert.deepEqual(c.kept, ['carried/T9']); assert.equal(c.from, 'carried/T9');
+  assert.equal(N.readRole(broot).role, 'bob'); assert.equal(stopReason('bob', ctxOf(broot)), null);   // before the epoch: no queue to gate
+  assert.deepEqual(c.conflicts, ['CLAUDE.md']); assert.equal(c.archived, 'build/plan/archive/T9-R1.md'); assert.equal(c.lastBob, 7);
+  assert.deepEqual(c.oldSessions.sort(), ['BOB #7 session_01SEVENSEVENSEVENSEVEN77', 'LANE-X #4 session_01LANEXLANEXLANEXLANEX44', 'MONEY #1 session_01MONEYMONEYMONEYMONEY11']);
+  g(broot, 'fetch', '-q', 'origin');
+  assert.equal(g(broot, 'show', 'origin/tranche:CLAUDE.md'), 'Built by neoProcess');   // main's text wins the conflict
+  assert.equal(g(broot, 'show', 'origin/tranche:work.txt'), 'the running tranche\'s work');   // the running work kept
+  assert.equal(g(broot, 'show', 'origin/tranche:seeded.txt'), 'the seed');
+  assert.match(g(broot, 'show', 'origin/tranche:toy/build/plan/archive/T9-R1.md'), /# Plan T9 · the old build/);
+  assert.throws(() => g(broot, 'show', 'origin/tranche:toy/build/plan/current.md'));
+  g(broot, 'merge-base', '--is-ancestor', 'origin/carried/T9', 'origin/tranche'); g(broot, 'merge-base', '--is-ancestor', 'origin/main', 'origin/tranche');   // a merge, never a rebase
+  // then the first epoch opens on it, and a second carry is refused
+  assert.match(N.epochOpen({ product: bdir }).epoch, /^E\d+$/);
+  assert.throws(() => N.trancheCarry({ product: bdir, from: 'tranche/T9', ...B8 }), /is open: a tranche is carried only before the first epoch/);
+});
+
 // Issue 61 (#14, 30 Oct): the fresh reader sees only the message, so a claim the session added passed it (#13's writer test:
 // 20 of 35 finals fully accurate). The evidence check gives a fresh model the message and what the session saw.
 test('the evidence check: what the session was told, ran and saw, never its own words; the model\'s verdict blocks', () => {
