@@ -768,7 +768,7 @@ test('the evidence check: what the session was told, ran and saw, never its own 
   assert.match(shrunk, /characters of this output cut …\]\n[A]+ END ONE/);
   assert.match(shrunk, / END TWO$/);
   assert.ok(shrunk.length <= 20_000, String(shrunk.length));
-  assert.match(turnEvidence(long, 2_000), /^\[earlier evidence cut: older than this is unknown to the judge\]\n/);   // still over at the smallest cap
+  assert.match(turnEvidence(long, 500), /^\[earlier evidence cut: older than this is unknown to the judge\]\n/);   // still over at the smallest cap
   const p = evidencePrompt('38 of 40 passed.', ev);
   assert.match(p, /<<<EVIDENCE\n\[a message to the session\]\nRun the suite\.[\s\S]*<<<MESSAGE\n38 of 40 passed\.\nMESSAGE>>>/);
   const out = (v) => JSON.stringify({ result: `Here: ${JSON.stringify(v)}` });

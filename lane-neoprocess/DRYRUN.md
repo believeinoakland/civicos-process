@@ -350,7 +350,7 @@ Issue 115 (the lane, #19): the evidence judge (`hooks.mjs evidence`, `proc say`)
 | --- | --- | --- |
 | a long transcript keeps its earliest act and every result line; the cut comes only past the smallest cap | PROVEN in fixture | `turnEvidence` with two 50,000-character outputs under a 20,000 limit: the first act and its `delivered` result kept, both `END` lines kept, no cut; under 2,000 the cut named (`tools/test/hooks.test.mjs`) |
 | this session's own transcript fits the judge's window with the fix | PROVEN | #19, 16:3xZ: 387 rows, 320,765 characters whole; the window 115,920, no cut; every act of the turn in it (the archive, the switch-off, the message to BOB and its `delivered`, the backstop, the issue calls) |
-| live: a message naming an act from early in the turn passes the judge in one run | NOT YET | #19's next message to Bob, written with `proc say` |
+| live: a message naming an act from early in the turn passes the judge in one run | FAILED, then widened | #19's last message: the turn grew to 949 rows and 434,000 characters of evidence, the window cut again at 120,000 with caps down to 1,500, and true claims (an archive passed, a message delivered, the issue counts) were refused run after run (20+ runs). The limit is now 160,000 and the caps go down to 300: this session's transcript then fits whole (124,386, no cut). The one-run proof: the lane's next message |
 
 ## 28. Certification of issue 117's fix (GOV 5; 30 Oct 2026, #19)
 
