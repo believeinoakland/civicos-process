@@ -61,7 +61,7 @@
 
 **integration**
 - N2-27 · INT-2, INT-3, INT-6: `tools/integration.mjs` takes review decide/result, merge, `gateNeutral`, merged, job retire's record half, bob release; nothing in a merge or close calls `archive_session`; retirement is a record line and the usage read by SES-10's route or named unmeasured.
-- N2-28 · INT-4 and P11: `layer close` runs the layer's tests (from the manifest) over the merged layer and refuses to close on a red, naming the module and printing the CHANGE for its job.
+- N2-28 · INT-4 and P11: `layer close` runs the layer's tests (from the manifest) over the merged layer and refuses to close on a red, naming the module and printing the CHANGE for its job; it lists platform's stale constraint rows (`constraints({ olderThan })`, platform R2; K3).
 - N2-29 · INT-5: the completion round, tranche close, close pull request, release cut, deployment and walk kept as today, each with a fixture test, and the tranche report naming any stage that runs for the first time under a version.
 
 ## Layer 4 · the people
@@ -88,13 +88,21 @@
 **shims**
 - N2-41 · SHM-1: `tools/shims.mjs` takes `shims`, `settingsText` (permissions only; no hooks, no env), the CLAUDE.md template naming the pinned commit and the one clone command, the gate workflow from the gate module's template, the prune workflow; `init`, `initCheck`, `onboardStart`.
 - N2-42 · SHM-2: `repo shims` runnable from the product's own repository with its own secret (a second workflow template the product may hold), proven on the first other-owner product.
-- N2-43 · SHM-3, SHM-4, SHM-5: onboarding measures the product against §0's sizes and reports each dimension beyond the proven range; `tranche carry` removes stale tracking refs first; the product's setup script is named in its manifest and run by its sessions' first command, not a hook.
+- N2-43 · SHM-3, SHM-4, SHM-5: onboarding measures the product against §0's sizes and reports each dimension beyond the proven range; `tranche carry` removes stale tracking refs first; the product's setup script is named in its manifest and run by its sessions' first command, not a hook; onboarding records the product's route to the process (public read, a read grant, or carried reports) as the value platform's `processRoute` reads (platform R9; K3).
 - N2-44 · this repository's own shims: `gate.yml` for the process repository written by the module and merged, so the process is gated as a product from layer 5 on (ARC-1's import check then runs over `tools/`).
 
 proc-legacy (no job: retired by the jobs above)
 - At the layer's close `tools/proc.mjs` holds only `COMMANDS` and `args`, delegating to the modules; `tools/lib.mjs` and `tools/hooks.mjs` are deleted; the legacy row leaves `build/modules.json`.
 
 ---
+
+## Completion round (PLN 7; opened by `proc round open` after layer 5)
+
+**platform**
+- N2-46 · platform R13 (K3): the R12 enumeration refuses a printed call whose constraint row is classifier-judged, once N2-27, N2-34 and N2-36 have merged; the job strikes R13's mark.
+
+**record**
+- N2-47 · REC-7's fixture (K3): N2-8's halted-build fixture rebuilt from a frozen copy of Civicsmith's real state branch and handoff of 30 Oct, once a session on this account can read that repository (the record job built it from the measured description, its report of 30 Oct).
 
 ## Deferred, with the hard reason (PLN 2)
 - INT-5's stages proven live, and the certification mark: a real product's full tranche, deployment and walk (a measurement that cannot happen inside this tranche).
