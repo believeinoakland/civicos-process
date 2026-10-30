@@ -219,6 +219,14 @@ test('R9: a product role never takes the process repository as a write target, t
   // the default checkout is the one holding the current directory
   const here = process.cwd(); process.chdir(w.dir);
   try { assert.equal(P.dispatch('rename', { process: proc, repo: 'neobobkrause/neoprocess', name: 'x' }).inputs.name, 'x'); } finally { process.chdir(here); }
+  // the caller names no process repository: the module knows it, from the clone's remote or its constant
+  assert.deepEqual(P.processRepo(w.dir + '-none'), P.PROCESS_REPO);
+  git(w.dir, 'remote', 'set-url', 'origin', 'http://local_proxy@127.0.0.1:1/git/Some-Owner/the-proc.git');
+  assert.deepEqual(P.processRepo(w.dir), { owner: 'Some-Owner', repo: 'the-proc' });
+  const { owner, repo } = P.processRepo();
+  for (const role of ['job', 'bob', 'lane', 'root']) assert.throws(() => P.dispatch('rename', { repo: `${owner}/${repo}`, name: 'x', role }), /never takes the process repository as a write target/, role);
+  assert.throws(() => P.dispatch('rename', { repo: 'neobobkrause/neoprocess', name: 'x', role: 'job' }), /never takes the process repository/);
+  assert.deepEqual([P.dispatch('setup', { repo: 'civicsmith/x', role: 'job' }).owner, P.dispatch('setup', { repo: 'civicsmith/x', role: 'job' }).repo], [owner, repo]);
   for (const v of P.ROUTES) assert.equal(P.processRoute(v), v);
   assert.deepEqual(P.ROUTES, ['public', 'read grant', 'carried']);
   assert.throws(() => P.processRoute('collaborator'), /one of public, read grant, carried/);
@@ -268,6 +276,10 @@ test('R4 R12: every platform call any module prints, however printed, is a row o
   assert.deepEqual(P.callProblems('`update_trigger enabled false`'), ['update_trigger: printed, and decided by the classifier case by case (R4)']);
   assert.deepEqual(P.callProblems('`update_trigger enabled false`', ['update_trigger']), []);
   assert.deepEqual(P.callProblems('send_message to BOB; git push to the own branch'), []);
+  // a full tool name is seen as its bare name
+  assert.deepEqual(P.callProblems("{ tool: 'mcp__github__fork_repository' }"), ['fork_repository: printed, and no row']);
+  assert.deepEqual(P.callProblems("{ tool: 'mcp__claude-code-remote__interrupt_session' }"), ['interrupt_session: printed, and decided by the classifier case by case (R4)']);
+  assert.deepEqual(P.callsIn('call mcp__claude-code-remote__send_later, then Skill'), ['send_later', 'Skill']);
   // and the dispatch this module prints is one
   assert.ok(P.rowFor(P.dispatch('shims', { repo: 'a/b' }).tool));
 });
@@ -279,7 +291,8 @@ test('R1 R12: every id of the retired act table still names a row, so a refusal 
   assert.equal(P.isKnown('made_up_act(anything)'), false);
   for (const [alias, row] of Object.entries(P.ALIASES)) assert.ok(P.knownIds().includes(row) && P.isKnown(alias), alias);
   // the runner acts PLT-9 keeps as rows, and the session's own tools, each its own act
-  for (const id of ['create_repository(process token)', 'rulesets(process token)', 'rename(process token)', 'shims(process token)', 'secret per owner', 'Agent(background worker)', 'TaskStop(worker)']) assert.equal(P.acts({ id }).length, 1, id);
+  for (const id of ['create_repository(process token)', 'rulesets(process token)', 'rename(process token)', 'shims(process token)', 'secret per owner', 'Agent(background worker)', 'TaskStop(worker)', 'Skill(neoprocess)']) assert.equal(P.acts({ id }).length, 1, id);
+  assert.ok(P.toolNames().includes('Skill'));
   assert.equal(P.rowFor('create_repository').id, 'create_repository(process token)');
 });
 

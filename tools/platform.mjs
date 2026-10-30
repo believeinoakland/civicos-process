@@ -89,6 +89,7 @@ export const ACTS = [
   A('push_files', 'the neoProcess lane, to a product\'s branch `shims`', 'by hand, superseded by the runner (`shims(process token)`)', 1, '2026-10-29', '#11: believeinoakland/neoprocess-x9#3 merged (`fcdece5`) (acts.md)'),
   A('a service\'s API(development changes)', 'BOB, a job of the product\'s deploy module', 'the product\'s own procedures, with the token the proxy injects for the service\'s host (its grant list)', 2, '2026-10-29', '#6: a service token active and seeing the development account; #8: it read its own scope through the proxy (X10 PROVEN; acts.md)'),
   A('grants check(HTTP through the proxy)', 'every role', '`proc grants check`, restarted with NODE_USE_ENV_PROXY=1', 2, '2026-10-30', '#7: `GET /user` 200 as the Claude app and a service token active; #16: green as `civicsmith` (acts.md)'),
+  A('Skill(neoprocess)', 'every session, at its start', 'the start prompt\'s "Invoke the skill neoprocess with the argument <role>"', 1, '2026-10-30', 'PLATFORM #1, at its start (the reading printed whole); every session of this tranche is started by a prompt that invokes it, not counted'),
   A('git fetch(process)', 'every role of a product', 'anonymous read of the public process repository; `proc status` hourly', 1, '2026-10-30', '#15 (acts.md); PLATFORM #1\'s pull at its start'),
 ];
 
@@ -99,14 +100,15 @@ export const ACTS = [
 export const TOOLS = {
   github: ['actions_get', 'actions_list', 'actions_run_trigger', 'add_comment_to_pending_review', 'add_issue_comment', 'add_reply_to_pull_request_comment', 'create_branch', 'create_or_update_file', 'create_pull_request', 'create_repository', 'delete_file', 'disable_pr_auto_merge', 'enable_pr_auto_merge', 'fork_repository', 'get_check_run', 'get_commit', 'get_file_contents', 'get_job_logs', 'get_label', 'get_latest_release', 'get_me', 'get_release_by_tag', 'get_tag', 'get_team_members', 'get_teams', 'issue_read', 'issue_write', 'list_branches', 'list_commits', 'list_issue_fields', 'list_issue_types', 'list_issues', 'list_pull_requests', 'list_releases', 'list_repository_collaborators', 'list_tags', 'merge_pull_request', 'pull_request_read', 'pull_request_review_write', 'push_files', 'request_copilot_review', 'resolve_review_thread', 'run_secret_scanning', 'search_code', 'search_commits', 'search_issues', 'search_pull_requests', 'search_repositories', 'search_users', 'sub_issue_write', 'unresolve_review_thread', 'update_issue_comment', 'update_pull_request', 'update_pull_request_branch'],
   session: ['add_repo', 'archive_session', 'confirm_repository_trust', 'create_session', 'create_trigger', 'delete_trigger', 'fire_trigger', 'get_event', 'get_session', 'get_trigger', 'interrupt_session', 'list_computer_folders', 'list_environments', 'list_events', 'list_repos', 'list_sessions', 'list_triggers', 'read_documentation', 'register_repo_root', 'request_computer_folder', 'send_later', 'send_message', 'set_session_tags', 'set_session_title', 'subscribe_pr_activity', 'unarchive_session', 'unsubscribe_pr_activity', 'unwatch_url', 'update_trigger', 'watch_url'],
-  code: ['Agent', 'TaskStop'],
+  code: ['Agent', 'TaskStop', 'Skill'],
   acts: ['git push', 'git fetch', 'git merge --ff-only', 'claude -p'],
 };
 export const toolNames = () => [...TOOLS.github, ...TOOLS.session, ...TOOLS.code, ...TOOLS.acts];
 // Each platform call name `text` holds, however printed (a call object, prose, a name a check matches).
 export function callsIn(text) {
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
-  return toolNames().filter((n) => new RegExp(`(?<![\\w-])${esc(n)}(?![\\w])`).test(text));
+  const plain = String(text).replace(/mcp__(?:github|claude-code-remote)__/g, ' ');   // a full tool name is its bare name
+  return toolNames().filter((n) => new RegExp(`(?<![\\w-])${esc(n)}(?![\\w])`).test(plain));
 }
 // R12, R4: what is wrong with the platform calls `text` prints: a call printed as `tool: '<name>'` that is no platform
 // tool, a platform call with no row, a classifier-judged call not named in `inherited` (the calls other modules still
@@ -157,6 +159,7 @@ const RESULTS = {
   push_files: [{}, 'none read: the pull request that follows carries the commit'],
   'a service\'s API(development changes)': [{}, 'what the product\'s procedure reads, named in its grant list'],
   'grants check(HTTP through the proxy)': [{}, 'the rows `grantsCheck` writes to `.git/proc-grants.json`'],
+  'Skill(neoprocess)': [{}, 'its instruction to run `proc reading --role <role>`, whose output the session reads whole'],
   'claude -p(headless session)': [{}, 'none but its printed answer: the exit status and the text it writes'],
 };
 for (const a of ACTS) [a.result, a.resultFrom] = RESULTS[a.id] ?? [undefined, undefined];
@@ -245,24 +248,36 @@ export function processRoute(value) { return ROUTES.includes(value) ? value : re
 // The session's recorded role (`.git/proc-role.json` of the checkout at `root`, the git checkout holding the current
 // directory by default), or null when none is recorded or there is no checkout.
 export const ROLE_FILE = 'proc-role.json';
+// The process repository, `{ owner, repo }`: from the process clone's remote (any URL form ending in <owner>/<repo>), else
+// the repository the process lives in today.
+export const PROCESS_REPO = { owner: 'neobobkrause', repo: 'neoprocess' };
+export function processRepo(dir = PROCESS) {
+  try {
+    const url = execFileSync('git', ['-C', dir, 'remote', 'get-url', 'origin'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    const m = url.replace(/\.git$/, '').match(/([\w.-]+)\/([\w.-]+)$/);
+    if (m) return { owner: m[1], repo: m[2] };
+  } catch { /* no remote: the constant */ }
+  return { ...PROCESS_REPO };
+}
 export function recordedRole(root) {
   let top = root;
   if (!top) { try { top = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; } }
   try { return JSON.parse(readFileSync(join(top, '.git', ROLE_FILE), 'utf8')); } catch { return null; }
 }
-// The `actions_run_trigger` call for a workflow of the process repository `process` ({ owner, repo }), acting on the
+// The `actions_run_trigger` call for a workflow of the process repository `process` ({ owner, repo }; `processRepo()` when the
+// caller names none), acting on the
 // repository `args.repo` with the secret of that repository's owner. A call whose target is the process repository itself
 // is refused to every role but the neoProcess lane (`process`): the role is `args.role`, else the one recorded in the
 // checkout at `args.root` (R9); with none recorded the call is refused too, since no product role may make it.
 export function dispatch(kind, args = {}) {
   const wf = (INPUTS[kind] && WORKFLOWS[kind]) ?? refuse(`no runner workflow for ${kind}: one of ${Object.keys(INPUTS).join(', ')}`);
   const m = String(args.repo || '').match(/^([\w.-]+)\/([\w.-]+)$/) ?? refuse(`${kind}: --repo <owner/name>`);
-  const P = args.process || {};
-  if (P.owner && `${P.owner}/${P.repo}`.toLowerCase() === m[0].toLowerCase()) {
+  const P = args.process?.owner ? args.process : processRepo();
+  if (`${P.owner}/${P.repo}`.toLowerCase() === m[0].toLowerCase()) {
     const role = args.role ?? recordedRole(args.root)?.role ?? null;
     if (role !== 'process') refuse(`${role ? `a ${role}` : 'a session with no recorded role'} never takes the process repository as a write target (PLT-13): only the neoProcess lane dispatches ${wf} on it`);
   }
-  return { tool: 'actions_run_trigger', ...(P.owner ? { owner: P.owner, repo: P.repo } : {}), workflow_id: wf, ref: 'main', inputs: { repo: m[0], ...INPUTS[kind](args) }, secret: ownerSecret(m[1], P.owner) };
+  return { tool: 'actions_run_trigger', owner: P.owner, repo: P.repo, workflow_id: wf, ref: 'main', inputs: { repo: m[0], ...INPUTS[kind](args) }, secret: ownerSecret(m[1], P.owner) };
 }
 
 // ---- R7: the grants (PERMISSIONS §10; GRANTS.md), proven held before a tranche opens ----
