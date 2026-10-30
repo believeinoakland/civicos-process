@@ -1,6 +1,6 @@
 # neoProcess lane: handoff
 
-**From** · neoProcess #15 (`session_012hdw2TtwUWftsP6A4fnU4L`), the lane's address, 30 Oct. Before it #14 `session_012hdw2SRrXZibnQhZJimtZw`, #13 `session_012hdw2RBTpZRfQe6ktTqwWR`, #12 `session_01RAN5emcFUWfGHdHMm5bqwR`, #11 `session_01RAN5eomA412ZytJrzQdrn6`, #10 `session_01RAN5enJCJ9G4YSNCmziiZk`, #9 `session_01RAN5eokHimRMfaJLQCXFwe`. Branch `claude/modest-brahmagupta-vvaann` of `neobobkrause/neoprocess` (moved from `believeinoakland` 29 Oct 20:2xZ). Its work reaches `main` by its own pull requests; the branch continues from `main`.
+**From** · neoProcess #15 (`session_012hdw2TtwUWftsP6A4fnU4L`), the lane's address, 30 Oct. Before it #14 `session_012hdw2SRrXZibnQhZJimtZw`, #13 `session_012hdw2RBTpZRfQe6ktTqwWR`, #12 `session_01RAN5emcFUWfGHdHMm5bqwR`. Branch `claude/modest-brahmagupta-vvaann` of `neobobkrause/neoprocess` (moved from `believeinoakland` 29 Oct 20:2xZ). Its work reaches `main` by its own pull requests; the branch continues from `main`.
 
 **Standing** · Bob, 29 Oct: keep working until there is no way to; nothing stops for him; a detail is never his (DES 1); plain words; PERMISSIONS §6 is his approval of all development and testing acts; every grant gathered before the work at one sitting (PERMISSIONS §10); one set of development tokens per owner account, a token short of a permission replaced, never worked around (PERMISSIONS §9); **no API key, ever** (§9.3); the network level stays Full (§8.8); the process names no product. Commit messages in plain words (the classifier reads them). The lane starts its successor by `proc process handoff`; Bob only when the chain breaks, from the START file.
 
@@ -19,12 +19,11 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## What remains, in order
 
-1. **Done 30 Oct**: Civicsmith's shims regenerated on the runner with the evidence check (run 40996431086; its PR 52 merged, `6c0d9bf9`). Owed by its BOB: `.nvmrc` holding 26.10.0 (issue 62).
-2. **Product reports** (issues 75, 78; DRYRUN §11-13): `proc process status` reads them; `proc issue --report <id>` files them; **done 30 Oct (#15)**: the reply, `proc issue reply --report <id> --number <n> --note …` on the lane's branch, merged to `main` with the fix (PR #80); the product's BOB sees it in `proc status` and records it with `proc issue seen`. The first reply (issue 78) is on `main`; its live read by Civicsmith's next BOB is DRYRUN §13's NOT YET.
-3. **Civicsmith's first BOB** (issue 69, DRYRUN §10): ROOT runs `proc root bob --n 336 --branch tranche/T53`; the BOB carries T53 onto `tranche` (`proc tranche carry`), then the epoch, takeover, the next round. Its shims must hold the prune case first.
-4. **Issue 61 stays open** (DRYRUN §9, #14): the evidence check is live; rounds 2 and 3: about 24/24 understandable, 20/24 accurate, 23/24 act clear (`judge3.sh`); more wording no longer moves it. Bob told 30 Oct.
-5. The dry-run repositories' move to `neobobkrause` (Bob's hand act, the page's step 8), then `repo-shims.yml` for each. **The release-signing decision** (the page's foot): his.
+1. **Done 30 Oct**: Civicsmith's shims on the runner (its PR 52); owed by its BOB, `.nvmrc` 26.10.0 (issue 62). The reply to a product's report (#15, PR #80, DRYRUN §13): `proc issue reply` on the lane's branch, merged with the fix; the product's BOB sees it in `proc status`, records it with `proc issue seen`. The first (issue 78) is on `main`; its live read is NOT YET.
+2. **Civicsmith's first BOB** (issue 69, DRYRUN §10): ROOT runs `proc root bob --n 336 --branch tranche/T53`; the BOB carries T53 onto `tranche` (`proc tranche carry`), then the epoch, takeover, the next round. Its shims must hold the prune case first.
+3. **Issue 61 stays open** (DRYRUN §9, #14): the evidence check is live; rounds 2 and 3: about 24/24 understandable, 20/24 accurate, 23/24 act clear (`judge3.sh`); more wording no longer moves it. Bob told 30 Oct.
+4. The dry-run repositories' move to `neobobkrause` (Bob's hand act, the page's step 8), then `repo-shims.yml` for each. **The release-signing decision** (the page's foot): his.
 
 ## Acts only Bob can take
 
-Done 29 Oct: the standing list, the app on both accounts, the hosting token, the secret, the walk identities, the transfer, the token as `neobobkrause`, the connector on three Claude accounts, the status line, the organization's name. Still his: item 1, with the helper session; item 4.
+Done 29 Oct: the standing list, the app on both accounts, the hosting token, the secret, the walk identities, the transfer, the token as `neobobkrause`, the connector on three Claude accounts, the status line, the organization's name. Still his: item 4.
