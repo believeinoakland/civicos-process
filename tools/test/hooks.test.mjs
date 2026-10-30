@@ -422,7 +422,7 @@ test('the fresh reader: on only for the roles Bob reads, recorded by the pre hoo
 
 // Issue 61 (#14, 30 Oct): the fresh reader sees only the message, so a claim the session added passed it (#13's writer test:
 // 20 of 35 finals fully accurate). The evidence check gives a fresh model the message and what the session saw.
-test('the evidence check: what the session was told and every tool output, never its own words; the model\'s verdict blocks', () => {
+test('the evidence check: what the session was told, ran and saw, never its own words; the model\'s verdict blocks', () => {
   const rows = [
     { type: 'user', message: { role: 'user', content: 'Run the suite.' } },
     { type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'my own claim' }, { type: 'tool_use', id: 'a', name: 'Bash', input: {} }] } },
@@ -431,7 +431,7 @@ test('the evidence check: what the session was told and every tool output, never
     { type: 'user', isSidechain: true, message: { role: 'user', content: 'a worker\'s prompt' } },
   ];
   const ev = turnEvidence(rows);
-  assert.equal(ev, "[a message to the session]\nRun the suite.\n\n[a tool's output]\npass 38, fail 2");
+  assert.equal(ev, "[a message to the session]\nRun the suite.\n\n[the session ran Bash]\n{}\n\n[a tool's output]\npass 38, fail 2");
   assert.match(turnEvidence(rows, 20), /^\[earlier evidence cut: older than this is unknown to the judge\]\n.{20}$/s);
   const p = evidencePrompt('38 of 40 passed.', ev);
   assert.match(p, /<<<EVIDENCE\n\[a message to the session\]\nRun the suite\.[\s\S]*<<<MESSAGE\n38 of 40 passed\.\nMESSAGE>>>/);
