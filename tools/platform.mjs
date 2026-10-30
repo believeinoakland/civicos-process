@@ -15,8 +15,8 @@ const refuse = (msg) => { throw new Refused(msg); };
 
 // ---- R1, R2, R4, R5, R12: the constraints, each a measured fact with its last confirmed date, its count, its evidence
 // and the workaround the process uses. The act table `tools/acts.md` (retired) is folded in here: its refusals and limits
-// are rows; the acts that pass are `ACTS` below. `id` keeps the act table's id where it had one, so a refusal recorded
-// against it (`proc refused --act`) still reads as predicted. `classifier: true` marks an act the auto-mode classifier
+// are rows; the acts that pass are `ACTS` below. Every id of the act table still names a row, exactly, by its call name or
+// by `ALIASES`, so a refusal recorded against it (`proc refused --act`, `isKnown`) still reads as predicted. `classifier: true` marks an act the auto-mode classifier
 // decides case by case: the process depends on none of them (PLT-2), so none is an act and none is printed as owed.
 const C = (id, fact, date, count, evidence, workaround, extra = {}) => ({ id, fact, date, count, evidence, workaround, ...extra });
 export const CONSTRAINTS = [
@@ -78,18 +78,31 @@ export const ACTS = [
   A('list_triggers', 'the neoProcess lane, of its own account\'s tasks', 'by hand, read only', 2, '2026-10-30', '#18 at 14:51Z (the record stamped, DRYRUN §23); the 16:39Z firing read (REQUIREMENTS PLT-7)'),
   A('list_issues', 'the neoProcess lane, of the process repository', '`proc process start` and `process status` read the issues by `GET /repos/<owner>/<repo>/issues` through the proxy; the GitHub tool by hand only when that read fails', 1, '2026-10-30', '#13: `GET /repos/neobobkrause/neoprocess/issues` 200 through the proxy, the two open issues listed (acts.md `list issues`)'),
   A('claude -p(headless session)', 'the neoProcess lane (a headless test session); the evidence check', '`claude -p` in a clean environment, under the session\'s own subscription through the proxy (no key)', 49, '2026-10-30', '#13: one headless test session answered; #14: 48 headless writers, the check live in each (DRYRUN §9; acts.md)'),
+  A('git merge --ff-only', 'every role, of a stale local branch', 'the tool and the session (`merge --ff-only`, or `checkout -B`), never `reset --hard`', 1, '2026-10-29', '#4: passed where `git reset --hard` to the same result was refused (acts.md; PERMISSIONS §1)'),
+  A('Agent(background worker)', 'BOB, a lane', '`proc ask dispatch`, `review decide`: `run_in_background: true`', 1, '2026-10-29', '#2 (acts.md)'),
+  A('TaskStop(worker)', 'BOB, of its own worker', 'by hand, to re-dispatch from the brief', 1, '2026-10-29', 'N1 row P10: BOB #1 stopped A6\'s worker and re-dispatched it (acts.md)'),
+  A('create_repository(process token)', 'BOB, a lane', '`proc repo setup` on GitHub\'s runner by `repo-setup.yml` (`dispatch(\'setup\')`), the owner\'s token as an Actions secret', 1, '2026-10-29', 'run 40933605400 created `believeinoakland/neoprocess-x9` in 7 s (#9, X9 PROVEN; acts.md)'),
+  A('rulesets(process token)', 'BOB, a lane', 'as above; the read-back `GET /repos/…/rulesets` from a session on an attached repository is the proof', 2, '2026-10-29', 'run 40933605400 (#9, the toy x9); run 40971833961 (`civicsmith/civicsmith`, `NEOPROCESS_GITHUB_TOKEN_CIVICSMITH`), both rulesets read back active (acts.md)'),
+  A('rename(process token)', 'a lane', '`proc repo rename` on the runner by `repo-rename.yml` (`dispatch(\'rename\')`)', 3, '2026-10-30', 'run 40941547340 renamed `civicos-process` to `neoprocess` (#9); runs 40970557868 (#12) and 41049696637 (#16) read it already named (acts.md)'),
+  A('shims(process token)', 'a lane', '`proc repo shims` on the runner by `repo-shims.yml` (`dispatch(\'shims\')`), the product\'s owner\'s token', 2, '2026-10-30', 'run 40992502528 (civicsmith/civicsmith#51 merged) and run 41015721303 (#56 merged), both 30 Oct (acts.md)'),
+  A('secret per owner', 'a lane (the runner workflows\' first step)', 'each runner workflow picks the secret by the target\'s owner, as `ownerSecret` does', 2, '2026-10-29', 'run 40970557868 chose `NEOPROCESS_GITHUB_TOKEN` for `neobobkrause/neoprocess`; run 40970561578 chose `NEOPROCESS_GITHUB_TOKEN_CIVICSMITH` (#12; acts.md)'),
+  A('push_files', 'the neoProcess lane, to a product\'s branch `shims`', 'by hand, superseded by the runner (`shims(process token)`)', 1, '2026-10-29', '#11: believeinoakland/neoprocess-x9#3 merged (`fcdece5`) (acts.md)'),
+  A('a service\'s API(development changes)', 'BOB, a job of the product\'s deploy module', 'the product\'s own procedures, with the token the proxy injects for the service\'s host (its grant list)', 2, '2026-10-29', '#6: a service token active and seeing the development account; #8: it read its own scope through the proxy (X10 PROVEN; acts.md)'),
+  A('grants check(HTTP through the proxy)', 'every role', '`proc grants check`, restarted with NODE_USE_ENV_PROXY=1', 2, '2026-10-30', '#7: `GET /user` 200 as the Claude app and a service token active; #16: green as `civicsmith` (acts.md)'),
   A('git fetch(process)', 'every role of a product', 'anonymous read of the public process repository; `proc status` hourly', 1, '2026-10-30', '#15 (acts.md); PLATFORM #1\'s pull at its start'),
 ];
 
 // R12: the platform's whole tool-name list, so a call name anywhere in another module's text is seen whether or not a
 // row exists: every GitHub tool (`mcp__github__<name>`) and session tool (`mcp__claude-code-remote__<name>`) a cloud
-// session is offered (its tool list, read by PLATFORM #1 on 30 Oct), and the git and headless-session acts.
+// session is offered (its tool list, read by PLATFORM #1 on 30 Oct), the session's own tools the process uses (a background
+// worker and its stop), and the git and headless-session acts.
 export const TOOLS = {
   github: ['actions_get', 'actions_list', 'actions_run_trigger', 'add_comment_to_pending_review', 'add_issue_comment', 'add_reply_to_pull_request_comment', 'create_branch', 'create_or_update_file', 'create_pull_request', 'create_repository', 'delete_file', 'disable_pr_auto_merge', 'enable_pr_auto_merge', 'fork_repository', 'get_check_run', 'get_commit', 'get_file_contents', 'get_job_logs', 'get_label', 'get_latest_release', 'get_me', 'get_release_by_tag', 'get_tag', 'get_team_members', 'get_teams', 'issue_read', 'issue_write', 'list_branches', 'list_commits', 'list_issue_fields', 'list_issue_types', 'list_issues', 'list_pull_requests', 'list_releases', 'list_repository_collaborators', 'list_tags', 'merge_pull_request', 'pull_request_read', 'pull_request_review_write', 'push_files', 'request_copilot_review', 'resolve_review_thread', 'run_secret_scanning', 'search_code', 'search_commits', 'search_issues', 'search_pull_requests', 'search_repositories', 'search_users', 'sub_issue_write', 'unresolve_review_thread', 'update_issue_comment', 'update_pull_request', 'update_pull_request_branch'],
   session: ['add_repo', 'archive_session', 'confirm_repository_trust', 'create_session', 'create_trigger', 'delete_trigger', 'fire_trigger', 'get_event', 'get_session', 'get_trigger', 'interrupt_session', 'list_computer_folders', 'list_environments', 'list_events', 'list_repos', 'list_sessions', 'list_triggers', 'read_documentation', 'register_repo_root', 'request_computer_folder', 'send_later', 'send_message', 'set_session_tags', 'set_session_title', 'subscribe_pr_activity', 'unarchive_session', 'unsubscribe_pr_activity', 'unwatch_url', 'update_trigger', 'watch_url'],
-  acts: ['git push', 'git fetch', 'claude -p'],
+  code: ['Agent', 'TaskStop'],
+  acts: ['git push', 'git fetch', 'git merge --ff-only', 'claude -p'],
 };
-export const toolNames = () => [...TOOLS.github, ...TOOLS.session, ...TOOLS.acts];
+export const toolNames = () => [...TOOLS.github, ...TOOLS.session, ...TOOLS.code, ...TOOLS.acts];
 // Each platform call name `text` holds, however printed (a call object, prose, a name a check matches).
 export function callsIn(text) {
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
@@ -133,6 +146,17 @@ const RESULTS = {
   list_triggers: [{}, 'none read by a step (PLT-7)'],
   'git fetch(process)': [{}, 'none: the exit status'],
   list_issues: [{ number: null, title: null }, 'each issue\'s number and title, which `proc process status` lists (#13)'],
+  'git merge --ff-only': [{}, 'none: the exit status'],
+  'Agent(background worker)': [{}, 'its result file and its `DONE` line, which `proc` records (SESSIONS §4)'],
+  'TaskStop(worker)': [{}, 'none read'],
+  'create_repository(process token)': [{}, 'none in a session: the run\'s log, and `proc repo setup` again reads the repository back'],
+  'rulesets(process token)': [{}, 'none in a session: `GET /repos/…/rulesets` reads each `name` and `enforcement` back'],
+  'rename(process token)': [{}, 'none in a session: `proc repo rename` again reads the repository back under its new name'],
+  'shims(process token)': [{}, 'none in a session: the run\'s log names the merged pull request, or "already current"'],
+  'secret per owner': [{}, 'none: the run\'s log names the secret it chose'],
+  push_files: [{}, 'none read: the pull request that follows carries the commit'],
+  'a service\'s API(development changes)': [{}, 'what the product\'s procedure reads, named in its grant list'],
+  'grants check(HTTP through the proxy)': [{}, 'the rows `grantsCheck` writes to `.git/proc-grants.json`'],
   'claude -p(headless session)': [{}, 'none but its printed answer: the exit status and the text it writes'],
 };
 for (const a of ACTS) [a.result, a.resultFrom] = RESULTS[a.id] ?? [undefined, undefined];
@@ -156,16 +180,32 @@ export function constraints({ olderThan } = {}) {
 // R3, R4: the acts the process depends on; an act the classifier decides case by case is refused, never listed.
 export function acts({ id } = {}) {
   if (id != null) {
-    const c = CONSTRAINTS.find((r) => r.id === id && r.classifier);
+    const c = CONSTRAINTS.find((r) => r.classifier && (r.id === id || callName(r.id) === id));
     if (c) refuse(`${id} is decided by the auto-mode classifier case by case (${c.evidence}): no step may depend on it (PLT-2); ${c.workaround}`);
     const a = ACTS.find((r) => r.id === id) ?? refuse(`${id} is not an act the process depends on`);
     return [{ ...a }];
   }
   return ACTS.map((r) => ({ ...r }));
 }
-// Every id a refusal may name and be read as predicted (`proc refused --act`): an act, or a constraint row.
-export const knownIds = () => [...ACTS, ...CONSTRAINTS].map((r) => r.id);
-// R12: the platform's call names, the first word of each row's id; a printed call of another module is matched by these.
+// The retired act table's ids that name the tool's own commands, or an act by another name, each with the row it rests on.
+export const ALIASES = {
+  'git merge --ff-only / checkout -B': 'git merge --ff-only',
+  'rulesets(an owner\'s token)': 'rulesets(process token)',
+  'shims(an owner\'s token)': 'shims(process token)',
+  'list issues': 'list_issues',
+  'proc issue': 'git push(state branch)',
+  'tranche carry': 'git push(own branch)',
+  'proc issue reply': 'git push(own branch)',
+  'proc issue seen': 'git push(own branch)',
+  'proc job takein': 'git push(own branch)',
+  'proc bob release': 'send_message',
+};
+// Every id a refusal may name and be read as predicted (`proc refused --act`): an act, a constraint row, or an alias.
+export const knownIds = () => [...[...ACTS, ...CONSTRAINTS].map((r) => r.id), ...Object.keys(ALIASES)];
+// True when `id` names a row: exactly, by an alias, or by its call name (`create_session(job)` is `create_session`'s).
+export const isKnown = (id) => knownIds().includes(String(id)) || !!rowFor(callName(id));
+// R12: a row's call name is its id up to its parenthesis (`git push(own branch)` is `git push`); a printed call of another
+// module is matched to the first row of that name, acts before constraints.
 export const callName = (id) => String(id).split('(')[0].trim();
 export const rowFor = (call) => [...ACTS, ...CONSTRAINTS].find((r) => callName(r.id) === call) ?? null;
 

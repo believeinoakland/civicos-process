@@ -85,6 +85,7 @@ test('R4: an act the classifier decides case by case is refused, never listed as
     const row = P.constraints().find((r) => P.callName(r.id) === id);
     assert.ok(row?.classifier, id);
     assert.throws(() => P.acts({ id: row.id }), /classifier case by case/);
+    assert.throws(() => P.acts({ id }), /classifier case by case/);   // by its bare call name too
   }
   assert.ok(P.constraints().some((r) => r.classifier && /settings/.test(r.id)), 'an edit of a settings file');
   assert.ok(!P.acts().some((r) => /settings/.test(r.id)));
@@ -269,6 +270,17 @@ test('R4 R12: every platform call any module prints, however printed, is a row o
   assert.deepEqual(P.callProblems('send_message to BOB; git push to the own branch'), []);
   // and the dispatch this module prints is one
   assert.ok(P.rowFor(P.dispatch('shims', { repo: 'a/b' }).tool));
+});
+
+// The retired act table's ids (tools/acts.md at e277c2a), each of which a recorded refusal may name.
+const ACT_TABLE_IDS = ["git push(own branch)","git push(state branch)","git push(delete state branch)","git push(delete job branch)","actions_run_trigger(prune.yml)","git merge --ff-only / checkout -B","create_session(job)","create_session(lane)","create_session(BOB)","create_session(probe)","send_message(BOB)","send_message(job or lane)","send_later(own backstop)","archive_session(child)","archive_session(job outliving two BOBs)","create_pull_request(draft job PR)","add_issue_comment(own PR report)","update_pull_request(own PR ready)","pull_request_review_write(COMMENT)","update_pull_request_branch(job PR behind tranche)","merge_pull_request(job PR)","git push(tranche, direct)","merge_pull_request(close PR to main)","create_repository(GitHub MCP)","write(.claude/settings.json)","Agent(background worker)","TaskStop(worker)","create_repository(process token)","rulesets(process token)","actions_run_trigger(repo-setup.yml)","a service's API (development changes)","grants check","create_pull_request","rename(process token)","transfer(process token)","add_repo(a product, push access)","shims(process token)","push_files","secret per owner","rulesets(an owner's token)","issue_write(process issue)","proc issue","list issues","add_issue_comment(lane on a process issue)","issue_write(close a process issue)","send_later(lane backstop)","claude -p","tranche carry","shims(an owner's token)","proc issue reply","git fetch","proc issue seen","proc job takein","merge_pull_request(job PR behind the tranche by BOB's records)","proc bob release","archive_session(BOB)","send_message(ROOT)","git merge --ff-only","archive_session(the lane's predecessor)","update_trigger(predecessor backstop off)"];
+test('R1 R12: every id of the retired act table still names a row, so a refusal recorded against it reads as predicted', () => {
+  for (const id of ACT_TABLE_IDS) assert.ok(P.isKnown(id), id);
+  assert.equal(P.isKnown('made_up_act(anything)'), false);
+  for (const [alias, row] of Object.entries(P.ALIASES)) assert.ok(P.knownIds().includes(row) && P.isKnown(alias), alias);
+  // the runner acts PLT-9 keeps as rows, and the session's own tools, each its own act
+  for (const id of ['create_repository(process token)', 'rulesets(process token)', 'rename(process token)', 'shims(process token)', 'secret per owner', 'Agent(background worker)', 'TaskStop(worker)']) assert.equal(P.acts({ id }).length, 1, id);
+  assert.equal(P.rowFor('create_repository').id, 'create_repository(process token)');
 });
 
 test('R1: tools/platform.md is the rendering of the tables, and the retired act table names it', () => {

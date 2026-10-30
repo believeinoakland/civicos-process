@@ -57,7 +57,7 @@ import { fileURLToPath } from 'node:url';
 // The gate and the plan's entries come from tools/lib.mjs, moved there from the old tool at the commit point (P3).
 import { entriesOf, runTests, moduleChecks, withArtifacts, evidenceItems, history, modules, artifacts, allChecks, reds, EVIDENCE_FORMS, EVIDENCE_ITEM, stepsCmd, stepsReason, plainReason, BOB_READS, SAID_FILE, saidKey, transcriptOf, freshReaderReason, evidenceReason } from './lib.mjs';
 // The platform module (layer 1): its refusal class, the version check, the runner workflows' dispatch, the grants.
-import { Refused, processHead, versionCommand, ownerSecret, dispatch, grantsCheck as checkGrants, grantsHeld, knownIds, WORKFLOWS } from './platform.mjs';
+import { Refused, processHead, versionCommand, ownerSecret, dispatch, grantsCheck as checkGrants, grantsHeld, knownIds, isKnown, WORKFLOWS } from './platform.mjs';
 export { versionCommand as versionCheck, GRANTS_FILE, GRANTS_PRODUCT, GRANTS_FRESH_H, EXPIRY_WARN_D } from './platform.mjs';
 
 export const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -440,8 +440,8 @@ const laneNext = (R, id) => Math.max(0, ...(R.read(`build/lanes/${id}/decisions.
 // Issue 101 (Bob, 30 Oct: "start the jobs with an initial prompt that tell it which neoprocess version it should be running.
 // If they're not running that version then it should tell you immediately and stop"): a session started on an old copy
 // of the process runs that copy's own checks, so no check inside the copy can catch it. The one thing from outside is the
-// prompt its parent writes: it names the parent's process commit, and the session's first act brings its copy there and
-// checks it, in one command the hooks of any copy pass before a role (a read and a fast-forward, no write they name); a
+// prompt its parent writes: it names the parent's process commit, and the session's first act checks its copy against it
+// as found, in one command the hooks of any copy pass before a role (reads only; tools/platform.mjs, R6); a
 // stale session can message only once a role is recorded, so it runs its start command, reports, and stops.
 export function versionLine(to, dir = PROCESS) {
   const sha = processHead(dir); if (!sha) return '';
@@ -1052,7 +1052,7 @@ export function refused(o) {
   const by = o.by || readRole(R.root)?.name || refuse('--by "<ROLE #k>" (no role is recorded for this session)');
   const mine = refusalsOf(R).filter((r) => r.by === by);
   const id = `R-${by.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${mine.length + 1}`;
-  const r = { id, date: today(), by, kind: o.kind, predicted: actIds().includes(String(o.act)), status: 'OPEN', act: String(o.act).replace(/\n/g, ' '), reason: String(o.reason).replace(/\s*\n\s*/g, ' ').trim(), route: null };
+  const r = { id, date: today(), by, kind: o.kind, predicted: isKnown(o.act), status: 'OPEN', act: String(o.act).replace(/\n/g, ' '), reason: String(o.reason).replace(/\s*\n\s*/g, ' ').trim(), route: null };
   return { refusal: id, predicted: r.predicted, commit: stateWrite(R, { [`refusals/${id}.md`]: fmtRefusal(r) }, `${id}: ${o.kind} refused ${r.act.slice(0, 50)}`) };
 }
 // BOB routes it from the act table (to the party whose relation passes, to the tool's route, or to Bob) and counts it: one
