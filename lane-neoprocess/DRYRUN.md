@@ -226,3 +226,15 @@ Bob, 30 Oct: ROOT archived a retiring BOB while it still had workers running; th
 | handoff records Retiring once; release refused before any record, while a worker runs; the turn may end while it runs, not after | PROVEN in fixture | the refusals' words; `stopReason` |
 | ROOT's archive refused while running, passed once released; the successor's acts say so; ROOT's `--failed` release | PROVEN in fixture | `preReason('root', archive_session)` |
 | a live product BOB retires after its workers | NOT YET | Civicsmith's next handoff (its BOB's session must start after this is on main) |
+
+## 18. Certification of issues 92 and 93 (GOV 5; 30 Oct 2026, #16)
+
+Issue 92 (the lane's own find): a product session's process clone never moved after its start, so no fix reached a running session, ROOT's hook (issue 90's guard) least of all. Now BOB's hourly status and ROOT's start and `root bob` fast-forward a clean clone on `main` (`processRefresh`); a changed, diverged or other-branch clone is left and named. Issue 93 (Civicsmith's BOB #339): the gate ran every user's tests on every job (events: 31 suites). Now, by P11, only when the job changes what its module provides (the Public requirements, marks aside, or its export lines), and only the users whose Uses line names a changed service or names none (`usersOfChange`, JOB-LIFE §4). The third suggestion (users' tests left to CI) is not taken: the local gate and CI's are one function (JOB-LIFE §4), so a COMPLETE is green where it will be checked. Checked against the principles: P11 (its own words), P7 (the module's tests prove its requirements, which is what users rely on), P3 and P13. Suite green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| the clone fast-forwarded with the reply fetch; left when changed in place or on another branch; a later fix fast-forwarded | PROVEN in fixture | the reply's file in the clone's worktree; the two reasons; the new file present |
+| users: none for a body, a mark, the Private part, an export no user names; the users naming a changed service; all for the Purpose or `export default` | PROVEN in fixture | the seven cases on the toy (beta names add and sum, stats sum) |
+| a running product session gets a fix within the hour | NOT YET | Civicsmith's BOB's next `proc status` after this is on main |
+| a product job's gate runs fewer suites | NOT YET | Civicsmith's next events job |
+

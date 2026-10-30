@@ -541,12 +541,13 @@ export function rootStart(o) {
   const R = repo(o.product), e = epoch(R);
   writeRole(R, { role: 'root', product: R.rel('.'), session: o.session, name: o.name || 'ROOT', ...(e ? { epoch: e } : {}) });
   const plan = e ? parsePlan(stateRead(R, 'plan.md', e) || '') : null;
-  return { role: 'root', epoch: e, bob: plan?.bob ?? null, next: plan?.bob ? `BOB is ${plan.bob.name} (${plan.bob.session}); when it sends "START BOB #<n>: ${TRANCHE} @ <commit>", run \`proc root bob --n <n> --commit <commit>\` and make the call it prints; archive the BOB it replaces only once that BOB sends "RELEASED BOB #<n>" (its workers finished: issue 90), then send its usage to the new BOB` : `no BOB is recorded${e ? '' : ' and no epoch is open'}: start the first with \`proc root bob --n <n> --branch <the branch the build continues on>\` and make the call it prints; that BOB opens the epoch` };
+  return { role: 'root', epoch: e, process: processRefresh(o.processDir), bob: plan?.bob ?? null, next: plan?.bob ? `BOB is ${plan.bob.name} (${plan.bob.session}); when it sends "START BOB #<n>: ${TRANCHE} @ <commit>", run \`proc root bob --n <n> --commit <commit>\` and make the call it prints; archive the BOB it replaces only once that BOB sends "RELEASED BOB #<n>" (its workers finished: issue 90), then send its usage to the new BOB` : `no BOB is recorded${e ? '' : ' and no epoch is open'}: start the first with \`proc root bob --n <n> --branch <the branch the build continues on>\` and make the call it prints; that BOB opens the epoch` };
 }
 const bobGoal = (R) => `/goal The run has ended, or the queue \`proc status --product ${R.rel('.')}\` prints holds only what waits on Bob and that was sent to ROOT, or your handoff was sent to ROOT, or you cannot start and your last message tells Bob why and what would let you; everything committed and pushed.`;
 export function rootBob(o) {
   const R = repo(o.product), me = readRole(R.root);
   if (me?.role !== 'root') refuse('only ROOT, recorded by `proc root start`, starts a BOB');
+  processRefresh(o.processDir);   // issue 92: ROOT is long-lived; its hooks are the clone's
   if (!(Number(o.n) > 0)) refuse('--n <the new BOB\'s number> [--branch <b>] [--commit <sha the START named>] [--died]');
   const n = Number(o.n), branch = o.branch || TRANCHE, gh = ghRepo(R);
   R.fetch(branch); let tip = null; try { tip = R.g(['rev-parse', `origin/${branch}`]); } catch { /* absent */ }
@@ -726,7 +727,7 @@ export function processReplies(R, o = {}) {
   const g = (a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 30e3 }).trim();
   try {
     const at = existsSync(stamp) ? Date.parse(JSON.parse(readFileSync(stamp, 'utf8')).at) : 0;
-    if (o.fetch !== false && !(Date.now() - at < REPLY_FETCH_MIN * 60e3)) { writeFileSync(stamp, JSON.stringify({ at: now() })); g(['fetch', '-q', 'origin', '+refs/heads/main:refs/remotes/origin/main']); }
+    if (o.fetch !== false && !(Date.now() - at < REPLY_FETCH_MIN * 60e3)) { writeFileSync(stamp, JSON.stringify({ at: now() })); g(['fetch', '-q', 'origin', '+refs/heads/main:refs/remotes/origin/main']); processRefresh(dir, { fetch: false }); }
   } catch { /* offline or no stamp: read what is there */ }
   let url = ''; try { url = R.g(['remote', 'get-url', 'origin']); } catch { return []; }
   const mine = url.startsWith('/') ? url : (({ owner, repo: n }) => `${owner}/${n}`)(ghRepo(R));
@@ -735,6 +736,22 @@ export function processReplies(R, o = {}) {
   let files = []; try { files = g(['ls-tree', '--name-only', 'origin/main', `${REPLIES_DIR}/`]).split('\n').filter((f) => f.endsWith('.md')); } catch { return []; }
   return files.map((file) => { const text = g(['show', `origin/main:${file}`]); return { file, text, id: text.match(/^\*\*Report\*\* · (\S+)$/m)?.[1], title: text.match(/^# (.+)$/m)?.[1] ?? file, issue: text.match(/^\*\*Issue\*\* · (\S+)$/m)?.[1] ?? '' }; })
     .filter((x) => x.id?.startsWith(`${mine}:`) && !seen.has(x.id));
+}
+// Issue 92: a product session's process clone was cloned once at its start and never moved, so no process fix reached a
+// running session (ROOT, long-lived, least of all). It is brought to the process's `main` where the session already reads
+// the process: BOB's status (hourly, above) and ROOT's start and `root bob`. Only a clean clone on `main`, by fast-forward;
+// anything else (the lane's own checkout on its branch, a changed or diverged clone) is left as it is and named.
+export function processRefresh(dir = PROCESS, o = {}) {
+  const g = (a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 30e3 }).trim();
+  try {
+    if (g(['rev-parse', '--abbrev-ref', 'HEAD']) !== 'main') return { refreshed: false, why: 'not on main' };
+    if (g(['status', '--porcelain', '--untracked-files=no'])) return { refreshed: false, why: 'changed in place' };
+    if (o.fetch !== false) g(['fetch', '-q', 'origin', '+refs/heads/main:refs/remotes/origin/main']);
+    const from = g(['rev-parse', '--short', 'HEAD']);
+    g(['merge', '-q', '--ff-only', 'origin/main']);
+    const to = g(['rev-parse', '--short', 'HEAD']);
+    return { refreshed: from !== to, from, to };
+  } catch { return { refreshed: false, why: 'not a fast-forward of origin/main, or offline' }; }
 }
 export function issueSeen(o) {
   const R = repo(o.product), me = readRole(R.root);
@@ -925,7 +942,7 @@ export function handoff(o) {
   // issue 90 (Bob, 30 Oct): the outgoing BOB is retiring, not retired: it keeps its session until its workers have finished
   // and it has run `proc bob release`; ROOT's hook refuses its archive until then (PROTOCOL §7a)
   if (st.bob && !parsePlan(stateRead(R, 'plan.md') || '').retiring.some((r) => r.session === st.bob.session)) planEdit(R, (p) => ({ ...p, retiring: [...(p.retiring || []).filter((r) => r.state !== 'released'), { ...st.bob, state: 'running' }] }), `${st.bob.name} retiring`);
-  return { text, start: `START BOB #${n}: ${TRANCHE} @ ${R.g(['rev-parse', '--short', 'HEAD'])}`, then: 'send the START line to ROOT; then record each of your workers\' results as it arrives, and once none is running, `proc bob release` (your session stays until then: PROTOCOL §7a)' };
+  return { text, start: `START BOB #${n}: ${TRANCHE} @ ${R.g(['rev-parse', '--short', 'HEAD'])}`, then: `send ROOT the START line and, with it, "Archive ${st.bob?.name ?? 'BOB'} only once it sends RELEASED ${st.bob?.name ?? 'BOB'}: its workers may still run." (a ROOT started before issue 90 has only these words); then record each of your workers' results as it arrives, and once none is running, \`proc bob release\` (your session stays until then: PROTOCOL §7a)` };
 }
 // The background tasks the session's Stop hook saw running at its last turn's end, plus every worker started since
 // (the PreToolUse hook adds it): measured #16, 30 Oct, the Stop hook's input lists them as `background_tasks`.
@@ -1569,7 +1586,7 @@ export function runGate(R, m, base) {
   if (R.g(['status', '--porcelain', '--untracked-files=no'])) refuse('the checkout has uncommitted changes: the gate measures commits');
   const own = spawnSync('node', [join(PROCESS, 'checks/ownership.mjs'), R.dir, m, base, 'HEAD'], { encoding: 'utf8' });
   if (own.status) { const lines = `${own.stdout}${own.stderr}`.trim().split('\n'), found = lines.filter((l) => l.startsWith('FAIL')).map((l) => `ownership: ${l.replace(/^FAIL\s+/, '')}`); fails.push(...(found.length ? found : [`ownership: ${lines.pop()}`])); }
-  const users = modules(R).filter((y) => (y.uses || []).includes(m) && (y.tests || []).length).map((y) => y.id);
+  const users = usersOfChange(R, m, base).users;   // issue 93: P11, the users of the change only
   const measure = (mods, checks) => withArtifacts(R, () => {
     const stale = artifacts(R).filter((a) => spawnSync('sh', ['-c', a.verify], { cwd: R.dir, encoding: 'utf8' }).status !== 0).map((a) => a.path);
     return { stale, t: Object.fromEntries(mods.map((k) => [k, runTests(R, k)])), ck: checks ? moduleChecks(R, m) : { names: [], fails: new Set() } };
@@ -1587,6 +1604,38 @@ export function runGate(R, m, base) {
   fails.push(...sizes(R, [m]).map((s) => `size: ${s}`));
   const { [m]: tests, ...rest } = now.t;
   return { fails, tests, users: rest, checks: now.ck.names };
+}
+// Issue 93 (Civicsmith's BOB #339; P11: "When it changes what its module provides, it also runs the tests of every module
+// that uses the change"): events has 31 users, and every job of events ran all 31 suites. A user relies on what the module
+// provides as its requirements state it, and the module's own tests prove it fully compliant (P7), so what it provides
+// changes only with the Public part of its requirements (the `not yet met` marks aside) or its export lines. The services
+// changed: each Provides block whose text differs, and each name an export line adds or drops; the Purpose, any other Public
+// text, `export default` or an export line naming nothing changes them all. The users run: every module whose `uses`
+// lists m and whose own Uses line names a changed service, or names none of m's (it may use any).
+export function usersOfChange(R, m, base) {
+  const x = mod(R, m), rq = `build/requirements/${m}.md`, unmark = (t) => (t || '').replace(/\s*\*\(not yet met:[^)]*\)\*/g, '');
+  const pub = (ref) => { try { return unmark(R.g(['show', `${ref}:${R.rel(rq)}`]).split(/^## Private/m)[0]); } catch { return ''; } };
+  const before = pub(base), after = pub('HEAD'), changed = new Set();
+  let all = false;
+  if (before !== after) {
+    const a = serviceBlocks(before), b = serviceBlocks(after), key = (bl) => bl.names.join(',');
+    const rest = (t, sb) => sb.blocks.reduce((u, bl) => u.replace(bl.text.trimEnd(), ''), t).replace(/\s+/g, ' ');
+    if (a.purpose !== b.purpose || rest(before, a) !== rest(after, b)) all = true;
+    const ta = new Map(a.blocks.map((bl) => [key(bl), bl])), tb = new Map(b.blocks.map((bl) => [key(bl), bl]));
+    for (const k of new Set([...ta.keys(), ...tb.keys()])) if (ta.get(k)?.text !== tb.get(k)?.text) for (const n of (ta.get(k) || tb.get(k)).names) changed.add(n);
+  }
+  const exp = (x.paths || []).length ? R.g(['diff', base, 'HEAD', '--', ...(x.paths || []).map(R.rel)]).split('\n').filter((l) => /^[+-]\s*export\b/.test(l)) : [];
+  for (const l of exp) {
+    const names = [...l.matchAll(/\bexport\s+(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g), ...[...(l.match(/\bexport\s*\{([^}]*)\}/)?.[1] ?? '').matchAll(/(?:^|,)\s*(?:[A-Za-z_$][\w$]*\s+as\s+)?([A-Za-z_$][\w$]*)/g)]].map((y) => y[1]);
+    if (!names.length || /\bexport\s+default\b/.test(l)) all = true; else names.forEach((n) => changed.add(n));
+  }
+  const users = modules(R).filter((y) => (y.uses || []).includes(m) && (y.tests || []).length).filter((y) => {
+    if (all) return true;
+    if (!changed.size) return false;
+    const named = usesLines(R.read(`build/requirements/${y.id}.md`) || '').get(m) || [];
+    return !named.length || named.some((n) => changed.has(n));
+  }).map((y) => y.id);
+  return { all, changed: [...changed], users };
 }
 // The module a diff belongs to: exactly one module's paths, tests or requirements file (one job, one module; P8).
 export function moduleOfDiff(R, base) {
