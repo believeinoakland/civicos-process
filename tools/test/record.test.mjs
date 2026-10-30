@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as REC from '../record.mjs';
+import * as PLATFORM from '../platform.mjs';
 
 const { repo, ghRepo, unpushed, commitPush, epoch, epochOpen, epochClose, stateRead, stateList, stateWrite, parsePlan, fmtPlan, planEdit, stop, resume, recordAct, actDone, USAGE_FIELDS, addr, paths, metricsRow, metricsText, unmeasuredRow, METRICS_HEAD, status, statusLines, contextShare, readingSizes, Refused, TRANCHE } = REC;
 const HERE = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -116,7 +117,7 @@ test('R3: a delete the proxy refuses is printed as the prune workflow\'s dispatc
   chmodSync(join(w.origin, 'hooks', 'pre-receive'), 0o755);
   const r = epochClose({ product: w.d });
   assert.equal(r.prune.deleted, false);
-  assert.deepEqual([r.prune.dispatch.tool, r.prune.dispatch.workflow_id, r.prune.dispatch.inputs.ref], ['actions_run_trigger', 'prune.yml', 'state/E1']);
+  assert.deepEqual([r.prune.dispatch.tool, r.prune.dispatch.workflow_id, r.prune.dispatch.ref, r.prune.dispatch.inputs.ref], [PLATFORM.limits().deleteRoute.act, PLATFORM.limits().deleteRoute.workflow, PLATFORM.limits().deleteRoute.ref, 'state/E1']);
   assert.match(g(w.origin, 'show', 'state/E1:epoch.md'), /^closed /m, 'marked closed, so no epoch reads open');
   assert.equal(epoch(R), null);
 });
@@ -281,21 +282,42 @@ test('R7: REFRESH is decided on the exact share, not the rounded one', () => {
   assert.deepEqual([c.pct, c.refresh], [50, true], '50.04 % is past half, though it prints as 50');
   assert.equal(contextShare(gs(500000), 'job').refresh, false);
 });
-test('R8: a remote act is written as done only from the call\'s result with the fields that result carries; a request, a refusal or no result leaves it owed', () => {
+test('R8: a remote act is written as done only from the call\'s result, with the fields platform.acts() names for that act; a request, a refusal or no result leaves it owed', () => {
   const w = world(), R = repo(w.d);
-  planEdit(R, (p) => ({ ...p, owed: ['archive OLD #1', 'merge PR #4'] }), 'owe');
-  const usage = { cache_read_tokens: 5, cache_write_tokens: 4, input_tokens: 3, output_tokens: 2 };
-  for (const bad of [undefined, null, '', { error: 'Permission denied by the classifier' }, { status: 'refused', ...usage }, '{"isError":true}', 'not json', [], { session_id: 'session_01OLD' }, { ...usage, output_tokens: 'many' }, { cache_read_tokens: 5 }]) {
-    assert.throws(() => recordAct(R, 'archive OLD #1', bad, USAGE_FIELDS), /not recorded as done/, JSON.stringify(bad));
+  planEdit(R, (p) => ({ ...p, owed: ['start ALPHA #1', 'merge PR #4', 'ring BOB'] }), 'owe');
+  // the fields come from the platform's row, never from the caller
+  assert.deepEqual(PLATFORM.acts({ id: 'create_session' })[0].result, { id: null });
+  assert.deepEqual(PLATFORM.acts({ id: 'merge_pull_request' })[0].result, { merged: true });
+  for (const bad of [undefined, null, '', { error: 'Permission denied by the classifier' }, '{"isError":true}', 'not json', [], { title: 'ALPHA #1', prompt: 'x' }, { id: '' }]) {
+    assert.throws(() => recordAct(R, 'start ALPHA #1', bad, 'create_session'), /not recorded as done: the call's result shows no id/, JSON.stringify(bad));
   }
-  assert.throws(() => recordAct(R, 'archive OLD #1', usage), /the fields the act's result carries/, 'a caller that names no fields records nothing');
+  assert.throws(() => recordAct(R, 'merge PR #4', { merged: false, sha: 'abc' }, 'merge_pull_request'), /shows no merged: true/, 'a fixed value must match');
+  assert.throws(() => recordAct(R, 'start ALPHA #1', { id: 'session_01X' }), /the platform act it is/, 'no act named: nothing recorded');
+  assert.throws(() => recordAct(R, 'ring BOB', { anything: 1 }, 'actions_run_trigger'), /carries no fields/, 'an act whose result carries none is never recorded from it');
+  assert.throws(() => recordAct(R, 'x', { id: 'y' }, 'archive_session'), /classifier/, 'an act the classifier decides is no act');
+  assert.deepEqual(parsePlan(stateRead(R, 'plan.md')).owed, ['start ALPHA #1', 'merge PR #4', 'ring BOB'], 'still owed');
+  assert.equal(recordAct(R, 'start ALPHA #1', JSON.stringify({ id: 'session_01ALPHA' }), 'create_session').recorded, true);
+  assert.equal(recordAct(R, 'merge PR #4', { merged: true, sha: 'abc' }, 'merge_pull_request').recorded, true);
+  assert.deepEqual(parsePlan(stateRead(R, 'plan.md')).owed, ['ring BOB']);
+  assert.equal(recordAct(R, 'nothing owed', { merged: true }, 'merge_pull_request').recorded, false);
+  // a measurement (a session's usage) names its own count fields
   assert.equal(actDone({ session_id: 'session_01OLD' }, USAGE_FIELDS), false, 'a request\'s own arguments are not its result');
-  assert.deepEqual(parsePlan(stateRead(R, 'plan.md')).owed, ['archive OLD #1', 'merge PR #4'], 'still owed');
-  assert.equal(recordAct(R, 'archive OLD #1', JSON.stringify({ session_id: 'session_01OLD', ...usage }), USAGE_FIELDS).recorded, true);
-  assert.deepEqual(parsePlan(stateRead(R, 'plan.md')).owed, ['merge PR #4']);
-  assert.equal(recordAct(R, 'merge PR #4', { merged: true, sha: 'abc' }, ['merged', 'sha']).recorded, true);
-  assert.equal(recordAct(R, 'nothing owed', { merged: true }, ['merged']).recorded, false);
+  assert.equal(actDone({ cache_read_tokens: 5, cache_write_tokens: 4, input_tokens: 3, output_tokens: 'many' }, USAGE_FIELDS), false);
   assert.deepEqual(Object.keys(REC).filter((k) => /request/i.test(k)), [], 'there is no function that records a request');
+});
+
+test('R3: the delete route is the platform\'s: through the proxy no direct delete is tried, and the printed dispatch is the platform\'s workflow, act and ref', () => {
+  const w = world(), R = repo(w.d), route = PLATFORM.limits().deleteRoute;
+  assert.deepEqual(route, { direct: 'refused', workflow: 'prune.yml', act: 'actions_run_trigger', ref: 'main' });
+  g(w.d, 'remote', 'set-url', '--push', 'origin', 'https://github.com/own/prod.git');   // a proxied remote (never reached)
+  g(w.d, 'remote', 'set-url', 'origin', 'https://github.com/own/prod.git');
+  const r = REC.pruneRef(R, 'state/E1');
+  assert.deepEqual([r.deleted, r.dispatch.tool, r.dispatch.workflow_id, r.dispatch.ref, r.dispatch.inputs.ref, r.dispatch.owner, r.dispatch.repo], [false, route.act, route.workflow, route.ref, 'state/E1', 'own', 'prod']);
+  assert.match(r.why, /the platform refuses a direct delete/);
+  assert.match(g(w.origin, 'branch', '--list', 'state/E1'), /state\/E1/, 'nothing deleted, nothing tried');
+  const other = REC.pruneRef(R, 'x', { direct: 'refused', workflow: 'other.yml', act: 'actions_run_trigger', ref: 'main' });
+  assert.equal(other.dispatch.workflow_id, 'other.yml', 'the route given is the route taken');
+  assert.throws(() => REC.pruneRef(R, 'x', {}), /names no delete route/);
 });
 test('R9: an address is read from the record at the moment of use, never from a side branch or the product\'s own main', () => {
   const w = world(), R = repo(w.d);
@@ -429,7 +451,7 @@ test('R4, R3: epochOpen and epochClose make no remote change for a role that may
 test('R8, R10: a plan whose Status line is not in BOB\'s form is refused, never a crash', () => {
   const w = world(), R = repo(w.d);
   stateWrite(R, { 'plan.md': '**Status** · OPEN\n**Owed** · archive X #1\n' }, 'malformed');
-  assert.throws(() => recordAct(R, 'archive X #1', { merged: true }, ['merged']), (e) => e instanceof Refused && /no Status line in BOB's form/.test(e.message));
+  assert.throws(() => recordAct(R, 'archive X #1', { merged: true }, 'merge_pull_request'), (e) => e instanceof Refused && /no Status line in BOB's form/.test(e.message));
   assert.throws(() => planEdit(R, (p) => p, 'x'), Refused);
   planEdit(R, (p) => ({ ...p, state: 'OPEN', bob: { name: 'BOB #3', session: BOB } }), 'takeover');   // the edit that writes BOB's line passes
   assert.deepEqual(parsePlan(stateRead(R, 'plan.md')).bob, { name: 'BOB #3', session: BOB });

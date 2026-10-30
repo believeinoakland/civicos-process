@@ -650,15 +650,8 @@ test('the lane replies to a product\'s report in the process repository; the pro
   f(pseed, 'NEW3.md', 'a third fix\n'); g(pseed, 'add', '.'); g(pseed, 'commit', '-q', '-m', 'fix 3'); g(pseed, 'push', '-q', 'origin', 'main');
   const line = `if [ -d "${pdir}/.git" ]; then { [ "$(git -C "${pdir}" rev-parse --abbrev-ref HEAD)" = main ] && [ -z "$(git -C "${pdir}" status --porcelain --untracked-files=no)" ] && git -C "${pdir}" fetch -q origin +refs/heads/main:refs/remotes/origin/main && git -C "${pdir}" merge -q --ff-only origin/main; } || echo "neoProcess: could not bring ${pdir} to the tip of main" >&2; else exit 9; fi`;
   execFileSync('sh', ['-c', line]); assert.ok(existsSync(join(pdir, 'NEW3.md')));
-  // issue 101: the parent's prompt names its process commit; the session's first command brings an old copy there and
-  // says OK, and says STALE for a copy it cannot bring (changed in place), whatever that copy's own code is
-  const head = g(pseed, 'rev-parse', 'HEAD'); g(pdir, 'reset', '-q', '--hard', 'HEAD~2');
-  assert.match(N.versionLine('BOB', pseed), new RegExp(`^\\nYour first act, before anything else: run \`git -C /home/user/neoprocess pull -q --ff-only origin main; git -C /home/user/neoprocess rev-list HEAD \\| grep -q \\^${head.slice(0, 12)} && echo PROCESS OK \\|\\| echo PROCESS STALE\`\\. If it prints anything but PROCESS OK.*send BOB one message beginning PROCESS STALE`));
-  assert.equal(execFileSync('sh', ['-c', N.versionCheck(head, pdir)], { encoding: 'utf8' }).trim(), 'PROCESS OK');
-  g(pdir, 'reset', '-q', '--hard', 'HEAD~1'); f(pdir, 'LOCAL.md', 'a commit of its own\n'); g(pdir, 'add', '.'); g(pdir, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'diverged');
-  assert.equal(execFileSync('sh', ['-c', `${N.versionCheck(head, pdir)} 2>/dev/null`], { encoding: 'utf8' }).trim(), 'PROCESS STALE');
-  g(pdir, 'reset', '-q', '--hard', 'origin/main');
-  // the pre-role hooks pass the command (a read and a fast-forward)
+  const head = g(pseed, 'rev-parse', 'HEAD');
+  // the pre-role hooks pass the command (reads only; its answers are the platform module's test, R6)
   assert.equal(preReason(null, bash(N.versionCheck(head)), {}), null);
   assert.match(N.status(B).queue.find((q) => q.item.startsWith('READ')).detail, /issues\/80\): read it whole by `git -C .* show origin\/main:lane-neoprocess\/replies\/.*`, act on it, then `proc issue seen --report /);
   // BOB records it seen on the tranche, once; the next BOB does not see it again

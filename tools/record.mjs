@@ -11,6 +11,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
+// The platform (layer 1, before this module): its refusal class, the delete route (`limits`), each act's result fields (`acts`).
+import { Refused, limits, acts } from './platform.mjs';
 
 export const TRANCHE = 'tranche';                 // fixed: a merge queue cannot target a wildcard (JOB-LIFE §1)
 export const jobBranch = (m) => `job/${m}`;
@@ -19,7 +21,7 @@ export const ROLE_FILE = 'proc-role.json';
 const SESSION = /^session_[0-9A-Za-z]+$/;
 const now = () => new Date().toISOString();
 const today = () => now().slice(0, 10);
-export class Refused extends Error {}
+export { Refused };   // the platform's refusal class: one class, so every `instanceof Refused` holds
 export const refuse = (msg) => { throw new Refused(msg); };
 
 // ---- the path tables (R5; REC-1): every path of the record is durable (the tranche) or transient (the state branch) ----
@@ -107,12 +109,19 @@ function current(R) {
 
 // ---- the state branch (R2; PROTOCOL §7d): an orphan, written by plumbing, one writer per file ----
 
-// A remote branch deleted from here when the proxy allows it (a bare fixture does), else by the product's prune
-// workflow (`.github/workflows/prune.yml`, written by shims; REP 4), whose dispatch is printed as the act owed.
-export function pruneRef(R, ref) {
+// A remote branch deleted by the route `platform` names (`limits().deleteRoute`, R3): where the platform says a direct
+// delete is refused (the agent proxy), the dispatch of its workflow is printed as the act owed; a direct delete is tried
+// first only where the platform allows one, or where origin is not reached through the proxy at all (a local path, as a
+// fixture's bare origin is), and a refused one falls back to the same dispatch.
+export function pruneRef(R, ref, route = limits().deleteRoute) {
+  if (!route?.workflow || !route?.act || !route?.ref) refuse('pruneRef: the platform names no delete route (limits().deleteRoute)');
+  const dispatch = { tool: route.act, ...ghRepo(R), workflow_id: route.workflow, ref: route.ref, inputs: { ref } };
+  let url = ''; try { url = R.g(['remote', 'get-url', 'origin']); } catch { /* none */ }
+  const local = !/^[a-z][a-z0-9+.-]*:\/\/|^[^/]+@[^:]+:/i.test(url);
+  if (route.direct === 'refused' && !local) return { ref, deleted: false, dispatch, why: `the platform refuses a direct delete (${route.direct}): the ${route.workflow} dispatch deletes it` };
   const r = spawnSync('git', ['-C', R.root, 'push', '-q', 'origin', `:refs/heads/${ref}`], { encoding: 'utf8' });
   if (r.status === 0) { try { R.g(['update-ref', '-d', `refs/remotes/origin/${ref}`]); } catch { /* none */ } return { ref, deleted: true }; }
-  return { ref, deleted: false, dispatch: { tool: 'actions_run_trigger', ...ghRepo(R), workflow_id: 'prune.yml', ref: 'main', inputs: { ref } }, why: `the proxy refused the delete: ${(r.stderr || '').trim().split('\n').pop() || 'no reason given'}` };
+  return { ref, deleted: false, dispatch, why: `the delete was refused: ${(r.stderr || '').trim().split('\n').pop() || 'no reason given'}` };
 }
 // The one open state branch on origin: a `state/*` head whose own `epoch.md` is not marked closed (`epoch close` marks it
 // before the delete, since a closed epoch's branch may linger until the prune workflow deletes it). None means no epoch is open.
@@ -245,25 +254,31 @@ export const stopOf = (p) => ({ stop: p?.stop ?? null, resumed: p?.resumed ?? nu
 
 // ---- a remote act recorded from its result (R8; REC-5) ----
 
-// `result` is what the tool call returned, and `fields` the fields that call's result carries (an archive's usage: its
-// four counts). A refusal, an error, nothing at all, or anything without every one of those fields (a request's own
-// arguments, `{ session_id }`) records nothing: the act stays owed. There is no function that records a request.
+// `result` is what the tool call returned; `fields` what that result carries when the act has run: for an act, its row's
+// `result` in `platform.acts()` (a field's fixed value, or null for any value present); for a measurement, a list of
+// count fields (a session's usage). A refusal, an error, nothing at all, or anything without every one of those fields
+// (a request's own arguments, `{ session_id }`) records nothing: the act stays owed. No function records a request.
 export const USAGE_FIELDS = ['cache_read_tokens', 'cache_write_tokens', 'input_tokens', 'output_tokens'];
 export function actDone(result, fields) {
-  if (!Array.isArray(fields) || !fields.length) refuse('actDone: the fields the act\'s result carries');
+  const spec = Array.isArray(fields) ? Object.fromEntries(fields.map((f) => [f, null])) : fields;
+  if (!spec || typeof spec !== 'object' || !Object.keys(spec).length) refuse('actDone: the fields the act\'s result carries');
   if (result === null || result === undefined || result === '') return false;
   const r = typeof result === 'string' ? (() => { try { return JSON.parse(result); } catch { return null; } })() : result;
   if (!r || typeof r !== 'object' || Array.isArray(r)) return false;
   if (r.error || r.isError || /^(refused|denied|failed|error)/i.test(String(r.status || ''))) return false;
-  return fields.every((f) => r[f] !== undefined && r[f] !== null && r[f] !== '' && (!USAGE_FIELDS.includes(f) || Number.isFinite(Number(r[f]))));
+  return Object.entries(spec).every(([f, want]) => r[f] !== undefined && r[f] !== null && r[f] !== '' && (want === null || r[f] === want) && (!USAGE_FIELDS.includes(f) || Number.isFinite(Number(r[f]))));
 }
 // A session's local records (`.git/<name>`, never committed): written by the command or the post event that took the
 // act's result, never by a pre event (N2-6); read back as null when absent or unreadable.
 export function recordLocal(root, name, value) { try { writeFileSync(join(root, '.git', name), JSON.stringify(value)); return value; } catch { return null; } }
 export function readLocal(root, name) { try { return JSON.parse(readFileSync(join(root, '.git', name), 'utf8')); } catch { return null; } }
-export function recordAct(R, act, result, fields) {
-  if (!act) refuse('recordAct: the act');
-  if (!actDone(result, fields)) refuse(`${act} is not recorded as done: the call's result shows no success with ${fields.join(', ')} (${JSON.stringify(result ?? null).slice(0, 100)}); it stays owed`);
+// `act` is the owed line; `id` the platform act it is (`create_session`, `merge_pull_request`, …), whose row in
+// `platform.acts()` names the fields its result carries. An act whose result carries none cannot be recorded from it.
+export function recordAct(R, act, result, id) {
+  if (!act || !id) refuse('recordAct: the owed act, its result, and the platform act it is');
+  const row = acts({ id })[0], fields = row.result ?? {};
+  if (!Object.keys(fields).length) refuse(`${id}'s result carries no fields (${row.resultFrom ?? 'none named'}): it is recorded by the command that reads its effect, never from the call's answer`);
+  if (!actDone(result, fields)) refuse(`${act} is not recorded as done: the call's result shows no ${Object.entries(fields).map(([k, v]) => (v === null ? k : `${k}: ${v}`)).join(', ')} (${JSON.stringify(result ?? null).slice(0, 100)}); it stays owed`);
   const p = parsePlan(stateRead(R, 'plan.md') || '');
   if (!p.owed.includes(act)) return { act, recorded: false, why: 'not owed' };
   return { act, recorded: true, commit: planEdit(R, (q) => ({ ...q, owed: q.owed.filter((x) => x !== act) }), `done: ${act.slice(0, 60)}`) };
