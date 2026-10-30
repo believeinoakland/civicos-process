@@ -942,7 +942,7 @@ export function handoff(o) {
   // issue 90 (Bob, 30 Oct): the outgoing BOB is retiring, not retired: it keeps its session until its workers have finished
   // and it has run `proc bob release`; ROOT's hook refuses its archive until then (PROTOCOL §7a)
   if (st.bob && !parsePlan(stateRead(R, 'plan.md') || '').retiring.some((r) => r.session === st.bob.session)) planEdit(R, (p) => ({ ...p, retiring: [...(p.retiring || []).filter((r) => r.state !== 'released'), { ...st.bob, state: 'running' }] }), `${st.bob.name} retiring`);
-  return { text, start: `START BOB #${n}: ${TRANCHE} @ ${R.g(['rev-parse', '--short', 'HEAD'])}`, then: 'send the START line to ROOT; then record each of your workers\' results as it arrives, and once none is running, `proc bob release` (your session stays until then: PROTOCOL §7a)' };
+  return { text, start: `START BOB #${n}: ${TRANCHE} @ ${R.g(['rev-parse', '--short', 'HEAD'])}`, then: `send ROOT the START line and, with it, "Archive ${st.bob?.name ?? 'BOB'} only once it sends RELEASED ${st.bob?.name ?? 'BOB'}: its workers may still run." (a ROOT started before issue 90 has only these words); then record each of your workers' results as it arrives, and once none is running, \`proc bob release\` (your session stays until then: PROTOCOL §7a)` };
 }
 // The background tasks the session's Stop hook saw running at its last turn's end, plus every worker started since
 // (the PreToolUse hook adds it): measured #16, 30 Oct, the Stop hook's input lists them as `background_tasks`.
