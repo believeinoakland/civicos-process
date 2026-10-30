@@ -1847,10 +1847,12 @@ export function gateCmd(o) {
 // Code loads at every start and resume; the skills print text only. `proc` is where the process's tools are for the
 // session (a product's clone of the process; the repository itself for the lane).
 export function hookSettings(proc) {
-  const hook = (ev) => `node "${proc}/tools/hooks.mjs" ${ev}`, cmd = (ev, timeout) => ({ type: 'command', command: hook(ev), ...(timeout ? { timeout } : {}) });
-  return { PreToolUse: [{ hooks: [cmd('pre')] }], PostToolUse: [{ hooks: [cmd('post')] }], MessageDisplay: [{ hooks: [cmd('display', 180)] }], Stop: [{ hooks: [cmd('stop'), cmd('evidence', 180)] }] };
+  // Bob, 30 Oct 2026 ("remove all for now"; REQUIREMENTS.md PLT-4, SHM-1): no hook is wired in any settings file the process
+  // writes. tools/hooks.mjs stays as code until the messages job deletes it (N2-36); the rules stand as text.
+  void proc;
+  return {};
 }
-export const settingsText = (standing, hooks) => `${JSON.stringify({ permissions: { allow: standing.allow, deny: standing.deny || [] }, env: { CLAUDE_CODE_STOP_HOOK_BLOCK_CAP: String(STOP_CAP) }, hooks }, null, 2)}\n`;
+export const settingsText = (standing, hooks) => `${JSON.stringify({ permissions: { allow: standing.allow, deny: standing.deny || [] }, ...(Object.keys(hooks || {}).length ? { env: { CLAUDE_CODE_STOP_HOOK_BLOCK_CAP: String(STOP_CAP) }, hooks } : {}) }, null, 2)}\n`;
 export function shims(o) {
   if (resolve(repo(o.product).root) === resolve(PROCESS) && !o.repo) {   // the process repository's own settings: the standing list and the hooks
     const standing = JSON.parse(readFileSync(join(PROCESS, 'permissions.json'), 'utf8')), text = settingsText(standing, hookSettings('$CLAUDE_PROJECT_DIR'));
@@ -1876,7 +1878,8 @@ export function shims(o) {
   // issue 98: a copy already there (from an environment's cache or an earlier start, unknown which) was kept as it was, so a
   // session started after a fix ran without it; now a clean copy on the branch is brought to the branch's tip, by fast-forward only
   const fetchProcess = `if [ -d "${proc}/.git" ]; then { [ "$(git -C "${proc}" rev-parse --abbrev-ref HEAD)" = ${ref} ] && [ -z "$(git -C "${proc}" status --porcelain --untracked-files=no)" ] && git -C "${proc}" fetch -q origin +refs/heads/${ref}:refs/remotes/origin/${ref} && git -C "${proc}" merge -q --ff-only origin/${ref}; } || echo "neoProcess: could not bring ${proc} to the tip of ${ref}" >&2; else git clone -q --branch ${ref} https://github.com/${name} "${proc}" || echo "neoProcess: could not clone ${name} to ${proc}" >&2; fi`;
-  const hooks = { SessionStart: [{ hooks: [{ type: 'command', command: fetchProcess }, ...(has('.claude/hooks/session-start.sh') ? [{ type: 'command', command: 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"' }] : [])] }], ...hookSettings(proc) };   // issue 111
+  const hooks = hookSettings(proc);   // Bob, 30 Oct: no SessionStart either (SHM-1, SHM-5): CLAUDE.md names the clone command, the product's setup script is its sessions' first command
+  void fetchProcess;
   const nodeFile = ['.nvmrc', '.node-version'].find(has);
   const nodeStep = nodeFile ? `node-version-file: ${nodeFile}` : 'node-version: 22';
   // issue 81 (BOB #337, Civicsmith): a product may lock each member's tree apart, with no lock at its root; every tracked
@@ -1894,7 +1897,7 @@ ${locks.map((f) => `          (cd "${dirname(f)}" && npm ci --no-audit --no-fund
 
 The process is \`${name}\`, attached at \`${proc}\` on its branch \`${ref}\` (each session's start clones it there read-only when it is missing; if it is still missing, run \`git clone --branch ${ref} https://github.com/${name} ${proc}\`). Nothing about the process is decided in this repository: it supplies what \`${proc}/${supplies}\` lists, and nothing else.
 
-At the start of every session, before anything else, invoke the skill \`neoprocess\` with your role as its argument: \`/neoprocess bob\`, \`/neoprocess job\`, \`/neoprocess lane\` or \`/neoprocess root\`. It prints your process text, which you read whole and never scan (P20), and the start command that records your role; the hooks refuse every act until it is recorded.
+At the start of every session, before anything else, invoke the skill \`neoprocess\` with your role as its argument: \`/neoprocess bob\`, \`/neoprocess job\`, \`/neoprocess lane\` or \`/neoprocess root\`. It prints your process text, which you read whole and never scan (P20), and the start command that records your role. No hook is wired (Bob, 30 Oct 2026); the rules stand as text.
 
 A flaw in the process is never fixed here or in the process checkout: report it with \`proc issue --title "<the flaw>" --file <report.md>\`, which keeps it on this product's state branch, where the neoProcess lane reads it and files it as an issue on \`${name}\` (GOV 5).
 
