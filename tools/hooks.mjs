@@ -310,8 +310,9 @@ export function runJudge(prompt) {
   const r = spawnSync('claude', ['-p', '--model', EVIDENCE_MODEL, '--tools', '', '--output-format', 'json'], { input: prompt, env, cwd: tmpdir(), encoding: 'utf8', timeout: 170e3, maxBuffer: 16 << 20 });
   return r.stdout || '';
 }
-// It refuses at most twice in a row, so a claim the session cannot source never loops.
-export const EVIDENCE_TRIES = 2;
+// It refuses at most three times in a row, so a claim the session cannot source never loops (#14's round 3: two
+// of four misses were the third draft, let through after two refusals; asked again, the check refused both).
+export const EVIDENCE_TRIES = 3;
 
 function main() {
   const ev = process.argv[2];
