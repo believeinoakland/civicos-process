@@ -8,7 +8,8 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../proc.mjs';
-import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason, issueReason, laneStopReason } from '../hooks.mjs';
+import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason, issueReason, laneStopReason, readerReason, READER_FILE } from '../hooks.mjs';
+import { plainFaults, plainReason, BOB_READS } from '../lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), TOY = join(HERE, '..', '..', 'dryrun');
 const B1 = 'session_01BBBBBBBBBBBBBBBBBBBBBBBB', J1 = 'session_01AAAAAAAAAAAAAAAAAAAAAAAA', L1 = 'session_01LLLLLLLLLLLLLLLLLLLLLLLL';
@@ -359,4 +360,93 @@ test('process issues: filed by any role only as `proc issue` printed it; the lan
   const pctx = ctxOf(root);
   assert.equal(issueReason('process', c.calls[1].call, pctx), null);
   assert.match(issueReason('process', { ...c.calls[1].call, issue_number: 8 }, pctx), /only as `proc issue close` printed it/);
+});
+
+// Issue 61 (Bob, 30 Oct: "speak to your audience in words they understand ... consistently every time"): Bob reads only the
+// last message of the turns of BOB, ROOT, a lane, the neoProcess lane and an onboarding session.
+test('plain words for Bob: the deterministic check refuses labels, ids, code, file names and acts in prose; plain news passes', () => {
+  const kinds = (m) => plainFaults(m).map((f) => f.kind.split(' (')[0]);
+  // the message that drew Bob's words, and the kinds the onboarding session measured
+  assert.deepEqual(kinds('Your one step: start #13 on that account and paste in the block from your page.'), ['a bare number', 'an act asked of Bob in prose']);
+  assert.deepEqual(kinds('BOB #335 (session_01RAN5ejjuYNZmiep8zGD5YK) runs on another account.'), ['a session, trigger or environment id', 'a bare number']);
+  assert.deepEqual(kinds('Done: K2055 folded into GOV 1 (§6); see tools/proc.mjs, commit 8edac3e. ONB-1 stays in next.md.').sort(), ['a commit hash', 'a file name', 'a file name', 'a principle, rule or section number', 'a principle, rule or section number', 'an entry or ruling id', 'an entry or ruling id'].sort());
+  assert.deepEqual(kinds('Run `proc status` to see it.'), ['code in backticks']);
+  assert.deepEqual(kinds('Please approve it on your phone.'), ['an act asked of Bob in prose']);
+  assert.deepEqual(kinds('Paste this as the new session\'s first message:\n\n```\nYou are X.\n```'), ['an act asked of Bob in prose']);   // the block is not judged; the act is
+  assert.deepEqual(kinds('1. Open github.com and sign in.\n2. Click the green button.'), ['steps for Bob without the page\'s own labels in bold']);
+  assert.deepEqual(kinds('Merged by P17 rule 9 and section 3.'), ['a principle, rule or section number', 'a principle, rule or section number', 'a principle, rule or section number']);
+  // not judged: a link's address, a fenced block to paste, bold-labelled steps (verified by `proc steps` in the steps check), Bob's own field
+  for (const m of [
+    'The fix is on main: the process\'s checks now run in every session ([the issue](https://github.com/o/r/issues/63)). Nothing for Bob to do.',
+    'The text for the new session is in the box below, unchanged:\n\n```\nYou are neoProcess #14 (session_01X) on branch claude/x.\n```\n\nNothing else waits on it.',
+    '1. Open **Settings** on the repository page.\n2. Click **Rulesets**.',
+    'In Q3 the CO2 numbers under SB100 matter; the tranche closed with 14 modules changed and every test green.',
+    'Civicsmith\'s pull request waits for the current tranche to close. Nothing for Bob to do.',
+    'Waiting on the UX design lane\'s answer about the installer. Nothing for Bob to do.',
+    '']) assert.deepEqual(plainFaults(m), [], m);
+  assert.equal(plainReason('Nothing for Bob to do.'), null);
+  assert.match(plainReason('Fixed in #64.'), /^Bob reads this message and nothing else \(rulebook SES 9\): a bare number \("#64"\)\. Rewrite it in words he knows/);
+  assert.deepEqual([...BOB_READS].sort(), ['bob', 'lane', 'onboard', 'process', 'root']);
+});
+
+test('the fresh reader: on only for the roles Bob reads, recorded by the pre hook, required by their Stop hook; its skill is the products\' too', () => {
+  const lane = mkdtempSync(join(tmpdir(), 'reader-')); execFileSync('git', ['init', '-q', lane]);
+  const ctx = { role: 'process', root: lane, session: L1, branch: 'x' };
+  assert.match(readerReason('process', ctx), /invoke the skill neoprocess-reader/);
+  for (const role of ['bob', 'root', 'lane', 'onboard']) assert.match(readerReason(role, { ...ctx, role }), /not on for this session/, role);
+  assert.equal(readerReason('job', { ...ctx, role: 'job' }), null);
+  writeFileSync(join(lane, '.git', READER_FILE), JSON.stringify({ session: 'session_01OTHER' }));
+  assert.match(readerReason('process', ctx), /not on/);   // another session's reader is not this one's
+  writeFileSync(join(lane, '.git', READER_FILE), JSON.stringify({ session: L1 }));
+  assert.equal(readerReason('process', ctx), null);
+  assert.match(preReason('job', tool('Skill', { skill: 'neoprocess-reader' }), { role: 'job', module: 'alpha', root: lane }), /judges only what Bob reads/);
+  assert.equal(preReason('process', tool('Skill', { skill: 'neoprocess-reader' }), ctx), null);
+  // the hook itself records it (the pre event) and the Stop event then lets a plain message end, and refuses a label
+  const HOOKS = join(HERE, '..', 'hooks.mjs');
+  writeFileSync(join(lane, '.git', N.ROLE_FILE), JSON.stringify({ role: 'process', product: '.', session: 'session_01HOOK', branch: 'x' }));
+  writeFileSync(join(lane, '.git', N.ISSUES_FILE), JSON.stringify({ ok: true, issues: [] }));
+  writeFileSync(join(lane, '.git', N.BACKSTOP_FILE), JSON.stringify({ due: '2099-01-01T00:00:00Z' }));
+  const run = (ev, input) => execFileSync('node', [HOOKS, ev], { input: JSON.stringify({ session_id: `t-${ev}-${Math.random()}`, ...input }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: lane } });
+  assert.match(run('stop', { last_assistant_message: 'Nothing for Bob to do.' }), /fresh reader is not on/);
+  run('pre', { tool_name: 'Skill', tool_input: { skill: 'neoprocess-reader' } });
+  assert.equal(JSON.parse(readFileSync(join(lane, '.git', READER_FILE), 'utf8')).session, 'session_01HOOK');
+  assert.equal(run('stop', { last_assistant_message: 'The fix is on main. Nothing for Bob to do.' }), '');
+  assert.match(JSON.parse(run('stop', { last_assistant_message: 'Fixed in #64; see tools/proc.mjs.' })).reason, /a bare number \("#64"\); a file name \("tools\/proc\.mjs"\)/);
+  // one text for every product: the shims copy the process's own reader skill verbatim; its hook is a prompt on Sonnet
+  const skill = readFileSync(join(N.PROCESS, '.claude/skills/neoprocess-reader/SKILL.md'), 'utf8');
+  assert.match(skill, /^---\nname: neoprocess-reader\n[\s\S]*\n  Stop:\n    - hooks:\n        - type: prompt\n          model: claude-sonnet-5-5\n/);
+  assert.match(skill, /\$ARGUMENTS/); assert.match(skill, /last_assistant_message/);
+});
+
+// Issue 65 (ROOT #11, Civicsmith's first ROOT, 30 Oct): ROOT had no start command, so the hooks refused every act it needs.
+test('ROOT records its role before any epoch exists, and starts a BOB only with the create_session `proc root bob` printed, once', () => {
+  const w = world(), root = w.bob.root, R0 = 'session_01RRRRRRRRRRRRRRRRRRRRRRRR';
+  // before the start: the start command passes the hook, an MCP tool does not
+  assert.equal(preReason(null, bash(`node /x/tools/proc.mjs root start --session ${R0} --product toy`), {}), null);
+  assert.match(preReason(null, tool(`${REMOTE}get_session`, {}), {}), /proc root start` for ROOT/);
+  const st = N.rootStart({ product: w.bob.dir, session: R0, name: 'ROOT #11' });
+  assert.equal(st.epoch, null); assert.match(st.next, /no BOB is recorded and no epoch is open: start the first with `proc root bob --n <n> --branch/);
+  const ctx = ctxOf(root); assert.equal(ctx.role, 'root');
+  assert.throws(() => N.rootStart({ product: w.bob.dir, session: 'x' }), /--session/);
+  // what SESSIONS §3a gives ROOT passes; its turn's end is not BOB's gate
+  for (const t of ['get_session', 'list_sessions', 'list_events', 'archive_session']) assert.equal(preReason('root', tool(`${REMOTE}${t}`, {}), ctx), null, t);
+  assert.equal(stopReason('root', ctx), null);
+  // the BOB start: printed, the branch on the remote, the commit on it; the hook passes exactly it, then never again
+  assert.throws(() => N.rootBob({ product: w.bob.dir, n: 335, branch: 'nope' }), /not on the product's remote/);
+  assert.throws(() => N.rootBob({ product: w.bob.dir, n: 335, commit: 'deadbeef00' }), /cannot start BOB #335/);
+  const b = N.rootBob({ product: w.bob.dir, n: 335, commit: g(root, 'rev-parse', 'HEAD') });
+  assert.equal(b.create_session.title, 'BOB #335'); assert.equal(b.create_session.source_revision, N.TRANCHE);
+  assert.match(b.create_session.prompt, /^\/goal The run has ended, or the queue/);
+  assert.match(b.create_session.prompt, new RegExp(`You are BOB #335, started by ROOT \\(${R0}\\)\\. You are the first BOB under neoProcess here.*run \`proc epoch open\` first; then \`proc takeover --name "BOB #335"`));
+  assert.match(preReason('root', tool(`${REMOTE}create_session`, { ...b.create_session, title: 'BOB #336' }), ctx), /only a BOB, with the create_session `proc root bob/);
+  assert.match(preReason('root', tool(`${REMOTE}create_session`, { ...b.create_session, prompt: 'hurry' }), ctx), /unchanged/);
+  assert.equal(preReason('root', tool(`${REMOTE}create_session`, b.create_session), ctx), null);
+  const HOOKS = join(HERE, '..', 'hooks.mjs');
+  execFileSync('node', [HOOKS, 'pre'], { input: JSON.stringify({ session_id: 'r', tool_name: `${REMOTE}create_session`, tool_input: b.create_session }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
+  assert.match(preReason('root', tool(`${REMOTE}create_session`, b.create_session), ctx), /already started by this ROOT/);
+  assert.equal(N.rootBob({ product: w.bob.dir, n: 335 }).already, true);
+  // ROOT arms no timer and opens no pull request; it files a process issue as any role does
+  assert.match(preReason('root', tool(`${REMOTE}send_later`, {}), ctx), /arms no timer/);
+  assert.match(preReason('root', tool(`${GH}create_pull_request`, {}), ctx), /never opens, reviews or merges/);
+  assert.equal(N.reading({ role: 'root' }).next, 'proc root start --session <your session id>');
 });

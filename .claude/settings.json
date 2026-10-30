@@ -66,5 +66,8 @@
       "Bash(git tag *)",
       "Bash(git branch -D *)"
     ]
+  },
+  "env": {
+    "CLAUDE_CODE_STOP_HOOK_BLOCK_CAP": "4"
   }
 }

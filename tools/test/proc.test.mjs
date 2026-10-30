@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, cpSync, existsSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -542,10 +542,11 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   assert.deepEqual(N.sizes(R, ['alpha', 'nope']), []);
   // shims: the three files written from here; a hand edit is drift; CLAUDE.md under thirty lines
   const sh = N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane' });
-  assert.deepEqual(sh.written.sort(), ['.claude/settings.json', '.claude/skills/neoprocess/SKILL.md', '.github/workflows/gate.yml', '.github/workflows/prune.yml', 'CLAUDE.md']);
+  assert.deepEqual(sh.written.sort(), ['.claude/settings.json', '.claude/skills/neoprocess-reader/SKILL.md', '.claude/skills/neoprocess/SKILL.md', '.github/workflows/gate.yml', '.github/workflows/prune.yml', 'CLAUDE.md']);
   assert.match(readFileSync(join(w.bob.root, '.github/workflows/prune.yml'), 'utf8'), /workflow_dispatch:[\s\S]*git push origin --delete "\$r"/);
   const standing = JSON.parse(readFileSync(join(HERE, '..', '..', 'permissions.json'), 'utf8')), written = JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).permissions;
-  assert.deepEqual([written.allow, written.deny], [standing.allow, standing.deny]);   // the standing list, allow and deny, applied (PERMISSIONS §2.4, §8.2)
+  assert.deepEqual([written.allow, written.deny], [standing.allow, standing.deny]);
+  assert.deepEqual(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).env, { CLAUDE_CODE_STOP_HOOK_BLOCK_CAP: '4' });   // a turn refused four times in a row ends   // the standing list, allow and deny, applied (PERMISSIONS §2.4, §8.2)
   assert.ok(standing.deny.some((r) => /force/.test(r)) && !standing.allow.some((r) => /^Bash\(\*\)|^Agent$/.test(r)));   // the safety rules denied; no broad rule Auto would drop
   const skill = readFileSync(join(w.bob.root, '.claude/skills/neoprocess/SKILL.md'), 'utf8');
   assert.match(skill, /^---\nname: neoprocess\n/); assert.match(skill, /command: 'node "\/p\/neoProcess\/tools\/hooks\.mjs" pre'/);
@@ -557,6 +558,18 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   assert.match(yml, /repository: o\/neoProcess\n          ref: lane\n          path: \.neoprocess\n      - uses: actions\/setup-node/);   // public: no key, no secret; the process branch the product follows
   assert.match(yml, /run: node \.neoprocess\/tools\/proc\.mjs gate --product "toy" --process "\/p\/neoProcess" --repo "o\/neoProcess" --ref "lane" --base HEAD\^1/);   // the merge ref's own base, never the event's sha (stale once the base moved)   // the same inputs in CI: no drift
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift, []);
+  assert.match(yml, /setup-node@v4\n        with:\n          node-version: 22\n      - name: the gate/);   // no version file, no lock: the default, no install
+  assert.equal(written.hooks, undefined); assert.equal(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).hooks, undefined);
+  // issue 62: a product's own session setup is registered by the shims, and the gate takes the product's Node version and its lock
+  mkdirSync(join(w.bob.root, '.claude/hooks'), { recursive: true }); writeFileSync(join(w.bob.root, '.claude/hooks/session-start.sh'), '#!/bin/bash\nnpm ci\n');
+  writeFileSync(join(w.bob.root, '.nvmrc'), '26.10.0\n'); writeFileSync(join(w.bob.root, 'package-lock.json'), '{}\n');
+  assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift.sort(), ['.claude/settings.json: differs', '.github/workflows/gate.yml: differs']);
+  N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane' });
+  assert.deepEqual(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).hooks, { SessionStart: [{ hooks: [{ type: 'command', command: 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"' }] }] });
+  assert.match(readFileSync(join(w.bob.root, '.github/workflows/gate.yml'), 'utf8'), /setup-node@v4\n        with:\n          node-version-file: \.nvmrc\n      - name: the product's locked dependencies, as its own CI installs them\n        run: npm ci\n      - name: the gate/);
+  assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift, []);
+  for (const f of ['.claude/hooks/session-start.sh', '.nvmrc', 'package-lock.json']) rmSync(join(w.bob.root, f), { recursive: true, force: true });
+  N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane' });
   writeFileSync(join(w.bob.root, 'CLAUDE.md'), `${claude}\nMy own rule.\n`);
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift, ['CLAUDE.md: differs']);
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane' }).written, ['CLAUDE.md']);   // rewritten

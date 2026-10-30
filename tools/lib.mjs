@@ -10,6 +10,7 @@ import { totalmem, availableParallelism } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { artifactRows } from '../checks/lib.mjs';
+const PROCESS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 class Refused extends Error {}
@@ -274,7 +275,11 @@ export function stepsCmd(o) {
     if (!hay.includes(decodeEntities(l.label))) missing.push(l);
   }
   if (missing.length) refuse(`${missing.length} label(s) in ${o.file} not found verbatim in ${sources.join(', ')}:\n${missing.map((l) => `  line ${l.line}: "${l.label}"`).join('\n')}\nwrite the step from the page's or screen's own words; a placeholder the steps define themselves is wrapped as <<label>>`);
-  const R = repo(o.product);
+  // the record is kept where the Stop hook reads it: the checkout the role is recorded in (#13's writer test, 30 Oct: run from
+  // a folder outside any checkout, the command died on git's error and the steps never reached Bob)
+  let R; try { R = repo(o.product || process.env.CLAUDE_PROJECT_DIR || '.'); } catch { R = null; }
+  if (!R) { try { const P = repo(PROCESS_ROOT); if (existsSync(join(P.root, '.git', 'proc-role.json'))) R = P; } catch { /* none */ } }
+  if (!R) refuse('--product <the checkout your role is recorded in>: this folder is not a git checkout, and none with a recorded role was found');
   writeFileSync(join(R.root, '.git', STEPS_OK), JSON.stringify({ sha256: stepsHash(text), sources, at: new Date().toISOString() }));
   return `${text.trimEnd()}\n\nverified: ${seen.size} labels in ${sources.join(', ')}`;
 }
@@ -310,4 +315,52 @@ export function stepsReason(message, root, now = Date.now()) {
   if (!(now - Date.parse(ok.at) < 30 * 60e3)) return `your message has a numbered list with bold labels, but the steps last verified are over 30 minutes old: ${how}`;
   if (ok.sha256 !== stepsHash(message)) return `your message has a numbered list with bold labels that is not the list \`proc steps\` verified: ${how}`;
   return null;
+}
+
+// ---- plain words for Bob (rulebook SES 9; issue 61; Bob, 30 Oct: "speak to your audience in words they understand") ----
+// Bob reads the last message of a BOB's, ROOT's, a lane's, the neoProcess lane's and an onboarding session's turn, and only
+// that message: no tool output, no file, no other session's words. So a label he does not know, or a reference only
+// those resolve, reaches him as noise. This check refuses the mechanical kinds of it, deterministically; the fresh reader
+// (the skill `neoprocess-reader`, a model given only the message and who Bob is) judges the rest. Not judged: a fenced
+// block (text given to him to paste), a link's address (its visible text is judged), and a numbered list `proc steps`
+// verified (its labels are the page's own words, P20).
+export const BOB_READS = new Set(['bob', 'root', 'lane', 'process', 'onboard']);
+const RULEBOOK_IDS = 'P|SES|GOV|DES|REP|BLD|INT|PLN|REL|REQ|USE';
+const PLAIN_EXEMPT = /^(Q[1-4]|H[12]|CO2|[AS]B\d+)$/;   // words of Bob's own field: a quarter, a half-year, a bill
+const ACT_ASK = /\byour (?:one |next |only |first |last )?(?:step|act|job|task)s?\b|\b(?:you(?:'ll| will)? need to|you have to|you must|I need you to)\b|\bplease (?:open|click|start|paste|go|sign|log|create|set|add|approve|run|type|copy|visit|enter|install|connect|accept|choose|select|press|reply|answer|confirm)\b/i;
+const ACT_DO = /(?:^|[.!?:]\s+|^\s*[-*]\s+)(?:Open|Click|Paste|Go to|Sign in|Log in|Start a|Start the|Approve|Visit|Type|Copy|Enter|Install|Connect|Accept|Choose|Select|Press|Navigate to)\b/m;
+const actIn = (x) => x.match(ACT_ASK) || x.match(ACT_DO);
+export function plainFaults(message) {
+  const faults = [], seen = new Set();
+  const add = (kind, word) => { const k = `${kind}: ${word}`; if (!seen.has(k)) { seen.add(k); faults.push({ kind, word }); } };
+  let t = String(message || '').replace(/\r/g, '');
+  t = t.replace(/^\s*(```|~~~)[^\n]*\n[\s\S]*?^\s*\1\s*$/gm, ' ');            // a fenced block: text to paste
+  t = t.replace(/!?\[([^\]\n]*)\]\([^)\n]*\)/g, '$1').replace(/<?https?:\/\/[^\s>)]+>?/g, ' ');   // links: their text only
+  // a line that links a page is an act with its place: the page holds the steps (a setup page written from the screens)
+  const linked = new Set(String(message || '').replace(/\r/g, '').split('\n').filter((l) => /\]\([^)\s]+\)|https?:\/\//.test(l)).map((l) => l.replace(/!?\[([^\]\n]*)\]\([^)\n]*\)/g, '$1').replace(/<?https?:\/\/[^\s>)]+>?/g, ' ')));
+  const list = new Set(numberedList(t).split('\n').filter(Boolean)), lines = t.split('\n');
+  const prose = lines.filter((l) => !list.has(l.replace(/\s+/g, ' ').trim()) && !linked.has(l)).join('\n');
+  for (const m of t.matchAll(/`([^`\n]+)`/g)) add('code in backticks', m[0]);
+  const plain = t.replace(/`[^`\n]+`/g, ' ');
+  for (const m of plain.matchAll(/\b(?:session|trig|env|ccpool|toolu|msg|file)_[0-9A-Za-z]{6,}\b/g)) add('a session, trigger or environment id', m[0]);
+  for (const m of plain.matchAll(/(?<![\w&/])#\d+\b/g)) add('a bare number', m[0]);
+  for (const m of plain.matchAll(/(?:§\s*\d+(?:\.\d+)*|\b(?:principle|rule|section)\s+\d+\b)/gi)) add('a principle, rule or section number', m[0]);
+  for (const m of plain.matchAll(new RegExp(String.raw`\b(?:${RULEBOOK_IDS})\s?\d{1,2}(?:\.\d+)?\b`, 'g'))) add('a principle, rule or section number', m[0]);
+  for (const m of plain.matchAll(/\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+[a-z]?\b/g)) add('an entry or ruling id', m[0]);
+  for (const m of plain.matchAll(/\b[A-Z]{1,3}\d{1,5}[a-z]?\b/g)) if (!PLAIN_EXEMPT.test(m[0]) && !new RegExp(String.raw`^(?:${RULEBOOK_IDS})\d{1,2}$`).test(m[0])) add('an entry or ruling id', m[0]);
+  for (const m of plain.matchAll(/\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/g)) add('a commit hash', m[0]);
+  for (const m of plain.matchAll(/(?:^|[\s("'])((?:\.{1,2}|~)?\/?(?:[\w.-]+\/)*[\w-][\w.-]*\.(?:md|mjs|cjs|js|ts|tsx|jsx|json|ya?ml|sh|html|csv|txt|py|toml|lock|env))(?=$|[\s)"',;:!?]|\.(?:\s|$))/gim)) add('a file name', m[1]);
+  for (const m of plain.matchAll(/(?:^|\s)((?:\.{1,2}|~)?\/?(?:build|tools|checks|rulebooks|dryrun|src|docs|\.claude|\.github|lane-[\w-]+)\/[\w./-]*[\w/-])/g)) add('a file name', m[1]);
+  const act = actIn(prose.replace(/`[^`\n]+`/g, ' '));
+  if (act) add('an act asked of Bob in prose (it goes in numbered steps `proc steps` verified)', act[0].trim());
+  const items = [...list].filter((l) => /^\d+[.)]\s/.test(l));
+  const step = items.find((l) => actIn(l.replace(/^\d+[.)]\s+/, '')));
+  if (step && !isStepsList(t)) add('steps for Bob without the page\'s own labels in bold (they are written from the page and verified by `proc steps`)', step.slice(0, 60));
+  return faults;
+}
+export function plainReason(message) {
+  const f = plainFaults(message);
+  if (!f.length) return null;
+  const by = new Map(); for (const x of f) by.set(x.kind, [...(by.get(x.kind) || []), x.word]);
+  return `Bob reads this message and nothing else (rulebook SES 9): ${[...by].map(([k, w]) => `${k} (${w.slice(0, 4).map((x) => `"${x}"`).join(', ')})`).join('; ')}. Rewrite it in words he knows: name the thing itself (the account, the page, the change and what it does for him), never its label; give a link for what he should look at; an act for him goes in numbered steps written from the page he will use and verified by \`proc steps\``;
 }
