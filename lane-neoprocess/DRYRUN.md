@@ -261,4 +261,5 @@ Issue 98 (Civicsmith's BOB #339): jobs started at 13:17Z, after issue 92's fix w
 | --- | --- | --- |
 | the start line on a copy already there: brought to the tip | PROVEN in fixture | the line run by `sh` on a clone one commit behind: the new file present |
 | a start brings the copy to main, refuses one changed in place | PROVEN in fixture | `processBehind` null after a fix, the refusal's words; `jobStart` refused |
-| a product session started after a fix holds it | NOT YET | Civicsmith's shims regenerated on the runner, then its next session's copy read |
+| Civicsmith's shims carry the new start line | PROVEN | run 41066626794 (13:50Z, success); civicsmith/civicsmith `main`'s `.claude/settings.json` read back with the fast-forward line |
+| a product session started after a fix holds it | NOT YET | Civicsmith's next session's copy read (`git -C /home/user/neoprocess log -1`) |
