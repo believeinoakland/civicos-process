@@ -6,3 +6,4 @@
 - civicsmith/civicsmith:2026-10-30-bob-339-1.md · 2026-10-30 · proc job complete refuses a job behind the tranche only by BOB's gate-neutral re
 - civicsmith/civicsmith:2026-10-30-bob-339-2.md · 2026-10-30 · The gate runs every user module's tests on every job, not only when a provided s
 - civicsmith/civicsmith:2026-10-30-bob-339-3.md · 2026-10-30 · A job session started after a fix landed still holds an old process clone (678ab
+- civicsmith/civicsmith:2026-10-30-bob-340-1.md · 2026-10-30 · Jobs keep running an old process: confirm the cause, prove the fix by a test, gi
