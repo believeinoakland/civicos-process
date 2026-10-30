@@ -138,3 +138,17 @@ Checked against the principles: it serves P20 (a message says only what was read
 | the message adds nothing unmeasured | NOT YET: 19 of 24 | round 2 (both fixes): 19 of 24 (round 1: 17 of 24; §8's final round, judged on the situation only: 20 of 35; round 2 judged that way: 16 of 24); the misses are small inferences the check passed ("the first step", "two more", "a copy of the product", "the token has no expiry" from `expires: null`) |
 | clear whether Bob acts | 23 of 24 | round 2; the miss: a decision for Bob that does not say how he answers, which the fresh reader let through |
 | round 3: the inferences named in the check | PLATEAU | the check now names an order, "more", what a value means, what a thing is when nothing says so (fixture, three runs each: the faithful message passed, the one with "again" and "two more" refused); round 3: 23/24 understandable, 20/24 accurate, 23/24 act clear, against round 2's 24, 19, 23: within the judge's own spread; the misses are single phrases ("in the section on payment failure", "Civicsmith's own pull request"); wording no longer moves the count, so the next lever is not more wording |
+
+## 10. Certification of the first BOB's start on a converted product (GOV 5; 30 Oct 2026, #14; issue 69)
+
+Checked against the principles: P1 (the first BOB can start), P12 (the running work reaches `tranche` by a merge, never a rebase, and `main` is unchanged), P19 (the work that remains opens as the next round), P17 and GOV 9 (the old process's sessions are Bob's). Suite 277 green; every reading set within its budget.
+
+| path | status | evidence |
+| --- | --- | --- |
+| `tranche` cannot be made beside `tranche/*` | MEASURED | the fixture: the push of `tranche` refused while `tranche/T9` existed; `git ls-remote` of the first product: five `tranche/*` branches; with history, two tips not on `main` (T53's 2,015 commits; T50's one) |
+| the carry: old tips kept, old names pruned, `tranche` made, the old plan archived | PROVEN in fixture | `carried/T9` kept; the old name deleted (a bare remote; in a session, the printed prune dispatch); the merge kept the running work and took `main`'s text in the conflict; the epoch opened on it |
+| the prune workflow's `tranche/*` case | PROVEN in part | its YAML parses and its shell parses; `git branch -r --contains … --list 'origin/carried/*'` answers the kept branch and nothing for `main`; the run itself: the product's first carry |
+| ROOT's BOB start: on `main`, a new number, the carry named, a goal that can end blocked | PROVEN in fixture | the old record's BOB #7 refused, #8 printed with `source_revision` `main` and the carry's command |
+| `2>&1` and `>/dev/null` are not writes before a role | PROVEN in fixture | both pass; `> out.txt` still refused |
+| the process cloned at a product session's start | PROVEN in fixture | the SessionStart command written by the shims; the clone itself: the product's next session |
+| a product session filing an issue | NOT YET | unmeasured: the first product filing (acts.md `issue_write(process issue)`) |

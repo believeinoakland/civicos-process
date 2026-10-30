@@ -30,6 +30,8 @@ const STATE_REF = /\bgit\b[^|;&]*\b(merge|tag|branch|checkout|switch|worktree|re
 const LONG = /(?:^|[\s;&|(])node\s+(?:\S+\/)?proc\.mjs\s+(job\s+complete|layer\s+close)\b/;
 const START_CMD = /(?:^|[\s;&|(])node\s+(?:\S+\/)?proc\.mjs\s+(takeover|job\s+start|lane\s+start|root\s+start|process\s+start|onboard\s+start)\b/;
 const WRITES = /\bgit\b[^|;&]*\b(push|commit|merge|rebase|reset|tag|branch|checkout|switch)\b|(?:^|[\s;&|(])(rm|mv|cp|tee|sed\s+-i|gh)\b|(?<![<>])>(?!>)|>>/;
+// a redirect that writes no file: a descriptor duplicated (`2>&1`, `>&2`) or sent to /dev/null (issue 69)
+const NO_FILE = /\d*>&\d+-?|\d*>>?\s*\/dev\/null\b/g;
 const GH_CLI = /(?:^|[\s;&|(])gh\s+pr\s+(merge|ready|review|edit|close|reopen|create)\b/;
 const NAME = /^[A-Z][A-Z0-9-]* #\d+$/;
 
@@ -100,7 +102,7 @@ export function preReason(role, input, ctx) {
   const c = tool === 'Bash' ? String(ti.command || '').replace(REDIRECT, ' ') : '';
   if (!role) {
     if (tool === 'Bash' && START_CMD.test(String(ti.command || ''))) return null;
-    if (['Write', 'Edit', 'NotebookEdit', 'Agent'].includes(tool) || tool.startsWith('mcp__') || (tool === 'Bash' && WRITES.test(String(ti.command || '')))) return 'no role is recorded for this session: read your set, then run your start command (`proc takeover`, `proc job start`, `proc lane start`, `proc root start` for ROOT, `proc process start` for the neoProcess lane, `proc onboard start` for an onboarding session) before any act (SESSIONS §1a)';
+    if (['Write', 'Edit', 'NotebookEdit', 'Agent'].includes(tool) || tool.startsWith('mcp__') || (tool === 'Bash' && WRITES.test(String(ti.command || '').replace(NO_FILE, ' ')))) return 'no role is recorded for this session: read your set, then run your start command (`proc takeover`, `proc job start`, `proc lane start`, `proc root start` for ROOT, `proc process start` for the neoProcess lane, `proc onboard start` for an onboarding session) before any act (SESSIONS §1a)';
     return null;
   }
   if (tool === 'Bash') {
@@ -238,6 +240,7 @@ export function stopReason(role, ctx) {
   if (role === 'process') return laneStopReason(ctx);
   if (role === 'root') return null;   // ROOT edits and pushes nothing, and BOB's queue is BOB's (SESSIONS §3a; issue 65)
   if (OUTSIDE.has(role)) return null;   // the process repository has no state branch, so no gate of `proc status` to read
+  if (role === 'bob' && !ctx.epoch) return null;   // carrying a running tranche before the first epoch (issue 69): no queue yet
   const R = R_of(ctx), st = status({ product: R.dir });
   const why = [...st.gate];
   if (role === 'job') {

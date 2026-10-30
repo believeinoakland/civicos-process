@@ -19,6 +19,8 @@ An **onboarding session**: the person who owns the project (Bob, or someone like
 | 7 | **First tranche** | its plan in `build/plan/next.md` | the same | BOB's |
 | 8 | **Handover** | the seed pull request merged to `main`; `proc grants check` green; the owner starts the project's ROOT (SESSIONS §1a), which starts BOB, which opens the first tranche | the same | the owner's one act |
 
+**A tranche already running at conversion** (issue 69, 30 Oct: Civicsmith's first BOB found no `tranche`, its paused tranche on `tranche/T53`). The first BOB starts on `main`, which holds the shims (`proc root bob --branch <the running branch>` prints that), and carries it before the first epoch: `proc tranche carry --from <branch> --name "BOB #<n>" --session <id>` records its role; keeps every `tranche/*` tip not on `main` as `carried/<name>` (git cannot hold `tranche` beside `tranche/*`); prints the product's prune dispatch for each old name, the workflow deleting it only once its tip is on `main` or a carried branch; run again, makes `tranche` from the running tip with `main` merged in, `main`'s text winning every conflict (the onboarding record's rule: since the tranche began, `main` changed only by the seed), and archives the old plan, so the work that remains opens as the next round (`proc round open`, written from what remains, P19). It lists the old process's sessions named in the record: not this process's, sent nothing, Bob's to archive if he wants (GOV 9). A BOB number the old record used is never given again.
+
 `proc init --check` lists each step DONE or OPEN with what is missing and whose it is, so a later session, or the owner, sees where onboarding stands from git alone (P13).
 
 ## 3. What makes a step done (the check)
