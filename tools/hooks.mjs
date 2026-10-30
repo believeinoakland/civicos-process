@@ -109,7 +109,7 @@ export function preReason(role, input, ctx) {
     if (FORCE.test(c)) return 'a force push, mirror or remote delete is never done by hand (standing safety rule; the tool alone deletes a state branch or a merged job branch)';
     if (STATE_REF.test(c)) return 'nothing merges, tags, branches, resets or pulls from a state branch: it is thrown away whole (PROTOCOL §7d)';
     const lp = c.match(LONG);
-    if (lp && ti.run_in_background !== true) return `\`proc ${lp[1].replace(/\s+/g, ' ')}\` runs for minutes and a message reaches you only between tool calls (P13; rulebook SES 6): run it with run_in_background true, then end your turn or do other work until its completion notice arrives`;
+    if (lp && ti.run_in_background !== true) return `\`proc ${lp[1].replace(/\s+/g, ' ')}\` runs for minutes and a message reaches you only between tool calls (P13; rulebook SES 6): run it with run_in_background true and timeout 7200000 (two hours, the platform's most: a gate with many users outlived the default half hour, issue 113), then end your turn or do other work until its completion notice arrives`;
     if (GH_CLI.test(c)) return 'a pull request is opened, marked ready, reviewed and merged only as `proc` prints the call (JOB-LIFE §11); the queue merges';
     if (/\bgit\b[^|;&]*\bmerge\b[^|;&]*\bjob\//.test(c)) return `a job branch is merged only by the queue, after \`proc merge\` (JOB-LIFE §6)${role === 'job' ? '; your own module\'s branch from an earlier round is taken in by `proc job takein --branch job/<tranche>/<module>` (JOB-LIFE §1a)' : ''}`;
     const push = c.match(PUSH);

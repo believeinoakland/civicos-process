@@ -1115,7 +1115,11 @@ test('issue 93: the gate runs a user\'s tests only when the job changes what its
   assert.deepEqual(step(() => writeFileSync(src, s0.replace('return finite(a, \'add\') + finite(b, \'add\');', 'const x = finite(a, \'add\');\n  return x + finite(b, \'add\');'))), { all: false, changed: [], users: [] });   // the body only
   assert.deepEqual(step(() => writeFileSync(req, r0.replace('**R1** Returns', '**R1** *(not yet met: T1)* Returns'))), { all: false, changed: [], users: [] });   // a mark only
   assert.deepEqual(step(() => writeFileSync(req, `${r0}\n- **R9** Private, not provided.\n`)), { all: false, changed: [], users: [] });   // the Private part
-  assert.deepEqual(step(() => writeFileSync(src, `${s0}\nexport function twice(a) { return add(a, a); }\n`)), { all: false, changed: ['twice'], users: [] });   // beta names add and sum, not twice
+  assert.deepEqual(step(() => writeFileSync(src, `${s0}\nexport function twice(a) { return add(a, a); }\n`)), { all: false, changed: [], users: [] });   // issue 113: a name only added has no user yet
+  assert.deepEqual(step(() => writeFileSync(src, s0.replace('export function add(a, b)', 'export function add(a, b = 0)'))), { all: false, changed: ['add'], users: ['beta'] });   // redefined: its old line gone
+  assert.deepEqual(step(() => writeFileSync(src, s0.replace('export function sum(list)', 'function sum(list)'))), { all: false, changed: ['sum'], users: ['beta', 'stats'] });   // dropped
+  assert.deepEqual(step(() => writeFileSync(req, r0.replace('## Private', '**neg(a) → number**\n- **R9** Returns `-a`.\n\n## Private'))), { all: false, changed: [], users: [] });   // a new Provides block: nobody uses it yet
+  assert.deepEqual(step(() => writeFileSync(req, r0.replace(/\*\*sum\(list\) → number\*\*[\s\S]*?(?=## Private)/, ''))), { all: false, changed: ['sum'], users: ['beta', 'stats'] });   // a block dropped
   assert.deepEqual(step(() => writeFileSync(req, r0.replace('and `0` for an empty list', 'and `0` for an empty array'))), { all: false, changed: ['sum'], users: ['beta', 'stats'] });
   assert.deepEqual(step(() => writeFileSync(req, r0.replace('Returns `a + b` for two finite numbers.', 'Returns `a + b` for two finite numbers, as a number.'))), { all: false, changed: ['add'], users: ['beta'] });   // stats names sum only
   assert.deepEqual(step(() => writeFileSync(req, r0.replace('Arithmetic on numbers.', 'Arithmetic on finite numbers.'))).users, ['beta', 'stats']);   // the Purpose: every user

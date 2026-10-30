@@ -1762,7 +1762,9 @@ export function runGate(R, m, base) {
 // changes only with the Public part of its requirements (the `not yet met` marks aside) or its export lines. The services
 // changed: each Provides block whose text differs, and each name an export line adds or drops; the Purpose, any other Public
 // text, `export default` or an export line naming nothing changes them all. The users run: every module whose `uses`
-// lists m and whose own Uses line names a changed service, or names none of m's (it may use any).
+// lists m and whose own Uses line names a changed service, or names none of m's (it may use any). A service that is only
+// added (a new export name, a new Provides block) has no user yet, so it changes none (issue 113, BOB #341: one added
+// constant ran fourteen suites).
 export function usersOfChange(R, m, base) {
   const x = mod(R, m), rq = `build/requirements/${m}.md`, unmark = (t) => (t || '').replace(/\s*\*\(not yet met:[^)]*\)\*/g, '');
   const pub = (ref) => { try { return unmark(R.g(['show', `${ref}:${R.rel(rq)}`]).split(/^## Private/m)[0]); } catch { return ''; } };
@@ -1773,12 +1775,12 @@ export function usersOfChange(R, m, base) {
     const rest = (t, sb) => sb.blocks.reduce((u, bl) => u.replace(bl.text.trimEnd(), ''), t).replace(/\s+/g, ' ');
     if (a.purpose !== b.purpose || rest(before, a) !== rest(after, b)) all = true;
     const ta = new Map(a.blocks.map((bl) => [key(bl), bl])), tb = new Map(b.blocks.map((bl) => [key(bl), bl]));
-    for (const k of new Set([...ta.keys(), ...tb.keys()])) if (ta.get(k)?.text !== tb.get(k)?.text) for (const n of (ta.get(k) || tb.get(k)).names) changed.add(n);
+    for (const k of ta.keys()) if (ta.get(k).text.trimEnd() !== (tb.get(k)?.text ?? '').trimEnd()) for (const n of ta.get(k).names) changed.add(n);   // a block that is new has no user yet (issue 113)
   }
   const exp = (x.paths || []).length ? R.g(['diff', base, 'HEAD', '--', ...(x.paths || []).map(R.rel)]).split('\n').filter((l) => /^[+-]\s*export\b/.test(l)) : [];
-  for (const l of exp) {
+  for (const l of exp) {   // issue 113: a name only added is used by nobody yet; a dropped or redefined one (its old line gone) is; a line naming nothing stays every user's
     const names = [...l.matchAll(/\bexport\s+(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g), ...[...(l.match(/\bexport\s*\{([^}]*)\}/)?.[1] ?? '').matchAll(/(?:^|,)\s*(?:[A-Za-z_$][\w$]*\s+as\s+)?([A-Za-z_$][\w$]*)/g)]].map((y) => y[1]);
-    if (!names.length || /\bexport\s+default\b/.test(l)) all = true; else names.forEach((n) => changed.add(n));
+    if (!names.length || /\bexport\s+default\b/.test(l)) all = true; else if (l.startsWith('-')) names.forEach((n) => changed.add(n));
   }
   const users = modules(R).filter((y) => (y.uses || []).includes(m) && (y.tests || []).length).filter((y) => {
     if (all) return true;
