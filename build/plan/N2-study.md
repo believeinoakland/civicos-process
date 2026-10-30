@@ -34,6 +34,11 @@ The message check took more of the architecture session's time than any other ki
 
 Each job's turns, time by kind of work, files read and how often, time per review round, restarts: `study-platform`, `study-record`.
 
+- **record** (helper `study-record`, done 22:1xZ; whole result `build/plan/N2-study-record.md`): of 89 minutes, 44 % idle between turns (30 minutes of it waiting on a message from BOB, the longest 9.5, 8.2 and 5.2 minutes), 56 % inside 13 turns; of the turns' tool time, 78 % ran the test suite (11 full-suite runs of about 92 to 130 seconds, plus 3 inside `job complete`), 2 % read files; 58 % of turn time was the model writing with no tool running. A CHANGE sent while a turn ran waited 380 seconds to be read. No restart visible in the events read.
+- **platform** (helper `study-platform`, done 22:1xZ; whole result `build/plan/N2-study-platform.md`): of 91 minutes, 48 % idle waiting for BOB's next message and 13 % idle waiting for a background check run; 27 % the model writing with no tool running; 12 % a tool running, of which the tests were 397 of 682 seconds. 27 turns: 13 started by a BOB message, 13 by a background task finishing. The worker was replaced four times, each after an idle gap of 6 to 10 minutes, each costing about 3 seconds. BOB's wait from a COMPLETE to his next message averaged 5 minutes 12 seconds over rounds 1 to 4.
+
+**Read across both jobs (BOB #2, for BOB #3 to carry to causes):** about half of each job's wall clock was waiting on the architecture session; the architecture session's own time went most to the message check before each message to Bob; inside the jobs, full test-suite runs, repeated after every change, dominate tool time; review rounds multiplied all of it.
+
 ## 3. Causes, fixes, confirmation
 
 Written once §2 is in, from the evidence of §1 and §2 only.
