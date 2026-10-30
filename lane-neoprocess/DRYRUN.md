@@ -238,3 +238,15 @@ Issue 92 (the lane's own find): a product session's process clone never moved af
 | a running product session gets a fix within the hour | NOT YET | Civicsmith's BOB's next `proc status` after this is on main |
 | a product job's gate runs fewer suites | NOT YET | Civicsmith's next events job |
 
+
+## 19. Certification of issue 95's fix, and issue 96 in part (GOV 5; 30 Oct 2026, #17)
+
+Issue 95 (Civicsmith's BOB #339): a job outlives the BOB that started it, and the classifier refused BOB #339's archive of a job BOB #337 started ("Interfere With Workloads"), with no route, so REP 10 stopped product work. Now `proc job archived --unmeasured "<the refusal>"` ends the job on the record without the archive: ARCHIVED, the owed archive cleared, its metrics row with empty counts and `unmeasured: <the refusal>` (USE 2, revised: a refused archive is unmeasured too), the session left idle (GRANTS §1); `--usage` and `--unmeasured` are exclusive and the reason is required. The act table has the row. Checked against the principles: P14 (no estimate: the counts are empty, the row says why), P20 (the refusal's words recorded), P13 (an idle session costs nothing), GOV 9 (no session archives what it did not create). Issue 96 in part (Bob's): the lane's threshold is 40 % (`THRESHOLD.process`, BOB's by P17, as BOB's own, since the lane is woken again and again as BOB is); the lane's hook passes a one-shot scheduled task that starts a fresh session (its successor as printed, or a probe), and nothing else; the route itself is measured below. Suite 283 green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| `--unmeasured`: refused with `--usage`, without either, with an empty reason; the row, ARCHIVED, the owed archive cleared | PROVEN in fixture | the toy's tranche: `J3,job,BETA #2,beta,,,,,2,…,1/1,unmeasured: …`; `owed` empty |
+| a product BOB ends a refused archive this way | NOT YET | Civicsmith's next job whose archive is refused |
+| the lane hands over past 40 % | PROVEN in fixture | `contextReason('process', 410000)` refuses, 390000 passes |
+| the lane's hook passes the one-shot task (successor or probe) and refuses the rest; a job's refused | PROVEN in fixture, and live | nine refused shapes; live: the probe's `create_trigger` passed the hook, 13:25Z |
+| a session a scheduled task starts: its sources, tools and depth | measuring | the probe's stored request (13:25Z): `sources: []`, no connector; due 13:28Z, not yet fired at 13:34Z |
