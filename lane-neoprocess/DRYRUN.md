@@ -202,3 +202,14 @@ Civicsmith's MONEY #1: its START (BOB's entry) said to take in its module's bran
 | a conflict left to the job with its files and the next steps | PROVEN in fixture | the conflicted file listed; the push named |
 | the hook: a hand merge refused with the command named to a job only; the command itself passes | PROVEN in fixture | `preReason` for job and BOB |
 | a live product job takes in its branch | NOT YET | Civicsmith's REGISTERS job (`job/T53/registers`), once its BOB names the command in the entry |
+
+## 16. Certification of issue 86's fix (GOV 5; 30 Oct 2026, #16)
+
+Civicsmith's BOB #338: a COMPLETE job's pull request went unmerged for hours, because each of BOB's preparation commits on the tranche (rulings, task summaries, wording, plan entries: P18, P19) put its green tip behind again before the next 13-minute gate ended, and `proc merge` updated every tip behind the tranche. Now a tip behind the tranche only by BOB's records the gate does not read for its module (`gateNeutral`, JOB-LIFE §6; INT 3, 5) is merged as it stands; any other file updates it, named with why. Checked against the principles: P7 and P11 (the gate's result holds: it reads none of those files for the module, and every check inherits the base's findings), P12 (the merge commit carries the tip; nothing is rebased), P18 and P19 (BOB prepares without holding back finished work); the layer's close still runs every check over the whole product (INT 7). Suite green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| a file the gate reads (the layers) moved: the tip updated, the file named | PROVEN in fixture | `held` names `build/layers.md` |
+| a ruling and another module's task summary moved: the green tip merged as it stands, the files named | PROVEN in fixture | `over` lists both; the merge printed, no update |
+| the module's own task summary moved: held | PROVEN in fixture | `held` names it |
+| a live product job merges over BOB's records | NOT YET | Civicsmith's next `proc merge` with its BOB preparing |
