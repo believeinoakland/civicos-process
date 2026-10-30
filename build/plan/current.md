@@ -33,6 +33,7 @@
 - N2-10 · ARC-3: the words check refuses a literal user-facing sentence in a test and names the key; the coverage and fixtures checks unchanged. Test: a fixture test with a sentence fails, the same test by key passes.
 - N2-11 · ARC-5, GAT-7: `checks/run.mjs` writes one machine-readable result (module, file, line, check, finding) beside its text; `status` and the gate read it.
 - N2-12 · ARC-4: scoping to a module and the whole-product run are one function with a `--module` switch; the layer-close run is the whole-product run.
+- N2-45 · ARC-2 with REQ 8 (found at layer 1's start, K1): a module's `paths` or `tests` entry may name a file its live job has not yet written: the format check reports such an entry as pending while the module's job reads STARTING or WORKING on the state branch, and fails it only once the module's layer has closed; the ownership check is unchanged. Test: a map entry naming no file passes beside a live job line and fails without one.
 
 **requirements**
 - N2-13 · REQ-1, REQ-4: parsing of requirement files, `serviceBlocks`, the mark strike move to `tools/requirements.mjs` with their tests.
