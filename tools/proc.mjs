@@ -560,7 +560,7 @@ export function rootBob(o) {
 // comment begins with LANE_MARK, so an issue with none is NEW. `.git/proc-issues.json` keeps the last reading for the
 // lane's Stop hook, which has no network.
 export const LANE_MARK = '**neoProcess lane** · ', ISSUES_FILE = 'proc-issues.json', ISSUE_FILE = 'proc-issue.json', BACKSTOP_FILE = 'proc-backstop.json';
-export const ISSUE_FRESH_MIN = 30;
+export const ISSUE_FRESH_MIN = 30, STOP_CAP = 4;
 export function processRepo() {
   let url = ''; try { url = execFileSync('git', ['-C', PROCESS, 'remote', 'get-url', 'origin'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { /* none */ }
   const m = url.match(/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/);
@@ -1382,8 +1382,19 @@ export function shims(o) {
   // PERMISSIONS §2.4, §6: the standing list, Bob's, applied to every product; K1702's refusal of a session's edit of the
   // settings file is row X4 of the dry run (then Bob commits it once and this only checks drift).
   const standing = JSON.parse(readFileSync(join(PROCESS, 'permissions.json'), 'utf8'));
+  // Issue 62: the product's own session setup (PRODUCT-SUPPLIES: `.claude/hooks/session-start.sh`, the product's to write)
+  // is registered as a SessionStart hook here, so the settings the shims own carry it; the gate takes its Node version from
+  // the product (`.nvmrc` or `.node-version`) and installs a locked npm tree before it runs, as the product's own CI does.
+  const has = (f) => existsSync(join(R.root, f));
+  const sessionStart = has('.claude/hooks/session-start.sh') ? { hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"' }] }] } } : {};
+  const nodeFile = ['.nvmrc', '.node-version'].find(has);
+  const nodeStep = nodeFile ? `node-version-file: ${nodeFile}` : 'node-version: 22';
+  const npmStep = has('package-lock.json') ? `
+      - name: the product's locked dependencies, as its own CI installs them
+        run: npm ci` : '';
   const files = {
-    '.claude/settings.json': `${JSON.stringify({ permissions: { allow: standing.allow, deny: standing.deny || [] } }, null, 2)}\n`,
+    // a turn refused four times in a row ends (measured 30 Oct: the platform's cap, set here, ends it after that many; its default is eight)
+    '.claude/settings.json': `${JSON.stringify({ permissions: { allow: standing.allow, deny: standing.deny || [] }, env: { CLAUDE_CODE_STOP_HOOK_BLOCK_CAP: String(STOP_CAP) }, ...sessionStart }, null, 2)}\n`,
     'CLAUDE.md': `# Built by neoProcess
 
 The process is \`${name}\`, attached at \`${proc}\` on its branch \`${ref}\` (if it is missing, attach it with add_repo, clone it there and check that branch out). Nothing about the process is decided in this repository: it supplies what \`${proc}/${supplies}\` lists, and nothing else.
@@ -1457,7 +1468,7 @@ jobs:
           path: .neoprocess
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          ${nodeStep}${npmStep}
       - name: the gate (artifacts, ownership, the module's tests and its users', the checks, the sizes, the shims), against the merge ref's own base
         run: node .neoprocess/tools/proc.mjs gate --product "${rel}" --process "${proc}" --repo "${name}" --ref "${ref}" --base HEAD^1
 `,

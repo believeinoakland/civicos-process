@@ -336,8 +336,10 @@ export function plainFaults(message) {
   let t = String(message || '').replace(/\r/g, '');
   t = t.replace(/^\s*(```|~~~)[^\n]*\n[\s\S]*?^\s*\1\s*$/gm, ' ');            // a fenced block: text to paste
   t = t.replace(/!?\[([^\]\n]*)\]\([^)\n]*\)/g, '$1').replace(/<?https?:\/\/[^\s>)]+>?/g, ' ');   // links: their text only
+  // a line that links a page is an act with its place: the page holds the steps (a setup page written from the screens)
+  const linked = new Set(String(message || '').replace(/\r/g, '').split('\n').filter((l) => /\]\([^)\s]+\)|https?:\/\//.test(l)).map((l) => l.replace(/!?\[([^\]\n]*)\]\([^)\n]*\)/g, '$1').replace(/<?https?:\/\/[^\s>)]+>?/g, ' ')));
   const list = new Set(numberedList(t).split('\n').filter(Boolean)), lines = t.split('\n');
-  const prose = lines.filter((l) => !list.has(l.replace(/\s+/g, ' ').trim())).join('\n');
+  const prose = lines.filter((l) => !list.has(l.replace(/\s+/g, ' ').trim()) && !linked.has(l)).join('\n');
   for (const m of t.matchAll(/`([^`\n]+)`/g)) add('code in backticks', m[0]);
   const plain = t.replace(/`[^`\n]+`/g, ' ');
   for (const m of plain.matchAll(/\b(?:session|trig|env|ccpool|toolu|msg|file)_[0-9A-Za-z]{6,}\b/g)) add('a session, trigger or environment id', m[0]);
