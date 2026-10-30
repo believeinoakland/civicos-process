@@ -33,7 +33,7 @@
 //   job posted --module <m> [--comment <id>] [--ready]      review decide --module <m> (--review | --no-review) --reason "<…>"
 //   review result --module <m> --result-file <f>      merge --module <m> --head <sha> --gate <conclusion>      merged --module <m> --sha <commit>
 //   bob release      (a retiring BOB, once none of its workers runs; ROOT: --session <id> --failed "<get_session>"; issue 90)
-//   job reopen --module <m> --change-file <f>      job retire --module <m>      job archived --module <m> --session <id> --usage <json>
+//   job reopen --module <m> --change-file <f>      job retire --module <m>      job archived --module <m> --session <id> --usage <json> | --unmeasured "<the refusal>"
 //   defect --module <m> --what "<…>"      bob archived --name "BOB #n" --session <id> --usage <json> [--tranche <T>]
 //   reading --role <bob|job|lane|root|process|onboard>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
 //   tranche open --plan-file <f>      round open --plan-file <f>      round close      tranche close      tranche merged --sha <commit>      footprint [--base <ref>]
@@ -1473,7 +1473,7 @@ export function jobRetire(o) {
   const users = modules(R).filter((y) => y.layer === x.layer && (y.uses || []).includes(m)).map((y) => [y.id, jobOf(R, y.id)]).filter(([, u]) => u && !['MERGED', 'ARCHIVED'].includes(u.state));
   if (users.length) refuse(`running jobs of the layer use ${m}: ${users.map(([id, u]) => `${id} ${u.state}`).join(', ')} (a change to a provider re-opens a user mid-layer)`);
   planEdit(R, (p) => owe(p, [`archive ${m}`]), `owed: archive ${m}`);
-  return { archive: { tool: 'archive_session', session_id: j.session }, then: `proc job archived --module ${m} --session ${j.session} --usage '<archive_session usage json>'` };
+  return { archive: { tool: 'archive_session', session_id: j.session }, then: `proc job archived --module ${m} --session ${j.session} --usage '<archive_session usage json>'; if the archive is refused, --unmeasured "<the refusal>" in place of --usage (the session left idle)` };
 }
 // Every job of the layer merged; the artifacts regenerated and verified; every check over the product, judged against
 // the tranche as it opened; the layer CLOSED; the live jobs' archives owed (JOB-LIFE §8; rulebook INT 7).
@@ -1503,7 +1503,7 @@ export function layerClose(o) {
   }
   const live = jobs.filter(([, j]) => j.state === 'MERGED' && j.session);
   planEdit(R, (p) => ({ ...owe(p, live.map(([m]) => `archive ${m}`)), layers: { ...p.layers, [L]: 'CLOSED' } }), `layer ${L} closes`);
-  return { layer: L, commit, archive: live.map(([m, j]) => ({ module: m, session: j.session, then: `proc job archived --module ${m} --session ${j.session} --usage '<json>'` })) };
+  return { layer: L, commit, archive: live.map(([m, j]) => ({ module: m, session: j.session, then: `proc job archived --module ${m} --session ${j.session} --usage '<json>' (or --unmeasured "<the refusal>" if the archive is refused)` })) };
 }
 // A defect found in a merged module is a metrics row naming whether its merge was reviewed (rulebook INT 10).
 export function defect(o) {
@@ -1516,18 +1516,24 @@ export function defect(o) {
   return { commit: commitPush(R, TRANCHE, [csv], `metrics ${T}: defect in ${m} (merge reviewed: ${reviewed})`), reviewed };
 }
 // A job's session archived: its row from archive_session's usage (P14); ARCHIVED when it was the job's live session.
+// Issue 95: a job outlives the BOB that started it (a COMPLETE job waits for its merge across handoffs), and the
+// classifier refuses an archive by a BOB that did not create the session or its predecessor's child ("Interfere With
+// Workloads", Civicsmith's R-BOB-339-1, 30 Oct). `--unmeasured "<the refusal>"` then ends the job on the record without
+// the archive: the session is left idle (an idle session costs nothing, GRANTS §1), its row names it unmeasured with
+// empty counts, never estimated (rulebook USE 2), and nothing waits on it.
 export function jobArchived(o) {
-  const R = repo(o.product), m = o.module; if (!m || !SESSION.test(o.session || '')) refuse('--module <m> --session <id> --usage <json>');
+  const R = repo(o.product), m = o.module; if (!m || !SESSION.test(o.session || '') || (o.usage == null) === (o.unmeasured == null)) refuse('--module <m> --session <id> and either --usage <json> or --unmeasured "<why the archive could not be taken>"');
+  if (o.unmeasured != null && !String(o.unmeasured).trim()) refuse('--unmeasured "<why>": name the refusal (its words, or its refusal id)');
   on(R, TRANCHE);
-  const j = loadJob(R, m), u = typeof o.usage === 'string' ? JSON.parse(o.usage) : o.usage || {};
+  const j = loadJob(R, m), u = o.unmeasured != null ? {} : typeof o.usage === 'string' ? JSON.parse(o.usage) : o.usage || {};
   const { id: T } = tranche(R), csv = `build/metrics/${T}.csv`, cur = R.read(csv) ?? METRICS_HEAD;
   if (cur.split('\n').some((l) => l.startsWith(`${o.session},`))) refuse(`${o.session} already has its row in ${csv}`);
   const size = (stateRead(R, `jobs/${m}/report.md`) || '').match(/^Size: test runs (\d+), module lines (\d+)/m) || [];
   const counts = (j.merges || []).map((x) => Number(x.match(/reviews:(\d+)/)?.[1] || 0));
   const reviewedMerges = counts.filter((c, i) => c > (i ? counts[i - 1] : 0)).length;
   const reviewed = counts.length ? `${reviewedMerges}/${counts.length}` : j.review ? (/^review · /.test(j.review) ? 'yes' : 'no') : '';
-  R.write(csv, `${cur}${[o.session, 'job', o.name || j.name, m, u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', size[1] ?? j.runs, size[2] ?? '', reviewed, j.session === o.session ? '' : 'replaced'].join(',')}\n`);
-  const commit = commitPush(R, TRANCHE, [csv], `metrics ${T}: ${o.name || j.name} archived`);
+  R.write(csv, `${cur}${[o.session, 'job', o.name || j.name, m, u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', size[1] ?? j.runs, size[2] ?? '', reviewed, [j.session === o.session ? '' : 'replaced', o.unmeasured != null ? `unmeasured: ${String(o.unmeasured).replace(/[,\n]/g, ' ').trim()}` : ''].filter(Boolean).join('; ')].join(',')}\n`);
+  const commit = commitPush(R, TRANCHE, [csv], `metrics ${T}: ${o.name || j.name} ${o.unmeasured != null ? 'left idle, unmeasured' : 'archived'}`);
   if (j.session === o.session) { saveJob(R, m, { ...j, state: 'ARCHIVED' }, `${m}: ARCHIVED`); planEdit(R, (p) => clear(p, `archive ${m}`), `${m} archived`); }
   return { commit };
 }
