@@ -13,7 +13,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { ROOT_BOB_FILE, repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN } from './proc.mjs';
+import { ROOT_BOB_FILE, repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN, WORKERS_FILE, runningWorkers } from './proc.mjs';
 import { resolve, sep } from 'node:path';
 import { stepsReason, lastAssistantText, plainReason, BOB_READS, evidenceReason, EVIDENCE_MODEL } from './lib.mjs';
 import { spawnSync } from 'node:child_process';   // P20: steps for Bob verified against their source (`proc steps`)
@@ -151,6 +151,11 @@ export function preReason(role, input, ctx) {
       if (want && !want.passed && ['title', 'source_url', 'source_revision', 'prompt'].every((k) => ti[k] === want[k]) && (ti.model == null || ti.model === want.model)) return null;
       return want?.passed ? `${want.title} was already started by this ROOT: do nothing (SESSIONS §3a)` : 'ROOT starts only a BOB, with the create_session `proc root bob --n <n>` printed, unchanged (rulebook SES 1)';
     }
+    // issue 90 (Bob, 30 Oct): a retiring BOB keeps its session until its workers have finished and it has released itself
+    if (role === 'root' && tool === `${REMOTE}archive_session`) {
+      let r = null; try { r = parsePlan(stateRead(R_of(ctx), 'plan.md') || '').retiring.find((x) => x.session === ti.session_id); } catch { /* no epoch: nothing retiring */ }
+      if (r?.state === 'running') return `${r.name} is retiring and may still be finishing its workers: archive it once it sends "RELEASED ${r.name}" (its Retiring line then reads released); if get_session reads it failed or archived, \`proc bob release --session ${r.session} --failed "<what get_session reads>"\` first (PROTOCOL §7a)`;
+    }
     if ([`${REMOTE}create_session`, `${REMOTE}create_trigger`, `${REMOTE}fire_trigger`, `${REMOTE}send_later`].includes(tool)) return `a ${role} starts no session and arms no timer (rulebook SES 1)`;
     // the neoProcess lane opens and merges its own pull request to the process repository's main (no BOB there); it never reviews one
     if (OUTSIDE.has(role) && [`${GH}merge_pull_request`, `${GH}create_pull_request`].includes(tool)) return null;   // an onboarding session: the one seed pull request
@@ -243,6 +248,10 @@ export function stopReason(role, ctx) {
   if (role === 'bob' && !ctx.epoch) return null;   // carrying a running tranche before the first epoch (issue 69): no queue yet
   const R = R_of(ctx), st = status({ product: R.dir });
   const why = [...st.gate];
+  if (role === 'bob') {   // issue 90: a retiring BOB stays while its workers run, and releases itself once none does
+    const r = parsePlan(stateRead(R, 'plan.md') || '').retiring.find((x) => x.session === ctx.session);
+    if (r?.state === 'running' && (runningWorkers(ctx.root, ctx.session) || []).length === 0) why.push(`you are retiring and none of your workers runs: record any result not yet recorded, then \`proc bob release\` and send ROOT the line it prints (PROTOCOL §7a)`);
+  }
   if (role === 'job') {
     const j = st.jobs.find((x) => x.module === ctx.module);
     if (j?.state === 'WORKING') why.push('your record reads WORKING: finish the step, or set the wait you end on (`proc job state --set "WAITING: …"`), or run `proc job complete` (JOB-LIFE §11)');
@@ -331,6 +340,7 @@ function main() {
     let ok = null; try { ok = allowReason(role, input, ctx); } catch { /* falls through to the rules */ }
     if (role === 'root' && input.tool_name === `${REMOTE}create_session`) { try { const f = join(root, '.git', ROOT_BOB_FILE), w = JSON.parse(readFileSync(f, 'utf8')); writeFileSync(f, JSON.stringify({ ...w, passed: new Date().toISOString() })); } catch { /* none */ } }
     if (input.tool_name === 'Skill' && isReader(input.tool_input?.skill) && r.session) { try { writeFileSync(join(root, '.git', READER_FILE), JSON.stringify({ session: r.session, at: new Date().toISOString() })); } catch { /* not a git checkout */ } }
+    if (input.tool_name === 'Agent' && input.tool_input?.run_in_background === true && r.session) { try { const run = runningWorkers(root, r.session) || []; writeFileSync(join(root, '.git', WORKERS_FILE), JSON.stringify({ session: r.session, at: new Date().toISOString(), running: [...run, { id: input.tool_use_id, type: 'subagent', description: input.tool_input.description }] })); } catch { /* not a git checkout */ } }
     if (role === 'process' && input.tool_name === `${REMOTE}send_later`) { try { writeFileSync(join(root, '.git', BACKSTOP_FILE), JSON.stringify({ due: new Date(Date.now() + Number(input.tool_input?.delay_minutes) * 60e3).toISOString() })); } catch { /* not a git checkout */ } }
     if (ok) console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `PROCESS: ${ok}` } }));
     return;
@@ -346,6 +356,8 @@ function main() {
     return;
   }
   if (ev === 'stop') {
+    // issue 90: the session's running background tasks, as Claude Code lists them to the Stop hook (measured #16, 30 Oct)
+    if (Array.isArray(input.background_tasks) && r.session) { try { writeFileSync(join(root, '.git', WORKERS_FILE), JSON.stringify({ session: r.session, at: new Date().toISOString(), running: input.background_tasks.filter((t) => t.status === 'running').map(({ id, type, description }) => ({ id, type, description })) })); } catch { /* not a git checkout */ } }
     let why = null; try { why = stopReason(role, ctx); } catch (e) { why = `the stop check failed (${e.message}); fix the cause`; }
     // Bob reads these roles' last message and only it (rulebook SES 9): the fresh reader on, steps verified, plain words
     if (!why && BOB_READS.has(role)) why = readerReason(role, ctx);
