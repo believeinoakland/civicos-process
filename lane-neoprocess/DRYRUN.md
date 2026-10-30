@@ -215,3 +215,14 @@ Civicsmith's BOB #338: a COMPLETE job's pull request went unmerged for hours, be
 | a live product job merges over BOB's records | NOT YET | Civicsmith's next `proc merge` with its BOB preparing |
 | issue 88: `job complete` on a branch behind the tranche: held by another module's code (named), completed as it stands past a plan note | PROVEN in fixture | the refusal names `alpha/src/index.mjs (a module's code or tests)`; the job completed with the tranche not an ancestor |
 | a live product job completes over BOB's records | NOT YET | Civicsmith's next completion while its BOB prepares |
+
+## 17. Certification of issue 90's fix (GOV 5; 30 Oct 2026, #16)
+
+Bob, 30 Oct: ROOT archived a retiring BOB while it still had workers running; the old BOB should not be retired until its workers are finished. Measured first (#16, a headless Haiku session in the scratchpad with logging hooks): the Stop hook's input lists the session's running background tasks (`background_tasks`, a background subagent `type: subagent, status: running`), PostToolUse gives the agent's id, SubagentStart and SubagentStop fire with it. Now `proc handoff` records the outgoing BOB `Retiring` on the state branch; its Stop hook records its running tasks at each turn's end (and the PreToolUse hook each worker it starts), lets its turns end while any runs, and once none runs refuses until `proc bob release` (which refuses while any is recorded) and the line `RELEASED BOB #<n>` to ROOT; ROOT's hook refuses the archive of a retiring BOB until released (a failed one ROOT releases with `--failed`, from `get_session`); the successor leaves the `Working` lines of a retiring BOB alone. PROTOCOL §7a, SESSIONS §3a. Checked against the principles: P13 (a worker's work is not spent twice), P19 (no wait: the successor works meanwhile), P17 (Bob's direction, the details BOB's). Suite green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| the Stop hook sees a background worker running | PROVEN (headless) | the hook log: `background_tasks` with the subagent `running` at the first turn's end |
+| handoff records Retiring once; release refused before any record, while a worker runs; the turn may end while it runs, not after | PROVEN in fixture | the refusals' words; `stopReason` |
+| ROOT's archive refused while running, passed once released; the successor's acts say so; ROOT's `--failed` release | PROVEN in fixture | `preReason('root', archive_session)` |
+| a live product BOB retires after its workers | NOT YET | Civicsmith's next handoff (its BOB's session must start after this is on main) |

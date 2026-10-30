@@ -232,7 +232,7 @@ test('an epoch, an ask through a dormant lane, the lane\'s life, the queue, the 
   // a successor BOB: the Status line moves, the predecessor's archive is owed in its acts
   const tk2 = N.takeover(o({ name: 'BOB #2', session: B2 }));
   assert.deepEqual(tk2.previous, { name: 'BOB #1', session: B1 });
-  assert.match(tk2.acts.join(';'), /archive BOB #1/);
+  assert.match(tk2.acts.join(';'), /ROOT archives BOB #1 \S+ once it is released/);
   assert.equal(N.addr(o({ bob: true })), B2);
 
   // the lane's life ends: re-chartered, routed (live), archived with its usage, closed; the epoch closes and the branch is gone
@@ -1031,4 +1031,44 @@ test('issue 84: a job takes in its own module\'s branch from an earlier round, a
   assert.match(preReason('job', merge, { module: 'money', root: a.root }), /merged only by the queue[\s\S]*proc job takein --branch job\/<tranche>\/<module>/);
   assert.doesNotMatch(preReason('bob', merge, { root: R }), /takein/);
   assert.equal(preReason('job', { tool_name: 'Bash', tool_input: { command: 'node /home/user/neoprocess/tools/proc.mjs job takein --branch job/T53/money --sha 996730f4' } }, { module: 'money', root: a.root }), null);
+});
+
+test('issue 90: a retiring BOB keeps its session until its workers have finished, and ROOT archives it only then', async () => {
+  const w = world(), o = (x) => O(w, x), root = w.bob.root;
+  const { preReason, stopReason } = await import('../hooks.mjs');
+  N.epochOpen(o()); N.takeover(o({ name: 'BOB #1', session: B1 }));
+  const workers = (running) => writeFileSync(join(root, '.git', N.WORKERS_FILE), JSON.stringify({ session: B1, at: new Date().toISOString(), running }));
+  assert.throws(() => N.bobRelease(o()), /is not retiring: `proc handoff` records/);
+  const h = N.handoff(o());
+  assert.match(h.then, /`proc bob release`/);
+  const plan = () => N.parsePlan(N.stateRead(N.repo(w.bob.dir), 'plan.md'));
+  assert.deepEqual(plan().retiring, [{ name: 'BOB #1', session: B1, state: 'running' }]);
+  N.handoff(o());   // a second handoff of the same BOB records it once
+  assert.equal(plan().retiring.length, 1);
+  // ROOT: the archive is refused while BOB #1 is retiring; its own session's role file in another clone
+  const r = w.clone('root'); writeFileSync(join(r.root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'root', product: 'toy', session: 'session_01RRRRRRRRRRRRRRRRRRRRRRRR', name: 'ROOT' }));
+  const archive = { tool_name: 'mcp__claude-code-remote__archive_session', tool_input: { session_id: B1 } };
+  assert.match(preReason('root', archive, { root: r.root, product: 'toy' }), /BOB #1 is retiring and may still be finishing its workers: archive it once it sends "RELEASED BOB #1"/);
+  // BOB #1: nothing recorded yet, then a worker running, then none
+  assert.throws(() => N.bobRelease(o()), /not recorded yet: end this turn/);
+  workers([{ id: 'a1', type: 'subagent', description: 'summary of money' }]);
+  assert.throws(() => N.bobRelease(o()), /1 of your workers still run \(summary of money\)/);
+  assert.doesNotMatch(stopReason('bob', { ...N.readRole(root), root }) || '', /you are retiring/);   // its turn may end while they run
+  workers([]);
+  assert.match(stopReason('bob', { ...N.readRole(root), root }) || '', /you are retiring and none of your workers runs: .*`proc bob release`/);
+  // the successor takes over meanwhile: ROOT archives BOB #1 once released, and nothing out under it is re-dispatched
+  const b2 = w.clone('bob2'), t2 = N.takeover({ product: b2.dir, name: 'BOB #2', session: B2 });   // its own container
+  assert.match(t2.acts[0], /^ROOT archives BOB #1 \S+ once it is released/);
+  const rl = N.bobRelease(o());
+  assert.match(rl.next, /"RELEASED BOB #1"/);
+  assert.deepEqual(plan().retiring, [{ name: 'BOB #1', session: B1, state: 'released' }]);
+  assert.equal(plan().bob.name, 'BOB #2');
+  assert.equal(preReason('root', archive, { root: r.root, product: 'toy' }), null);
+  assert.equal(N.bobRelease(o()).already, true);
+  // ROOT releases a retiring BOB only as failed, read from get_session
+  writeFileSync(join(root, '.git', N.ROLE_FILE), JSON.stringify({ ...N.readRole(root), session: B2, name: 'BOB #2' }));
+  N.handoff(o());
+  assert.deepEqual(plan().retiring.map((x) => [x.name, x.state]), [['BOB #2', 'running']]);   // a released one is dropped at the next handoff
+  assert.throws(() => N.bobRelease({ product: r.dir, session: B2 }), /--failed/);
+  assert.equal(N.bobRelease({ product: r.dir, session: B2, failed: 'SESSION_STATUS_FAILED' }).released, 'BOB #2');
 });

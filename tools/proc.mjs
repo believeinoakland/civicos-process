@@ -32,6 +32,7 @@
 //   job takein --branch job/<tranche>/<m> [--sha <commit>]      (issue 84: the job's own module's branch from an earlier round)
 //   job posted --module <m> [--comment <id>] [--ready]      review decide --module <m> (--review | --no-review) --reason "<…>"
 //   review result --module <m> --result-file <f>      merge --module <m> --head <sha> --gate <conclusion>      merged --module <m> --sha <commit>
+//   bob release      (a retiring BOB, once none of its workers runs; ROOT: --session <id> --failed "<get_session>"; issue 90)
 //   job reopen --module <m> --change-file <f>      job retire --module <m>      job archived --module <m> --session <id> --usage <json>
 //   defect --module <m> --what "<…>"      bob archived --name "BOB #n" --session <id> --usage <json> [--tranche <T>]
 //   reading --role <bob|job|lane|root|process|onboard>      gate [--module <m>] [--base <ref>]      shims [--process <path>] [--repo <owner/name>] [--ref <branch>] [--check]
@@ -207,9 +208,10 @@ export function parsePlan(text) {
   const s = (text || '').match(STATUS);
   const owed = ((text || '').match(/^\*\*Owed\*\* · (.*)$/m)?.[1] ?? '').split('; ').map((x) => x.trim()).filter((x) => x && x !== 'none');
   const layers = Object.fromEntries([...((text || '').match(/^\*\*Layers\*\* · (.*)$/m)?.[1] ?? '').matchAll(/(\d+) (STARTED|CLOSED)/g)].map((x) => [Number(x[1]), x[2]]));
-  return { state: s?.[1] ?? null, bob: s ? { name: s[2], session: s[3] } : null, owed, layers };
+  const retiring = [...((text || '').match(/^\*\*Retiring\*\* · (.*)$/m)?.[1] ?? '').matchAll(/(BOB #\d+) (session_[0-9A-Za-z]+) (running|released)/g)].map((x) => ({ name: x[1], session: x[2], state: x[3] }));
+  return { state: s?.[1] ?? null, bob: s ? { name: s[2], session: s[3] } : null, owed, layers, retiring };
 }
-const fmtPlan = (p) => `# Plan (transient)\n\n**Status** · ${p.state} · ${p.bob.name} · ${p.bob.session}\n**Owed** · ${p.owed.join('; ') || 'none'}\n${Object.keys(p.layers || {}).length ? `**Layers** · ${Object.entries(p.layers).map(([l, s]) => `${l} ${s}`).join('; ')}\n` : ''}`;
+const fmtPlan = (p) => `# Plan (transient)\n\n**Status** · ${p.state} · ${p.bob.name} · ${p.bob.session}\n**Owed** · ${p.owed.join('; ') || 'none'}\n${Object.keys(p.layers || {}).length ? `**Layers** · ${Object.entries(p.layers).map(([l, s]) => `${l} ${s}`).join('; ')}\n` : ''}${(p.retiring || []).length ? `**Retiring** · ${p.retiring.map((r) => `${r.name} ${r.session} ${r.state}`).join('; ')}\n` : ''}`;
 function planEdit(R, edit, message) {
   const p = parsePlan(stateRead(R, 'plan.md') || '');
   const next = edit(p);
@@ -238,8 +240,9 @@ export function takeover(o) {
   writeRole(R, { role: 'bob', product: R.rel('.'), session: o.session, name: o.name, epoch: e });
   const st = status(o), check = selfcheck(R, TRANCHE);
   const acts = [];
-  if (before.bob && before.bob.session !== o.session) acts.push(`archive ${before.bob.name} ${before.bob.session} once idle, then: proc bob archived --name "${before.bob.name}" --session ${before.bob.session} --usage '<archive_session usage json>'`);
-  for (const w of st.working.filter((x) => x.by && x.by !== o.name && x.by !== o.session)) acts.push(`re-dispatch ${w.ask} (${w.stage}) from its brief: it was out under ${w.by}, which is replaced (PROTOCOL §7a)`);
+  if (before.bob && before.bob.session !== o.session) acts.push(`ROOT archives ${before.bob.name} ${before.bob.session} once it is released (its workers finished, \`proc bob release\`); then, from the usage ROOT sends: proc bob archived --name "${before.bob.name}" --session ${before.bob.session} --usage '<archive_session usage json>'`);
+  const finishing = new Set((before.retiring || []).filter((r) => r.state === 'running').flatMap((r) => [r.name, r.session]));   // issue 90: still alive, finishing its own
+  for (const w of st.working.filter((x) => x.by && x.by !== o.name && x.by !== o.session)) acts.push(finishing.has(w.by) ? `${w.ask} (${w.stage}) is out under ${w.by}, which is retiring and finishing its workers: leave it to it (PROTOCOL §7a)` : `re-dispatch ${w.ask} (${w.stage}) from its brief: it was out under ${w.by}, which is replaced (PROTOCOL §7a)`);
   // issue 74: the rest of BOB's set (SESSIONS §3), named with its size; the state branch's lines and asks are in the queue above
   const manifest = R.read('build/manifest.md') || '', channel = manifest.match(/^\*\*Channel\*\* · `?([^`\s]+)`?/m)?.[1];
   const set = [PLAN, 'build/manifest.md', ...(channel ? [channel] : []), 'build/areas.md', 'build/lanes.md'].map((f) => { const t = R.read(f); return { file: f, bytes: t === null ? null : Buffer.byteLength(t) }; });
@@ -538,7 +541,7 @@ export function rootStart(o) {
   const R = repo(o.product), e = epoch(R);
   writeRole(R, { role: 'root', product: R.rel('.'), session: o.session, name: o.name || 'ROOT', ...(e ? { epoch: e } : {}) });
   const plan = e ? parsePlan(stateRead(R, 'plan.md', e) || '') : null;
-  return { role: 'root', epoch: e, bob: plan?.bob ?? null, next: plan?.bob ? `BOB is ${plan.bob.name} (${plan.bob.session}); when it sends "START BOB #<n>: ${TRANCHE} @ <commit>", run \`proc root bob --n <n> --commit <commit>\` and make the call it prints` : `no BOB is recorded${e ? '' : ' and no epoch is open'}: start the first with \`proc root bob --n <n> --branch <the branch the build continues on>\` and make the call it prints; that BOB opens the epoch` };
+  return { role: 'root', epoch: e, bob: plan?.bob ?? null, next: plan?.bob ? `BOB is ${plan.bob.name} (${plan.bob.session}); when it sends "START BOB #<n>: ${TRANCHE} @ <commit>", run \`proc root bob --n <n> --commit <commit>\` and make the call it prints; archive the BOB it replaces only once that BOB sends "RELEASED BOB #<n>" (its workers finished: issue 90), then send its usage to the new BOB` : `no BOB is recorded${e ? '' : ' and no epoch is open'}: start the first with \`proc root bob --n <n> --branch <the branch the build continues on>\` and make the call it prints; that BOB opens the epoch` };
 }
 const bobGoal = (R) => `/goal The run has ended, or the queue \`proc status --product ${R.rel('.')}\` prints holds only what waits on Bob and that was sent to ROOT, or your handoff was sent to ROOT, or you cannot start and your last message tells Bob why and what would let you; everything committed and pushed.`;
 export function rootBob(o) {
@@ -919,7 +922,29 @@ export function handoff(o) {
   sized(text, 'the handoff');
   // the refresh recorded for this session: BOB's Stop hook lets a turn past 40 % of its window end (rulebook SES 5)
   const me = readRole(R.root); if (me?.role === 'bob') writeFileSync(join(R.root, '.git', 'proc-handoff.json'), JSON.stringify({ session: me.session, at: now() }));
-  return { text, start: `START BOB #${n}: ${TRANCHE} @ ${R.g(['rev-parse', '--short', 'HEAD'])}` };
+  // issue 90 (Bob, 30 Oct): the outgoing BOB is retiring, not retired: it keeps its session until its workers have finished
+  // and it has run `proc bob release`; ROOT's hook refuses its archive until then (PROTOCOL §7a)
+  if (st.bob && !parsePlan(stateRead(R, 'plan.md') || '').retiring.some((r) => r.session === st.bob.session)) planEdit(R, (p) => ({ ...p, retiring: [...(p.retiring || []).filter((r) => r.state !== 'released'), { ...st.bob, state: 'running' }] }), `${st.bob.name} retiring`);
+  return { text, start: `START BOB #${n}: ${TRANCHE} @ ${R.g(['rev-parse', '--short', 'HEAD'])}`, then: 'send the START line to ROOT; then record each of your workers\' results as it arrives, and once none is running, `proc bob release` (your session stays until then: PROTOCOL §7a)' };
+}
+// The background tasks the session's Stop hook saw running at its last turn's end, plus every worker started since
+// (the PreToolUse hook adds it): measured #16, 30 Oct, the Stop hook's input lists them as `background_tasks`.
+export const WORKERS_FILE = 'proc-workers.json';
+export const runningWorkers = (root, session) => { try { const w = JSON.parse(readFileSync(join(root, '.git', WORKERS_FILE), 'utf8')); return w.session === session ? w.running : null; } catch { return null; } };
+// issue 90: a retiring BOB released once none of its workers runs (BOB, its own), or one that failed (ROOT, from get_session)
+export function bobRelease(o) {
+  const R = repo(o.product), me = readRole(R.root), p = parsePlan(stateRead(R, 'plan.md') || '');
+  const who = me?.role === 'root' ? o.session : me?.role === 'bob' ? me.session : refuse('a retiring BOB releases itself; ROOT releases one only when get_session reads it failed or archived');
+  if (me?.role === 'root' && !o.failed) refuse('--session <the BOB> --failed "<what get_session reads>": ROOT releases only a BOB whose workers died with it');
+  const r = p.retiring.find((x) => x.session === who) ?? refuse(`${who} is not retiring: \`proc handoff\` records a BOB retiring`);
+  if (r.state === 'released') return { released: r.name, already: true };
+  if (me.role === 'bob') {
+    const run = runningWorkers(R.root, who);
+    if (run === null) refuse('your background tasks are not recorded yet: end this turn (the Stop hook records them), then run this again');
+    if (run.length) refuse(`${run.length} of your workers still run (${run.map((t) => t.description || t.id).join('; ')}): record each result as it arrives; your session stays until none runs`);
+  }
+  const commit = planEdit(R, (q) => ({ ...q, retiring: q.retiring.map((x) => (x.session === who ? { ...x, state: 'released' } : x)) }), `${r.name} released${o.failed ? ` (${String(o.failed).slice(0, 60)})` : ''}`);
+  return { released: r.name, commit, next: me.role === 'bob' ? `send ROOT (the session your start prompt names) the line "RELEASED ${r.name}": it archives you now` : `archive ${r.name} (${who}), then send its usage to the BOB in the plan's Status line` };
 }
 
 // ---- the job's life (JOB-LIFE): one job, one pull request; the gate by tools/lib.mjs's functions ----
@@ -2312,7 +2337,7 @@ export const COMMANDS = {
   'lane open': laneOpen, 'lane started': laneStarted, 'lane start': laneStart, 'lane state': laneState, 'lane charter': laneCharter, 'lane route': laneRoute, 'lane archived': laneArchived, 'lane close': laneClose,
   'layer start': layerStart, 'layer close': layerClose, 'job pr': jobPr, 'job started': jobStarted, 'job route': jobRoute, 'job start': jobStart, 'job state': jobState,
   'job complete': jobComplete, 'job takein': jobTakein, 'job posted': jobPosted, 'review decide': reviewDecide, 'review result': reviewResult, merge, merged,
-  'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived,
+  'job reopen': jobReopen, 'job retire': jobRetire, 'job archived': jobArchived, defect, 'bob archived': bobArchived, 'bob release': bobRelease,
   reading, gate: gateCmd, shims,
   'tranche open': trancheOpen, 'tranche carry': trancheCarry, 'round open': roundOpen, 'round close': roundClose, 'tranche close': trancheClose, 'tranche merged': trancheMerged, footprint,
   ruling, steps: stepsCmd, refused, 'refused routed': refusedRouted, 'repo setup': repoSetup, 'repo rename': repoRename, 'repo transfer': repoTransfer, 'repo shims': repoShims, 'root start': rootStart, 'root bob': rootBob, 'process start': processStart, 'process handoff': processHandoff, 'process status': processStatus, issue: issueFile, 'issue ack': issueAck, 'issue close': issueClose, 'issue reply': issueReply, 'issue seen': issueSeen, 'grants check': grantsCheck, init, 'onboard start': onboardStart,
