@@ -1,15 +1,12 @@
-PLATFORM #1 · N2 · layer 1 · module platform: complete a fifth time, after the third review's gap and a self-review of the whole change (K14).
+PLATFORM #1 · N2 · layer 1 · module platform: complete a sixth time, after the last review round (K15).
 
-**Entries applied** · N2-1 to N2-4 as before; the third review's R12 gap fixed (`TOOLS` holds the platform's whole tool-name list as data; `callsIn` and `callProblems` at the interface; rows for `list_issues`, `enable_pr_auto_merge`, `claude -p`); and the self-review's gaps below.
+**Entries applied** · N2-1 to N2-4 as before, with the three gaps of the last round fixed.
 
-**Self-review** · build/requirements/platform.md read whole, then `git diff origin/tranche...HEAD` whole; each requirement checked against the code and a test at the interface.
-- R1 · tools/platform.mjs (ACTS) · the fold of tools/acts.md dropped rows PLT-9 says are kept: the runner's repository creation, rulesets, rename and shims, the secret picked per owner, the background worker and its stop, a service's API, the grants check's HTTP, `git merge --ff-only`, `push_files` · `P.acts({ id: 'rulesets(process token)' })` refused as not an act · fixed: each restored from its recorded runs (40933605400, 40971833961, 40941547340, 40992502528, 41015721303, 40970557868 …), with its result fields; the test asserts each.
-- R1 R12 · tools/proc.mjs:1055 · `proc refused --act <id>` read predicted only on an exact id, so 21 ids of the retired act table (`create_session(job)`, `rulesets(an owner's token)`, `proc issue` …) would have read unpredicted · fixed: `isKnown(id)` (exact id, `ALIASES` for the tool's own commands, or the call name) and `proc refused` uses it; the test checks every one of the table's 60 ids and a made-up one.
-- R12 · tools/platform.mjs (TOOLS) · `Agent` and `TaskStop`, acts the process relies on, were outside the vocabulary · fixed: a `code` group in `TOOLS`.
-- R4 · tools/platform.mjs (`acts`) · `acts({ id: 'archive_session' })` by its bare name answered "not an act" rather than the classifier refusal · fixed, with a test.
-- R6 · tools/proc.mjs:440 · the comment still said the start command fast-forwards the copy · fixed (reads only, R6).
-- Comments in tools/platform.mjs (the act table's ids, `callName`) and the retirement note in tools/acts.md said what is no longer true · fixed.
-- R2, R3, R5, R7, R8, R9, R10, R11 · none found.
+**Self-review** · the round's three gaps, each fixed and shown by a test at the interface; nothing else changed.
+- R12 · tools/platform.mjs (`callsIn`) · a full tool name (`mcp__github__<name>`, `mcp__claude-code-remote__<name>`) was missed: the lookbehind failed on the `_` before the name · fixed: the known prefixes are stripped before matching; `callProblems("{ tool: 'mcp__github__fork_repository' }")` → `fork_repository: printed, and no row`, `callProblems("{ tool: 'mcp__claude-code-remote__interrupt_session' }")` → `interrupt_session: printed, and decided by the classifier case by case (R4)`.
+- R12 · tools/platform.mjs (TOOLS, ACTS) · `Skill` was outside the tool list and had no row · fixed: `Skill` in `TOOLS.code`, and the act `Skill(neoprocess)` (every session's start prompt invokes it; counted 1, PLATFORM #1's own start, the rest named and not counted).
+- R9 · tools/platform.mjs (`dispatch`) · with no process repository named by the caller the guard did not run · fixed: `processRepo()` reads it from the process clone's remote (any URL ending in `<owner>/<repo>`), else `PROCESS_REPO` (`neobobkrause/neoprocess`); `dispatch('rename', { repo: 'neobobkrause/neoprocess', name: 'x', role: 'job' })` is refused, and the call names the process repository's owner and name.
+- Not mine (K15): the reviewer's R6 finding on `processBehind`/`processRefresh` is maintenance's N2-38.
 
 **Not done** · none.
 
@@ -21,7 +18,7 @@ PLATFORM #1 · N2 · layer 1 · module platform: complete a fifth time, after th
 - `node tools/proc.mjs gate --module platform --product .` → ok true, fails none, tests 15/15
 - `node checks/ownership.mjs . platform origin/tranche HEAD` → 9 files changed; proc-legacy: 21 line(s) added, 126 removed; 0 failures
 - `node --test checks/test/*.test.mjs tools/test/*.test.mjs` → tests 300, pass 300, fail 0
-- tools/test/platform.test.mjs: the R1 R12 test of the act table's ids (`isKnown('made_up_act(anything)')` → false); the R4 R12 test (`callProblems("{ tool: 'mcp__github__made_up_tool', x: 1 }")` → `made_up_tool: printed as a call, and not a platform tool`)
+- tools/test/platform.test.mjs: the R4 R12 test (the two full-name cases above) and the R9 test (`dispatch('rename', { repo: 'neobobkrause/neoprocess', name: 'x', role: 'job' })` → refused, "never takes the process repository as a write target")
 
 Tests: 15/15. Checks: format, architecture, coverage, fixtures, ownership: no new finding.
-Size: test runs 5, module lines 891. Head 8ed57f5.
+Size: test runs 6, module lines 907. Head ff3eb6e.
