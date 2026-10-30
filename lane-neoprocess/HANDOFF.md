@@ -2,6 +2,8 @@
 
 **From** · neoProcess #15 (`session_012hdw2TtwUWftsP6A4fnU4L`), the lane's address, 30 Oct. Before it #14 `session_012hdw2SRrXZibnQhZJimtZw`, #13 `session_012hdw2RBTpZRfQe6ktTqwWR`, #12 `session_01RAN5emcFUWfGHdHMm5bqwR`. Branch `claude/modest-brahmagupta-vvaann` of `neobobkrause/neoprocess`. Its work reaches `main` by its own pull requests; the branch continues from `main`.
 
+**Moved to Bob's second Claude account** (Bob, 30 Oct, 11:xxZ, his words: *"the secondary Claude account is connected to the civicsmith github account - which is now a neoprocess collaborator. So now the second account can be used for both civicsmith and neoprocess development. So I need this Claude account to stand down its neoprocess development here."*). #15 stood down on the first account; #16 is started by Bob there from START-16. Its GitHub identity is `civicsmith`: its push to this branch, its pull requests' merge and the issue comments are measured at its start (unknown before). Civicsmith's sessions are on that account too.
+
 **Standing** · Bob, 29 Oct: keep working until there is no way to; nothing stops for him; a detail is never his (DES 1); plain words; PERMISSIONS §6 is his approval of all development and testing acts; every grant gathered before the work at one sitting (PERMISSIONS §10); one set of development tokens per owner account, a token short of a permission replaced, never worked around (PERMISSIONS §9); **no API key, ever** (§9.3); the network level stays Full (§8.8); the process names no product. Commit messages in plain words (the classifier reads them). The lane starts its successor by `proc process handoff`; Bob only when the chain breaks, from the START file.
 
 ## Read whole at start
@@ -10,20 +12,20 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## Where it stands (30 Oct; suite 280 green)
 
-- Certified: N1, onboarding both ways, X9, X10, the rename, the move (DRYRUN §6), the `shims` hook rule (#12); the issue route and the hooks' own path (DRYRUN §7, #13); plain words for Bob, ROOT's start, a product's session setup (DRYRUN §8, #13).
+- Certified: DRYRUN §6-14 (§13-14 NOT YET on the product).
 - **Issues are the channel** (Bob, 30 Oct, "Go with A"; GOV 5): `proc process status` lists them; acknowledge each NEW one (`proc issue ack`), close it naming the fix on `main` (`proc issue close`); the lane's Stop hook refuses a turn's end with one unacknowledged or no backstop due (`send_later`, the message `proc process status` prints).
 - **Plain words** (issue 61): every turn's last message of BOB, ROOT, a lane, this lane and onboarding passes the plain-words check and the fresh reader (the skill `neoprocess-reader`, invoked after the start); a turn refused four times in a row ends.
 - **Test sessions**: headless `claude -p` in the scratchpad (acts.md; DRYRUN §8).
 - **Attach no second repository** (PERMISSIONS §10.7); #13 had two (issue 63). Shims are regenerated on the runner.
-- The sitting page: https://claude.ai/artifact/MxN1zFJGGvDsRjB31xdwjp (version 18).
+- The sitting page (version 18) is on the first account, unreadable from the second (PERMISSIONS §10.6).
 
 ## What remains, in order
 
-1. **Done 30 Oct**: Civicsmith's shims on the runner (its PR 52); owed by its BOB, `.nvmrc` 26.10.0 (issue 62). The reply to a product's report (#15, PR #80, DRYRUN §13): `proc issue reply` on the lane's branch, merged with the fix; the product's BOB sees it in `proc status`, records it with `proc issue seen`. The first (issue 78) is on `main`; its live read is NOT YET.
-2. **Civicsmith** (read #15, 07:5xZ): BOB #337 handed off at 05:55Z (`START BOB #338: tranche @ 10ba9b77`, its PR 55 to merge once the gate is fixed); no takeover since, the plan still names #337. Its sessions are on another Claude account: why is unknown; Bob told. Issue 81 closed (PR #82; its shims on `main`, its PR 56); the replies to both reports are on `main` for #338's `proc status`. DRYRUN §13-14's NOT YET wait on it.
-3. **Issue 61 stays open** (DRYRUN §9, #14): the evidence check is live; rounds 2 and 3: about 24/24 understandable, 20/24 accurate, 23/24 act clear (`judge3.sh`); more wording no longer moves it. Bob told 30 Oct.
+1. **Done 30 Oct**: the reply to a product's report (#15, PR #80, DRYRUN §13): `proc issue reply`, merged with the fix; BOB sees it in `proc status`, records it with `proc issue seen`.
+2. **Civicsmith** (read #15, 07:5xZ): BOB #337 handed off at 05:55Z (`START BOB #338: tranche @ 10ba9b77`, its PR 55 to merge once the gate is fixed); no takeover since, the plan still names #337. Why is unknown; Bob was given the message for its ROOT. Issue 81 closed (PR #82; its shims on `main`, its PR 56); the replies to both reports are on `main` for #338's `proc status`. DRYRUN §13-14's NOT YET wait on it.
+3. **Issue 61 stays open** (DRYRUN §9): the evidence check is live; more wording no longer moves it (`judge3.sh`). Bob told 30 Oct.
 4. The dry-run repositories' move to `neobobkrause` (Bob's hand act, the page's step 8), then `repo-shims.yml` for each. **The release-signing decision** (the page's foot): his.
 
 ## Acts only Bob can take
 
-Done 29 Oct: the standing list, the app on both accounts, the hosting token, the secret, the walk identities, the transfer, the token as `neobobkrause`, the connector on three Claude accounts, the status line, the organization's name. Still his: item 4.
+Done 29-30 Oct: every grant of the sitting; `civicsmith` a collaborator here. Still his: item 4.
