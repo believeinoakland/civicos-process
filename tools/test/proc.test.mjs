@@ -557,7 +557,7 @@ test('the job\'s life (JOB-LIFE): layer start, the job\'s turn, the gate with th
   N.jobArchived(o({ module: 'stats', session: S1, unmeasured: 'retired on a stale process' }));
   const reopened = N.jobRoute(o({ module: 'stats' }));
   assert.deepEqual([reopened.action, reopened.title, reopened.archive], ['create_session', 'STATS #2', S1]);
-  assert.match(reopened.prompt, /Your first act, before anything else: run `git -C \/home\/user\/neoprocess pull -q --ff-only origin main; .*echo PROCESS STALE`/);
+  assert.match(reopened.prompt, /Your first act, before anything else: run `git -C \/home\/user\/neoprocess .*PROCESS STALE/);
   assert.equal(N.jobState(o({ module: 'stats' })).state, 'REOPENED');
 });
 

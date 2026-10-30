@@ -215,7 +215,9 @@ test('R11: the module holds and prints no credential: every secret is named, nev
 // The platform's tool vocabulary: the session tools and the GitHub tools a session can call. A name of it that another
 // module prints as a call (`tool: '<name>'`, or `<name>: {` as a call's key) must be a row (R12).
 const VOCABULARY = ['create_session', 'send_message', 'get_session', 'list_events', 'list_sessions', 'archive_session', 'unarchive_session', 'interrupt_session', 'send_later', 'create_trigger', 'update_trigger', 'delete_trigger', 'fire_trigger', 'list_triggers', 'subscribe_pr_activity', 'unsubscribe_pr_activity', 'add_repo', 'create_pull_request', 'update_pull_request', 'update_pull_request_branch', 'merge_pull_request', 'pull_request_read', 'pull_request_review_write', 'add_issue_comment', 'issue_write', 'issue_read', 'actions_run_trigger', 'actions_list', 'create_branch', 'push_files', 'create_or_update_file', 'delete_file', 'create_repository'];
-test('R12: every platform call any module prints is a row of the constraints or the acts', () => {
+// R13, until N2-27, N2-34 and N2-36 merge: the classifier-judged calls another module still prints, inherited and named.
+const INHERITED = ['archive_session'];
+test('R12 R13: every platform call any module prints is a row of the constraints or the acts; one whose row is classifier-judged is only an inherited one', () => {
   const files = [...['tools', 'checks'].flatMap((d) => readdirSync(join(ROOT, d)).filter((f) => f.endsWith('.mjs')).map((f) => join(ROOT, d, f)))].filter((f) => !f.endsWith('platform.mjs'));
   const printed = new Set();
   for (const f of files) {
@@ -224,7 +226,12 @@ test('R12: every platform call any module prints is a row of the constraints or 
     for (const m of src.matchAll(/\b([a-z]+(?:_[a-z]+)+): \{/g)) if (VOCABULARY.includes(m[1])) printed.add(m[1]);
   }
   assert.ok(printed.has('create_session') && printed.has('actions_run_trigger'), [...printed].join());
-  for (const call of printed) { assert.ok(VOCABULARY.includes(call), `${call}: printed, and not of the platform's vocabulary`); assert.ok(P.rowFor(call), `${call}: printed, and no row`); }
+  for (const call of printed) {
+    assert.ok(VOCABULARY.includes(call), `${call}: printed, and not of the platform's vocabulary`);
+    const row = P.rowFor(call); assert.ok(row, `${call}: printed, and no row`);
+    if (row.classifier) assert.ok(INHERITED.includes(call), `${call}: printed, and decided by the classifier case by case (R13)`);
+  }
+  assert.ok(INHERITED.every((c) => P.rowFor(c)?.classifier), 'each inherited call is a classifier-judged row');
   // and the dispatch this module prints is one
   assert.ok(P.rowFor(P.dispatch('shims', { repo: 'a/b' }).tool));
 });
