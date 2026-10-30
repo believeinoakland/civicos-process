@@ -19,7 +19,7 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## What remains, in order
 
-1. **Civicsmith's shims refresh**, now that its onboarding is merged (`825ccc96` on its `main`): `proc repo shims --repo civicsmith/civicsmith` (the runner, its own secret). Then its BOB adds `.nvmrc` (26.10.0) so the gate runs its Node version (issue 62).
+1. **Done 30 Oct**: Civicsmith's shims regenerated on the runner (run 40992502528; its PR 51 merged, `70a44ca7`): the reader skill, the cap, its session setup registered. Owed by its BOB: `.nvmrc` holding 26.10.0 (issue 62).
 2. **The first product filing** measures whether a product session's own GitHub identity may open an issue here (acts.md `issue_write(process issue)`) (if refused, the grant is Bob's, walked through).
 3. **ROOT's first BOB start** (issue 65): the product's next ROOT runs `proc root start`, then `proc root bob --n 335 --branch <the branch the build continues on>` (its resume plan names it); the call it prints certifies it.
 4. **Accuracy of plain rewrites** (DRYRUN §8): writers sometimes add what the turn did not check; the reader's text says translate, never add; watch it in the product's first reports.
