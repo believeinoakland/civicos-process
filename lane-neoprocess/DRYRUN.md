@@ -252,3 +252,13 @@ Issue 95 (Civicsmith's BOB #339): a job outlives the BOB that started it, and th
 | a session a scheduled task (made by a session's tool) starts: its sources, tools and depth | MEASURED | probe 1, due 13:28Z, fired by the scheduler at 13:37:55Z (ten minutes late): tags `config:no-git-repo`, `config:routine-lineage-none`, no parent; Sonnet; no connector. Probe 3, fired at once by `fire_trigger` (13:41:27Z): its tools held no `create_session` (it searched and said so). So such a session can neither be the successor (no repository, no GitHub, not the most capable model) nor start it. Deleting a task deletes the sessions it started (probe 2 lost so): a task is switched off (`update_trigger enabled false`), never deleted while its run matters |
 | the lane fires the task it armed, once, within 30 minutes | PROVEN in fixture, and live | the record in `.git`; probes 2 and 3 fired at once |
 | a task made once by Bob on claude.ai with the repository, the model and the connectors, fired by the lane at each handover | NOT YET | his one act (the documentation of 30 Oct: a web-made task names repositories, environment, model and connectors; `fire_trigger` runs any task of the account at once); then its first fire, the new session's depth and checkout read |
+
+## 20. Certification of issue 98's fix (GOV 5; 30 Oct 2026, #17)
+
+Issue 98 (Civicsmith's BOB #339): jobs started at 13:17Z, after issue 92's fix was on main (13:15Z), held a process copy at 678ab08 (PR #82). The shims' start line cloned the process only when its folder was missing, and kept a copy already there as it was; where that copy came from (the environment's cache, an earlier start) is unknown. Now the start line brings a clean copy on its branch to the branch's tip by fast-forward, and names a copy it cannot; takeover, job start, lane start and root start bring the copy to main (`processBehind`, by `processRefresh`) and refuse one changed in place, diverged or unreachable; a copy on another branch (the lane's own) is not judged. Checked against the principles: P3 (the process in use is the certified one), P20 (the cause named from the line itself; the copy's origin called unknown). Suite green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| the start line on a copy already there: brought to the tip | PROVEN in fixture | the line run by `sh` on a clone one commit behind: the new file present |
+| a start brings the copy to main, refuses one changed in place | PROVEN in fixture | `processBehind` null after a fix, the refusal's words; `jobStart` refused |
+| a product session started after a fix holds it | NOT YET | Civicsmith's shims regenerated on the runner, then its next session's copy read |

@@ -571,6 +571,17 @@ test('the lane replies to a product\'s report in the process repository; the pro
   g(pdir, 'checkout', '-q', 'main');
   f(pseed, 'NEW.md', 'a fix\n'); g(pseed, 'add', '.'); g(pseed, 'commit', '-q', '-m', 'fix'); g(pseed, 'push', '-q', 'origin', 'main');
   assert.equal(N.processRefresh(pdir).refreshed, true); assert.ok(existsSync(join(pdir, 'NEW.md')));
+  // issue 98: a role's start brings the copy to main, and refuses one it cannot bring there (changed in place)
+  f(pseed, 'NEW2.md', 'another fix\n'); g(pseed, 'add', '.'); g(pseed, 'commit', '-q', '-m', 'fix 2'); g(pseed, 'push', '-q', 'origin', 'main');
+  assert.equal(N.processBehind(pdir), null); assert.ok(existsSync(join(pdir, 'NEW2.md')));
+  f(pdir, 'README.md', 'changed in place\n');
+  assert.match(N.processBehind(pdir), /is changed in place and cannot be brought to main/);
+  assert.throws(() => N.jobStart({ ...o, module: 'alpha', session: 'session_01x', processDir: pdir }), /is changed in place/);
+  g(pdir, 'checkout', '-q', '--', 'README.md');
+  // the shims' start line on a copy already there (issue 98): brought to the tip, as a new session's start runs it
+  f(pseed, 'NEW3.md', 'a third fix\n'); g(pseed, 'add', '.'); g(pseed, 'commit', '-q', '-m', 'fix 3'); g(pseed, 'push', '-q', 'origin', 'main');
+  const line = `if [ -d "${pdir}/.git" ]; then { [ "$(git -C "${pdir}" rev-parse --abbrev-ref HEAD)" = main ] && [ -z "$(git -C "${pdir}" status --porcelain --untracked-files=no)" ] && git -C "${pdir}" fetch -q origin +refs/heads/main:refs/remotes/origin/main && git -C "${pdir}" merge -q --ff-only origin/main; } || echo "neoProcess: could not bring ${pdir} to the tip of main" >&2; else exit 9; fi`;
+  execFileSync('sh', ['-c', line]); assert.ok(existsSync(join(pdir, 'NEW3.md')));
   assert.match(N.status(B).queue.find((q) => q.item.startsWith('READ')).detail, /issues\/80\): read it whole by `git -C .* show origin\/main:lane-neoprocess\/replies\/.*`, act on it, then `proc issue seen --report /);
   // BOB records it seen on the tranche, once; the next BOB does not see it again
   assert.throws(() => N.issueSeen({ product: lane.root, report: id, processDir: pdir }), /BOB records/);

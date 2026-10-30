@@ -587,7 +587,7 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift, []);
   assert.match(yml, /setup-node@v4\n        with:\n          node-version: 22\n      - name: the gate/);   // no version file, no lock: the default, no install
   // issue 69 (5): every product session clones the process read-only where the shims name it, when it is missing
-  const CLONE = { type: 'command', command: '[ -d "/p/neoProcess/.git" ] || git clone -q --branch lane https://github.com/o/neoProcess "/p/neoProcess" || echo "neoProcess: could not clone o/neoProcess to /p/neoProcess" >&2' };
+  const P = '/p/neoProcess', CLONE = { type: 'command', command: `if [ -d "${P}/.git" ]; then { [ "$(git -C "${P}" rev-parse --abbrev-ref HEAD)" = lane ] && [ -z "$(git -C "${P}" status --porcelain --untracked-files=no)" ] && git -C "${P}" fetch -q origin +refs/heads/lane:refs/remotes/origin/lane && git -C "${P}" merge -q --ff-only origin/lane; } || echo "neoProcess: could not bring ${P} to the tip of lane" >&2; else git clone -q --branch lane https://github.com/o/neoProcess "${P}" || echo "neoProcess: could not clone o/neoProcess to ${P}" >&2; fi` };
   assert.equal(written.hooks, undefined); assert.deepEqual(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).hooks, { SessionStart: [{ hooks: [CLONE] }] });
   assert.match(claude, /clones it there read-only when it is missing; if it is still missing, run `git clone --branch lane https:\/\/github\.com\/o\/neoProcess \/p\/neoProcess`/);
   // issue 62: a product's own session setup is registered by the shims, and the gate takes the product's Node version and its lock

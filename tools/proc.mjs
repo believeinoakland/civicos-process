@@ -233,6 +233,7 @@ export function addr(o) {
 // A successor BOB's first command: its address on the state branch, its role file, and everything it must act on.
 export function takeover(o) {
   if (!NAME.test(o.name || '') || !/^BOB /.test(o.name) || !SESSION.test(o.session || '')) refuse('--name "BOB #<n>" --session <id>');
+  { const b = processBehind(o.processDir); if (b) refuse(b); }   // issue 98
   const R = repo(o.product), e = needEpoch(R);
   onto(R, TRANCHE);
   const before = parsePlan(stateRead(R, 'plan.md', e) || '');
@@ -466,6 +467,7 @@ export function laneStarted(o) {
 // A lane session's first command: its role file and what it reads (the charter whole, the open asks routed to it).
 export function laneStart(o) {
   if (!SESSION.test(o.session || '') || !o.id) refuse('--id <ID> --session <id>');
+  { const b = processBehind(o.processDir); if (b) refuse(b); }   // issue 98
   const R = repo(o.product), e = needEpoch(R);
   const l = parseLane(stateRead(R, `lanes/${o.id}.md`, e) || '');
   if (l.session !== o.session) refuse(`the state branch names ${l.session ?? 'no session'} for ${o.id}, not ${o.session}: BOB records the session (proc lane started) before it starts`);
@@ -558,6 +560,7 @@ export const ROOT_BOB_FILE = 'proc-root-bob.json';
 export function rootStart(o) {
   if (!SESSION.test(o.session || '')) refuse('--session <your session id> [--name "ROOT #<n>"]');
   if (o.name && !/^ROOT #\d+$/.test(o.name)) refuse('--name "ROOT #<n>"');
+  { const b = processBehind(o.processDir); if (b) refuse(b); }   // issue 98
   const R = repo(o.product), e = epoch(R);
   writeRole(R, { role: 'root', product: R.rel('.'), session: o.session, name: o.name || 'ROOT', ...(e ? { epoch: e } : {}) });
   const plan = e ? parsePlan(stateRead(R, 'plan.md', e) || '') : null;
@@ -761,6 +764,14 @@ export function processReplies(R, o = {}) {
 // running session (ROOT, long-lived, least of all). It is brought to the process's `main` where the session already reads
 // the process: BOB's status (hourly, above) and ROOT's start and `root bob`. Only a clean clone on `main`, by fast-forward;
 // anything else (the lane's own checkout on its branch, a changed or diverged clone) is left as it is and named.
+// Issue 98: a role's start refuses a process clone it measured behind main after trying to bring it there, so no session
+// works on a process older than the one certified (P3). Only a clone on main is judged; offline or elsewhere, nothing is said.
+export function processBehind(dir = PROCESS) {
+  const r = processRefresh(dir);
+  if (r.why === 'not on main' || r.why === 'not a fast-forward of origin/main, or offline') return r.why === 'not on main' ? null : `the process copy at ${dir} could not be brought to the process repository's main (${r.why}): run \`git -C ${dir} pull --ff-only origin main\`, then this command again`;
+  if (r.why) return `the process copy at ${dir} is ${r.why} and cannot be brought to main: restore it (\`git -C ${dir} checkout -- .\`), then this command again`;
+  return null;
+}
 export function processRefresh(dir = PROCESS, o = {}) {
   const g = (a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 30e3 }).trim();
   try {
@@ -1210,6 +1221,7 @@ export function jobRoute(o) {
 // The job's first command (JOB-LIFE §3): the tranche merged in, the role file, WORKING, the START and the reading set.
 export function jobStart(o) {
   const R = repo(o.product), m = o.module; if (!m || !SESSION.test(o.session || '')) refuse('--module <m> --session <id>');
+  { const b = processBehind(o.processDir); if (b) refuse(b); }   // issue 98
   const e = needEpoch(R), j = loadJob(R, m);
   if (j.session !== o.session) refuse(`the state branch names ${j.session ?? 'no session'} for ${m}, not ${o.session}: BOB records the session (proc job started) before it starts`);
   if (!LIVE_JOB.test(j.state) || j.state === 'MERGED') refuse(`${m} reads ${j.state}: nothing to start`);
@@ -1711,7 +1723,9 @@ export function shims(o) {
   const has = (f) => existsSync(join(R.root, f));
   // issue 69 (5): a product session has the product only; the process is cloned read-only where the shims name it, at
   // every session's start, before the skill is invoked (a public repository clones anonymously; add_repo with push was refused)
-  const fetchProcess = `[ -d "${proc}/.git" ] || git clone -q --branch ${ref} https://github.com/${name} "${proc}" || echo "neoProcess: could not clone ${name} to ${proc}" >&2`;
+  // issue 98: a copy already there (from an environment's cache or an earlier start, unknown which) was kept as it was, so a
+  // session started after a fix ran without it; now a clean copy on the branch is brought to the branch's tip, by fast-forward only
+  const fetchProcess = `if [ -d "${proc}/.git" ]; then { [ "$(git -C "${proc}" rev-parse --abbrev-ref HEAD)" = ${ref} ] && [ -z "$(git -C "${proc}" status --porcelain --untracked-files=no)" ] && git -C "${proc}" fetch -q origin +refs/heads/${ref}:refs/remotes/origin/${ref} && git -C "${proc}" merge -q --ff-only origin/${ref}; } || echo "neoProcess: could not bring ${proc} to the tip of ${ref}" >&2; else git clone -q --branch ${ref} https://github.com/${name} "${proc}" || echo "neoProcess: could not clone ${name} to ${proc}" >&2; fi`;
   const sessionStart = { hooks: { SessionStart: [{ hooks: [{ type: 'command', command: fetchProcess }, ...(has('.claude/hooks/session-start.sh') ? [{ type: 'command', command: 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"' }] : [])] }] } };
   const nodeFile = ['.nvmrc', '.node-version'].find(has);
   const nodeStep = nodeFile ? `node-version-file: ${nodeFile}` : 'node-version: 22';
