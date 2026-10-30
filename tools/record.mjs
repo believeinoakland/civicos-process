@@ -35,7 +35,9 @@ export const paths = () => PATHS;
 export function repo(product) {
   const dir = resolve(product || '.');
   const root = execFileSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
-  const g = (args, env) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 << 20, env: env ? { ...process.env, ...env } : process.env }).trim();
+  const g = (args, env, input) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', ...(input === undefined ? { stdio: ['ignore', 'pipe', 'ignore'] } : { input, stdio: ['pipe', 'pipe', 'ignore'] }), maxBuffer: 64 << 20, env: env ? { ...process.env, ...env } : process.env }).trim();
+  // the same, untrimmed: a file's text exactly as stored
+  const raw = (args, env, input) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', ...(input === undefined ? { stdio: ['ignore', 'pipe', 'ignore'] } : { input, stdio: ['pipe', 'pipe', 'ignore'] }), maxBuffer: 64 << 20, env: env ? { ...process.env, ...env } : process.env });
   const rel = (p) => relative(root, join(dir, p)) || '.';
   const read = (p) => { const f = join(dir, p); return existsSync(f) ? readFileSync(f, 'utf8') : null; };
   const write = (p, text) => { const f = join(dir, p); mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, text); };
@@ -43,20 +45,21 @@ export function repo(product) {
   const remote = (branch, p) => { try { return g(['show', `origin/${branch}:${rel(p)}`]); } catch { return null; } };
   const branch = () => g(['rev-parse', '--abbrev-ref', 'HEAD']);
   const heads = (glob) => { try { return g(['ls-remote', '--heads', 'origin', glob]).split('\n').filter(Boolean).map((l) => l.split(/\s+/)[1].replace('refs/heads/', '')); } catch { return []; } };
-  return { dir, root, g, rel, read, write, fetch, remote, branch, heads };
+  return { dir, root, g, raw, rel, read, write, fetch, remote, branch, heads };
 }
 export function ghRepo(R) {
   const m = R.g(['remote', 'get-url', 'origin']).match(/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/);
   return { owner: m?.[1] ?? '?', repo: m?.[2] ?? '?' };
 }
 export function readRole(root) { const f = join(root, '.git', ROLE_FILE); return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null; }
-// The branch a role pushes to, as its role record names it (R4): a job its module's branch, a lane of the process its own
-// branch, every other role the tranche. No role record: no role to hold to.
+// The branch a role pushes to, as its role record names it (R4): a job its module's branch, a role that records its own
+// branch (the neoProcess lane, onboarding) that branch, BOB, ROOT and a lane the tranche. Unknown: null, and a push refused.
+export const ROLES = ['bob', 'root', 'job', 'lane', 'process', 'onboard'];
 export function ownBranch(role) {
-  if (!role) return null;
+  if (!role || !ROLES.includes(role.role)) return null;
   if (role.role === 'job') return role.module ? jobBranch(role.module) : null;
   if (role.branch) return role.branch;
-  return TRANCHE;
+  return ['process', 'onboard'].includes(role.role) ? null : TRANCHE;
 }
 export function unpushed(R) {
   const out = [];
@@ -68,8 +71,13 @@ export function unpushed(R) {
 // Commit the named files on the current branch and push; a lost race merges the remote once (never a rebase, never a
 // force). A push to a branch other than the role's own, as its role record names it, is refused before anything is written.
 export function commitPush(R, branch, paths, message) {
-  const own = ownBranch(readRole(R.root));
-  if (own && branch !== own) refuse(`a push to ${branch} is refused: this session's role pushes to ${own} only`);
+  // No role record yet is BOB's own bootstrap (`epoch open`, `tranche open`, before `takeover` can record it): the tranche
+  // only. A record that names no known role, or a job without its module, is refused, as is any other branch.
+  const role = readRole(R.root), own = role ? ownBranch(role) : TRANCHE;
+  if (!own) refuse(`a push to ${branch} is refused: no role record names this session's own branch (${JSON.stringify({ role: role.role ?? null, module: role.module ?? null, branch: role.branch ?? null })}); run the role's start command first`);
+  if (branch !== own) refuse(`a push to ${branch} is refused: ${role ? 'this session\'s role pushes' : `no role is recorded yet (no .git/${ROLE_FILE}): a session pushes`} to ${own} only`);
+  const at = R.branch();
+  if (at !== branch) refuse(`a push to ${branch} is refused: the checkout is on ${at}; check out ${branch} first`);
   const gone = (p) => !existsSync(join(R.root, R.rel(p)));
   const del = paths.filter(gone), keep = paths.filter((p) => !del.includes(p));
   if (del.length) R.g(['rm', '-q', '--cached', '--ignore-unmatch', '--', ...del.map(R.rel)]);
@@ -201,6 +209,10 @@ export function stop(R, why, choices = {}, version) {
   const p = parsePlan(stateRead(R, 'plan.md') || '');
   if (!p.bob) refuse('no plan on the state branch to stop');
   if (p.stop) refuse(`already stopped: ${p.stop.why} · ${p.stop.version}`);
+  const jobs = jobLines(R, needEpoch(R)), unmerged = jobs.filter((j) => !j.merged).map((j) => j.module), merged = jobs.filter((j) => j.merged).map((j) => j.module);
+  const missing = unmerged.filter((m) => !(m in choices)), extra = Object.keys(choices).filter((m) => !unmerged.includes(m));
+  if (missing.length) refuse(`a stop names a choice for each unmerged job: none for ${missing.join(', ')}`);
+  if (extra.length) refuse(`a choice only for an unmerged job: ${extra.map((m) => `${m} (${merged.includes(m) ? 'merged' : 'no such job'})`).join(', ')}`);
   return planEdit(R, (q) => ({ ...q, stop: { why: w, version, choices }, resumed: null }), `plan: STOPPED ${w.slice(0, 50)} · ${version}`);
 }
 // A resume clears the stop and names the process version the build runs from then on.
@@ -215,22 +227,25 @@ export const stopOf = (p) => ({ stop: p?.stop ?? null, resumed: p?.resumed ?? nu
 
 // ---- a remote act recorded from its result (R8; REC-5) ----
 
-// `result` is what the tool call returned. A refusal, an error or nothing at all records nothing: the act stays owed.
-// There is no function that records a request.
-export function actDone(result) {
+// `result` is what the tool call returned, and `fields` the fields that call's result carries (an archive's usage: its
+// four counts). A refusal, an error, nothing at all, or anything without every one of those fields (a request's own
+// arguments, `{ session_id }`) records nothing: the act stays owed. There is no function that records a request.
+export const USAGE_FIELDS = ['cache_read_tokens', 'cache_write_tokens', 'input_tokens', 'output_tokens'];
+export function actDone(result, fields) {
+  if (!Array.isArray(fields) || !fields.length) refuse('actDone: the fields the act\'s result carries');
   if (result === null || result === undefined || result === '') return false;
   const r = typeof result === 'string' ? (() => { try { return JSON.parse(result); } catch { return null; } })() : result;
   if (!r || typeof r !== 'object' || Array.isArray(r)) return false;
   if (r.error || r.isError || /^(refused|denied|failed|error)/i.test(String(r.status || ''))) return false;
-  return Object.keys(r).length > 0;
+  return fields.every((f) => r[f] !== undefined && r[f] !== null && r[f] !== '' && (!USAGE_FIELDS.includes(f) || Number.isFinite(Number(r[f]))));
 }
 // A session's local records (`.git/<name>`, never committed): written by the command or the post event that took the
 // act's result, never by a pre event (N2-6); read back as null when absent or unreadable.
 export function recordLocal(root, name, value) { try { writeFileSync(join(root, '.git', name), JSON.stringify(value)); return value; } catch { return null; } }
 export function readLocal(root, name) { try { return JSON.parse(readFileSync(join(root, '.git', name), 'utf8')); } catch { return null; } }
-export function recordAct(R, act, result) {
+export function recordAct(R, act, result, fields) {
   if (!act) refuse('recordAct: the act');
-  if (!actDone(result)) refuse(`${act} is not recorded as done: the call's result shows no success (${JSON.stringify(result ?? null).slice(0, 100)}); it stays owed`);
+  if (!actDone(result, fields)) refuse(`${act} is not recorded as done: the call's result shows no success with ${fields.join(', ')} (${JSON.stringify(result ?? null).slice(0, 100)}); it stays owed`);
   const p = parsePlan(stateRead(R, 'plan.md') || '');
   if (!p.owed.includes(act)) return { act, recorded: false, why: 'not owed' };
   return { act, recorded: true, commit: planEdit(R, (q) => ({ ...q, owed: q.owed.filter((x) => x !== act) }), `done: ${act.slice(0, 60)}`) };
@@ -242,7 +257,7 @@ const FROM = /^\*\*From\*\* · neoProcess #(\d+) \(`(session_[0-9A-Za-z]+)`\)/m;
 // who: 'bob', { module }, { lane }, or 'process' (the neoProcess lane, from the process repository's `main` only).
 export function addr(R, who, opts = {}) {
   if (who === 'process') {
-    const P = opts.process || R;
+    const P = opts.process ?? refuse('addr process: the process repository (opts.process), whose main alone names its parties; never the product\'s own main');
     P.fetch('main');
     const m = (P.remote('main', 'lane-neoprocess/HANDOFF.md') || '').match(FROM);
     return m?.[2] ?? refuse('no lane address on the process repository\'s main (lane-neoprocess/HANDOFF.md\'s From line)');
@@ -258,11 +273,22 @@ export function addr(R, who, opts = {}) {
 
 export const METRICS_HEAD = 'session,role,name,module,cache-read,cache-write,input,output,test runs,module lines,reviewed,note\n';
 export const metricsFile = (T) => `build/metrics/${T}.csv`;
-// One row keyed by its session id: the session's unmeasured row replaced, else the row appended.
-export function metricsRow(csv, row) {
-  const lines = (csv || METRICS_HEAD).replace(/\n$/, '').split('\n'), i = lines.findIndex((l, k) => k > 0 && l.startsWith(`${row[0]},`) && /,unmeasured/.test(l));
+// One row per session id: the text with that session's row replaced (a later measure over an unmeasured row), else the
+// row appended. A row with no counts reads as measured only if it says it is unmeasured, with the reason.
+export function metricsText(csv, row) {
+  const counts = row.slice(4, 8), note = String(row[11] ?? '');
+  if (counts.every((c) => c === '' || c === null || c === undefined) && !/^unmeasured: \S/.test(note)) refuse(`${row[0]}: a row without counts is named unmeasured, with the reason (unmeasuredRow)`);
+  const lines = (csv || METRICS_HEAD).replace(/\n$/, '').split('\n'), i = row[0] ? lines.findIndex((l, k) => k > 0 && l.startsWith(`${row[0]},`)) : -1;
   if (i > 0) lines[i] = row.join(','); else lines.push(row.join(','));
   return `${lines.join('\n')}\n`;
+}
+// The row written to the tranche's metrics file (or the file named, as the neoProcess lane's own), in the working tree;
+// the caller commits it with its own record. Returns the file's new text.
+export function metricsRow(R, row, { tranche, file } = {}) {
+  const f = file ?? (tranche ? metricsFile(tranche) : refuse('metricsRow: the tranche, or the file'));
+  const text = metricsText(R.read(f), row);
+  R.write(f, text);
+  return text;
 }
 // A session whose usage could not be read is named unmeasured with the reason, its counts left empty, never estimated.
 export const unmeasuredRow = (session, role, name, module, why) => [session, role, name, module || '', '', '', '', '', '', '', '', `unmeasured: ${String(why || 'no reason given').replace(/[,\n]/g, ' ').trim()}`];
@@ -278,32 +304,60 @@ export function contextShare(session, role) {
   const u = (s?.ccr ?? s)?.external_metadata?.context_usage;
   const threshold = THRESHOLDS[role] ?? null;
   if (!u || !(Number(u.max_tokens) > 0) || !Number.isFinite(Number(u.used_tokens))) return { pct: null, threshold, refresh: false, line: 'context: unknown (get_session gave no context_usage)' };
-  const pct = Math.round((1000 * Number(u.used_tokens)) / Number(u.max_tokens)) / 10;
-  const refresh = threshold !== null && pct > threshold;
+  const exact = (100 * Number(u.used_tokens)) / Number(u.max_tokens), pct = Math.round(10 * exact) / 10;
+  const refresh = threshold !== null && exact > threshold;   // decided on the exact share, never the rounded one
   return { pct, threshold, refresh, line: `context: ${pct} % of ${u.max_tokens}${threshold !== null ? ` (threshold ${threshold} %)` : ''}${refresh ? ' REFRESH' : ''}` };
 }
 const bytesOf = (t) => (t === null ? null : Buffer.byteLength(t, 'utf8'));
 const JOB_LINE = /^\*\*Status\*\* · ([A-Z][A-Z0-9-]* #\d+) · (session_[0-9A-Za-z]+|-) · (.+?)(?: · PR #(\d+))?$/m;
 const field = (t, k) => t.match(new RegExp(`^\\*\\*${k}\\*\\* · (.*)$`, 'm'))?.[1] ?? null;
 const listOf = (v) => (v || '').split('; ').map((x) => x.trim()).filter((x) => x && x !== 'none');
-// o: { product, role, session (get_session's output), set (the role's reading set: paths), epoch }
-export function status(o) {
-  const R = repo(o.product), e = o.epoch ?? needEpoch(R);
-  const files = [];
-  const read = (p) => { const t = stateRead(R, p, e); files.push({ path: `${stateBranch(e)}:${p}`, bytes: bytesOf(t) }); return t || ''; };
-  const planText = read('plan.md'), plan = parsePlan(planText);
-  const jobs = jobFiles(R, e).map((p) => {
+// Each job's line on the state branch, with whether it is merged; `read` collects what was read, with sizes.
+export function jobLines(R, e, read = (p) => stateRead(R, p, e) || '') {
+  if (!e) return [];
+  return jobFiles(R, e).map((p) => {
     const t = read(p), m = t.match(JOB_LINE);
     if (!m) return null;
-    const merges = listOf(field(t, 'Merges'));
     const j = { module: p.slice(5, -3), name: m[1], session: m[2] === '-' ? null : m[2], state: m[3], pr: m[4] ? Number(m[4]) : null, owed: listOf(field(t, 'Owed')), line: (t.match(/^\*\*Status\*\* · .*$/m) || [''])[0] };
-    j.merged = j.state === 'MERGED' || merges.length > 0;
+    j.merged = j.state === 'MERGED' || listOf(field(t, 'Merges')).length > 0;
     return j;
   }).filter(Boolean);
-  const lanes = stateList(R, 'lanes', e).filter((p) => /^lanes\/[^/]+\.md$/.test(p)).map((p) => ({ id: p.slice(6, -3), line: (read(p).match(/^\*\*Status\*\* · .*$/m) || [''])[0] }));
-  const asks = stateList(R, 'asks', e).filter((p) => /^asks\/A\d+\.md$/.test(p)).map((p) => ({ id: p.slice(5, -3), status: statusOf(read(p)) })).filter((a) => a.status !== 'CLOSED');
-  const refusals = stateList(R, 'refusals', e).map((p) => read(p).match(/^\*\*Refused\*\* · (R[\w-]+) · .* · OPEN$/m)?.[1]).filter(Boolean);
-  const undelivered = stateList(R, 'undelivered', e).map((p) => ({ id: p.slice('undelivered/'.length).replace(/\.md$/, ''), text: read(p).trim().split('\n')[0] }));
+}
+// The pin: the process commit the durable plan's Status line names ("the process pinned at `<sha>`", moved by "RESUMED at
+// `<sha>`"), unless the state branch's line has resumed it since.
+export const PLAN_FILE = 'build/plan/current.md';
+export function pinOf(durableStatus, plan) {
+  if (plan?.resumed) return plan.resumed;
+  const all = [...String(durableStatus || '').matchAll(/(?:pinned at|RESUMED at) `([0-9a-f]{7,40})`/g)].map((x) => x[1]);
+  return all.length ? all[all.length - 1] : plan?.stop?.version ?? null;
+}
+// A ref's file, measured from git: { path, bytes } (null when the ref has no such file).
+function sizeAt(R, ref, p) { try { return Number(R.g(['cat-file', '-s', `${ref}:${R.rel(p)}`])); } catch { return null; } }
+// The role's reading set, from the record: a job's is the "Read whole, by path:" line of its START on the state branch,
+// measured on its own branch; any other role's is the set its caller names (`o.set`), measured on the tranche.
+export function readingSetOf(R, role, e, given) {
+  if (given) return given;
+  if (role?.role !== 'job' || !role.module || !e) return [];
+  const start = stateRead(R, `jobs/${role.module}/start.md`, e) || '';
+  const line = start.match(/^Read whole, by path: (.*?)\.?$/m)?.[1] ?? '';
+  return line.split('; ').map((x) => x.replace(/\s*\(.*\)\s*$/, '').trim()).filter(Boolean);
+}
+// o: { product, role (a role record, else the checkout's), session (get_session's output), set (a role's set: paths) }
+export function status(o) {
+  const R = repo(o.product), e = o.epoch !== undefined ? o.epoch : epoch(R);
+  const role = typeof o.role === 'string' ? { role: o.role } : (o.role ?? readRole(R.root));
+  const files = [];
+  const read = (p) => { const t = stateRead(R, p, e); files.push({ path: `${stateBranch(e)}:${p}`, bytes: bytesOf(t) }); return t || ''; };
+  const list = (dir) => (e ? stateList(R, dir, e) : []);
+  const plan = parsePlan(e ? read('plan.md') : '');
+  R.fetch(TRANCHE);
+  const durable = R.remote(TRANCHE, PLAN_FILE), durableStatus = (durable || '').match(/^\*\*Status\*\* · .*$/m)?.[0] ?? null;
+  files.push({ path: `${TRANCHE}:${PLAN_FILE}`, bytes: bytesOf(durable) });
+  const jobs = jobLines(R, e, read);
+  const lanes = list('lanes').filter((p) => /^lanes\/[^/]+\.md$/.test(p)).map((p) => ({ id: p.slice(6, -3), line: (read(p).match(/^\*\*Status\*\* · .*$/m) || [''])[0] }));
+  const asks = list('asks').filter((p) => /^asks\/A\d+\.md$/.test(p)).map((p) => ({ id: p.slice(5, -3), status: statusOf(read(p)) })).filter((a) => a.status !== 'CLOSED');
+  const refusals = list('refusals').map((p) => read(p).match(/^\*\*Refused\*\* · (R[\w-]+) · .* · OPEN$/m)?.[1]).filter(Boolean);
+  const undelivered = list('undelivered').map((p) => ({ id: p.slice('undelivered/'.length).replace(/\.md$/, ''), text: read(p).trim().split('\n')[0] }));
   const owed = [...plan.owed.map((x) => `plan: ${x}`), ...jobs.flatMap((j) => j.owed.map((x) => `${j.module}: ${x}`))];
   const halted = {
     open: jobs.filter((j) => !j.merged).map((j) => `${j.module} ${j.state}${j.pr ? ` PR #${j.pr}` : ''}`),
@@ -312,13 +366,15 @@ export function status(o) {
     unmerged: jobs.filter((j) => !j.merged && j.pr).map((j) => `${j.module} PR #${j.pr}${j.session ? '' : ' (no session)'}`),
     owed,
   };
-  const set = (o.set || []).map((p) => ({ path: p, bytes: bytesOf(R.read(p)) }));
-  const context = o.session !== undefined ? contextShare(o.session, o.role) : null;
-  return { epoch: e, plan: { state: plan.state, bob: plan.bob, layers: plan.layers, retiring: plan.retiring }, ...stopOf(plan), jobs, lanes, asks, refusals, undelivered, ...halted, set, files, context };
+  const own = ownBranch(role), ref = role?.role === 'job' && own ? (R.fetch(own), `origin/${own}`) : `origin/${TRANCHE}`;
+  const set = readingSetOf(R, role, e, o.set).map((p) => ({ path: p, bytes: sizeAt(R, ref, p) }));
+  const context = o.session !== undefined ? contextShare(o.session, role?.role) : null;
+  const st = stopOf(plan);
+  return { epoch: e, role: role?.role ?? null, plan: { state: plan.state, bob: plan.bob, layers: plan.layers, retiring: plan.retiring, status: durableStatus }, ...st, pin: pinOf(durableStatus, plan), jobs, lanes, asks, refusals, undelivered, ...halted, set, files, context };
 }
 // The status as lines, for any role: everything open, idle, merged, unmerged and owed, with sizes.
 export function statusLines(s) {
-  const l = [`epoch ${s.epoch} · plan ${s.plan.state ?? '?'} · ${s.plan.bob ? `${s.plan.bob.name} ${s.plan.bob.session}` : 'no BOB'}`];
+  const l = [`epoch ${s.epoch ?? 'none open'} · plan ${s.plan.state ?? '?'} · ${s.plan.bob ? `${s.plan.bob.name} ${s.plan.bob.session}` : 'no BOB'}`];
   if (s.stop) l.push(`STOPPED ${s.stop.why} · ${s.stop.version}${Object.keys(s.stop.choices).length ? ` · ${Object.entries(s.stop.choices).map(([m, c]) => `${m} ${c}`).join('; ')}` : ''}: take no new step`);
   if (s.resumed) l.push(`RESUMED ${s.resumed}`);
   l.push(`pin: ${s.pin ?? 'unknown'}`);
@@ -328,9 +384,10 @@ export function statusLines(s) {
   l.push(`asks open: ${s.asks.map((a) => `${a.id} ${a.status}`).join('; ') || 'none'}`);
   l.push(`refusals open: ${s.refusals.join('; ') || 'none'}`);
   l.push(`undelivered: ${s.undelivered.map((u) => `${u.id} ${u.text}`).join('; ') || 'none'}`);
-  for (const f of [...s.files, ...s.set]) l.push(`SIZE ${f.path} ${f.bytes ?? 'absent'}`);
+  for (const f of s.files) l.push(`SIZE ${f.path} ${f.bytes ?? 'absent'}`);
+  for (const f of s.set) l.push(`READ ${f.path} ${f.bytes ?? 'absent'}`);
   if (s.context) l.push(s.context.line);
   return l;
 }
 // A session's reading set as read from the working tree, with sizes (R13).
-export const readingSizes = (R, list) => list.map((p) => ({ path: p, bytes: bytesOf(R.read(p)) }));
+export const readingSizes = (R, list, ref = 'HEAD') => list.map((p) => ({ path: p, bytes: sizeAt(R, ref, p) }));

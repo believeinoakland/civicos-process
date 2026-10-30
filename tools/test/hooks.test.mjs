@@ -9,7 +9,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as N from '../proc.mjs';
 import { preReason, stopReason, partialReadReason, allowReason, askingBobReason, contextUsed, contextReason, issueReason, laneStopReason, readerReason, postRecord, displayReason, READER_FILE } from '../hooks.mjs';
-import { readLocal, recordLocal, METRICS_HEAD } from '../record.mjs';
+import { readLocal, recordLocal, METRICS_HEAD, metricsText, status as recordStatus, statusLines } from '../record.mjs';
 import * as N_HOOKS from '../hooks.mjs';
 import * as N_LIB from '../lib.mjs';
 import { plainFaults, plainReason, BOB_READS, turnEvidence, evidencePrompt, evidenceVerdict, evidenceReason } from '../lib.mjs';
@@ -291,8 +291,8 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   assert.ok(postRecord('process', tool(`${REMOTE}send_later`, { delay_minutes: 60, message: N.BACKSTOP_MESSAGE }), rctx).due);
   const csv = 'session,role,name,module,cache-read,cache-write,input,output,test runs,module lines,reviewed,note\nsession_01A,process,neoProcess #7,,,,,,,,,unmeasured: refused\nsession_01B,process,neoProcess #8,,1,2,3,4,,,,\nsession_01C,job,x,,,,,,,,,unmeasured: refused\n';
   assert.deepEqual(N.idleLaneSessions(csv), [{ session: 'session_01A', name: 'neoProcess #7' }]);
-  assert.match(N.metricsRow(csv, ['session_01A', 'process', 'neoProcess #7', '', 9, 9, 9, 9, '', '', '', '']), /\nsession_01A,process,neoProcess #7,,9,9,9,9,,,,\nsession_01B/);
-  assert.match(N.metricsRow(csv, ['session_01D', 'process', 'neoProcess #9', '', '', '', '', '', '', '', '', 'unmeasured: refused']), /session_01C,job[^\n]*\nsession_01D,process,neoProcess #9,,,,,,,,,unmeasured: refused\n$/);
+  assert.match(metricsText(csv, ['session_01A', 'process', 'neoProcess #7', '', 9, 9, 9, 9, '', '', '', '']), /\nsession_01A,process,neoProcess #7,,9,9,9,9,,,,\nsession_01B/);
+  assert.match(metricsText(csv, ['session_01D', 'process', 'neoProcess #9', '', '', '', '', '', '', '', '', 'unmeasured: refused']), /session_01C,job[^\n]*\nsession_01D,process,neoProcess #9,,,,,,,,,unmeasured: refused\n$/);
   assert.match(contextReason('process', 600_000, ctx, 1_000_000), /proc process handoff` and create your successor with the call it prints/);
   assert.match(contextReason('process', 410_000, ctx, 1_000_000), /past 40 %/);
   assert.equal(contextReason('process', 390_000, ctx, 1_000_000), null);
@@ -798,7 +798,7 @@ test('R8: the lane\'s predecessor is recorded archived only from what archive_se
   const o = { product: w.d }, shown = () => g(w.d, 'show', `origin/lanebranch:${N.LANE_METRICS}`), rows = () => shown().split('\n').slice(1);
   assert.equal(N.REFRESH_FILE, undefined, 'no refresh record'); assert.equal(N.keepRefresh, undefined);
   assert.throws(() => N.processArchived({ ...o, session: RS('Q'), refused: 'x' }), /is not owed/);
-  for (const bad of ['{"error":"Permission denied"}', '{}', 'not json']) assert.throws(() => N.processArchived({ ...o, usage: bad }), /shows no archive/, bad);
+  for (const bad of ['{"error":"Permission denied"}', '{}', 'not json', `{"session_id":"${RS('O')}"}`, '{"cache_read_tokens":5}']) assert.throws(() => N.processArchived({ ...o, usage: bad }), /shows no archive/, bad);
   assert.equal(existsSync(join(w.d, N.LANE_METRICS)), false, 'nothing written from a request or a failure');
   const r = N.processArchived({ ...o, refused: 'Permission denied by the classifier, [External System Writes]' });
   assert.deepEqual([r.archived, r.unmeasured], [RS('O'), true]);
@@ -826,4 +826,21 @@ test('R8: the hooks\' pre event writes no record; the post event records the fre
   assert.deepEqual(N.runningWorkers(w.d, RB).map((x) => x.description), ['w1', 'w2']);
   assert.equal(N_HOOKS.postRecord('bob', { tool_name: 'Agent', tool_input: { description: 'fg' } }, ctx), null, 'a foreground worker is not a background one');
   assert.equal(recordLocal(join(w.base, 'nowhere'), 'x.json', {}), null, 'no checkout: nothing recorded, nothing thrown');
+});
+
+// R6 (review of PR 128): `proc status` runs the record's status for every role, before an epoch and after, with sizes and
+// the context share from `--get-session`.
+test('proc status delegates to the record\'s status: the same lines, before any epoch and after, with the context share', () => {
+  const w = recWorld(), PROC = join(HERE, '..', 'proc.mjs');
+  const cli = (...a) => JSON.parse(execFileSync('node', [PROC, 'status', '--product', w.d, ...a], { encoding: 'utf8' }));
+  const before = cli();
+  assert.deepEqual(before.record, statusLines(recordStatus({ product: w.d })), 'no epoch: the record\'s state, not a refusal');
+  assert.match(before.record[0], /^epoch none open/);
+  N.epochOpen({ product: w.d });
+  const gs = JSON.stringify({ ccr: { external_metadata: { context_usage: { max_tokens: 1000, used_tokens: 600 } } } });
+  writeFileSync(join(w.d, '.git', N.ROLE_FILE), JSON.stringify({ role: 'bob', session: RB, product: '.' }));
+  const after = cli('--get-session', gs);
+  assert.equal(after.epoch, 'E1', 'BOB\'s own queue beside it');
+  assert.ok(after.record.some((l) => /^SIZE state\/E1:plan\.md /.test(l)));
+  assert.ok(after.record.includes('context: 60 % of 1000 (threshold 40 %) REFRESH'));
 });

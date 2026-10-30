@@ -9,7 +9,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as REC from '../record.mjs';
 
-const { repo, ghRepo, unpushed, commitPush, epoch, epochOpen, epochClose, stateRead, stateList, stateWrite, parsePlan, fmtPlan, planEdit, stop, resume, recordAct, addr, paths, metricsRow, unmeasuredRow, METRICS_HEAD, status, statusLines, contextShare, readingSizes, Refused, TRANCHE } = REC;
+const { repo, ghRepo, unpushed, commitPush, epoch, epochOpen, epochClose, stateRead, stateList, stateWrite, parsePlan, fmtPlan, planEdit, stop, resume, recordAct, actDone, USAGE_FIELDS, addr, paths, metricsRow, metricsText, unmeasuredRow, METRICS_HEAD, status, statusLines, contextShare, readingSizes, Refused, TRANCHE } = REC;
 const HERE = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const g = (dir, ...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const S = (c) => `session_01${c.repeat(24)}`;
@@ -27,6 +27,7 @@ function world({ plan = true } = {}) {
   g(d, 'add', '.'); g(d, 'commit', '-q', '-m', 'seed'); g(d, 'branch', '-M', TRANCHE); g(d, 'push', '-q', 'origin', TRANCHE);
   g(d, 'push', '-q', 'origin', `${TRANCHE}:refs/heads/main`);
   g(d, 'branch', '-q', '--set-upstream-to', `origin/${TRANCHE}`);
+  writeFileSync(join(d, '.git', REC.ROLE_FILE), JSON.stringify({ role: 'bob', session: BOB, product: '.' }));   // BOB pushes to the tranche
   if (plan) {
     epochOpen({ product: d });
     stateWrite(repo(d), { 'plan.md': fmtPlan({ state: 'OPEN', bob: { name: 'BOB #1', session: BOB }, owed: [], layers: { 1: 'STARTED' } }) }, 'plan');
@@ -147,6 +148,21 @@ test('R4: a push to any branch but the role\'s own, as its role record names it,
   assert.equal(REC.ownBranch({ role: 'bob', session: BOB }), TRANCHE);
 });
 
+test('R4: before any role record only the tranche is pushed; a record that names no branch, or a checkout on another branch, is refused', () => {
+  const w = world({ plan: false }), R = repo(w.d), role = join(w.d, '.git', REC.ROLE_FILE);
+  put(w.d, 'one.md', '1\n');
+  const head = g(w.d, 'rev-parse', 'HEAD'), remote = () => g(w.origin, 'rev-parse', TRANCHE), before = remote();
+  writeFileSync(role, '{}');
+  assert.throws(() => commitPush(R, TRANCHE, ['one.md'], 'x'), /no role record names this session's own branch/);
+  execFileSync('rm', [role]);
+  assert.throws(() => commitPush(R, 'main', ['one.md'], 'x'), /a push to main is refused: no role is recorded yet \(no \.git\/proc-role\.json\): a session pushes to tranche only/, 'before any role: BOB\'s bootstrap, the tranche only');
+  writeFileSync(role, JSON.stringify({ role: 'job', session: S('A') }));
+  assert.throws(() => commitPush(R, 'job/alpha', ['one.md'], 'x'), /no role record names/, 'a job record without its module');
+  writeFileSync(role, JSON.stringify({ role: 'job', module: 'alpha', session: S('A') }));
+  assert.throws(() => commitPush(R, 'job/alpha', ['one.md'], 'x'), /the checkout is on tranche; check out job\/alpha first/);
+  assert.deepEqual([g(w.d, 'rev-parse', 'HEAD'), remote()], [head, before], 'nothing committed, nothing pushed');
+  assert.equal(g(w.d, 'diff', '--cached', '--name-only'), '', 'nothing staged');
+});
 test('R5: the two path tables are data and no path is in both, or under one of the other', () => {
   const { durable, transient } = paths();
   assert.ok(durable.length && transient.length);
@@ -160,6 +176,8 @@ test('R5: the two path tables are data and no path is in both, or under one of t
 // job sessions, one archived unmerged job; an owed act, an open ask, an undelivered message, a stop.
 function halted() {
   const w = world(), R = repo(w.d);
+  put(w.d, 'build/plan/current.md', '# Plan: a halted build · N1\n\n**Status** · OPEN · the process pinned at `a0f8c6f7845c` (the tip at its open).\n');
+  g(w.d, 'add', '.'); g(w.d, 'commit', '-q', '-m', 'plan'); g(w.d, 'push', '-q', 'origin', TRANCHE);
   const job = (name, sess, state, pr, extra = '') => `# x (transient)\n\n**Status** · ${name} · ${sess} · ${state}${pr ? ` · PR #${pr}` : ''}\n**Runs** · 1\n**Owed** · none\n${extra}`;
   stateWrite(R, {
     'plan.md': fmtPlan({ state: 'OPEN', bob: { name: 'BOB #7', session: BOB }, owed: ['archive LEDGER #1'], layers: { 3: 'STARTED' } }),
@@ -191,13 +209,42 @@ test('R6: status on a fresh clone of a halted build tells everything open, idle,
   assert.deepEqual(s.asks, [{ id: 'A4', status: 'RECEIVED' }]);
   assert.deepEqual(s.undelivered, [{ id: 'M1', text: 'to session_01X: COMPLETE #1 ledger' }]);
   assert.match(s.lanes[0].line, /WAITING: a colour/);
-  assert.equal(s.pin, 'a0f8c6f7845c');
-  for (const f of s.files) assert.ok(f.bytes > 0, f.path);
+  assert.equal(s.pin, 'a0f8c6f7845c', 'the pin the durable plan names');
+  for (const f of s.files.filter((x) => x.path.startsWith('state/'))) assert.ok(f.bytes > 0, f.path);
   assert.ok(s.files.some((f) => f.path === 'state/E1:plan.md'));
+  assert.ok(s.files.some((f) => f.path === `${TRANCHE}:build/plan/current.md` && f.bytes > 0));
   const lines = statusLines(s).join('\n');
   for (const want of [/^STOPPED a process flaw · a0f8c6f7845c · ledger complete-allowed; search abandoned: take no new step$/m, /^pin: a0f8c6f7845c$/m, /^unmerged: ledger PR #41; search PR #42 \(no session\)$/m, /^owed: plan: archive LEDGER #1$/m, /^SIZE state\/E1:jobs\/ledger\.md \d+$/m, /^undelivered: M1 /m]) assert.match(lines, want);
 });
 
+test('R6: the pin is the one the durable plan\'s Status line names, moved by a RESUMED there and by a resume on the state branch', () => {
+  const w = world(), R = repo(w.d);
+  assert.equal(status({ product: w.d }).pin, null, 'no plan: no pin, never a guess');
+  put(w.d, 'build/plan/current.md', '# Plan: x · N9\n\n**Status** · OPEN · the process pinned at `a0f8c6f` (the tip); STOPPED then; RESUMED at `c9749e2` (the pin moved once).\n');
+  g(w.d, 'add', '.'); g(w.d, 'commit', '-q', '-m', 'plan'); g(w.d, 'push', '-q', 'origin', TRANCHE);
+  assert.equal(status({ product: w.d }).pin, 'c9749e2');
+  assert.match(statusLines(status({ product: w.d })).join('\n'), /^pin: c9749e2$/m);
+  stateWrite(R, { 'jobs/a.md': `# a\n\n**Status** · A #1 · ${S('A')} · WORKING · PR #1\n` }, 'a');
+  stop(R, 'a flaw', { a: 'complete-allowed' }, 'c9749e2'); resume(R, 'deadbee');
+  assert.equal(status({ product: w.d }).pin, 'deadbee');
+});
+
+test('R6: before any epoch is open, status answers the state that exists (the durable plan, no jobs, no asks), never a refusal', () => {
+  const w = world({ plan: false });
+  const s = status({ product: w.d, role: 'root' });
+  assert.deepEqual([s.epoch, s.jobs, s.asks, s.lanes, s.owed, s.stop], [null, [], [], [], [], null]);
+  assert.match(statusLines(s)[0], /^epoch none open · plan \? · no BOB$/);
+});
+
+test('R6: a job\'s reading set is worked out from the record (its START\'s "Read whole, by path:" line) and measured from git', () => {
+  const w = world(), R = repo(w.d);
+  stateWrite(R, { 'jobs/alpha.md': `# a\n\n**Status** · ALPHA #1 · ${S('A')} · WORKING · PR #1\n`, 'jobs/alpha/start.md': 'START ALPHA #1\nRead whole, by path: src/a.mjs; build/epochs.md (its head); absent.md.\n' }, 'start');
+  g(w.d, 'checkout', '-q', '-b', 'job/alpha'); g(w.d, 'push', '-q', 'origin', 'job/alpha');
+  put(w.d, 'src/a.mjs', 'x'.repeat(5000));   // the working tree is not what is measured
+  const s = status({ product: w.d, role: { role: 'job', module: 'alpha', session: S('A') } });
+  assert.deepEqual(s.set, [{ path: 'src/a.mjs', bytes: 20 }, { path: 'build/epochs.md', bytes: Buffer.byteLength(g(w.d, 'show', 'origin/job/alpha:build/epochs.md')) + 1 }, { path: 'absent.md', bytes: null }]);
+  assert.deepEqual(status({ product: w.d, role: 'bob' }).set, [], 'any other role: the set its caller names');
+});
 test('R6: a job\'s owed acts are listed beside the plan\'s', () => {
   const w = world(), R = repo(w.d);
   stateWrite(R, { 'jobs/a.md': `# a\n\n**Status** · A #1 · ${S('A')} · COMPLETE · PR #3\n**Owed** · mark PR #3 ready; post the report\n` }, 'a');
@@ -226,20 +273,29 @@ test('R7: no platform status is read as a work state: the session\'s status chan
   assert.ok(!/IDLE|RUNNING|ARCHIVED/.test(a.line));
 });
 
-test('R8: a remote act is written as done only from the call\'s result; a refusal or no result leaves it owed', () => {
+test('R7: REFRESH is decided on the exact share, not the rounded one', () => {
+  const gs = (used) => ({ ccr: { external_metadata: { context_usage: { max_tokens: 1000000, used_tokens: used } } } });
+  const c = contextShare(gs(500400), 'job');
+  assert.deepEqual([c.pct, c.refresh], [50, true], '50.04 % is past half, though it prints as 50');
+  assert.equal(contextShare(gs(500000), 'job').refresh, false);
+});
+test('R8: a remote act is written as done only from the call\'s result with the fields that result carries; a request, a refusal or no result leaves it owed', () => {
   const w = world(), R = repo(w.d);
   planEdit(R, (p) => ({ ...p, owed: ['archive OLD #1', 'merge PR #4'] }), 'owe');
-  for (const bad of [undefined, null, '', { error: 'Permission denied by the classifier' }, { status: 'refused' }, '{"isError":true}', 'not json', []]) {
-    assert.throws(() => recordAct(R, 'archive OLD #1', bad), /not recorded as done/, JSON.stringify(bad));
+  const usage = { cache_read_tokens: 5, cache_write_tokens: 4, input_tokens: 3, output_tokens: 2 };
+  for (const bad of [undefined, null, '', { error: 'Permission denied by the classifier' }, { status: 'refused', ...usage }, '{"isError":true}', 'not json', [], { session_id: 'session_01OLD' }, { ...usage, output_tokens: 'many' }, { cache_read_tokens: 5 }]) {
+    assert.throws(() => recordAct(R, 'archive OLD #1', bad, USAGE_FIELDS), /not recorded as done/, JSON.stringify(bad));
   }
+  assert.throws(() => recordAct(R, 'archive OLD #1', usage), /the fields the act's result carries/, 'a caller that names no fields records nothing');
+  assert.equal(actDone({ session_id: 'session_01OLD' }, USAGE_FIELDS), false, 'a request\'s own arguments are not its result');
   assert.deepEqual(parsePlan(stateRead(R, 'plan.md')).owed, ['archive OLD #1', 'merge PR #4'], 'still owed');
-  assert.equal(recordAct(R, 'archive OLD #1', { session: { id: 'session_01OLD', status: 'archived' } }).recorded, true);
+  assert.equal(recordAct(R, 'archive OLD #1', JSON.stringify({ session_id: 'session_01OLD', ...usage }), USAGE_FIELDS).recorded, true);
   assert.deepEqual(parsePlan(stateRead(R, 'plan.md')).owed, ['merge PR #4']);
-  assert.equal(recordAct(R, 'nothing owed', '{"ok":true}').recorded, false);
+  assert.equal(recordAct(R, 'merge PR #4', { merged: true, sha: 'abc' }, ['merged', 'sha']).recorded, true);
+  assert.equal(recordAct(R, 'nothing owed', { merged: true }, ['merged']).recorded, false);
   assert.deepEqual(Object.keys(REC).filter((k) => /request/i.test(k)), [], 'there is no function that records a request');
 });
-
-test('R9: an address is read from the record at the moment of use, never from a side branch', () => {
+test('R9: an address is read from the record at the moment of use, never from a side branch or the product\'s own main', () => {
   const w = world(), R = repo(w.d);
   assert.equal(addr(R, 'bob'), BOB);
   planEdit(repo(clone(w.base, w.origin, 'bob2', TRANCHE)), (p) => ({ ...p, bob: { name: 'BOB #2', session: S('C') } }), 'successor');
@@ -248,26 +304,32 @@ test('R9: an address is read from the record at the moment of use, never from a 
   assert.equal(addr(R, { module: 'alpha' }), S('A'));
   assert.equal(addr(R, { lane: 'UX' }), S('X'));
   assert.throws(() => addr(R, { module: 'beta' }), /no live session for beta/);
-  // the neoProcess lane: main only; the lane's own branch moving first is not read (issue 123)
+  // the process's parties: the process repository's main only (issue 123; K4)
   const hand = (sess) => `# Handoff\n\n**From** · neoProcess #9 (\`${sess}\`), the lane's address.\n`;
-  put(w.d, 'lane-neoprocess/HANDOFF.md', hand(S('N'))); g(w.d, 'add', '.'); g(w.d, 'commit', '-q', '-m', 'h'); g(w.d, 'push', '-q', 'origin', `${TRANCHE}:main`);
-  put(w.d, 'lane-neoprocess/HANDOFF.md', hand(S('Z'))); g(w.d, 'add', '.'); g(w.d, 'commit', '-q', '-m', 'side'); g(w.d, 'push', '-q', 'origin', 'HEAD:refs/heads/claude/lane-side');
-  assert.equal(addr(R, 'process'), S('N'), 'main\'s address, not the side branch\'s nor the working tree\'s');
-  g(w.d, 'push', '-q', 'origin', 'HEAD:main');
-  assert.equal(addr(R, 'process'), S('Z'), 'read again at the moment of use once main has it');
+  put(w.d, 'lane-neoprocess/HANDOFF.md', hand(S('W'))); g(w.d, 'add', '.'); g(w.d, 'commit', '-q', '-m', 'h'); g(w.d, 'push', '-q', 'origin', `${TRANCHE}:main`);
+  assert.throws(() => addr(R, 'process'), /the process repository \(opts\.process\)/, 'never the product\'s own main');
+  const P = world({ plan: false }), PR = repo(P.d);
+  put(P.d, 'lane-neoprocess/HANDOFF.md', hand(S('N'))); g(P.d, 'add', '.'); g(P.d, 'commit', '-q', '-m', 'h'); g(P.d, 'push', '-q', 'origin', `${TRANCHE}:main`);
+  put(P.d, 'lane-neoprocess/HANDOFF.md', hand(S('Z'))); g(P.d, 'add', '.'); g(P.d, 'commit', '-q', '-m', 'side'); g(P.d, 'push', '-q', 'origin', 'HEAD:refs/heads/claude/lane-side');
+  assert.equal(addr(R, 'process', { process: PR }), S('N'), 'main\'s address, not the side branch\'s, the working tree\'s or the product\'s');
+  g(P.d, 'push', '-q', 'origin', 'HEAD:main');
+  assert.equal(addr(R, 'process', { process: PR }), S('Z'), 'read again at the moment of use once main has it');
 });
-
 test('R10: a stop writes STOPPED <why> · <version> with each unmerged job\'s choice, a resume RESUMED <version>; status shows both', () => {
   const w = world(), R = repo(w.d);
-  assert.throws(() => stop(R, 'x', { a: 'maybe' }, 'abc1234'), /complete-allowed or abandoned/);
-  assert.throws(() => stop(R, 'x', {}, 'not-a-sha'), /process version/);
+  stateWrite(R, { 'jobs/alpha.md': `# a\n\n**Status** · ALPHA #1 · ${S('A')} · COMPLETE · PR #1\n`, 'jobs/beta.md': `# b\n\n**Status** · BETA #1 · - · WORKING · PR #2\n`, 'jobs/gamma.md': `# c\n\n**Status** · GAMMA #1 · ${S('C')} · MERGED · PR #3\n` }, 'jobs');
+  assert.throws(() => stop(R, 'x', { alpha: 'maybe', beta: 'abandoned' }, 'abc1234'), /complete-allowed or abandoned/);
+  assert.throws(() => stop(R, 'x', { alpha: 'abandoned', beta: 'abandoned' }, 'not-a-sha'), /process version/);
+  assert.throws(() => stop(R, 'x', {}, 'abc1234'), /a choice for each unmerged job: none for alpha, beta/);
+  assert.throws(() => stop(R, 'x', { alpha: 'abandoned' }, 'abc1234'), /none for beta/);
+  assert.throws(() => stop(R, 'x', { alpha: 'abandoned', beta: 'abandoned', gamma: 'abandoned', delta: 'abandoned' }, 'abc1234'), /only for an unmerged job: gamma \(merged\), delta \(no such job\)/);
   assert.throws(() => resume(R, 'abc1234'), /not stopped/);
   stop(R, 'flaw · in\nthe gate', { alpha: 'complete-allowed', beta: 'abandoned' }, 'abc1234');
   const text = stateRead(R, 'plan.md');
   assert.match(text, new RegExp(`^\\*\\*Status\\*\\* · OPEN · BOB #1 · ${BOB} · STOPPED flaw in the gate · abc1234$`, 'm'));
   assert.match(text, /^\*\*Choices\*\* · alpha complete-allowed; beta abandoned$/m);
   assert.deepEqual(status({ product: w.d }).stop, { why: 'flaw in the gate', version: 'abc1234', choices: { alpha: 'complete-allowed', beta: 'abandoned' } });
-  assert.throws(() => stop(R, 'again', {}, 'abc1234'), /already stopped/);
+  assert.throws(() => stop(R, 'again', { alpha: 'abandoned', beta: 'abandoned' }, 'abc1234'), /already stopped/);
   resume(R, 'def5678');
   const after = stateRead(R, 'plan.md');
   assert.match(after, new RegExp(`^\\*\\*Status\\*\\* · OPEN · BOB #1 · ${BOB} · RESUMED def5678$`, 'm'));
@@ -277,37 +339,41 @@ test('R10: a stop writes STOPPED <why> · <version> with each unmerged job\'s ch
   assert.match(statusLines(s).join('\n'), /^RESUMED def5678$/m);
   assert.deepEqual(parsePlan(after).bob, { name: 'BOB #1', session: BOB }, 'the BOB in the line is still read');
 });
-
-test('R11: a metrics row is appended keyed by its session id; an unmeasured session is named so, never estimated', () => {
-  let csv = metricsRow(null, ['session_01A', 'job', 'A #1', 'a', 1, 2, 3, 4, '', '', '', '']);
-  assert.equal(csv, `${METRICS_HEAD}session_01A,job,A #1,a,1,2,3,4,,,,\n`);
+test('R11: metricsRow writes one row per session id to the tranche\'s metrics file; an unmeasured session is named so, never estimated', () => {
+  const w = world({ plan: false }), R = repo(w.d), file = join(w.d, 'build/metrics/N2.csv');
+  const A = ['session_01A', 'job', 'A #1', 'a', 1, 2, 3, 4, '', '', '', ''];
+  assert.throws(() => metricsRow(R, A), /the tranche, or the file/);
+  metricsRow(R, A, { tranche: 'N2' });
+  assert.equal(readFileSync(file, 'utf8'), `${METRICS_HEAD}session_01A,job,A #1,a,1,2,3,4,,,,\n`);
+  metricsRow(R, A, { tranche: 'N2' });
+  assert.equal(readFileSync(file, 'utf8').split('\n').filter((l) => l.startsWith('session_01A,')).length, 1, 'one row per session id');
+  assert.throws(() => metricsRow(R, ['session_01C', 'job', 'C #1', 'c', '', '', '', '', '', '', '', ''], { tranche: 'N2' }), /a row without counts is named unmeasured, with the reason/);
   const u = unmeasuredRow('session_01B', 'job', 'B #1', 'b', 'archive refused, by the classifier\nagain');
   assert.deepEqual(u.slice(4, 11), ['', '', '', '', '', '', ''], 'no count is estimated');
   assert.equal(u[11], 'unmeasured: archive refused  by the classifier again');
-  csv = metricsRow(csv, u);
-  assert.equal(csv.split('\n').filter(Boolean).length, 3);
-  csv = metricsRow(csv, ['session_01B', 'job', 'B #1', 'b', 5, 6, 7, 8, '', '', '', '']);   // measured later: replaces its unmeasured row
-  assert.deepEqual(csv.split('\n').filter(Boolean).slice(1), ['session_01A,job,A #1,a,1,2,3,4,,,,', 'session_01B,job,B #1,b,5,6,7,8,,,,']);
+  metricsRow(R, u, { tranche: 'N2' });
+  metricsRow(R, ['session_01B', 'job', 'B #1', 'b', 5, 6, 7, 8, '', '', '', ''], { tranche: 'N2' });   // measured later: replaces its row
+  assert.deepEqual(readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(1), ['session_01A,job,A #1,a,1,2,3,4,,,,', 'session_01B,job,B #1,b,5,6,7,8,,,,']);
+  assert.equal(metricsText(null, A), `${METRICS_HEAD}session_01A,job,A #1,a,1,2,3,4,,,,\n`);
   assert.equal(REC.metricsFile('N2'), 'build/metrics/N2.csv');
 });
-
-test('R12: no record path is a module\'s path or test in this product, so a record write never touches a module', () => {
+test('R12: paths() is disjoint from every module\'s paths and tests in this product\'s build/modules.json', () => {
   const mods = JSON.parse(readFileSync(join(HERE, 'build/modules.json'), 'utf8'));
   const own = mods.modules.flatMap((m) => [...(m.paths || []), ...(m.tests || [])]);
+  assert.ok(own.length > 10);
   const hit = (a, b) => a === b || (b.endsWith('/') && a.startsWith(b)) || (a.endsWith('/') && b.startsWith(a));
-  for (const p of paths().durable) for (const o of own) assert.ok(!hit(p, o), `${p} is ${o}`);
+  const { durable, transient } = paths();
+  for (const p of [...durable, ...transient]) for (const o of own) assert.ok(!hit(p, o), `${p} is ${o}`);
   assert.ok(mods.not_product.includes('build/'), 'the build state is not product');
 });
-
 test('R13: status prints the role\'s reading set with sizes, and every state file it read with its size', () => {
   const w = world(), R = repo(w.d);
-  put(w.d, 'build/requirements/a.md', 'x'.repeat(321));
+  put(w.d, 'build/requirements/a.md', 'x'.repeat(321)); g(w.d, 'add', '.'); g(w.d, 'commit', '-q', '-m', 'req'); g(w.d, 'push', '-q', 'origin', TRANCHE);
   const s = status({ product: w.d, set: ['build/requirements/a.md', 'absent.md'] });
   assert.deepEqual(s.set, [{ path: 'build/requirements/a.md', bytes: 321 }, { path: 'absent.md', bytes: null }]);
   const lines = statusLines(s);
-  assert.ok(lines.includes('SIZE build/requirements/a.md 321'));
-  assert.ok(lines.includes('SIZE absent.md absent'));
+  assert.ok(lines.includes('READ build/requirements/a.md 321'));
+  assert.ok(lines.includes('READ absent.md absent'));
   assert.ok(lines.some((l) => /^SIZE state\/E1:plan\.md \d+$/.test(l)));
-  assert.deepEqual(readingSizes(R, ['build/requirements/a.md']), [{ path: 'build/requirements/a.md', bytes: 321 }]);
+  assert.deepEqual(readingSizes(R, ['build/requirements/a.md'], `origin/${TRANCHE}`), [{ path: 'build/requirements/a.md', bytes: 321 }]);
 });
-

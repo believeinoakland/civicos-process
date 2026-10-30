@@ -55,7 +55,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // The record (git, the state branch, the plan's lines, epochs, metrics rows) comes from tools/record.mjs (N2-5).
-import { TRANCHE, jobBranch, stateBranch, ROLE_FILE, Refused, refuse, repo, ghRepo, readRole, unpushed, commitPush, pruneRef, epoch, needEpoch, stateRead, stateList, stateWrite, epochOpen, epochClose, parsePlan, planEdit as recordPlanEdit, metricsRow, unmeasuredRow, actDone, METRICS_HEAD, jobFiles, addr as recordAddr, stopOf } from './record.mjs';
+import { TRANCHE, jobBranch, stateBranch, ROLE_FILE, Refused, refuse, repo, ghRepo, readRole, unpushed, commitPush, pruneRef, epoch, needEpoch, stateRead, stateList, stateWrite, epochOpen, epochClose, parsePlan, planEdit as recordPlanEdit, metricsRow, unmeasuredRow, actDone, USAGE_FIELDS, status as recordStatus, statusLines, METRICS_HEAD, jobFiles, addr as recordAddr, stopOf } from './record.mjs';
 export { TRANCHE, jobBranch, stateBranch, ROLE_FILE, Refused, refuse, repo, ghRepo, readRole, unpushed, commitPush, pruneRef, epoch, stateRead, stateList, stateWrite, epochOpen, epochClose, parsePlan, metricsRow, jobFiles } from './record.mjs';
 // The gate and the plan's entries come from tools/lib.mjs, moved there from the old tool at the commit point (P3).
 import { entriesOf, runTests, moduleChecks, withArtifacts, evidenceItems, history, modules, artifacts, allChecks, reds, EVIDENCE_FORMS, EVIDENCE_ITEM, stepsCmd, stepsReason, plainReason, BOB_READS, SAID_FILE, saidKey, transcriptOf, freshReaderReason, evidenceReason } from './lib.mjs';
@@ -488,10 +488,9 @@ export function processArchived(o) {
   const row = (csv || '').split('\n').find((l) => l.startsWith(`${sid},`));
   if (row && (!/,unmeasured/.test(row) || o.refused != null)) refuse(`${sid} is already recorded: ${row}`);
   const u = o.refused != null ? {} : (() => { try { return typeof o.usage === 'string' ? JSON.parse(o.usage) : o.usage; } catch { return null; } })();
-  if (o.usage != null && !actDone(u)) refuse(`what archive_session returned shows no archive of ${sid} (${String(o.usage).slice(0, 80)}): pass its result, or --refused "<the refusal's words>"`);
-  const r = metricsRow(csv, o.refused != null ? unmeasuredRow(sid, 'process', owedOne.name, '', String(o.refused)) : [sid, 'process', owedOne.name, '', u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', '', '', '', '']);
+  if (o.usage != null && !actDone(u, USAGE_FIELDS)) refuse(`what archive_session returned shows no archive of ${sid} (${String(o.usage).slice(0, 80)}): pass its result, or --refused "<the refusal's words>"`);
+  const r = metricsRow(R, o.refused != null ? unmeasuredRow(sid, 'process', owedOne.name, '', String(o.refused)) : [sid, 'process', owedOne.name, '', u.cache_read_tokens ?? '', u.cache_write_tokens ?? '', u.input_tokens ?? '', u.output_tokens ?? '', '', '', '', ''], { file: LANE_METRICS });
   const left = owedAll.map((a) => a.session).filter((x) => x !== sid && !r.split('\n').some((l) => l.startsWith(`${x},`) && !/,unmeasured/.test(l)));
-  R.write(LANE_METRICS, r);
   const commit = commitPush(R, me.branch, [LANE_METRICS], `lane neoProcess: ${owedOne.name} ${o.refused != null ? 'left idle, unmeasured' : 'archived'}`);
   return { commit, archived: sid, unmeasured: o.refused != null, left };
 }
@@ -2424,7 +2423,13 @@ export function args(argv) {
   return o;
 }
 // `proc status` in the process repository is the lane's own (it has no state branch); everywhere else BOB's queue.
-function statusCmd(o) { return readRole(repo(o.product).root)?.role === 'process' ? processStatus(o) : status(o); }
+// `proc status` runs the record's status for every role (R6): the whole record with sizes, the role's reading set, and the
+// context share from `--get-session '<what get_session returned>'`; beside it, the role's own queue where it has one.
+function statusCmd(o) {
+  const rec = recordStatus({ product: o.product, session: o.getSession, set: typeof o.set === 'string' ? o.set.split(',') : undefined }), lines = statusLines(rec);
+  if (readRole(repo(o.product).root)?.role === 'process') { const r = processStatus(o); return r instanceof Promise ? r.then((x) => ({ ...x, record: lines })) : { ...r, record: lines }; }
+  return rec.epoch ? { ...status(o), record: lines } : { record: lines, state: rec };
+}
 export const COMMANDS = {
   'epoch open': epochOpen, 'epoch close': epochClose, takeover, status: statusCmd, handoff, addr,
   'ask open': askOpen, 'ask route': askRoute, 'ask dispatch': askDispatch, 'ask ask': askAsk, 'ask decided': askDecided, 'ask close': askClose,
