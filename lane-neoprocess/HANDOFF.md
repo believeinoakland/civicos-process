@@ -2,7 +2,7 @@
 
 **From** · neoProcess #16 (`session_01RAN5emLPV3t3uAq6znKJ2N`), the lane's address, 30 Oct. Before it #15 `session_012hdw2TtwUWftsP6A4fnU4L`, #14 `session_012hdw2SRrXZibnQhZJimtZw`. Branch `claude/modest-brahmagupta-vvaann` of `neobobkrause/neoprocess`. Its work reaches `main` by its own pull requests; the branch continues from `main`.
 
-**Moved to Bob's second Claude account** (Bob, 30 Oct, 11:xxZ, his words: *"the secondary Claude account is connected to the civicsmith github account - which is now a neoprocess collaborator. So now the second account can be used for both civicsmith and neoprocess development. So I need this Claude account to stand down its neoprocess development here."*). #16 started there from START-16. Its GitHub identity, measured by #16: `civicsmith` (`GET /user`), a collaborator (push, triage; admin impossible on a personal account's repository, so Bob: "Leave it as is", 30 Oct); every lane act passes (acts.md). Civicsmith's sessions are on that account too.
+**Moved to Bob's second Claude account** (Bob, 30 Oct: *"the second account can be used for both civicsmith and neoprocess development"*). Its GitHub identity, measured by #16: `civicsmith` (`GET /user`), a collaborator (push, triage; admin impossible on a personal account's repository, so Bob: "Leave it as is", 30 Oct); every lane act passes (acts.md). Civicsmith's sessions are on that account too.
 
 **Standing** · Bob, 29 Oct: keep working until there is no way to; nothing stops for him; a detail is never his (DES 1); plain words; PERMISSIONS §6 is his approval of all development and testing acts; every grant gathered before the work at one sitting (PERMISSIONS §10); one set of development tokens per owner account, a token short of a permission replaced, never worked around (PERMISSIONS §9); **no API key, ever** (§9.3); the network level stays Full (§8.8); the process names no product. Commit messages in plain words (the classifier reads them). The lane starts its successor by `proc process handoff`; Bob only when the chain breaks, from the START file.
 
@@ -21,11 +21,13 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 
 ## What remains, in order
 
-1. **Done 30 Oct**: issues 84 (`proc job takein`), 86 and 88 (`gateNeutral` at merge and complete), 90 (Bob: a retiring BOB stays until its workers finish, `proc bob release`), 92 (a running session's process clone fast-forwarded hourly), 93 (users' tests only for a changed provided service, P11).
-2. **Civicsmith**: BOB #338 (since 11:25Z) recorded both replies seen (§13 PROVEN live). PR 55 merged 12:18Z on a green gate (§14 PROVEN live); BOB #338 handed off at 12:31Z; #339, started after, clones both fixes. Still to read: a job taking in its old branch (§15); a merge over BOB's records (§16).
-3. **Issue 61 stays open** (DRYRUN §9): the evidence check is live; more wording no longer moves it (`judge3.sh`). Bob told 30 Oct.
-4. The dry-run repositories' move to `neobobkrause` (Bob's hand act, the page's step 8), then `repo-shims.yml` for each. **The release-signing decision** (the page's foot): his.
+1. **Issue 96 (Bob)**: the lane's threshold to 40 % (`THRESHOLD.process`, as BOB's); a successor start whose depth does not grow, measured first (a one-shot scheduled task starting a fresh session? read its `lineage.depth`), printed by `proc process handoff`, passed by the hook. #17 is depth 1 (#16's child).
+2. **Issue 95** (REP 10 stops Civicsmith's work): the act-table row for a job outliving two BOBs, and a route (`proc job archived --unmeasured`); tell BOB #339 by message.
+Done 30 Oct: issues 84, 86, 88, 90, 92, 93 (DRYRUN §15-18).
+3. **Civicsmith**: §13-14 PROVEN live; BOB #339 since 12:33Z, its layer-5 jobs on 63254b3. Still to read: a job taking in its old branch (§15); a merge over BOB's records (§16).
+4. **Issue 61 stays open** (DRYRUN §9): the evidence check is live (`judge3.sh`).
+5. The dry-run repositories' move to `neobobkrause` (Bob's hand act, the page's step 8), then `repo-shims.yml` for each. **The release-signing decision** (the page's foot): his.
 
 ## Acts only Bob can take
 
-Done 29-30 Oct: every grant of the sitting; `civicsmith` a collaborator here. Still his: item 4.
+Done 29-30 Oct: every grant of the sitting; `civicsmith` a collaborator here. Still his: item 5.
