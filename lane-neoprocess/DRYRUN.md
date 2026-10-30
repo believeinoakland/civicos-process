@@ -316,7 +316,7 @@ The route within reach once the display event failed (#18, 15:4xZ): the draft is
 | a refused draft is a file, not a message; the passed text lets the turn end; another text does not; a job cannot say | PROVEN in fixture | `say`, `saidPassed`, `hooks.mjs stop` run as a process |
 | the transcript found; the fresh reader's prompt from the skill, the verdict read | PROVEN in fixture | `transcriptOf`, `freshReaderReason` |
 | live: a bad draft refused without a model run; a good one judged by both models against this session's transcript | PROVEN | #18, 15:40Z: the first answered the plain-words fault at once; the second `ok`, `judged`, `transcript: read`, in 19 s |
-| live: the Stop hook lets the said text end the turn without judging it again | NOT YET | #18's next turn end, written with `proc say` |
+| live: the Stop hook lets the said text end the turn without judging it again | PROVEN | #18's last turn, read from its transcript by #19: `proc say` answered `ok` at 16:16:23Z, the same text was sent at 16:16:34Z, the turn's result came at 16:16:36Z (`end_turn`), no Stop refusal between; one message in the transcript |
 
 ## 25. Certification of issue 111's fix (GOV 5; 30 Oct 2026, #18)
 
