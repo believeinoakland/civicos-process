@@ -13,7 +13,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { ROOT_BOB_FILE, repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN, WORKERS_FILE, runningWorkers } from './proc.mjs';
+import { ROOT_BOB_FILE, repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, processTriggerReason, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN, WORKERS_FILE, runningWorkers } from './proc.mjs';
 import { resolve, sep } from 'node:path';
 import { stepsReason, lastAssistantText, plainReason, BOB_READS, evidenceReason, EVIDENCE_MODEL } from './lib.mjs';
 import { spawnSync } from 'node:child_process';   // P20: steps for Bob verified against their source (`proc steps`)
@@ -144,7 +144,11 @@ export function preReason(role, input, ctx) {
       if (ti.title === want.title && ti.prompt === want.prompt && ti.source_revision === want.source_revision && ti.source_url === want.source_url) return null;
       return `the neoProcess lane starts only its successor ${want.title}, with the create_session \`proc process handoff\` printed, unchanged (rulebook SES 1)`;
     }
-    if (role === 'process' && tool === `${REMOTE}send_later`) return backstopReason(ti);   // the lane's own backstop (Bob, 30 Oct)
+    if (role === 'process' && tool === `${REMOTE}send_later`) return backstopReason(ti);
+    if (role === 'process' && tool === `${REMOTE}create_trigger`) {   // issue 96: its successor at a depth that does not grow
+      let want = null; try { want = processSession(R_of(ctx), ctx.branch); } catch { /* a probe needs none */ }
+      return processTriggerReason(ti, want);
+    }   // the lane's own backstop (Bob, 30 Oct)
     // ROOT starts every BOB (rulebook SES 1, SESSIONS §3a): exactly the create_session `proc root bob` printed, once (issue 65)
     if (role === 'root' && tool === `${REMOTE}create_session`) {
       const want = record(ctx, ROOT_BOB_FILE);
@@ -276,7 +280,7 @@ export function laneStopReason(ctx, now = Date.now()) {
 // input (fresh, cache read and cache write) in the transcript; the window is the model's, 1,000,000 unless
 // NEO_CONTEXT_WINDOW says otherwise. BOB's refresh is its handoff (`proc handoff` marks it for its session); a job's or a
 // lane's is the wait `BLOCKED: context`, which BOB's queue lists as UNBLOCK and answers by `proc job route` / `lane route`.
-export const THRESHOLD = { bob: 0.4, job: 0.5, lane: 0.5, process: 0.5, onboard: 0.5 };
+export const THRESHOLD = { bob: 0.4, job: 0.5, lane: 0.5, process: 0.4, onboard: 0.5 };
 export const WINDOW = Number(process.env.NEO_CONTEXT_WINDOW) || 1_000_000;
 export function contextUsed(input) {
   if (typeof input?.transcript_path !== 'string') return null;
