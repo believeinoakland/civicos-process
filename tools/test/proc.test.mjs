@@ -1125,3 +1125,12 @@ test('issue 93: the gate runs a user\'s tests only when the job changes what its
   assert.deepEqual(step(() => writeFileSync(req, r0.replace('Arithmetic on numbers.', 'Arithmetic on finite numbers.'))).users, ['beta', 'stats']);   // the Purpose: every user
   assert.equal(step(() => writeFileSync(src, `${s0}\nexport default add;\n`)).all, true);
 });
+
+test('K2 (N2 layer 1, 30 Oct): an extraction\'s diff touches the legacy modules its module names in `from`; the gate reads the one module (REQ 9, P8)', () => {
+  const w = world(), R = N.repo(w.bob.dir), d = w.bob.dir, root = w.bob.root, base = g(root, 'rev-parse', 'HEAD');
+  const step = (files) => { g(root, 'checkout', '-q', base); for (const [p, t] of Object.entries(files)) { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), t); } g(root, 'add', '-A'); g(root, 'commit', '-qm', 'step'); return N.moduleOfDiff(R, base); };
+  assert.equal(step({ 'stats/src/k2.mjs': 'export const k2 = 1;\n', 'legacy/k2.mjs': '// moved out\n', 'catalog/k2.md': 'moved out\n' }), 'stats');   // the extraction and both its sources: one module
+  assert.equal(step({ 'legacy/k2.mjs': '// a change in the legacy module alone\n' }), 'legacy');
+  assert.throws(() => step({ 'stats/src/k2.mjs': 'x', 'alpha/src/k2.mjs': 'y' }), /several modules: alpha, stats/);
+  assert.throws(() => step({ 'alpha/src/k2.mjs': 'y', 'legacy/k2.mjs': 'z' }), /several modules: alpha, legacy/);   // alpha names no legacy source
+});
