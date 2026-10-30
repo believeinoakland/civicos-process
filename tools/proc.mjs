@@ -54,44 +54,21 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync
 import { tmpdir } from 'node:os';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// The record (git, the state branch, the plan's lines, epochs, metrics rows) comes from tools/record.mjs (N2-5).
+import { TRANCHE, jobBranch, stateBranch, ROLE_FILE, Refused, refuse, repo, ghRepo, readRole, unpushed, commitPush, pruneRef, epoch, needEpoch, stateRead, stateList, stateWrite, epochOpen, epochClose, parsePlan, planEdit as recordPlanEdit, metricsRow, METRICS_HEAD, jobFiles, addr as recordAddr, stopOf } from './record.mjs';
+export { TRANCHE, jobBranch, stateBranch, ROLE_FILE, Refused, refuse, repo, ghRepo, readRole, unpushed, commitPush, pruneRef, epoch, stateRead, stateList, stateWrite, epochOpen, epochClose, parsePlan, metricsRow, jobFiles } from './record.mjs';
 // The gate and the plan's entries come from tools/lib.mjs, moved there from the old tool at the commit point (P3).
 import { entriesOf, runTests, moduleChecks, withArtifacts, evidenceItems, history, modules, artifacts, allChecks, reds, EVIDENCE_FORMS, EVIDENCE_ITEM, stepsCmd, stepsReason, plainReason, BOB_READS, SAID_FILE, saidKey, transcriptOf, freshReaderReason, evidenceReason } from './lib.mjs';
 
 export const PROCESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export const TRANCHE = 'tranche';                 // fixed: a merge queue cannot target a wildcard (JOB-LIFE §1)
-export const jobBranch = (m) => `job/${m}`;
-export const stateBranch = (e) => `state/${e}`;
-export const ROLE_FILE = 'proc-role.json';
 export const LIMIT = 4096;                        // a handoff, a START, a charter, a brief (SESSIONS §6)
 const SESSION = /^session_[0-9A-Za-z]+$/;
 const NAME = /^[A-Z][A-Z0-9-]* #\d+$/;
 const now = () => new Date().toISOString();
 const today = () => now().slice(0, 10);
-export class Refused extends Error {}
-export const refuse = (msg) => { throw new Refused(msg); };
 
 // ---- git ----
 
-export function repo(product) {
-  const dir = resolve(product || '.');
-  const root = execFileSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
-  const g = (args, env) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 << 20, env: env ? { ...process.env, ...env } : process.env }).trim();
-  const rel = (p) => relative(root, join(dir, p)) || '.';
-  const read = (p) => { const f = join(dir, p); return existsSync(f) ? readFileSync(f, 'utf8') : null; };
-  const write = (p, text) => { const f = join(dir, p); mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, text); };
-  const fetch = (...branches) => { for (const b of branches) { try { g(['fetch', '-q', 'origin', `+refs/heads/${b}:refs/remotes/origin/${b}`]); } catch { /* absent */ } } };
-  const remote = (branch, p) => { try { return g(['show', `origin/${branch}:${rel(p)}`]); } catch { return null; } };
-  const branch = () => g(['rev-parse', '--abbrev-ref', 'HEAD']);
-  const heads = (glob) => { try { return g(['ls-remote', '--heads', 'origin', glob]).split('\n').filter(Boolean).map((l) => l.split(/\s+/)[1].replace('refs/heads/', '')); } catch { return []; } };
-  return { dir, root, g, rel, read, write, fetch, remote, branch, heads };
-}
-export function unpushed(R) {
-  const out = [];
-  if (R.g(['status', '--porcelain', '--untracked-files=no'])) out.push('uncommitted changes');
-  const b = R.branch();
-  try { const n = Number(R.g(['rev-list', '--count', `origin/${b}..HEAD`])); if (n) out.push(`${n} commit(s) on ${b} not pushed`); } catch { out.push(`${b} has never been pushed`); }
-  return out;
-}
 function on(R, want) { const b = R.branch(); if (b !== want) refuse(`check out ${want} first (on ${b})`); }
 // A session's clone may start on a detached HEAD at its branch's tip (STATS #2, 29 Oct: R-STATS-2-1); the start command
 // makes the branch there itself, since the hook refuses a checkout before a role is recorded.
@@ -102,135 +79,20 @@ function onto(R, want) {
   if (tip !== R.g(['rev-parse', 'HEAD'])) refuse(`detached at ${R.g(['rev-parse', '--short', 'HEAD'])}, not at origin/${want}'s tip: check out ${want} first`);
   R.g(['checkout', '-q', '-B', want, '--track', `origin/${want}`]);
 }
-// Commit the named files on the current branch and push; a lost race merges the remote once (never a rebase, never a force).
-export function commitPush(R, branch, paths, message) {
-  const gone = (p) => !existsSync(join(R.root, R.rel(p)));
-  const del = paths.filter(gone), keep = paths.filter((p) => !del.includes(p));
-  if (del.length) R.g(['rm', '-q', '--cached', '--ignore-unmatch', '--', ...del.map(R.rel)]);
-  if (keep.length) R.g(['add', '--', ...keep.map(R.rel)]);
-  try { R.g(['diff', '--cached', '--quiet']); } catch { R.g(['commit', '-q', '-m', message]); }
-  try { R.g(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`]); }
-  catch { R.g(['pull', '-q', '--no-rebase', '--no-edit', 'origin', branch]); R.g(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`]); }
-  return R.g(['rev-parse', '--short', 'HEAD']);
-}
-export function readRole(root) { const f = join(root, '.git', ROLE_FILE); return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null; }
 const writeRole = (R, rec) => writeFileSync(join(R.root, '.git', ROLE_FILE), JSON.stringify(rec));
 
 // ---- the state branch (PROTOCOL §7d): an orphan, written by plumbing, one writer per file ----
 
-// A remote branch deleted from here when the proxy allows it (a bare fixture does), else by the product's prune
-// workflow (`.github/workflows/prune.yml`, written by shims; REP 4), whose dispatch is printed as the act owed.
-export function pruneRef(R, ref) {
-  const r = spawnSync('git', ['-C', R.root, 'push', '-q', 'origin', `:refs/heads/${ref}`], { encoding: 'utf8' });
-  if (r.status === 0) { try { R.g(['update-ref', '-d', `refs/remotes/origin/${ref}`]); } catch { /* none */ } return { ref, deleted: true }; }
-  return { ref, deleted: false, dispatch: { tool: 'actions_run_trigger', ...ghRepo(R), workflow_id: 'prune.yml', ref: 'main', inputs: { ref } }, why: `the proxy refused the delete: ${(r.stderr || '').trim().split('\n').pop() || 'no reason given'}` };
-}
-// The one open state branch on origin: a `state/*` head whose own `epoch.md` is not marked closed (`epoch close` marks it
-// before the delete, since a closed epoch's branch may linger until the prune workflow deletes it). None means no epoch is open.
-export function epoch(R) {
-  const open = (e) => { R.fetch(stateBranch(e)); try { return !/^closed /m.test(R.g(['show', `origin/${stateBranch(e)}:epoch.md`])); } catch { return false; } };
-  const all = R.heads('refs/heads/state/*').map((b) => b.slice('state/'.length)).filter(open);
-  if (all.length > 1) refuse(`more than one open state branch on origin (${all.map((e) => `state/${e}`).join(', ')}): close the old epoch first`);
-  return all[0] ?? null;
-}
-const needEpoch = (R) => epoch(R) ?? refuse('no epoch is open: run `epoch open` first');
-export function stateRead(R, path, e = needEpoch(R)) { R.fetch(stateBranch(e)); try { return R.g(['show', `origin/${stateBranch(e)}:${path}`]); } catch { return null; } }
-export function stateList(R, dir, e = needEpoch(R)) { R.fetch(stateBranch(e)); try { return R.g(['ls-tree', '-r', '--name-only', `origin/${stateBranch(e)}`, `${dir}/`]).split('\n').filter(Boolean); } catch { return []; } }
-// Write files (text, or null to remove) as one commit on the state branch and push; a lost race is re-applied on the
-// new tip (every file has one writer, so the same change on the newer tree is the right result), never forced.
-export function stateWrite(R, files, message, e = needEpoch(R)) {
-  const b = stateBranch(e), idx = join(tmpdir(), `proc-index-${process.pid}-${Math.random().toString(36).slice(2)}`);
-  const env = { GIT_INDEX_FILE: idx };
-  try {
-    for (let tries = 0; ; tries++) {
-      R.fetch(b);
-      const tip = R.g(['rev-parse', `origin/${b}`]);
-      rmSync(idx, { force: true });
-      R.g(['read-tree', tip], env);
-      for (const [p, text] of Object.entries(files)) {
-        if (text === null) { R.g(['update-index', '--force-remove', '--', p], env); continue; }
-        const blob = execFileSync('git', ['-C', R.root, 'hash-object', '-w', '--stdin'], { input: text, encoding: 'utf8' }).trim();
-        R.g(['update-index', '--add', '--cacheinfo', `100644,${blob},${p}`], env);
-      }
-      const tree = R.g(['write-tree'], env);
-      if (tree === R.g(['rev-parse', `${tip}^{tree}`])) return tip.slice(0, 7);   // nothing to write
-      const commit = execFileSync('git', ['-C', R.root, 'commit-tree', tree, '-p', tip, '-m', message], { encoding: 'utf8' }).trim();
-      const r = spawnSync('git', ['-C', R.root, 'push', '-q', 'origin', `${commit}:refs/heads/${b}`], { encoding: 'utf8' });
-      if (r.status === 0) { R.fetch(b); return commit.slice(0, 7); }
-      if (tries >= 3) refuse(`the state branch ${b} could not be pushed after 4 tries: ${(r.stderr || '').trim().split('\n').pop()}`);
-    }
-  } finally { rmSync(idx, { force: true }); }
-}
-// A transition's two commands. `open` makes the next epoch's branch from nothing (an orphan commit holding one file),
-// after the previous one is gone; `close` refuses while anything is open or live, then deletes the branch outright:
-// the one remote delete the process makes, of a `state/*` branch only (Bob, 29 Oct: really thrown away).
-export function epochOpen(o) {
-  const R = repo(o.product);
-  if (epoch(R)) refuse(`epoch ${epoch(R)} is still open: close it first`);
-  on(R, TRANCHE);
-  const log = R.read('build/epochs.md') ?? '# Epochs (labels only: nothing here points into a state branch)\n';
-  const n = Math.max(0, ...[...log.matchAll(/^- E(\d+) /gm)].map((x) => Number(x[1]))) + 1, e = `E${n}`;
-  const blob = execFileSync('git', ['-C', R.root, 'hash-object', '-w', '--stdin'], { input: `# ${e}\n\nopened ${now()}\n`, encoding: 'utf8' }).trim();
-  const idx = join(tmpdir(), `proc-index-${process.pid}`), env = { GIT_INDEX_FILE: idx };
-  rmSync(idx, { force: true });
-  R.g(['read-tree', '--empty'], env);
-  R.g(['update-index', '--add', '--cacheinfo', `100644,${blob},epoch.md`], env);
-  const tree = R.g(['write-tree'], env); rmSync(idx, { force: true });
-  const commit = execFileSync('git', ['-C', R.root, 'commit-tree', tree, '-m', `${e} opens`], { encoding: 'utf8' }).trim();
-  R.g(['push', '-q', 'origin', `${commit}:refs/heads/${stateBranch(e)}`]);
-  R.write('build/epochs.md', `${log.trimEnd()}\n- ${e} · opened ${today()}\n`);
-  const c = commitPush(R, TRANCHE, ['build/epochs.md'], `epoch ${e} opens`);
-  return { epoch: e, commit: c };
-}
-export function epochClose(o) {
-  const R = repo(o.product), e = needEpoch(R);
-  on(R, TRANCHE);
-  const open = asks(R, e).filter((a) => a.status !== 'CLOSED').map((a) => `${a.id} ${a.status}`);
-  if (open.length) refuse(`asks still open: ${open.join(', ')}`);
-  const unrouted = refusalsOf(R, e).filter((r) => r.status === 'OPEN').map((r) => r.id);
-  if (unrouted.length) refuse(`refusals still open: ${unrouted.join(', ')} (route each with \`proc refused routed\`, before the close PR merges: its row rides the PR; DRYRUN §4.21)`);
-  const live = [...jobFiles(R, e), ...stateList(R, 'lanes', e)].map((p) => [p, stateRead(R, p, e) || '']).filter(([, t]) => /· LIVE |· (STARTING|WORKING|WAITING|BLOCKED|NEEDS BOB|COMPLETE|REOPENED|MERGED)/.test(t)).map(([p]) => p);
-  if (live.length) refuse(`sessions still live on the state branch: ${live.join(', ')} (archive them and record it first)`);
-  const plan = parsePlan(stateRead(R, 'plan.md', e) || '');
-  if (plan.owed.length) refuse(`acts still owed: ${plan.owed.join('; ')}`);
-  // the epoch's process reports outlive its state branch: kept under build/process-issues/ on the tranche (issue 75)
-  const reports = stateList(R, 'issues', e).map((p) => { const f = `build/process-issues/${p.slice('issues/'.length)}`; R.write(f, stateRead(R, p, e) || ''); return f; });
-  const marked = stateWrite(R, { 'epoch.md': `${stateRead(R, 'epoch.md', e) || `# ${e}`}\nclosed ${now()}\n` }, `${e} closes`, e);
-  const prune = pruneRef(R, stateBranch(e));
-  const log = R.read('build/epochs.md') || '';
-  // Mid-tranche (an account move, a stop) the closed line is written now; at a tranche's close it is already in the close PR.
-  R.write('build/epochs.md', log.replace(new RegExp(`^- ${e} · opened (\\S+)$`, 'm'), `- ${e} · opened $1 · closed ${today()}`));
-  return { epoch: e, marked, prune, reports, commit: commitPush(R, TRANCHE, ['build/epochs.md', ...reports], `epoch ${e} closes`) };
-}
-
-// ---- the plan's transient lines ----
-
-const STATUS = /^\*\*Status\*\* · ([A-Z]+) · (BOB #\d+) · (session_[0-9A-Za-z]+)$/m;
-export function parsePlan(text) {
-  const s = (text || '').match(STATUS);
-  const owed = ((text || '').match(/^\*\*Owed\*\* · (.*)$/m)?.[1] ?? '').split('; ').map((x) => x.trim()).filter((x) => x && x !== 'none');
-  const layers = Object.fromEntries([...((text || '').match(/^\*\*Layers\*\* · (.*)$/m)?.[1] ?? '').matchAll(/(\d+) (STARTED|CLOSED)/g)].map((x) => [Number(x[1]), x[2]]));
-  const retiring = [...((text || '').match(/^\*\*Retiring\*\* · (.*)$/m)?.[1] ?? '').matchAll(/(BOB #\d+) (session_[0-9A-Za-z]+) (running|released)/g)].map((x) => ({ name: x[1], session: x[2], state: x[3] }));
-  return { state: s?.[1] ?? null, bob: s ? { name: s[2], session: s[3] } : null, owed, layers, retiring };
-}
-const fmtPlan = (p) => `# Plan (transient)\n\n**Status** · ${p.state} · ${p.bob.name} · ${p.bob.session}\n**Owed** · ${p.owed.join('; ') || 'none'}\n${Object.keys(p.layers || {}).length ? `**Layers** · ${Object.entries(p.layers).map(([l, s]) => `${l} ${s}`).join('; ')}\n` : ''}${(p.retiring || []).length ? `**Retiring** · ${p.retiring.map((r) => `${r.name} ${r.session} ${r.state}`).join('; ')}\n` : ''}`;
-export function planEdit(R, edit, message) {
-  const p = parsePlan(stateRead(R, 'plan.md') || '');
-  const next = edit(p);
-  // an owed start for a lane no longer open is stale (a lane closed before its first session, R-BOB-1-4): dropped here
-  const open = new Set(lanes(R).filter((l) => l.status === 'OPEN').map((l) => l.id));
-  next.owed = (next.owed || []).filter((x) => { const m = x.match(/^start lane (\S+)$/); return !m || open.has(m[1]); });
-  return stateWrite(R, { 'plan.md': fmtPlan(next) }, message);
-}
+// The plan edited on the record (tools/record.mjs), and an owed start for a lane no longer open dropped as stale (a lane
+// closed before its first session, R-BOB-1-4).
+export const planEdit = (R, edit, message) => recordPlanEdit(R, (p) => { const next = edit(p), open = new Set(lanes(R).filter((l) => l.status === 'OPEN').map((l) => l.id)); return { ...next, owed: (next.owed || []).filter((x) => { const m = x.match(/^start lane (\S+)$/); return !m || open.has(m[1]); }) }; }, message);
 const owe = (p, acts) => ({ ...p, owed: [...new Set([...p.owed, ...acts])] });
 const clear = (p, act) => ({ ...p, owed: p.owed.filter((x) => x !== act) });
 
 // BOB's address, read from the state branch at the moment of sending (PROTOCOL §1).
 export function addr(o) {
-  const R = repo(o.product), p = parsePlan(stateRead(R, 'plan.md') || '');
-  if (o.bob) return p.bob?.session ?? refuse('no BOB in the plan\'s Status line');
-  if (o.lane) return parseLane(stateRead(R, `lanes/${o.lane}.md`) || '').session ?? refuse(`lane ${o.lane} has no live session`);
-  return parseJob(stateRead(R, `jobs/${o.module}.md`) || '')?.session ?? refuse(`no live session for ${o.module}`);
+  const R = repo(o.product);
+  return recordAddr(R, o.bob ? 'bob' : o.lane ? { lane: o.lane } : { module: o.module });
 }
 // A successor BOB's first command: its address on the state branch, its role file, and everything it must act on.
 export function takeover(o) {
@@ -538,11 +400,6 @@ export function keepRefresh(root, owed) {
 // refresh and listed at each backstop, until it is archived and its usage read.
 export function idleLaneSessions(csv) {
   return (csv || '').split('\n').slice(1).filter(Boolean).map((l) => l.split(',')).filter((c) => c[1] === 'process' && /^unmeasured/.test(c[11] || '')).map((c) => ({ session: c[0], name: c[2] }));
-}
-export function metricsRow(csv, row) {   // the session's unmeasured row replaced, else the row appended
-  const lines = (csv || METRICS_HEAD).replace(/\n$/, '').split('\n'), i = lines.findIndex((l, k) => k > 0 && l.startsWith(`${row[0]},`) && /,unmeasured/.test(l));
-  if (i > 0) lines[i] = row.join(','); else lines.push(row.join(','));
-  return `${lines.join('\n')}\n`;
 }
 export const laneMoved = (id) => `The neoProcess lane's address is now ${id}; the previous lane session is archived. Send the lane everything there from now on.`;
 export async function processStart(o) {
@@ -1030,7 +887,7 @@ export function status(o) {
     ? [...unpushed(R), ...owedByJob(mine).map((x) => `${role.module} owes: ${x}`)]
     : role?.role === 'lane' ? unpushed(R)
       : [...owed, ...unpushed(R), ...all.filter((a) => ['RECEIVED', 'DECIDED'].includes(a.status) && !a.working).map((a) => `${a.id} reads ${a.status} with nothing dispatched: route and dispatch it, or close it`), ...open.map((r) => `${r.id} (${r.by}: ${r.act}) is an open refusal: route it (proc refused routed), or bring it to Bob`)];
-  return { epoch: e, bob: plan.bob, jobs, lanes: lanes(R).map((l) => ({ ...l, ...parseLane(stateRead(R, `lanes/${l.id}.md`, e) || '') })), queue, working, owed: plan.owed, refusals, gate };
+  return { epoch: e, bob: plan.bob, ...stopOf(plan), jobs, lanes: lanes(R).map((l) => ({ ...l, ...parseLane(stateRead(R, `lanes/${l.id}.md`, e) || '') })), queue, working, owed: plan.owed, refusals, gate };
 }
 // ---- refusals (PERMISSIONS §2.5) and the act table (§2.1): a refused act is recorded, routed and counted, never worked around ----
 
@@ -1125,7 +982,6 @@ export function bobRelease(o) {
 const PLAN = 'build/plan/current.md';
 const JOB_STATE = /^(WORKING|COMPLETE|WAITING: .+|BLOCKED: (tests|context|reading|needs Bob)\b.*|NEEDS BOB: .+)$/;
 const MODEL = { opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5' };
-const METRICS_HEAD = 'session,role,name,module,cache-read,cache-write,input,output,test runs,module lines,reviewed,note\n';
 export const MODULE_SET = 40 * 1024;              // a module's own reading set (SESSIONS §6.3)
 const LIVE_JOB = /^(STARTING|WORKING|WAITING: |BLOCKED: |NEEDS BOB: |COMPLETE|REOPENED|MERGED)/;
 // The tranche's id lives in the plan's title (`# Plan: … D3`), never in a branch name (JOB-LIFE §1).
@@ -1136,13 +992,8 @@ export function tranche(R) {
 // The tranche's id for a metrics row: the running plan's, or between rounds and after the last one the archived plan's
 // (BOB #3, 29 Oct: `refused routed` after the last round's close found no running plan; DRYRUN §4.19).
 export const trancheId = (R, given) => given || (R.read(PLAN) ? tranche(R).id : archivedTranche(R) ?? refuse(`${PLAN}: no running plan and no archived one: --tranche <T>`));
-export function ghRepo(R) {
-  const m = R.g(['remote', 'get-url', 'origin']).match(/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/);
-  return { owner: m?.[1] ?? '?', repo: m?.[2] ?? '?' };
-}
 const mod = (R, m) => modules(R).find((x) => x.id === m) ?? refuse(`no module ${m} in build/modules.json`);
 const jobPath = (m) => `jobs/${m}.md`;
-export const jobFiles = (R, e) => stateList(R, 'jobs', e).filter((p) => /^jobs\/[^/]+\.md$/.test(p));
 const jobOf = (R, m) => parseJob(stateRead(R, jobPath(m)) || '');
 const loadJob = (R, m) => jobOf(R, m) ?? refuse(`no job for ${m} on the state branch`);
 const saveJob = (R, m, j, msg) => stateWrite(R, { [jobPath(m)]: fmtJob(m, j) }, msg);
