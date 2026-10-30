@@ -241,13 +241,21 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   assert.match(pre(tool(`${REMOTE}create_session`, { title: 'X #1' })), /could not be derived/);   // no repository at the fixture's root
   assert.throws(() => N.processSession(N.repo(N.PROCESS), undefined), /no branch recorded/);
   // issue 96: the one-shot scheduled task for the successor, as printed, or the probe; fresh, within 30 minutes, no connector
-  const soon = new Date(Date.now() + 3 * 60e3).toISOString(), trig = (x) => preReason('process', tool(`${REMOTE}create_trigger`, { name: want.title, prompt: want.prompt, run_once_at: soon, create_new_session_on_fire: true, ...x }), here);
+  const soon = new Date(Date.now() + 3 * 60e3).toISOString(), trig = (x) => preReason('process', tool(`${REMOTE}create_trigger`, { name: `${want.title} starter`, prompt: N.starterPrompt(N.successorCall(want)), run_once_at: soon, create_new_session_on_fire: true, ...x }), here);
   assert.equal(trig({}), null);
+  assert.equal(trig({ name: 'neoProcess lane probe 2', prompt: N.starterPrompt(N.probeChild(want)) }), null);
+  assert.match(N.starterPrompt(N.successorCall(want)), /^STARTER \(neoProcess lane, issue 96\): your one act is to call the tool create_session .*"model":"claude-opus-5-5"/);
   assert.equal(trig({ name: 'neoProcess lane probe (issue 96)', prompt: N.PROCESS_PROBE }), null);
   assert.equal(preReason('process', tool(`${REMOTE}create_trigger`, { name: 'neoProcess lane probe', prompt: N.PROCESS_PROBE, run_once_at: soon, create_new_session_on_fire: true }), ctx), null);   // a probe needs no handoff
-  for (const bad of [{ prompt: `${want.prompt} and hurry` }, { name: 'X #1' }, { create_new_session_on_fire: false }, { persistent_session_id: L1 }, { cron_expression: '0 * * * *' }, { run_once_at: new Date(Date.now() - 60e3).toISOString() }, { run_once_at: new Date(Date.now() + 31 * 60e3).toISOString() }, { connectors: ['Gmail'] }, { name: 'neoProcess lane probe', prompt: 'anything' }])
-    assert.match(trig(bad), /arms only the one-shot scheduled task that starts NEOPROCESS #\d+ as `proc process handoff` printed it/);
+  for (const bad of [{ prompt: `${want.prompt} and hurry` }, { name: 'X #1' }, { prompt: want.prompt }, { name: 'neoProcess lane probe', prompt: N.starterPrompt({ ...N.probeChild(want), source_revision: 'main' }) }, { create_new_session_on_fire: false }, { persistent_session_id: L1 }, { cron_expression: '0 * * * *' }, { run_once_at: new Date(Date.now() - 60e3).toISOString() }, { run_once_at: new Date(Date.now() + 31 * 60e3).toISOString() }, { connectors: ['Gmail'] }, { name: 'neoProcess lane probe', prompt: 'anything' }])
+    assert.match(trig(bad), /arms only the one-shot scheduled task that starts NEOPROCESS #\d+'s starter as `proc process handoff` printed it/);
   assert.match(preReason('job', tool(`${REMOTE}create_trigger`, { prompt: N.PROCESS_PROBE }), ctx), /starts no session and arms no timer/);
+  // one fire of the task armed in the last 30 minutes, read from the record the hook keeps in .git
+  const fx = mkdtempSync(join(tmpdir(), 'fire-')); mkdirSync(join(fx, '.git')); const fctx = { ...ctx, root: fx }, fire = () => preReason('process', tool(`${REMOTE}fire_trigger`, { trigger_id: 'trig_x' }), fctx);
+  assert.match(fire(), /fires only the one-shot task it armed in the last 30 minutes, once/);
+  writeFileSync(join(fx, '.git', 'proc-process-trigger.json'), JSON.stringify({ at: new Date().toISOString() })); assert.equal(fire(), null);
+  writeFileSync(join(fx, '.git', 'proc-process-trigger.json'), JSON.stringify({ at: new Date().toISOString(), fired: new Date().toISOString() })); assert.match(fire(), /once/);
+  writeFileSync(join(fx, '.git', 'proc-process-trigger.json'), JSON.stringify({ at: new Date(Date.now() - 31 * 60e3).toISOString() })); assert.match(fire(), /30 minutes/);
   assert.match(N.processStartText(want, 'o/r'), /^# Starting neoProcess #\d+ \(written by `proc process handoff`/);
   // after a rename or move of the process repository it pushes a product's regenerated shims: the product's URL named, the branch
   // `shims` only, never the process repository itself (PERMISSIONS §9.5, §9.6; #11, 29 Oct)
@@ -563,6 +571,17 @@ test('the lane replies to a product\'s report in the process repository; the pro
   g(pdir, 'checkout', '-q', 'main');
   f(pseed, 'NEW.md', 'a fix\n'); g(pseed, 'add', '.'); g(pseed, 'commit', '-q', '-m', 'fix'); g(pseed, 'push', '-q', 'origin', 'main');
   assert.equal(N.processRefresh(pdir).refreshed, true); assert.ok(existsSync(join(pdir, 'NEW.md')));
+  // issue 98: a role's start brings the copy to main, and refuses one it cannot bring there (changed in place)
+  f(pseed, 'NEW2.md', 'another fix\n'); g(pseed, 'add', '.'); g(pseed, 'commit', '-q', '-m', 'fix 2'); g(pseed, 'push', '-q', 'origin', 'main');
+  assert.equal(N.processBehind(pdir), null); assert.ok(existsSync(join(pdir, 'NEW2.md')));
+  f(pdir, 'README.md', 'changed in place\n');
+  assert.match(N.processBehind(pdir), /is changed in place and cannot be brought to main/);
+  assert.throws(() => N.jobStart({ ...o, module: 'alpha', session: 'session_01x', processDir: pdir }), /is changed in place/);
+  g(pdir, 'checkout', '-q', '--', 'README.md');
+  // the shims' start line on a copy already there (issue 98): brought to the tip, as a new session's start runs it
+  f(pseed, 'NEW3.md', 'a third fix\n'); g(pseed, 'add', '.'); g(pseed, 'commit', '-q', '-m', 'fix 3'); g(pseed, 'push', '-q', 'origin', 'main');
+  const line = `if [ -d "${pdir}/.git" ]; then { [ "$(git -C "${pdir}" rev-parse --abbrev-ref HEAD)" = main ] && [ -z "$(git -C "${pdir}" status --porcelain --untracked-files=no)" ] && git -C "${pdir}" fetch -q origin +refs/heads/main:refs/remotes/origin/main && git -C "${pdir}" merge -q --ff-only origin/main; } || echo "neoProcess: could not bring ${pdir} to the tip of main" >&2; else exit 9; fi`;
+  execFileSync('sh', ['-c', line]); assert.ok(existsSync(join(pdir, 'NEW3.md')));
   assert.match(N.status(B).queue.find((q) => q.item.startsWith('READ')).detail, /issues\/80\): read it whole by `git -C .* show origin\/main:lane-neoprocess\/replies\/.*`, act on it, then `proc issue seen --report /);
   // BOB records it seen on the tranche, once; the next BOB does not see it again
   assert.throws(() => N.issueSeen({ product: lane.root, report: id, processDir: pdir }), /BOB records/);
