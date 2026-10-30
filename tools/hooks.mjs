@@ -280,7 +280,10 @@ export function laneStopReason(ctx, now = Date.now()) {
   if (unfiled.length) why.push(`product report(s) ${unfiled.join(', ')} not filed: \`proc issue --report <id>\`, the call it prints, then \`proc process status\``);
   const rf = record(ctx, REFRESH_FILE);   // Bob, 30 Oct: every refresh retires the predecessor and tells the products the new address
   if (rf && rf.session === ctx.session) {
-    if (!rf.archived) why.push(`the previous lane session ${rf.archive} is not archived: archive_session it, then \`proc process archived --usage '<what it returned>'\`; if the archive was refused, \`proc process archived --refused "<the refusal's words>"\` (the session is left idle, its row unmeasured)`);
+    for (const a of rf.archives || [{ session: rf.archive }]) {   // issue 117: every earlier lane session still idle, the predecessor first
+      if ((rf.recorded || {})[a.session] || (a.session === rf.archive && rf.archived)) continue;
+      why.push(`the ${a.session === rf.archive ? 'previous' : 'earlier'} lane session ${a.session} is not archived: archive_session it, then \`proc process archived --session ${a.session} --usage '<what it returned>'\`; if the archive was refused, \`proc process archived --session ${a.session} --refused "<the refusal's words>"\` (it stays idle, owed again at the next refresh)`);
+    }
     if (!rf.switchedOff) why.push(`the previous lane session's backstop is not switched off: list_triggers, then update_trigger enabled false on each task whose persistent_session_id is ${rf.archive}, if any`);
     if ((rf.tell || []).length) why.push(`product BOB(s) ${rf.tell.join(', ')} not told the lane's new address: send_message each the line \`proc process start\` printed`);
   }
@@ -302,7 +305,7 @@ export function postRecord(role, input, ctx) {
   if (role === 'process' && t === `${REMOTE}fire_trigger`) return edit(PROCESS_TRIGGER_FILE, (w) => ({ ...w, fired: at }));
   if (role === 'process' && t === `${REMOTE}send_later`) { const w = { due: new Date(Date.now() + Number(ti.delay_minutes) * 60e3).toISOString() }; writeFileSync(f(BACKSTOP_FILE), JSON.stringify(w)); return w; }
   if (role === 'process') return edit(REFRESH_FILE, (w) => {
-    if (t === `${REMOTE}archive_session` && ti.session_id === w.archive) return { ...w, archiveDone: at };
+    if (t === `${REMOTE}archive_session` && (ti.session_id === w.archive || (w.archives || []).some((a) => a.session === ti.session_id))) return { ...w, done: { ...(w.done || {}), [ti.session_id]: at }, ...(ti.session_id === w.archive ? { archiveDone: at } : {}) };   // issue 117
     if (t === `${REMOTE}list_triggers` || (t === `${REMOTE}update_trigger` && ti.enabled === false)) return { ...w, switchedOff: at };   // looked, and switched off what it found
     if (t === `${REMOTE}send_message` && (w.tell || []).includes(ti.session_id)) return { ...w, tell: w.tell.filter((x) => x !== ti.session_id) };
     return null;

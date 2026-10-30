@@ -301,9 +301,19 @@ test('the neoProcess lane has its own start and pushes only its branch (neoProce
   assert.ok(postRecord('process', tool(`${REMOTE}archive_session`, { session_id: 'session_01OLD' }), rctx).archiveDone);
   assert.ok(postRecord('process', tool(`${REMOTE}update_trigger`, { trigger_id: 't', enabled: false }), rctx).switchedOff);
   assert.deepEqual(postRecord('process', tool(`${REMOTE}send_message`, { session_id: 'session_01BOB', message: 'x' }), rctx).tell, []);
-  assert.match(laneStopReason(rctx), /the previous lane session session_01OLD is not archived: archive_session it, then `proc process archived --usage/);   // archived is the command's record, not the hook's
+  assert.match(laneStopReason(rctx), /the previous lane session session_01OLD is not archived: archive_session it, then `proc process archived --session session_01OLD --usage/);   // archived is the command's record, not the hook's
   assert.equal(postRecord('bob', tool(`${REMOTE}send_message`, { session_id: 'session_01BOB', message: 'x' }), rctx), null);
   assert.ok(postRecord('process', tool(`${REMOTE}send_later`, { delay_minutes: 60, message: N.BACKSTOP_MESSAGE }), rctx).due);
+  // issue 117 (Bob, 30 Oct): every earlier lane session still idle is owed, the predecessor first; each recorded on its own
+  writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', archives: [{ session: 'session_01OLD', name: 'neoProcess #8' }, { session: 'session_01OLDER', name: 'neoProcess #7' }], tell: [] }));
+  assert.match(laneStopReason(rctx), /previous lane session session_01OLD is not archived.*--session session_01OLD.*earlier lane session session_01OLDER is not archived.*--session session_01OLDER/s);
+  assert.ok(postRecord('process', tool(`${REMOTE}archive_session`, { session_id: 'session_01OLDER' }), rctx).done.session_01OLDER);
+  writeFileSync(join(rdir, '.git', N.REFRESH_FILE), JSON.stringify({ session: ctx.session, archive: 'session_01OLD', archives: [{ session: 'session_01OLD' }, { session: 'session_01OLDER' }], archived: 'x', recorded: { session_01OLDER: { at: 'x', unmeasured: 'refused' } }, switchedOff: 'x', tell: [] }));
+  assert.doesNotMatch(laneStopReason(rctx) || '', /not archived/);
+  const csv = 'session,role,name,module,cache-read,cache-write,input,output,test runs,module lines,reviewed,note\nsession_01A,process,neoProcess #7,,,,,,,,,unmeasured: refused\nsession_01B,process,neoProcess #8,,1,2,3,4,,,,\nsession_01C,job,x,,,,,,,,,unmeasured: refused\n';
+  assert.deepEqual(N.idleLaneSessions(csv), [{ session: 'session_01A', name: 'neoProcess #7' }]);
+  assert.match(N.metricsRow(csv, ['session_01A', 'process', 'neoProcess #7', '', 9, 9, 9, 9, '', '', '', '']), /\nsession_01A,process,neoProcess #7,,9,9,9,9,,,,\nsession_01B/);
+  assert.match(N.metricsRow(csv, ['session_01D', 'process', 'neoProcess #9', '', '', '', '', '', '', '', '', 'unmeasured: refused']), /session_01C,job[^\n]*\nsession_01D,process,neoProcess #9,,,,,,,,,unmeasured: refused\n$/);
   assert.match(contextReason('process', 600_000, ctx, 1_000_000), /proc process handoff` and create your successor with the call it prints/);
   assert.match(contextReason('process', 410_000, ctx, 1_000_000), /past 40 %/);
   assert.equal(contextReason('process', 390_000, ctx, 1_000_000), null);
