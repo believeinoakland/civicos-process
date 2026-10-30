@@ -20,7 +20,7 @@ The git record every role reads and writes: the durable tranche branch, the tran
 - **R3** Opens the next epoch's state branch empty and logs its label on the tranche; closes it only when no ask is open, and deletes it by the route `platform` names (the prune workflow where the proxy refuses). (REC-1)
 
 **commitPush(R, branch, files, message) → commit** · **unpushed(R) → list**
-- **R4** Commits the files named on the branch named and pushes; refuses a push to any branch but the role's own as the role record names it. (REC-2)
+- **R4** Commits the files named on the branch named, refusing when the checkout is not that branch, and pushes; refuses a push to any branch but the role's own as the role record names it; with no role record yet (the architecture session's bootstrap: `epoch open` and `tranche open` run before `takeover` records a role) only `tranche` may be pushed, and a record naming no known role, or a job without its module, is refused. (REC-2; K11)
 
 **paths() → { durable, transient }**
 - **R5** Answers the two path tables as data; no path is in both, and a test proves it. (REC-1)
