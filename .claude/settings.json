@@ -36,16 +36,7 @@
       "mcp__github__update_pull_request_branch",
       "mcp__github__merge_pull_request",
       "mcp__github__pull_request_read",
-      "mcp__github__get_job_logs",
-      "Bash(rm .git/hooks/*)",
-      "Bash(rm -f .git/hooks/*)",
-      "Edit(//home/user/neoprocess/**)",
-      "Edit(//home/user/civicos-process/**)",
-      "Write(//home/user/neoprocess/**)",
-      "Write(//home/user/civicos-process/**)",
-      "mcp__Claude_Code_Remote__archive_session",
-      "Bash(node tools/mail.mjs xcheck:*)",
-      "Bash(node /home/user/civicos-process/tools/mail.mjs xcheck:*)"
+      "mcp__github__get_job_logs"
     ],
     "deny": [
       "Bash(git push --force *)",
@@ -69,5 +60,53 @@
   },
   "env": {
     "CLAUDE_CODE_STOP_HOOK_BLOCK_CAP": "4"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks.mjs\" pre"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks.mjs\" post"
+          }
+        ]
+      }
+    ],
+    "MessageDisplay": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks.mjs\" display",
+            "timeout": 180
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks.mjs\" stop"
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks.mjs\" evidence",
+            "timeout": 180
+          }
+        ]
+      }
+    ]
   }
 }

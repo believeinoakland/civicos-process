@@ -473,8 +473,9 @@ test('the fresh reader: on only for the roles Bob reads, recorded by the pre hoo
   assert.equal(dlog.length, 2); assert.deepEqual(dlog.map((x) => [x.role, x.index, x.final, x.len]), [['process', 0, true, 33], ['process', 0, true, 22]]);
   // one text for every product: the shims copy the process's own reader skill verbatim; its hook is a prompt on Sonnet
   const skill = readFileSync(join(N.PROCESS, '.claude/skills/neoprocess-reader/SKILL.md'), 'utf8');
-  assert.match(skill, /^---\nname: neoprocess-reader\n[\s\S]*\n  Stop:\n    - hooks:\n        - type: prompt\n          model: claude-sonnet-5-5\n/);
-  assert.match(skill, /\$ARGUMENTS/); assert.match(skill, /last_assistant_message/);
+  assert.match(skill, /^---\nname: neoprocess-reader\n/); assert.doesNotMatch(skill, /^hooks:/m);   // issue 111: the reader's prompt is run by the Stop command hook, not a frontmatter hook
+  assert.match(N_LIB.FRESH_READER_PROMPT, /^You are a fresh reader standing in for Bob/);
+  assert.match(N_LIB.FRESH_READER_PROMPT, /\$ARGUMENTS/); assert.match(N_LIB.FRESH_READER_PROMPT, /last_assistant_message/);
 });
 
 // Issue 69 (BOB #335, Civicsmith's first BOB, 30 Oct): the product had no `tranche`; its paused tranche ran on another branch
@@ -626,7 +627,11 @@ test('a draft judged by proc say never reaches Bob when refused, and is not judg
   assert.match(N_LIB.freshReaderReason(bad, judge), /^Fresh reader \(Bob sees only this message\): fault 1/);
   assert.match(seen, /You are a fresh reader standing in for Bob/); assert.ok(seen.includes(JSON.stringify({ last_assistant_message: bad }))); assert.ok(!seen.includes('$ARGUMENTS'));
   assert.equal(N_LIB.freshReaderReason(bad, () => JSON.stringify({ result: '{"ok": true}' })), null);
-  assert.equal(N_LIB.freshReaderReason(bad, judge, join(lane, 'no-skill.md')), null);
+  assert.equal(N_LIB.freshReaderReason(bad, () => 'not json'), null);
+  // the turn's end: the fresh reader first, then the evidence judge, with the same run; nothing for an empty message
+  let calls = 0; const run2 = (prompt) => { calls++; return JSON.stringify({ result: /fresh reader/.test(prompt) ? '{"ok": true}' : '{"ok": false, "reason": "Evidence check (P20, translate, never add): x"}' }); };
+  assert.match(N_LIB.judgeReason({ last_assistant_message: bad, transcript_path: late }, run2), /^Evidence check/); assert.equal(calls, 2);
+  assert.equal(N_LIB.judgeReason({ last_assistant_message: '  ' }, run2), null);
 });
 
 // DRYRUN §12 (30 Oct): an issue's comment is out of a product session's reach, so the lane's reply to a product's report is
@@ -750,7 +755,7 @@ test('the evidence check: what the session was told, ran and saw, never its own 
   assert.equal(evidenceReason({ transcript_path: tp, last_assistant_message: '' }, () => { throw new Error('not run'); }), null);
   // registered beside the Stop hook in the process's skill and every product's shims; a job (Bob never reads it) is not judged
   const HOOKS = join(HERE, '..', 'hooks.mjs');
-  assert.match(readFileSync(join(N.PROCESS, '.claude/skills/neoprocess/SKILL.md'), 'utf8'), /- type: command\n          timeout: 180\n          command: '[^']*tools\/hooks\.mjs" evidence'/);
+  assert.deepEqual(JSON.parse(readFileSync(join(N.PROCESS, '.claude/settings.json'), 'utf8')).hooks.Stop[0].hooks[1], { type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/tools/hooks.mjs" evidence', timeout: 180 });   // issue 111: in the settings, loaded at every start and resume
   const w = world();
   writeFileSync(join(w.bob.root, '.git', N.ROLE_FILE), JSON.stringify({ role: 'job', product: 'toy', session: J1, module: 'alpha' }));
   assert.equal(execFileSync('node', [HOOKS, 'evidence'], { input: JSON.stringify({ transcript_path: tp, last_assistant_message: 'x' }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: w.bob.root, PATH: process.env.PATH } }), '');
