@@ -17,3 +17,14 @@ Taken by the architecture session from git, GitHub and the sessions' records; ne
 
 | layer | opened | closed | jobs (sessions per job) | gate runs per merged job | restarts (process reasons) | commits: job code / records | tokens by role (cache read / write / output) | reading set per job at start (bytes) | overruns |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+
+## Layer 1 · at its start (30 Oct 2026, 20:30Z; taken by BOB #2)
+
+| measure | value | source |
+| --- | --- | --- |
+| the architecture session | BOB #2, depth 0, started by Bob at 20:24Z; BOB #1 left idle, not archived (Bob, 30 Oct), its usage unmeasured | `get_session`; Bob's start message |
+| platform acts at the start | `create_pull_request` 2 of 2 passed; `create_session` 2 of 2 passed; `subscribe_pr_activity` 2 of 2 passed; no refusal in the turn | this session's tool results |
+| job branches | both cut at `6bbe0d1`, before the bootstrap pass `37b78ac`; the `tranche` tip `a0f8c6f` merged into each by the architecture session before the start (no conflict), so each job's first-act pin check can pass | `git log origin/job/platform..origin/tranche`; the merge commits `e277c2a`, `50e806b` |
+| pull requests | platform #127, record #128, drafts on `tranche`, opened 20:29Z | GitHub |
+| reading set per job at start | platform 3,961 bytes (2 files, 9 code paths); record 5,182 bytes (3 files, 4 code paths); limit 40,960 | `readingSet` |
+| sessions | PLATFORM #1 and RECORD #1 created 20:30Z on Opus; platform read WORKING and record STARTING at 20:31Z | `create_session`; `proc status` |
