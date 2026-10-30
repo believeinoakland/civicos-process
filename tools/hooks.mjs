@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ROOT_BOB_FILE, repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, processTriggerReason, REFRESH_FILE, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN, WORKERS_FILE, TOOKOVER_FILE, runningWorkers } from './proc.mjs';
 import { resolve, sep } from 'node:path';
-import { stepsReason, lastAssistantText, plainReason, BOB_READS, evidenceReason, EVIDENCE_MODEL, saidPassed, SAY_HINT } from './lib.mjs';
+import { stepsReason, lastAssistantText, plainReason, BOB_READS, judgeReason, EVIDENCE_MODEL, saidPassed, SAY_HINT } from './lib.mjs';
 import { spawnSync } from 'node:child_process';   // P20: steps for Bob verified against their source (`proc steps`)
 
 const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__', PROCESS_TRIGGER_FILE = 'proc-process-trigger.json';
@@ -413,7 +413,7 @@ function main() {
   if (ev === 'evidence') {
     if (!BOB_READS.has(role) || readerReason(role, ctx)) return;   // the same messages the fresh reader judges
     if (saidPassed(root, r.session, lastAssistantText(input))) return;   // issue 102: judged by `proc say` before it was sent
-    let why = null; try { why = evidenceReason(input, runJudge); } catch { /* the check never blocks on its own failure */ }
+    let why = null; try { why = judgeReason(input, runJudge); } catch { /* the check never blocks on its own failure */ }   // the fresh reader, then the evidence judge (issue 111)
     const f = join(tmpdir(), `proc-evidence-${String(input.session_id || r.session || 'none').replace(/[^\w-]/g, '')}.json`);
     const last = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};
     const n = refusalCount(last, why);

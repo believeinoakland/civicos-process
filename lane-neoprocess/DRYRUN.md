@@ -317,3 +317,17 @@ The route within reach once the display event failed (#18, 15:4xZ): the draft is
 | the transcript found; the fresh reader's prompt from the skill, the verdict read | PROVEN in fixture | `transcriptOf`, `freshReaderReason` |
 | live: a bad draft refused without a model run; a good one judged by both models against this session's transcript | PROVEN | #18, 15:40Z: the first answered the plain-words fault at once; the second `ok`, `judged`, `transcript: read`, in 19 s |
 | live: the Stop hook lets the said text end the turn without judging it again | NOT YET | #18's next turn end, written with `proc say` |
+
+## 25. Certification of issue 111's fix (GOV 5; 30 Oct 2026, #18)
+
+Issue 111 (the lane, at its first wake): every hook was registered by the two skills' frontmatter, and a session resumed in a new worker (idle, then woken by a message or a scheduled task) ran with none of them: #18, woken by its backstop at 15:36Z (`worker_epoch` 1 → 2), ended a turn with no stop, evidence or display record written, and at 15:48Z a partial read the pre hook refuses passed. Claude Code's documentation (read 30 Oct) keeps skill hooks "for the rest of the session" and says nothing of a resume; settings hooks are loaded at every start and resume, and "direct edits to hooks in settings files are normally picked up automatically by the file watcher". Now `hookSettings` writes every hook (pre, post, display, stop and evidence, the last two judges in one command) into `.claude/settings.json`: for a product by `proc shims` beside its SessionStart hook; for the process repository by `proc shims --product .` (the standing list plus the hooks). The skills print text only; the fresh reader's prompt moved from the reader skill's frontmatter into `tools/lib.mjs` (`FRESH_READER_PROMPT`), run by `hooks.mjs evidence` after the reader is on and by `proc say`. Checked against the principles: P3 (the certified hooks run in every session, resumed or not), P16 (nothing changed in what a hook refuses), P13 (one judge per message, no double registration), P20 (the cause measured in this session, the docs read).
+
+| path | status | evidence |
+| --- | --- | --- |
+| a product's settings carry the five hook events beside SessionStart; its skills carry none | PROVEN in fixture | `shims`, `hookSettings`; the settings and skills read back |
+| the process repository's own settings written from the standing list and the hooks | PROVEN | `proc shims --product .` at 16:0xZ (the classifier refused a compound command that also rewrote the allow list; the plain command passed); the file read back by the suite |
+| the hooks live again from the settings file, without a restart | PROVEN | #18, 16:0xZ: the partial read `sed -n 1,2p PROCESS-DESIGN.md` passed at 15:48Z (hooks gone) and was refused by the pre hook right after the settings were written |
+| the hooks live after a resume | NOT YET | #18's next wake (its backstop): the stop record written at the turn's end, a partial read refused |
+| the products' settings regenerated; their running sessions told | NOT YET | `repo-shims.yml` on civicsmith/civicsmith after this merge; BOB #341 told |
+
+The lane's own settings file had carried rules outside the standing list (`Edit`/`Write` on the two repositories, `rm .git/hooks/*`, old mail commands); the regeneration keeps only `permissions.json` and the hooks, as a product's does. A refused `Edit` is then the classifier's call, as for every product session.
