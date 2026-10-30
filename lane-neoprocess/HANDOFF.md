@@ -20,7 +20,7 @@ What the start prints; `PERMISSIONS.md` §9–§10, `GRANTS.md`, `SETUP-STEPS.md
 ## What remains, in order
 
 1. **Done 30 Oct**: Civicsmith's shims on the runner (its PR 52); owed by its BOB, `.nvmrc` 26.10.0 (issue 62). The reply to a product's report (#15, PR #80, DRYRUN §13): `proc issue reply` on the lane's branch, merged with the fix; the product's BOB sees it in `proc status`, records it with `proc issue seen`. The first (issue 78) is on `main`; its live read is NOT YET.
-2. **Civicsmith's first BOB: done** (read #15 from its branches): T50 and T53 carried (`carried/*`), `tranche` made, epoch E1 open, BOB #337 running layer 5. Its reports reach the lane by `proc process status`.
+2. **Civicsmith runs** (BOB #337, layer 5). Issue 81 closed (#15, PR #82): the gate installs every lock; its shims on `main` by run 41015721303 (its PR 56). Its BOB, told by the reply, regenerates them on `tranche`; the first gate with dependencies is DRYRUN §14's NOT YET: read its next report.
 3. **Issue 61 stays open** (DRYRUN §9, #14): the evidence check is live; rounds 2 and 3: about 24/24 understandable, 20/24 accurate, 23/24 act clear (`judge3.sh`); more wording no longer moves it. Bob told 30 Oct.
 4. The dry-run repositories' move to `neobobkrause` (Bob's hand act, the page's step 8), then `repo-shims.yml` for each. **The release-signing decision** (the page's foot): his.
 
