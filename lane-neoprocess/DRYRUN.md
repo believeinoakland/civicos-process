@@ -170,3 +170,14 @@ Checked against the principles: P6 and P20 (a job's set measured as BLD 1 names 
 ## 12. Certification of issue 78's fixes (GOV 5; 30 Oct 2026, #14)
 
 The first product report filed by the new route (BOB #337's, read by `proc process status` from Civicsmith's state branch, filed as issue 78). Flaw A: a service's block holds the first unbroken run of requirements after its header and any later one that names it (the fixture: the last service no longer takes later requirements of others; on Civicsmith, jurisdictions' `combine` 50,855 → 18,700 bytes). Flaw B: the 40 KB limit is BOB's and stands (SESSIONS §6.3); its order of remedies is trim, split, then a summary for that task, which the tool lacked: `build/summaries/<T>/<module>.md`, named for the running tranche, every statement citing its source, measured instead of the sources (fixture: a set over the limit read through a cited summary; an uncited statement refused; another tranche's summary not used). On Civicsmith's layers 5-11: 92 of 128 over, 63 of them on their own requirements alone. Suite 279 green. NOT YET: a reply from the lane that reaches a product session (an issue's comment is out of a product session's reach).
+
+## 13. Certification of the reply to a product's report (GOV 5; 30 Oct 2026, #15)
+
+§12's NOT YET: an issue's comment is out of a product session's reach. The reply goes the way the product already reads the process: the lane writes it in the process repository (`proc issue reply`, `lane-neoprocess/replies/`), it reaches `main` with the fix's pull request, and BOB's `proc status` reads it from the read-only process clone (fetched at most hourly) as `READ PROCESS REPLY <report>` until `proc issue seen` records it on the tranche (`build/process-replies.md`), so the next BOB does not see it again. Checked against the principles: P1 and GOV 5 (a product's flaw comes back answered), P15 (one home for the reply; one record of its reading, on the tranche, which outlives the epoch), P20 (BOB reads the reply whole by the command its queue item prints). The process names no product: the product's id is the lane's own list's. Suite 280 green.
+
+| path | status | evidence |
+| --- | --- | --- |
+| the lane's reply: refused before the report is filed, with no note, from a product role; written and pushed | PROVEN in fixture | the file's title, report id, issue link and date lines read back from the lane's branch |
+| BOB's status lists its own product's replies on `main` only | PROVEN in fixture | nothing before the merge; another product's reply not listed; the fetch held an hour by its stamp, then the reply listed with the command to read it |
+| `proc issue seen` records it once on the tranche | PROVEN in fixture | the line read back from `tranche`; the queue item gone; a second record refused; refused from the lane's role |
+| a live product BOB reads a reply | NOT YET | the first reply on `main` to a Civicsmith report (issue 78), read by its next BOB |
