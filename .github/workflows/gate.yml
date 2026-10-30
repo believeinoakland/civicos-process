@@ -1,0 +1,19 @@
+name: gate
+# The process repository's own gate while it is built under itself (REQUIREMENTS.md GAT-1; plan N2, the bootstrap): the
+# tool's gate on the pull request's merge ref against its own base, the module inferred from the diff. Replaced by the gate
+# module's template at N2-44.
+on:
+  pull_request:
+    branches: [tranche]
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: the gate (ownership, the module's tests, the checks, the sizes, the shims), against the merge ref's own base
+        run: node tools/proc.mjs gate --product . --base HEAD^1

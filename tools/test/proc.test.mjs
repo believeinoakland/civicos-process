@@ -577,14 +577,14 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   // shims: the three files written from here; a hand edit is drift; CLAUDE.md under thirty lines
   const sh = N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane' });
   assert.deepEqual(sh.written.sort(), ['.claude/settings.json', '.claude/skills/neoprocess-reader/SKILL.md', '.claude/skills/neoprocess/SKILL.md', '.github/workflows/gate.yml', '.github/workflows/prune.yml', 'CLAUDE.md']);
-  assert.deepEqual(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).hooks.Stop[0].hooks.map((h) => h.command), ['node "/p/neoProcess/tools/hooks.mjs" stop', 'node "/p/neoProcess/tools/hooks.mjs" evidence']);   // the evidence check (issue 61), in the settings (issue 111)
+  assert.equal(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).hooks, undefined);   // Bob, 30 Oct: no hook in any settings the process writes (PLT-4, SHM-1)
   assert.match(readFileSync(join(w.bob.root, '.github/workflows/prune.yml'), 'utf8'), /workflow_dispatch:[\s\S]*git push origin --delete "\$r"/);
   const standing = JSON.parse(readFileSync(join(HERE, '..', '..', 'permissions.json'), 'utf8')), written = JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).permissions;
   assert.deepEqual([written.allow, written.deny], [standing.allow, standing.deny]);
-  assert.deepEqual(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).env, { CLAUDE_CODE_STOP_HOOK_BLOCK_CAP: '4' });   // a turn refused four times in a row ends   // the standing list, allow and deny, applied (PERMISSIONS §2.4, §8.2)
+  assert.equal(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).env, undefined);   // no turn-end hook, so no cap for it (PLT-4)   // the standing list, allow and deny, applied (PERMISSIONS §2.4, §8.2)
   assert.ok(standing.deny.some((r) => /force/.test(r)) && !standing.allow.some((r) => /^Bash\(\*\)|^Agent$/.test(r)));   // the safety rules denied; no broad rule Auto would drop
   const skill = readFileSync(join(w.bob.root, '.claude/skills/neoprocess/SKILL.md'), 'utf8');
-  assert.match(skill, /^---\nname: neoprocess\n/); assert.equal(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).hooks.PreToolUse[0].hooks[0].command, 'node "/p/neoProcess/tools/hooks.mjs" pre');   // issue 111
+  assert.match(skill, /^---\nname: neoprocess\n/); assert.equal(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).hooks, undefined);   // Bob, 30 Oct: no hook wired (PLT-4)
   assert.match(skill, /!`node "\/p\/neoProcess\/tools\/proc\.mjs" reading --role "\$ARGUMENTS" --product "toy"/);
   const claude = readFileSync(join(w.bob.root, 'CLAUDE.md'), 'utf8');
   assert.ok(claude.split('\n').length <= 30); assert.match(claude, /`o\/neoProcess`, attached at `\/p\/neoProcess` on its branch `lane`/);
@@ -596,19 +596,19 @@ test('the one skill\'s reading, the shims written and checked for drift, the gat
   assert.match(yml, /setup-node@v4\n        with:\n          node-version: 22\n      - name: the gate/);   // no version file, no lock: the default, no install
   // issue 69 (5): every product session clones the process read-only where the shims name it, when it is missing
   const P = '/p/neoProcess', CLONE = { type: 'command', command: `if [ -d "${P}/.git" ]; then { [ "$(git -C "${P}" rev-parse --abbrev-ref HEAD)" = lane ] && [ -z "$(git -C "${P}" status --porcelain --untracked-files=no)" ] && git -C "${P}" fetch -q origin +refs/heads/lane:refs/remotes/origin/lane && git -C "${P}" merge -q --ff-only origin/lane; } || echo "neoProcess: could not bring ${P} to the tip of lane" >&2; else git clone -q --branch lane https://github.com/o/neoProcess "${P}" || echo "neoProcess: could not clone o/neoProcess to ${P}" >&2; fi` };
-  assert.equal(written.hooks, undefined); assert.deepEqual(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).hooks, { SessionStart: [{ hooks: [CLONE] }], ...N.hookSettings('/p/neoProcess') });   // issue 111: the hooks in the settings, loaded at every start and resume
+  assert.equal(written.hooks, undefined); void CLONE; assert.equal(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).hooks, undefined);   // Bob, 30 Oct: no hook in the settings (PLT-4, SHM-1)
   assert.match(claude, /clones it there read-only when it is missing; if it is still missing, run `git clone --branch lane https:\/\/github\.com\/o\/neoProcess \/p\/neoProcess`/);
   // issue 62: a product's own session setup is registered by the shims, and the gate takes the product's Node version and its lock
   mkdirSync(join(w.bob.root, '.claude/hooks'), { recursive: true }); writeFileSync(join(w.bob.root, '.claude/hooks/session-start.sh'), '#!/bin/bash\nnpm ci\n');
   writeFileSync(join(w.bob.root, '.nvmrc'), '26.10.0\n'); writeFileSync(join(w.bob.root, 'package-lock.json'), '{}\n');
   // issue 81: a lock per member, none or one at the root: each installed where it sits (node_modules' own locks never)
   for (const d of ['site', 'worker/inner', 'site/node_modules/dep']) { mkdirSync(join(w.bob.root, d), { recursive: true }); writeFileSync(join(w.bob.root, d, 'package-lock.json'), '{}\n'); }
-  assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift.sort(), ['.claude/settings.json: differs', '.github/workflows/gate.yml: differs']);
+  assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift.sort(), ['.github/workflows/gate.yml: differs']);   // the setup script is no longer a hook (SHM-5): only the gate's install step changes
   N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane' });
-  assert.deepEqual(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).hooks, { SessionStart: [{ hooks: [CLONE, { type: 'command', command: 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"' }] }], ...N.hookSettings('/p/neoProcess') });
+  assert.equal(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).hooks, undefined); assert.equal(JSON.parse(readFileSync(join(w.bob.root, '.claude/settings.json'), 'utf8')).env, undefined);
   // issue 111: the skills the shims write carry no hooks (nothing runs twice); the hooks name every event the process uses
   assert.doesNotMatch(readFileSync(join(w.bob.root, '.claude/skills/neoprocess/SKILL.md'), 'utf8'), /^hooks:/m); assert.doesNotMatch(readFileSync(join(w.bob.root, '.claude/skills/neoprocess-reader/SKILL.md'), 'utf8'), /^hooks:/m);
-  assert.deepEqual(Object.keys(N.hookSettings('/p')), ['PreToolUse', 'PostToolUse', 'MessageDisplay', 'Stop']); assert.equal(N.hookSettings('/p').Stop[0].hooks[1].command, 'node "/p/tools/hooks.mjs" evidence'); assert.equal(N.hookSettings('/p').Stop[0].hooks[1].timeout, 180);
+  assert.deepEqual(N.hookSettings('/p'), {});   // Bob, 30 Oct: every hook unwired
   assert.match(readFileSync(join(w.bob.root, '.github/workflows/gate.yml'), 'utf8'), /setup-node@v4\n        with:\n          node-version-file: \.nvmrc\n      - name: the product's locked dependencies, each where its lock sits\n        run: \|\n          set -euo pipefail\n          \(cd "\." && npm ci --no-audit --no-fund --loglevel=error\)\n          \(cd "site" && npm ci --no-audit --no-fund --loglevel=error\)\n          \(cd "worker\/inner" && npm ci --no-audit --no-fund --loglevel=error\)\n      - name: the gate/);
   assert.deepEqual(N.shims({ product: w.bob.dir, process: '/p/neoProcess', repo: 'o/neoProcess', ref: 'lane', check: true }).drift, []);
   for (const f of ['.claude/hooks/session-start.sh', '.nvmrc', 'package-lock.json', 'site', 'worker']) rmSync(join(w.bob.root, f), { recursive: true, force: true });
@@ -925,7 +925,7 @@ test('repo shims regenerates a product\'s shims on the runner with the process\'
   assert.match(r4.steps.at(-1), new RegExp(`^${N.TRANCHE}: \\.claude/settings\\.json.* at [0-9a-f]{7}$`));
   assert.equal(g(t.origin, 'rev-parse', `refs/heads/${N.TRANCHE}^`), before);   // one commit on the tip, nothing else moved
   assert.match(g(t.origin, 'show', `refs/heads/${N.TRANCHE}:CLAUDE.md`), /attached at `\/home\/user\/neoprocess` on its branch `main`/);
-  assert.match(g(t.origin, 'show', `refs/heads/${N.TRANCHE}:.claude/settings.json`), /merge -q --ff-only origin\/main/);   // issue 101 (a): the tranche carries the fast-forward line
+  assert.doesNotMatch(g(t.origin, 'show', `refs/heads/${N.TRANCHE}:.claude/settings.json`), /hooks/);   // Bob, 30 Oct: the tranche's settings carry no hook; the clone command is CLAUDE.md's (SHM-1)
   const r5 = await N.repoShims({ repo: 'bob/toy', checkout: tr.root, process: '/home/user/neoprocess', ref: 'main', fetch, env: { NEOPROCESS_GITHUB_TOKEN: 'ghp_x' } });
   assert.equal(r5.steps.at(-1), `${N.TRANCHE} already current`);
   const wf = readFileSync(join(HERE, '..', '..', '.github', 'workflows', N.REPO_SHIMS_WORKFLOW), 'utf8');
