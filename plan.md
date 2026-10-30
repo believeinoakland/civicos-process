@@ -1,5 +1,5 @@
 # Plan (transient)
 
 **Status** · OPEN · BOB #2 · session_01RAN5eo3fxXxLGJQ2rN1rFR
-**Owed** · start platform; start record
+**Owed** · start record
 **Layers** · 1 STARTED
