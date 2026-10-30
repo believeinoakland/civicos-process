@@ -1,0 +1,2 @@
+session,role,name,module,cache-read,cache-write,input,output,test runs,module lines,reviewed,note
+session_01RAN5ejekyLkeVyhZwxrg7C,process,neoProcess #17,,,,,,,,,unmeasured: Permission for this action was denied by the Claude Code auto mode classifier. Reason: [External System Writes]
