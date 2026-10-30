@@ -57,56 +57,5 @@
       "Bash(git tag *)",
       "Bash(git branch -D *)"
     ]
-  },
-  "env": {
-    "CLAUDE_CODE_STOP_HOOK_BLOCK_CAP": "4"
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks.mjs\" pre"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks.mjs\" post"
-          }
-        ]
-      }
-    ],
-    "MessageDisplay": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks.mjs\" display",
-            "timeout": 180
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks.mjs\" stop"
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/tools/hooks.mjs\" evidence",
-            "timeout": 180
-          }
-        ]
-      }
-    ]
   }
 }
