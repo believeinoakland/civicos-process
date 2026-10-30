@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { repo, readRole, unpushed, status, addr, parsePlan, parseJob, stateRead, jobSession, laneSession, processSession, jobBranch, jobFiles, lanes, refusalsOf, TRANCHE, ghRepo, PROCESS, processRepo, backstopReason, ISSUE_FILE, ISSUES_FILE, BACKSTOP_FILE, ISSUE_FRESH_MIN } from './proc.mjs';
 import { resolve, sep } from 'node:path';
-import { stepsReason, lastAssistantText } from './lib.mjs';   // P20: steps for Bob verified against their source (`proc steps`)
+import { stepsReason, lastAssistantText, plainReason, BOB_READS } from './lib.mjs';   // P20: steps for Bob verified against their source (`proc steps`)
 
 const REMOTE = 'mcp__claude-code-remote__', GH = 'mcp__github__';
 // A push is `push` as git's subcommand, after git's own options (`-C <dir>`, `-c <k=v>`, `--flag`), never the word in a
@@ -79,6 +79,15 @@ export function issueReason(role, ti, ctx, now = Date.now()) {
   if (role === 'process' && r.close && same(r.close, ti) && now - Date.parse(r.closeAt) < ISSUE_FRESH_MIN * 60e3) return null;
   return role === 'process' ? 'the lane closes a process issue only as `proc issue close` printed it, once its fix is on main' : `only the neoProcess lane changes a process issue; ${WHO[role] ?? role} files one (\`proc issue\`) or comments on it`;
 }
+// The fresh reader (rulebook SES 9; issue 61): the skill `neoprocess-reader` registers a prompt-type Stop hook, a model
+// given only the message and who Bob is. A prompt hook cannot read the role, so the skill is invoked only by the roles Bob
+// reads; the pre hook records it, and their Stop hook refuses a turn's end until it is on for the session.
+export const READER_SKILL = 'neoprocess-reader', READER_FILE = 'proc-reader.json';
+const isReader = (name) => String(name || '').replace(/^.*:/, '') === READER_SKILL;
+export function readerReason(role, ctx) {
+  if (!BOB_READS.has(role)) return null;
+  return record(ctx, READER_FILE)?.session === ctx.session && ctx.session ? null : `the fresh reader is not on for this session: invoke the skill ${READER_SKILL} (rulebook SES 9), then end the turn again`;
+}
 const unpushedReason = (ctx, what) => { const u = unpushed(R_of(ctx)); return u.length ? `${what} only once your record and work are pushed (PROTOCOL §2, §7b): ${u.join('; ')}` : null; };
 
 // The reason a tool call is refused, or null. `ctx` is the role file's record plus `root`; `role` null until one is recorded.
@@ -112,6 +121,7 @@ export function preReason(role, input, ctx) {
   // GOV 5 (Bob, 30 Oct): a process flaw found in any project is filed as an issue and never fixed in place
   if (role !== 'process' && ['Write', 'Edit', 'NotebookEdit'].includes(tool) && insideProcess(ti.file_path || ti.notebook_path)) return `the process is never changed in place by ${WHO[role] ?? role}: file the flaw as an issue on the process repository (\`proc issue --title "<the flaw>" --file <report.md>\`), and the neoProcess lane fixes it (GOV 5)`;
   if (tool === `${GH}issue_write`) { const why = issueReason(role, ti, ctx); if (why !== undefined) return why; }
+  if (tool === 'Skill' && isReader(ti.skill) && !BOB_READS.has(role)) return `the fresh reader judges only what Bob reads; ${WHO[role] ?? role}'s messages go to BOB, never to him (rulebook SES 9)`;
   if (tool === 'Agent' && ti.run_in_background !== true) return 'a worker is never waited on in the foreground (P13; rulebook SES 6): start it with run_in_background true and end your turn; its completion wakes you';
   if (tool === `${REMOTE}send_message`) {
     const u = unpushedReason(ctx, 'a message is sent'); if (u) return u;
@@ -291,13 +301,17 @@ function main() {
     let why = null; try { why = preReason(role, input, ctx); } catch (e) { why = `the check failed (${e.message}); fix the cause`; }
     if (why) { console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: `PROCESS: ${why}` } })); return; }
     let ok = null; try { ok = allowReason(role, input, ctx); } catch { /* falls through to the rules */ }
+    if (input.tool_name === 'Skill' && isReader(input.tool_input?.skill) && r.session) { try { writeFileSync(join(root, '.git', READER_FILE), JSON.stringify({ session: r.session, at: new Date().toISOString() })); } catch { /* not a git checkout */ } }
     if (role === 'process' && input.tool_name === `${REMOTE}send_later`) { try { writeFileSync(join(root, '.git', BACKSTOP_FILE), JSON.stringify({ due: new Date(Date.now() + Number(input.tool_input?.delay_minutes) * 60e3).toISOString() })); } catch { /* not a git checkout */ } }
     if (ok) console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `PROCESS: ${ok}` } }));
     return;
   }
   if (ev === 'stop') {
     let why = null; try { why = stopReason(role, ctx); } catch (e) { why = `the stop check failed (${e.message}); fix the cause`; }
-    if (!why && role === 'bob') { try { why = stepsReason(lastAssistantText(input), join(root, r.product || '.')); } catch (e) { why = `the steps check failed (${e.message}); fix the cause`; } }
+    // Bob reads these roles' last message and only it (rulebook SES 9): the fresh reader on, steps verified, plain words
+    if (!why && BOB_READS.has(role)) why = readerReason(role, ctx);
+    if (!why && BOB_READS.has(role)) { try { why = stepsReason(lastAssistantText(input), join(root, r.product || '.')); } catch (e) { why = `the steps check failed (${e.message}); fix the cause`; } }
+    if (!why && BOB_READS.has(role)) { try { why = plainReason(lastAssistantText(input)); } catch (e) { why = `the plain-words check failed (${e.message}); fix the cause`; } }
     if (!why && (role === 'bob' || role === 'lane' || OUTSIDE.has(role))) { try { why = askingBobReason(lastAssistantText(input)); } catch { /* no text */ } }
     if (!why && role) { try { why = contextReason(role, contextUsed(input), ctx); } catch (e) { why = `the context check failed (${e.message}); fix the cause`; } }
     // The same refusal three times in a row lets the turn end, so a cause the session cannot clear never loops.

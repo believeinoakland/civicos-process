@@ -1261,7 +1261,7 @@ export function reading(o) {
   for (const f of files) { f.text = existsSync(f.path) ? readFileSync(f.path, 'utf8') : null; f.bytes = f.text ? Buffer.byteLength(f.text) : 0; }
   const bytes = files.reduce((n, f) => n + f.bytes, 0), budget = PROCESS_TEXT[role];
   const over = [...(bytes > budget ? [`${role}'s process text is ${bytes} bytes, over ${budget} (SESSIONS §6)`] : []), ...files.filter((f) => f.book && f.bytes > LIMIT).map((f) => `rulebook ${f.book} is ${f.bytes} bytes, over ${LIMIT} (rulebook SES 4)`)];
-  const text = `${files.map((f) => `=== ${relative(PROCESS, f.path)} (${f.bytes} bytes) ===\n${f.text ?? '(not yet written)'}`).join('\n\n')}\n\n=== your process text: ${bytes} bytes of ${budget} ===\n${over.map((x) => `SIZE: ${x}`).join('\n')}${over.length ? '\n' : ''}Next: read everything above whole (P20), then run \`${START_CMD[role]}${role === 'onboard' ? '' : ` --product ${o.product || '.'}`}\`, which prints the rest of your set.\n`;
+  const text = `${files.map((f) => `=== ${relative(PROCESS, f.path)} (${f.bytes} bytes) ===\n${f.text ?? '(not yet written)'}`).join('\n\n')}\n\n=== your process text: ${bytes} bytes of ${budget} ===\n${over.map((x) => `SIZE: ${x}`).join('\n')}${over.length ? '\n' : ''}Next: read everything above whole (P20), then run \`${START_CMD[role]}${role === 'onboard' ? '' : ` --product ${o.product || '.'}`}\`, which prints the rest of your set${['bob', 'root', 'lane', 'process', 'onboard'].includes(role) ? '; then invoke the skill neoprocess-reader: Bob reads the last message of each of your turns, and only it (rulebook SES 9)' : ''}.\n`;
   return { role, files: files.map(({ text: _, ...f }) => f), bytes, budget, over, next: START_CMD[role], text };
 }
 // What is over a budget: a rulebook over 4 KB, a role's process text over its budget, a named module's own set over 40 KB.
@@ -1380,6 +1380,8 @@ hooks:
 ---
 !\`node "${proc}/tools/proc.mjs" reading --role "$ARGUMENTS" --product "${rel}" || echo "STOP: the process repository is not at ${proc}, or the role is not bob, job, lane or root; attach it, then invoke this skill again with your role."\`
 `,
+    // the fresh reader (rulebook SES 9): the process's own copy, verbatim, so one text judges every product's messages to Bob
+    '.claude/skills/neoprocess-reader/SKILL.md': readFileSync(join(PROCESS, '.claude/skills/neoprocess-reader/SKILL.md'), 'utf8'),
     '.github/workflows/prune.yml': `name: prune
 on:
   workflow_dispatch:
